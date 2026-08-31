@@ -44,7 +44,7 @@ fi
 SHIM="$WORK/shim"
 mkdir -p "$SHIM"
 cat >"$SHIM/curl" <<SHIM_EOF
-#!/usr/bin/env bash
+#!/bin/sh
 url=""; out=""; want_url=0
 while [ \$# -gt 0 ]; do
   case "\$1" in
@@ -61,12 +61,36 @@ cp "$RELEASE/\$name" "\$out"
 SHIM_EOF
 chmod 755 "$SHIM/curl"
 
+# A PATH holding exactly what install.sh needs, and nothing the machine happens
+# to have. `gh` is why: GitHub's runners ship it, so every case that meant "the
+# CLI is not installed" instead ran a real `gh attestation verify` against a
+# fixture tarball this repository genuinely did not build — which install.sh
+# correctly refused. The suite passed on a laptop without `gh` and failed on CI.
+# Presence of the tool is now something each case states, never inherits.
+BIN="$WORK/bin"
+mkdir -p "$BIN"
+for tool in sh env cp tar uname mkdir grep cut sed basename dirname mktemp chmod ln rm \
+  sha256sum shasum openssl; do
+  path=$(command -v "$tool" 2>/dev/null) && ln -sf "$path" "$BIN/$tool"
+done
+cp "$SHIM/curl" "$BIN/curl"
+
+# Turns the optional GitHub CLI on or off for one case. `command -v gh` is what
+# install.sh branches on, so absence has to be real absence on this PATH.
+with_gh() {
+  case "$1" in
+    absent) rm -f "$BIN/gh" ;;
+    passes) printf '#!/bin/sh\nexit 0\n' >"$BIN/gh"; chmod 755 "$BIN/gh" ;;
+    fails) printf '#!/bin/sh\nexit 1\n' >"$BIN/gh"; chmod 755 "$BIN/gh" ;;
+  esac
+}
+with_gh absent
+
 # -u ZDOTDIR because zsh really does read $ZDOTDIR/.zshrc ahead of $HOME's, so
 # a developer who sets it would have the profile test write to their own shell
 # config. The installer is right to honour it; the test has to opt out.
 sandbox() {
-  env -u ZDOTDIR -u TULA_VERSION -u TULA_REQUIRE_ATTESTATION \
-    PATH="$SHIM:$PATH" HOME="$1" TULA_INSTALL_DIR="$1/.tula" "${@:2}"
+  env -i -u ZDOTDIR PATH="$BIN" HOME="$1" TULA_INSTALL_DIR="$1/.tula" "${@:2}"
 }
 
 run() {
@@ -112,8 +136,7 @@ cp "$WORK/checksums.bak" "$RELEASE/checksums.txt"
 # not built by this repository.
 H="$WORK/h4"
 mkdir -p "$H"
-printf '#!/bin/sh\nexit 1\n' >"$SHIM/gh"
-chmod 755 "$SHIM/gh"
+with_gh fails
 out=$(run "$H")
 if [ ! -e "$H/.tula/bin/tula" ] && case "$out" in *"failed attestation"*) true ;; *) false ;; esac; then
   ok "refuses a binary that fails attestation, and installs nothing"
@@ -123,14 +146,14 @@ fi
 
 H="$WORK/h5"
 mkdir -p "$H"
-printf '#!/bin/sh\nexit 0\n' >"$SHIM/gh"
+with_gh passes
 out=$(run "$H")
 if [ -L "$H/.tula/bin/tula" ] && case "$out" in *"Provenance was not"*) false ;; *) true ;; esac; then
   ok "installs quietly when attestation passes"
 else
   bad "installs quietly when attestation passes" "$out"
 fi
-rm -f "$SHIM/gh"
+with_gh absent
 
 H="$WORK/h6"
 mkdir -p "$H"
