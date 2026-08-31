@@ -69,10 +69,23 @@ chmod 755 "$SHIM/curl"
 # Presence of the tool is now something each case states, never inherits.
 BIN="$WORK/bin"
 mkdir -p "$BIN"
-for tool in sh env cp tar uname mkdir grep cut sed basename dirname mktemp chmod ln rm \
-  sha256sum shasum openssl; do
+# gzip is here because GNU tar forks it to handle -z, while macOS's bsdtar
+# decompresses in-process — so a list built by reading install.sh on a laptop
+# misses it, and every extraction fails on Linux with "Cannot exec".
+for tool in sh env cp tar gzip gunzip uname mkdir grep cut sed basename dirname \
+  mktemp chmod ln rm sha256sum shasum openssl; do
   path=$(command -v "$tool" 2>/dev/null) && ln -sf "$path" "$BIN/$tool"
 done
+
+# A tool that is present on the machine but missing from the list above fails
+# somewhere deep inside install.sh with a message about the download. Prove the
+# sandbox can actually unpack before any case depends on it.
+probe="$WORK/probe"
+mkdir -p "$probe"
+if ! env -i PATH="$BIN" tar -xzf "$RELEASE/tula-v9.9.9-linux-x64.tar.gz" -C "$probe"; then
+  echo "  FAIL  the sandbox PATH cannot unpack a release archive" >&2
+  exit 1
+fi
 cp "$SHIM/curl" "$BIN/curl"
 
 # Turns the optional GitHub CLI on or off for one case. `command -v gh` is what
