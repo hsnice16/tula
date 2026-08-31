@@ -1,0 +1,35 @@
+name: Pre-alpha feedback
+description: It worked, but. What you expected, what you wanted next, what confused you.
+labels: [feedback]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Nobody asked for this tool yet — the wedge is reasoned, not validated. So
+        "I would not use this because…" is the most useful thing you can write here,
+        and it is not rude.
+
+        Same rule as everywhere: no keys, and no real balances.
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: What did you point it at
+      description: Which venues, and roughly how much was in them. "A wallet and an Aave position" is enough.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reaction
+    attributes:
+      label: What did you think
+      description: |
+        Anything. Where you got stuck, what you expected a command to do, a number
+        you did not trust, a question you asked it that it answered badly.
+    validations:
+      required: true
+
+  - type: textarea
+    id: next
+    attributes:
+      label: What would make you open it again tomorrow

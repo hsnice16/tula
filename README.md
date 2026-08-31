@@ -133,6 +133,21 @@ answer — every command works without a model. Type `/` for the command menu.
 
 Building from source: [CONTRIBUTING.md](./CONTRIBUTING.md).
 
+### Trying it, pre-alpha
+
+Point it at a public address first — Wallet, Hyperliquid and Aave need no
+credential, so you can see the whole cross-venue path work before deciding
+whether to trust it with a key. When you do connect an exchange, make the key
+**query-only**; tula verifies that against the venue and refuses anything that
+can withdraw.
+
+Two things worth knowing before you report anything: never paste an API key into
+an issue, and tula's output is a picture of your net worth — replace the numbers
+or describe the shape. The
+[issue templates](https://github.com/hsnice16/tula/issues/new/choose) say the
+same at the point you need it. "I would not use this because…" is the most
+useful thing you can send.
+
 ## Status
 
 | Venue | Reads | Needs |

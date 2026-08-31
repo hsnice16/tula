@@ -1,0 +1,89 @@
+name: Something is wrong
+description: A number that looks wrong, a venue that will not connect, a crash.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not paste an API key, a secret, or a seed phrase here.** This repository
+        is public. If you have already pasted one anywhere, revoke it at the venue
+        rather than editing the issue — edits keep their history.
+
+        **Balances are yours.** tula's output is a picture of your net worth. Replace
+        the numbers with made-up ones, or describe the shape instead: "a venue with
+        three ETH positions, one of them a short". A wrong number is reproducible
+        from its shape; we do not need the real figure.
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `tula --version`.
+      placeholder: 0.3.0 (tula)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install
+    attributes:
+      label: Installed how
+      options:
+        - curl | sh
+        - Homebrew
+        - npm
+        - built from source
+    validations:
+      required: true
+
+  - type: input
+    id: platform
+    attributes:
+      label: OS and architecture
+      placeholder: macOS 15 arm64 / Ubuntu 24.04 x86_64
+    validations:
+      required: true
+
+  - type: dropdown
+    id: venue
+    attributes:
+      label: Which venue, if it is about one
+      multiple: true
+      options:
+        - Wallet
+        - Hyperliquid
+        - Aave
+        - Kraken
+        - Binance
+        - Coinbase Advanced
+        - Stripe
+        - Circle Mint
+        - a price source
+        - none / not venue-specific
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What you did, and what happened
+      description: The command or question you typed, and what came back.
+      placeholder: |
+        Typed /breaks. It showed the Aave position at -27.0% with health factor 1.37,
+        but the Aave app says the health factor is 1.42.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Before you submit
+      options:
+        - label: There is no API key, secret or seed phrase in this issue.
+          required: true
+        - label: Any balances here are made up, or I am content for them to be public.
+          required: true

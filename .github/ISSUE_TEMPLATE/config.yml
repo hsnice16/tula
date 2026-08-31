@@ -1,0 +1,10 @@
+blank_issues_enabled: true
+contact_links:
+  # SECURITY.md asks for these privately, so the link is offered here rather than
+  # relying on a reporter having read it first.
+  - name: Report a vulnerability
+    url: https://github.com/hsnice16/tula/security/advisories/new
+    about: Privately, never as a public issue. Credential exposure, a way to move funds, or a wrong risk number presented as correct.
+  - name: Security model
+    url: https://hsnice16.github.io/tula/security/
+    about: What tula promises about your credentials and your funds, and what enforces each.
