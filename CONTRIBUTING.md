@@ -10,9 +10,18 @@ Needs [Bun](https://bun.sh). Users install a prebuilt binary and need none of th
 ```bash
 git clone https://github.com/hsnice16/tula && cd tula
 bun install
+bun run prepare-hooks  # points git at .githooks — do this once
 bun run build          # -> dist/tula
 bun run check          # typecheck + tests + install test + guard — what CI runs
 ```
+
+`prepare-hooks` sets `core.hooksPath`, so `.githooks/pre-commit` runs the same
+gate CI does — about two and a half seconds — plus a scan of staged content for
+anything key-shaped. That scan is the one check whose failure cannot be undone
+by a later commit: once a key is in history, rotating it is the only remedy.
+A published vendor test vector or a public contract address goes in
+`.githooks/allowed-secrets`, with the reason it is not a secret. `--no-verify`
+bypasses the hook; CI runs the same commands regardless.
 
 Never point a scratch run at your real credential store:
 

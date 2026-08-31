@@ -64,6 +64,10 @@ you have a paid CoinGecko key.
 ## Layout
 
 ```text
+.githooks/
+  pre-commit            # the CI gate, plus a secret scan; `bun run prepare-hooks`
+  scan-staged           # refuses staged content that looks like a credential
+  allowed-secrets       # public values the scan would otherwise refuse, and why
 install.sh              # the published installer; served from the site, tested in CI
 scripts/
   guard.sh              # the SECURITY.md promises, enforced
@@ -354,6 +358,17 @@ repository, and optionally the `APPLE_*` signing secrets.
 ## Pre-commit checks
 
 ```bash
+bun run prepare-hooks  # once per clone: points git at .githooks
 bun run check          # typecheck + tests + install test + guard
 bun run guard          # the SECURITY.md promises, enforced
 ```
+
+Hooks are a shell script under version control rather than a hook-runner
+dependency: the whole gate is one command that takes about two and a half
+seconds, so there is nothing to schedule in parallel or scope by glob, and this
+repository argues its near-empty dependency list on supply-chain grounds.
+
+`scan-staged` reads the staged *diff*, not the working tree — `git add -p` can
+stage a hunk the file no longer shows. Its patterns are deliberately narrow: one
+that fires on ordinary code teaches people to pass `--no-verify`, which is worse
+than no hook at all.

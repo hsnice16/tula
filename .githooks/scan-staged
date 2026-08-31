@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# Refuses a commit whose staged content looks like a credential.
+#
+# This repository is public and the binary reads exchange keys, so the cheapest
+# moment to catch a pasted secret is before it exists in history — once pushed,
+# rotating the key is the only real remedy. Scans the staged *content*, not the
+# working tree: `git add -p` can stage a hunk the file no longer shows.
+#
+#   bash .githooks/scan-staged
+set -uo pipefail
+
+ROOT=$(git rev-parse --show-toplevel)
+ALLOW="$ROOT/.githooks/allowed-secrets"
+
+# Collected in a file, not a variable: the scans run inside pipelines, and a
+# pipeline's last stage is a subshell whose variables do not survive it.
+FINDINGS=$(mktemp)
+trap 'rm -f "$FINDINGS"' EXIT
+
+allowed() {
+  [ -f "$ALLOW" ] || return 1
+  # Comments and blank lines are not patterns; anything else is matched literally.
+  grep -v '^[[:space:]]*#' "$ALLOW" | grep -v '^[[:space:]]*$' |
+    grep -qFx -- "$1" 2>/dev/null
+}
+
+# Key material and provider-issued tokens. Deliberately narrow: a pattern that
+# fires on ordinary code teaches people to pass --no-verify, which is worse than
+# no hook at all.
+SECRETS='sk-ant-[A-Za-z0-9_-]{20,}
+sk_live_[A-Za-z0-9]{16,}
+rk_live_[A-Za-z0-9]{16,}
+AKIA[0-9A-Z]{16}
+gh[pousr]_[A-Za-z0-9]{30,}
+github_pat_[A-Za-z0-9_]{30,}
+xox[baprs]-[A-Za-z0-9-]{20,}
+AIza[0-9A-Za-z_-]{30,}
+-----BEGIN [A-Z ]*PRIVATE KEY-----'
+
+for path in $(git diff --cached --name-only --diff-filter=ACM); do
+  # Binary and lockfiles produce noise, not findings.
+  case "$path" in *.lock | *.png | *.jpg | *.gif | *.ico | *.woff*) continue ;; esac
+  git diff --cached --no-color -U0 -- "$path" >/dev/null 2>&1 || continue
+
+  added=$(git diff --cached --no-color -U0 -- "$path" | sed -n 's/^+//p')
+  [ -n "$added" ] || continue
+
+  while IFS= read -r pattern; do
+    [ -n "$pattern" ] || continue
+    # `--` because a PEM header begins with dashes, which grep would otherwise
+    # read as options and then match nothing at all; and read -r rather than
+    # word-splitting, because that same header contains spaces.
+    printf '%s\n' "$added" | grep -oE -- "$pattern" 2>/dev/null | sort -u |
+      while IFS= read -r hit; do
+        [ -n "$hit" ] || continue
+        allowed "$hit" && continue
+        printf '%s\n' "$path|${hit:0:28}…"
+      done
+  done <<EOF >>"$FINDINGS"
+$SECRETS
+EOF
+
+  # An address is not secret, but a real one in this repository is somebody's
+  # holdings — CONTRIBUTING forbids it "including test fixtures and pasted
+  # output". Public contracts tula reads from are listed in the allowlist.
+  printf '%s\n' "$added" | grep -oiE '0x[a-f0-9]{40}' | sort -u |
+    while IFS= read -r hit; do
+      [ -n "$hit" ] || continue
+      allowed "$hit" && continue
+      allowed "$(printf '%s' "$hit" | tr 'A-Z' 'a-z')" && continue
+      printf '%s\n' "$path|$hit  (an address — allowlist it if this is a public contract)"
+    done >>"$FINDINGS"
+done
+
+[ -s "$FINDINGS" ] || exit 0
+
+printf '\n✗ commit blocked: staged content looks like a credential\n\n' >&2
+sort -u "$FINDINGS" | while IFS='|' read -r where what; do
+  printf '  %s\n    %s\n' "$where" "$what" >&2
+done
+cat >&2 <<'EOF'
+
+  Nothing was committed. Remove it, or — if this is a published vendor test
+  vector or a public contract address — add it to .githooks/allowed-secrets.
+EOF
+exit 1

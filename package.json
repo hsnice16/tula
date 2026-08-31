@@ -17,6 +17,7 @@
     "test": "bun test",
     "check": "tsc --noEmit && bun test && bash scripts/install-test.sh && bash scripts/guard.sh",
     "guard": "bash scripts/guard.sh",
+    "prepare-hooks": "git config core.hooksPath .githooks",
     "test:install": "bash scripts/install-test.sh",
     "release:build": "bash scripts/release-build.sh"
   },

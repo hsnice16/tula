@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Enable with:  git config core.hooksPath .githooks
+#
+# The whole gate runs in about two and a half seconds, so it runs in full rather
+# than being scoped to what changed: a hook that skips the test for the file you
+# broke is a hook people learn to distrust. Skip a run deliberately with
+# `git commit --no-verify`; CI runs the same commands either way.
+set -uo pipefail
+
+ROOT=$(git rev-parse --show-toplevel)
+cd "$ROOT"
+
+# Nothing staged means nothing to check — `git commit --amend --no-edit` and
+# similar should not pay for a full run.
+git diff --cached --quiet && exit 0
+
+fail() {
+  printf '\n✗ %s\n\n  Nothing was committed. Fix it, or bypass with --no-verify.\n' "$1" >&2
+  exit 1
+}
+
+# Secrets first. It is the cheapest check and the only one whose failure cannot
+# be undone by a later commit — once a key is in history, rotating it is the
+# only real remedy.
+bash .githooks/scan-staged || exit 1
+
+command -v bun >/dev/null 2>&1 || fail 'bun is not installed; see CONTRIBUTING.md'
+bun run check >/tmp/tula-precommit.log 2>&1 || {
+  tail -30 /tmp/tula-precommit.log >&2
+  fail 'bun run check failed'
+}
+
+# The site is a separate package with its own toolchain, and its formatter
+# rewrites files — so it runs only when something in it is actually staged.
+if git diff --cached --name-only --diff-filter=ACM | grep -q '^site/'; then
+  if [ -d site/node_modules ]; then
+    (cd site && bun run lint) >/tmp/tula-precommit-site.log 2>&1 || {
+      tail -30 /tmp/tula-precommit-site.log >&2
+      fail 'site lint failed — run: cd site && bun run format'
+    }
+  else
+    printf '  note: site/ staged but its dependencies are not installed; lint skipped\n' >&2
+  fi
+fi
+
+rm -f /tmp/tula-precommit.log /tmp/tula-precommit-site.log
