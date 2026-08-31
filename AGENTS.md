@@ -329,6 +329,11 @@ bun run build              # -> site/out, static
 The install path is part of the security product: someone runs it immediately
 before pasting keys tied to their net worth.
 
+- **A manual run is a dry run.** `workflow_dispatch` defaults `publish` to
+  false, because `GITHUB_REF_TYPE` is `branch` there and the tag-matches-version
+  check cannot protect it — without the gate a manual run would cut a real
+  release from whatever was on the branch. A pre-release tag (`v0.4.0-rc.1`)
+  exercises the real channels without touching the stable ones.
 - **One tag produces every artifact.** `.github/workflows/release.yml` checks the
   tag against `src/version.ts`, runs `bun run check`, cross-compiles
   darwin/linux × arm64/x64 with Bun, signs the macOS binaries when Apple

@@ -54,7 +54,10 @@ while [ \$# -gt 0 ]; do
     *) shift ;;
   esac
 done
-if [ "\$want_url" = 1 ]; then printf '%s' "https://github.com/hsnice16/tula/releases/tag/v\${FAKE_LATEST:-9.9.9}"; exit 0; fi
+if [ "\$want_url" = 1 ]; then
+  if [ -n "\${NO_RELEASES:-}" ]; then printf '%s' "https://github.com/hsnice16/tula/releases"; exit 0; fi
+  printf '%s' "https://github.com/hsnice16/tula/releases/tag/v\${FAKE_LATEST:-9.9.9}"; exit 0
+fi
 name=\${url##*/}
 [ -f "$RELEASE/\$name" ] || exit 22
 cp "$RELEASE/\$name" "\$out"
@@ -199,6 +202,21 @@ if [ -x "$H/.tula/versions/9.9.9/tula" ] && [ -L "$H/.tula/bin/tula" ]; then
 else
   bad "keeps each version in its own directory"
 fi
+
+# What every user saw between the first push and the first tag.
+H="$WORK/h-none"
+mkdir -p "$H"
+out=$(run "$H" env NO_RELEASES=1)
+if [ ! -e "$H/.tula/bin/tula" ] &&
+  case "$out" in *"no published releases yet"*) true ;; *) false ;; esac; then
+  ok "says so when nothing has been released, without naming a version to pin"
+else
+  bad "says so when nothing has been released, without naming a version to pin" "$out"
+fi
+# A dead end that points at another dead end is not a way out.
+case "$out" in
+  *"TULA_VERSION=0."*) bad "suggests pinning a version that does not exist either" "$out" ;;
+esac
 
 H="$WORK/h9"
 mkdir -p "$H"

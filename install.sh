@@ -19,6 +19,7 @@ REPO="hsnice16/tula"
 SITE="https://hsnice16.github.io/tula"
 INSTALL_DIR="${TULA_INSTALL_DIR:-$HOME/.tula}"
 BIN_DIR="$INSTALL_DIR/bin"
+BROWSE="https://github.com/$REPO/releases"
 
 say() { printf '%s\n' "$*"; }
 note() { printf '  %s\n' "$*"; }
@@ -83,12 +84,19 @@ latest_version() {
   url=$(curl --proto '=https' --tlsv1.2 -fsSL --retry 3 -o /dev/null \
     -w '%{url_effective}' "https://github.com/$REPO/releases/latest") ||
     die "Could not reach GitHub to find the latest version." \
-      "Check the network, or pin one:  TULA_VERSION=0.8.0"
+      "Check the network, then try again." \
+      "Or name one yourself:  TULA_VERSION=<version> (see $BROWSE)"
   version=${url##*/tag/}
   case "$version" in
     v*) printf '%s' "${version#v}" ;;
+    # /releases/latest redirects to the release list rather than to a tag when a
+    # repository has published nothing. Suggesting a version to pin here would
+    # be a dead end pointing at another dead end: there is none to pin.
+    */releases) die "tula has no published releases yet, so there is nothing to install." \
+      "Build it from source meanwhile:  https://github.com/$REPO#install" \
+      "Releases will appear at:         $BROWSE" ;;
     *) die "GitHub did not name a latest release." \
-      "Pin a version instead:  TULA_VERSION=0.8.0" ;;
+      "Pick one by hand:  TULA_VERSION=<version> (see $BROWSE)" ;;
   esac
 }
 

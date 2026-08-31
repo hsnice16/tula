@@ -5,7 +5,10 @@ for architecture and conventions; this one covers process.
 
 ## Setup
 
-Needs [Bun](https://bun.sh). Users install a prebuilt binary and need none of this.
+Needs [Bun](https://bun.sh) and **Node 22** (`.nvmrc`, `nvm use`). Node is only
+there to run `tsc`, but TypeScript will not start on 18 — it fails inside node's
+module loader with a stack trace that names neither the cause nor the fix. Users
+install a prebuilt binary and need none of this.
 
 ```bash
 git clone https://github.com/hsnice16/tula && cd tula
@@ -85,7 +88,28 @@ step fails the release; nothing is published half-done.
 ```bash
 bash scripts/release-build.sh dist/release   # the same artifacts, locally
 bash scripts/install-test.sh                 # runs install.sh against a fake release
+bash scripts/npm-pack.sh dist/release        # the npm tree that would be published
+bash scripts/homebrew-formula.sh dist/release tula   # the formula, real checksums
 ```
+
+### Testing a release
+
+Two ways, neither of which publishes anything by accident.
+
+**A dry run of the workflow.** Actions → Release → *Run workflow*, leaving
+`publish` off. It builds all four targets, signs, verifies, runs the installer
+against them and attests — then stops, and leaves the artifacts and
+`checksums.txt` on the run to inspect. Publishing is off by default because
+`GITHUB_REF_TYPE` is `branch` on a manual run, so the tag-matches-version check
+cannot protect it; without the gate, a manual run would cut a real release from
+whatever was on the branch.
+
+**A pre-release tag,** when you want the real channels exercised. Set
+`APP_VERSION` to something like `0.4.0-rc.1` and push `v0.4.0-rc.1`: the GitHub
+release is marked pre-release, npm publishes under the `next` tag, and Homebrew
+moves only `tula-latest`, never stable. `install.sh` still resolves `latest` to
+the newest *stable* release, so a pre-release reaches only people who ask for it
+by name with `TULA_VERSION`.
 
 The stable Homebrew formula lags on purpose: a plain tag promotes it, a
 pre-release tag moves only `tula-latest`. A build found to be wrong is skipped by
