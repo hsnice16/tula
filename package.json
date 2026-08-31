@@ -1,0 +1,52 @@
+{
+  "name": "@tula/cli",
+  "version": "0.3.0",
+  "description": "See your true exposure across every venue you trade on.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "tula": "./dist/tula"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "build": "bun build src/index.ts --compile --outfile dist/tula",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "check": "tsc --noEmit && bun test && bash scripts/install-test.sh && bash scripts/guard.sh",
+    "guard": "bash scripts/guard.sh",
+    "test:install": "bash scripts/install-test.sh",
+    "release:build": "bash scripts/release-build.sh"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.122.0",
+    "decimal.js": "10.6.0",
+    "ink": "7.1.1",
+    "react": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.0",
+    "@types/react": "19.2.18",
+    "react-devtools-core": "6.1.5",
+    "typescript": "5.9.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hsnice16/tula.git"
+  },
+  "homepage": "https://hsnice16.github.io/tula",
+  "keywords": [
+    "trading",
+    "crypto",
+    "defi",
+    "portfolio",
+    "risk",
+    "tui",
+    "cli",
+    "kraken",
+    "hyperliquid",
+    "aave"
+  ]
+}

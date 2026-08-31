@@ -1,0 +1,20 @@
+node_modules/
+dist/
+*.log
+
+# Belt and braces: credentials live in ~/.config/tula, never the repo.
+# This catches a stray copy before it reaches a commit.
+*.key
+credentials.json
+.env
+.env.*
+
+# The site is a separate package: its dependencies never enter the binary.
+site/node_modules
+site/.next
+site/out
+site/next-env.d.ts
+site/tsconfig.tsbuildinfo
+
+# Copied from the repository root at site build time.
+site/public/install.sh

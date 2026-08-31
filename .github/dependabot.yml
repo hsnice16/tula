@@ -1,0 +1,38 @@
+version: 2
+
+# SHA-pinned actions never move on their own, which is the point — and the cost.
+# Without something watching them they rot at whatever commit they were pinned
+# to, known advisories included. Dependabot is that watcher: it raises the bump
+# as a reviewable commit, which is the same standard every other dependency here
+# is held to.
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ['*']
+    commit-message:
+      prefix: ci
+
+  # The binary's tree. Every entry here runs in a process that reads exchange
+  # keys, so these are read before they are merged, never batched blindly.
+  - package-ecosystem: bun
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: deps
+
+  # The site is a separate package on purpose; its updates must never be grouped
+  # with the binary's, or a review of one becomes a rubber stamp on the other.
+  - package-ecosystem: bun
+    directory: /site
+    schedule:
+      interval: monthly
+    groups:
+      site:
+        patterns: ['*']
+    commit-message:
+      prefix: site

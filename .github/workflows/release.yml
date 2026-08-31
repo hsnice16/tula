@@ -1,0 +1,270 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      promote_stable:
+        description: 'Also bump the stable Homebrew formula'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# Never two releases at once, and never cancel one in flight: a half-published
+# release is a set of channels disagreeing about what the current binary is.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    # macOS, because signing has to happen on it and Bun cross-compiles every
+    # other target from here anyway. One job means the artifact that gets
+    # attested is provably the artifact that got built and signed — no handoff
+    # in between where a checksum could be recomputed over something else.
+    runs-on: macos-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.2.16
+
+      # A tag that disagrees with src/version.ts publishes one number to npm and
+      # a different one to `tula --version`. Caught before anything is built.
+      - id: version
+        name: tag agrees with src/version.ts
+        run: |
+          set -euo pipefail
+          app=$(grep -m1 'APP_VERSION' src/version.ts | sed "s/.*'\([^']*\)'.*/\1/")
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$GITHUB_REF_TYPE" = tag ] && [ "$tag" != "$app" ]; then
+            echo "tag v$tag does not match src/version.ts ($app)" >&2
+            exit 1
+          fi
+          echo "version=$app" >>"$GITHUB_OUTPUT"
+          case "$app" in
+            *-*) echo "prerelease=true" >>"$GITHUB_OUTPUT" ;;
+            *) echo "prerelease=false" >>"$GITHUB_OUTPUT" ;;
+          esac
+
+      - run: bun install --frozen-lockfile
+
+      # The same gate every pull request passes. A release is the last place to
+      # discover the guard was failing.
+      - run: bun run check
+
+      - run: bash scripts/release-build.sh dist/release
+
+      # Proves the published installer works against the shape of release this
+      # job just produced, before that release exists for anyone to install.
+      - run: bash scripts/install-test.sh
+
+      # ------------------------------------------------------------- signing --
+      #
+      # Gated on the certificate being configured rather than assumed: an
+      # unsigned build still installs correctly through curl and Homebrew,
+      # neither of which quarantines what it downloads. Once the secrets exist
+      # this stops being optional — there is no continue-on-error below, so a
+      # signing failure fails the release.
+      - id: signing
+        run: |
+          if [ -n "${{ secrets.APPLE_CERT_P12 }}" ]; then
+            echo "configured=true" >>"$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >>"$GITHUB_OUTPUT"
+            echo "::warning::Apple signing is not configured; macOS binaries ship unsigned."
+          fi
+
+      - name: sign and notarize macOS binaries
+        if: steps.signing.outputs.configured == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          CERT_P12: ${{ secrets.APPLE_CERT_P12 }}
+          CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
+          SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+          keychain=$RUNNER_TEMP/build.keychain
+          security create-keychain -p "" "$keychain"
+          security set-keychain-settings -lut 900 "$keychain"
+          security unlock-keychain -p "" "$keychain"
+          echo "$CERT_P12" | base64 --decode >"$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$keychain" \
+            -P "$CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "" "$keychain" >/dev/null
+          security list-keychains -d user -s "$keychain" login.keychain
+
+          echo "$API_KEY_P8" | base64 --decode >"$RUNNER_TEMP/key.p8"
+
+          for arch in arm64 x64; do
+            work=$RUNNER_TEMP/sign-$arch
+            mkdir -p "$work"
+            tar -xzf "dist/release/tula-v$VERSION-darwin-$arch.tar.gz" -C "$work"
+            codesign --force --timestamp --options runtime \
+              --sign "$SIGNING_IDENTITY" "$work/tula"
+            codesign --verify --strict --verbose=2 "$work/tula"
+
+            # notarytool takes an archive, not a bare executable.
+            ditto -c -k "$work/tula" "$work/tula.zip"
+            xcrun notarytool submit "$work/tula.zip" --wait \
+              --key "$RUNNER_TEMP/key.p8" --key-id "$API_KEY_ID" --issuer "$API_ISSUER"
+            # No `stapler staple`: a ticket can only be attached to a bundle,
+            # disk image or installer package. For a bare Mach-O the notarization
+            # is recorded with Apple and checked online, which is what Gatekeeper
+            # does for one of these anyway.
+            rm "$work/tula.zip"
+
+            touch -t 197001010000 "$work/tula" "$work/LICENSE"
+            tar --uid 0 --gid 0 --uname "" --gname "" \
+              -czf "dist/release/tula-v$VERSION-darwin-$arch.tar.gz" \
+              -C "$work" tula LICENSE
+          done
+
+          security delete-keychain "$keychain"
+
+      # Signing rewrote two archives, so every checksum is recomputed here
+      # rather than earlier. This file is what the installer checks against.
+      - name: checksums
+        run: |
+          set -euo pipefail
+          cd dist/release
+          rm -f checksums.txt
+          shasum -a 256 ./*.tar.gz | sed 's| \./| |' >checksums.txt
+          cat checksums.txt
+
+      # Signed by GitHub's workflow identity through sigstore: keyless, so there
+      # is no signing key for this project to generate, publish, rotate or lose.
+      # The subjects are the archives, which is what install.sh verifies.
+      - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-path: 'dist/release/*.tar.gz'
+
+      - name: create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          site=$(grep -m1 'SITE_URL' src/version.ts | sed "s/.*'\([^']*\)'.*/\1/")
+          notes=$RUNNER_TEMP/notes.md
+          {
+            echo "## Install"
+            echo
+            echo '```bash'
+            echo "curl --proto '=https' --tlsv1.2 -LsSf $site/install.sh | sh"
+            echo '```'
+            echo
+            echo "Pin this version: \`TULA_VERSION=$VERSION\`"
+            echo
+            echo "## Verify"
+            echo
+            echo "Every archive carries a sigstore-backed build attestation. The installer"
+            echo "checks it automatically when the GitHub CLI is present; by hand:"
+            echo
+            echo '```bash'
+            echo "gh attestation verify tula-v$VERSION-darwin-arm64.tar.gz --repo $GITHUB_REPOSITORY"
+            echo '```'
+            echo
+            echo "Changelog: $site/changelog/"
+          } >"$notes"
+          gh release create "v$VERSION" dist/release/* \
+            --title "tula v$VERSION" \
+            --notes-file "$notes" \
+            $([ "$PRERELEASE" = true ] && echo --prerelease || echo --latest)
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release
+          path: dist/release
+
+  npm:
+    needs: release
+    runs-on: ubuntu-latest
+    # Skipped rather than failed when npm is not configured: the GitHub release
+    # is already published and correct, and a missing token is a setup gap, not
+    # a bad build. The same tag can be re-run once the token exists.
+    if: ${{ vars.PUBLISH_NPM == 'true' }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.2.16
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release
+          path: dist/release
+      - run: bash scripts/npm-pack.sh dist/release dist/npm
+      - name: publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PRERELEASE: ${{ needs.release.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          tag=$([ "$PRERELEASE" = true ] && echo next || echo latest)
+          # Platform packages first: the wrapper's optionalDependencies name
+          # them, and a wrapper published ahead of them installs a placeholder.
+          for pkg in dist/npm/cli-*; do
+            npm publish "$pkg" --access public --provenance --tag "$tag"
+          done
+          npm publish dist/npm/cli --access public --provenance --tag "$tag"
+
+  homebrew:
+    needs: release
+    runs-on: ubuntu-latest
+    if: ${{ vars.PUBLISH_HOMEBREW == 'true' }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release
+          path: dist/release
+
+      - name: render and push formulae
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION: ${{ needs.release.outputs.version }}
+          PRERELEASE: ${{ needs.release.outputs.prerelease }}
+          PROMOTE: ${{ inputs.promote_stable }}
+        run: |
+          set -euo pipefail
+          git clone --depth 1 \
+            "https://x-access-token:$TAP_TOKEN@github.com/hsnice16/homebrew-tap.git" tap
+          mkdir -p tap/Formula
+
+          # Every release moves the rolling channel.
+          bash scripts/homebrew-formula.sh dist/release tula-latest \
+            >tap/Formula/tula-latest.rb
+
+          # Stable lags deliberately: a plain tag promotes, a pre-release never
+          # does, and a build discovered to be wrong is skipped by promoting the
+          # next one instead of this one.
+          if [ "$PRERELEASE" = false ] || [ "$PROMOTE" = true ]; then
+            bash scripts/homebrew-formula.sh dist/release tula >tap/Formula/tula.rb
+          fi
+
+          cd tap
+          git config user.name 'tula release'
+          git config user.email 'noreply@github.com'
+          git add Formula
+          git diff --cached --quiet && { echo "formulae unchanged"; exit 0; }
+          git commit -m "tula $VERSION"
+          git push

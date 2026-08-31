@@ -1,0 +1,11 @@
+* text=auto eol=lf
+
+# install.sh is piped straight into `sh`. A CRLF checkout makes the shebang
+# `#!/bin/sh\r`, which fails with a message naming a file that plainly exists —
+# so the line ending is pinned rather than left to a contributor's core.autocrlf.
+*.sh text eol=lf
+
+# Generated: collapsed in review, and excluded from language statistics so the
+# repository reads as TypeScript rather than as whatever the lockfile counts as.
+bun.lock linguist-generated=true
+site/bun.lock linguist-generated=true
