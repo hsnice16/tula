@@ -15,7 +15,7 @@ import {
   type PriceEntry,
   type VenueEntry,
 } from '../cli/registry.js'
-import type { Session } from '../cli/session.js'
+import type { LoadStep, Session } from '../cli/session.js'
 import { dispatchCommand } from '../cli/shell.js'
 import type { Connector } from '../connectors/types.js'
 import { TulaError } from '../core/errors.js'
@@ -81,6 +81,13 @@ const TOOL_LABELS: Readonly<Record<string, string>> = {
   what_breaks_first: 'ranking what breaks first',
   run_scenario: 'repricing the book',
   get_venue_status: 'checking every venue',
+}
+
+/** A load's step, in the voice the tool labels above are written in. */
+function loadLabel(step: LoadStep): string {
+  return step.kind === 'venue'
+    ? `reading ${step.venue}`
+    : `pricing ${step.assets} asset${step.assets === 1 ? '' : 's'}`
 }
 
 function Line({ kind, text }: { kind: EntryKind; text: string }) {
@@ -173,6 +180,7 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
   const [activity, setActivity] = useState('')
   const [streaming, setStreaming] = useState('')
   const [frame, setFrame] = useState(0)
+  const [elapsed, setElapsed] = useState(0)
   const [menuIndex, setMenuIndex] = useState(0)
   const [menuDismissed, setMenuDismissed] = useState(false)
   const [palette, setPalette] = useState<{ query: string; index: number } | null>(null)
@@ -192,11 +200,27 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
     setEntries([])
   }, [])
 
+  // A spinner says something is running; only the count says for how long, which
+  // is the question a wait long enough to look like a hang actually raises.
   useEffect(() => {
     if (!busy) return
-    const timer = setInterval(() => setFrame((f) => f + 1), 80)
+    const startedAt = Date.now()
+    setElapsed(0)
+    const timer = setInterval(() => {
+      setFrame((f) => f + 1)
+      setElapsed(Math.floor((Date.now() - startedAt) / 1000))
+    }, 80)
     return () => clearInterval(timer)
   }, [busy])
+
+  // The session names each venue as it reads it. Nothing else can: a command
+  // calls `ensureLoaded` several layers down, long after the UI let go of it.
+  useEffect(() => {
+    session.onProgress = (step) => setActivity(step ? loadLabel(step) : '')
+    return () => {
+      session.onProgress = null
+    }
+  }, [session])
 
   // The transcript is <Static>: Ink writes it once and never revisits it, so the
   // screen a width change has to redraw (see guardResize) comes back without it.
@@ -388,11 +412,12 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
             if (parsed.args[0] === 'disconnect') await refreshConnected()
           }
         } else if (agent) {
-          setActivity('thinking')
           // The engine reads whatever the session last fetched. Asking before
           // the first load answers "nothing is connected" about a connected
           // venue — the one wrong answer this tool must never give.
           await session.ensureLoaded()
+          // After the load, not before: while it runs it names the venue it is on.
+          setActivity('thinking')
           let answer = ''
           let repeats = 0
           let lastTool = ''
@@ -468,6 +493,20 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
     if (!chosen) return
     setLine(`${menu.prefix}${chosen.name} `)
   }, [menu, menuIndex, setLine])
+
+  /**
+   * Completing on Enter as well as tab cost every command a second press — the
+   * first closed the menu with nothing to show for it, which reads as the key
+   * having been missed. Arguments cannot be guessed, so a command declaring them
+   * still lands on the line with the cursor where the first one goes, as in ctrl+k.
+   */
+  const runFromMenu = useCallback(() => {
+    if (!menu) return
+    const chosen = menu.items[menuIndex]
+    if (!chosen) return
+    if (chosen.args) return completeFromMenu()
+    void submit(`${menu.prefix}${chosen.name}`)
+  }, [menu, menuIndex, completeFromMenu, submit])
 
   const recallHistory = useCallback(
     (direction: -1 | 1) => {
@@ -581,7 +620,8 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
       if (menu) {
         if (key.upArrow) return setMenuIndex((i) => Math.max(0, i - 1))
         if (key.downArrow) return setMenuIndex((i) => Math.min(menu.items.length - 1, i + 1))
-        if (key.tab || key.return) return completeFromMenu()
+        if (key.tab) return completeFromMenu()
+        if (key.return) return runFromMenu()
         if (key.escape) return setMenuDismissed(true)
       } else {
         if (key.upArrow) return recallHistory(-1)
@@ -742,7 +782,10 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
 
         {busy && !streaming && (
           <Box marginBottom={1} paddingLeft={3}>
-            <Text color={theme.accent}>{`${SPINNER[frame % SPINNER.length]} ${activity || 'working'}`}</Text>
+            <Text color={theme.accent} wrap="truncate">
+              {`${SPINNER[frame % SPINNER.length]} ${activity || 'working'}`}
+              {elapsed > 0 ? `  ·  ${elapsed}s` : ''}
+            </Text>
           </Box>
         )}
 

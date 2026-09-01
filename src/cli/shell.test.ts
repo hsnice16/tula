@@ -15,7 +15,7 @@ import {
   parseCommand,
   type VenueEntry,
 } from './registry.js'
-import { Session } from './session.js'
+import { type LoadStep, Session } from './session.js'
 import { dispatchCommand } from './shell.js'
 
 const PRICES: Record<string, number> = { ETH: 4000, USD: 1, USDC: 1, DOT: 5 }
@@ -150,6 +150,20 @@ describe('nearestCommand', () => {
 
   test('gives up on nonsense rather than guessing', () => {
     expect(nearestCommand('qqqqqqqq')).toBeNull()
+  })
+})
+
+describe('load progress', () => {
+  test('a load names each step while it runs, and clears when it is done', async () => {
+    const session = await freshSession()
+    const steps: (LoadStep | null)[] = []
+    session.onProgress = (step) => steps.push(step)
+    await session.refresh()
+    expect(steps).toEqual([
+      { kind: 'venue', venue: 'testvenue' },
+      { kind: 'prices', assets: 4 },
+      null,
+    ])
   })
 })
 

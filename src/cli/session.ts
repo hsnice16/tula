@@ -14,6 +14,9 @@ export interface LoadResult {
   loadedAt: Date
 }
 
+/** What a load is waiting on. A step, not a sentence: the UI does the phrasing. */
+export type LoadStep = { kind: 'venue'; venue: string } | { kind: 'prices'; assets: number }
+
 const EMPTY: LoadResult = {
   positions: [],
   failures: [],
@@ -30,6 +33,14 @@ const EMPTY: LoadResult = {
 export class Session {
   private cached: LoadResult = EMPTY
   private hasLoaded = false
+
+  /**
+   * Told what the load is on: venues are read in turn behind a 15s deadline
+   * each, and a spinner that cannot name the one it is waiting on is
+   * indistinguishable from a hang. One listener — there is one shell, and one
+   * fetch at a time.
+   */
+  onProgress: ((step: LoadStep | null) => void) | null = null
 
   constructor(
     private readonly connectors: Map<string, Connector>,
@@ -65,46 +76,53 @@ export class Session {
   }
 
   async refresh(): Promise<LoadResult> {
-    const positions: Position[] = []
-    const failures: string[] = []
+    try {
+      const positions: Position[] = []
+      const failures: string[] = []
 
-    for (const venueId of await secrets.listVenues()) {
-      const connector = this.connectors.get(venueId)
-      if (!connector) {
-        failures.push(
-          `${venueId}: not a venue this build knows — remove it with /forget ${venueId}`,
-        )
-        continue
+      for (const venueId of await secrets.listVenues()) {
+        const connector = this.connectors.get(venueId)
+        if (!connector) {
+          failures.push(
+            `${venueId}: not a venue this build knows — remove it with /forget ${venueId}`,
+          )
+          continue
+        }
+        const creds = await secrets.get(venueId)
+        if (!creds) {
+          failures.push(`${venueId}: credentials missing`)
+          continue
+        }
+        this.onProgress?.({ kind: 'venue', venue: venueId })
+        try {
+          positions.push(...(await connector.fetchPositions(creds)))
+        } catch (err) {
+          failures.push(`${venueId}: ${err instanceof Error ? err.message : String(err)}`)
+        }
       }
-      const creds = await secrets.get(venueId)
-      if (!creds) {
-        failures.push(`${venueId}: credentials missing`)
-        continue
+
+      const assets = [...new Set(positions.map((p) => p.asset))]
+      let prices: PriceMap = new Map()
+      let priceError: string | null = null
+      if (assets.length > 0) {
+        this.onProgress?.({ kind: 'prices', assets: assets.length })
+        try {
+          const quotes = await this.oracle.quoteMany(assets)
+          prices = new Map([...quotes].map(([asset, q]) => [asset, q.price] as [AssetId, Decimal]))
+        } catch (err) {
+          // Prices are a nicety; quantities are the truth. Losing them degrades
+          // the view rather than failing it, but it must be said out loud.
+          priceError = err instanceof Error ? err.message : String(err)
+        }
       }
-      try {
-        positions.push(...(await connector.fetchPositions(creds)))
-      } catch (err) {
-        failures.push(`${venueId}: ${err instanceof Error ? err.message : String(err)}`)
-      }
+
+      this.cached = { positions, failures, prices, priceError, loadedAt: new Date() }
+      this.hasLoaded = true
+      return this.cached
+    } finally {
+      // Cleared however the load ends, or a label outlives the work it named.
+      this.onProgress?.(null)
     }
-
-    const assets = [...new Set(positions.map((p) => p.asset))]
-    let prices: PriceMap = new Map()
-    let priceError: string | null = null
-    if (assets.length > 0) {
-      try {
-        const quotes = await this.oracle.quoteMany(assets)
-        prices = new Map([...quotes].map(([asset, q]) => [asset, q.price] as [AssetId, Decimal]))
-      } catch (err) {
-        // Prices are a nicety; quantities are the truth. Losing them degrades
-        // the view rather than failing it, but it must be said out loud.
-        priceError = err instanceof Error ? err.message : String(err)
-      }
-    }
-
-    this.cached = { positions, failures, prices, priceError, loadedAt: new Date() }
-    this.hasLoaded = true
-    return this.cached
   }
 
   exposures() {

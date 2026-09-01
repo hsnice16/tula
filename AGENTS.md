@@ -143,7 +143,7 @@ src/
     coinpaprika.ts      # keyless; explicit market-cap rank settles contested tickers
   cli/
     prompt.ts           # no-echo secret entry; TTY and piped paths
-    session.ts          # one fetch per shell session; refresh is explicit
+    session.ts          # one fetch per shell session; refresh is explicit; reports each step
     commands.ts         # one implementation per command, shared by shell and one-shot
     registry.ts         # THE command surface: menu, help, dispatch, one-shot CLI
     shell.ts            # dispatchCommand over the registry
@@ -269,6 +269,16 @@ Two rules, and they are the reason the architecture exists:
   official pages; they are rendered in the connect flow, not collected in a docs dump.
 - **All key handling lives in `app.tsx`.** The slash menu and the line editor
   compete for the same arrow keys and Enter; two input hooks cannot agree on who won.
+- **Enter runs, tab completes** — in the `/` menu and in ctrl+k alike. Completing
+  on both is what cost every command a second Enter, the first spent closing a
+  menu. The one exception is a command with arguments left to supply: those
+  cannot be guessed, so Enter puts it on the line with the cursor where the
+  first one goes.
+- **A wait says what it is waiting on.** `Session` reports each venue as it reads
+  it and the spinner counts the seconds off. Behind a fetch that is a 15s
+  deadline per venue, a bare "working" is indistinguishable from a hang — and
+  the session is the only layer that knows which venue it is on, because a
+  command reaches `ensureLoaded` several layers below the UI.
 - **Comments say why.** A comment that restates the code is a second copy that drifts.
 - **The model's failures are ours to translate.** `explain()` in `src/agent/agent.ts`
   turns an API error into a sentence with a next step. A raw `overloaded_error`

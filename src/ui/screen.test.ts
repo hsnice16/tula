@@ -234,6 +234,33 @@ for (const columns of WIDTHS) {
   })
 }
 
+/**
+ * Enter ran nothing while the menu was open: it completed, like tab, so every
+ * command cost two presses — the first spent closing a menu.
+ */
+test('enter runs the highlighted command, and tab is what completes it', async () => {
+  const screen = await open(195, 33)
+  try {
+    // Counted over the scrollback: an open menu is tall enough to push what the
+    // command printed off the top of a viewport this size.
+    const ran = () => screen.rows().filter((row) => row.includes('Type / for commands')).length
+    await screen.press('/hel')
+    await screen.press('\r')
+    expect(ran()).toBe(1)
+    expectOneInputBox(screen)
+
+    await screen.press('/hel')
+    await screen.press('\t')
+    expect(ran()).toBe(1)
+    // The row under the top rule is the line being typed on, which is where a
+    // completion lands — the echo of the run above it reads the same trimmed.
+    const rows = screen.visible()
+    expect(rows[rows.findIndex(isRule) + 1]?.trim()).toBe('❯ /help')
+  } finally {
+    screen.stop()
+  }
+})
+
 test('a menu taller than a short viewport does not leave the frame under it', async () => {
   const screen = await open(195, 20)
   try {
