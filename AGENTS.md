@@ -25,6 +25,11 @@ See `README.md` for the product narrative, `ROADMAP.md` for version themes, and
   rounding error in a liquidation distance is a wrong answer that looks right.
 - **Node built-ins only** for I/O (`node:crypto`, `node:fs/promises`). Each new
   dependency is a supply-chain path into a process that reads exchange keys.
+- **`@xterm/headless`, dev only** — the emulator `src/ui/screen.test.ts` renders
+  into. Ink sizes a frame by counting newlines and erases that many rows next
+  render, so a row that wraps is a row it never takes back: the defect exists
+  between the bytes we write and the grid they land on, and no assertion over
+  the React tree can reach it. Pure JS, nothing to compile, never in the binary.
 - **Every dependency is pinned to an exact version**, and `bun.lock` is committed
   so transitive versions are pinned too. A caret range is a standing promise that
   code nobody has read yet is safe to run against credentials. CI installs with
@@ -60,6 +65,31 @@ so nothing touches a real `~/.config/tula`. `TULA_ETH_RPC` overrides the
 Ethereum RPC; `TULA_TOKEN_LIST` overrides the Token Lists URL wallet balances
 are read against; `TULA_PRICE_PAGES` widens price coverage beyond the top 500 if
 you have a paid CoinGecko key.
+
+## Definition of done
+
+A change is finished when all of this is true, not when it works:
+
+1. **`bun run check` passes.** Typecheck, tests, the install path and `guard.sh`.
+   The `pre-commit` hook runs it in full and refuses the commit otherwise; CI
+   runs the same commands. Never bypass it to "fix it in the next commit".
+2. **Nothing secret is in the diff.** `.githooks/scan-staged` runs first and
+   cannot be undone by a later commit — once a key is in history, rotating it is
+   the only remedy. Public values it should stop flagging go in `allowed-secrets`
+   with the reason.
+3. **The repository still agrees with itself.** A new module appears in the
+   Layout below; a changed behaviour is reflected in `README.md`, `CHANGELOG.md`
+   and this file. `guard.sh` fails on a module nobody documented. A doc that
+   describes what the code used to do is worse than no doc.
+4. **Every comment still earns its place.** Say why, not what. A comment that
+   restates the code is a second copy that drifts, and it will be believed after
+   it is wrong. Deleting a stale one is as much of the change as writing it.
+5. **It was run, not just compiled.** `src/ui/screen.test.ts` drives the real
+   component into a real terminal emulator and asserts on the rendered grid —
+   one input box, two rules, no row past the last column — across four widths,
+   a viewport too short for the menu, and a resize. Add a case there for any
+   frame a change can leave behind. It still is not the same as looking: run it
+   and read the screen before calling it done.
 
 ## Layout
 
@@ -122,11 +152,16 @@ src/
     app.tsx             # Ink surface: owns ALL key handling, output, status line
     Onboarding.tsx      # first-run API key flow
     ConnectFlow.tsx     # in-app venue connect; masks secret fields
-    SlashMenu.tsx       # filtered menu, grouped; only the selection is lit
+    SlashMenu.tsx       # filtered menu, grouped; fixed height, below the input
+    Modal.tsx           # the viewport-sized panel both takeovers are built on
+    Palette.tsx         # ctrl+k: the same surface flattened and ranked
+    Pager.tsx           # ctrl+o: one truncated entry in full, scrollable
     theme.ts            # the palette; no colour literal belongs anywhere else
     TextInput.tsx       # presentational input line; no key handling
     keys.ts             # paste vs. keystroke; what a trailing newline means
+    wrap.ts             # rows, not lines — what truncation and the pager count
     run.tsx             # render + waitUntilExit
+    resize.ts           # redraws the screen on a width change; Ink's erase miscounts rewrapped rows
     table.ts            # column layout
 ```
 
@@ -186,7 +221,39 @@ Two rules, and they are the reason the architecture exists:
   The model is never the only path to an answer, and the product works with no API key.
 - **A slash means a command; anything else is a question.** No heuristic, no
   ambiguity. Add a command by adding it to `src/cli/registry.ts` and a case in
-  `dispatchCommand` — the menu, help text and one-shot CLI follow automatically.
+  `dispatchCommand` — the menu, palette, help text and one-shot CLI all follow.
+- **Browsing and searching want opposite orders.** `/` is grouped and
+  alphabetical, because that is the only order somebody can predict before they
+  have learned the list. ctrl+k is flat and ranked, and reaches `/<venue> <sub>`
+  in one step. Neither is the other's fallback, which is why they are two
+  components over one `registry.ts`.
+- **A key a terminal cannot receive is not a binding.** `cmd` never reaches a
+  TTY — the terminal emulator consumes it — so every shortcut here is `ctrl+`.
+- **Nothing under the cursor may move on its own.** The menu sits *below* the
+  input and holds a fixed height, so filtering never resizes the block the line
+  you are typing on rests against. Motion for its own sake is the other failure:
+  a typewriter reveal on a table of numbers reads as the tool being slow.
+- **A modal is one row short of the viewport, never taller and never equal.** A
+  frame at or above the terminal height counts as fullscreen, and Ink answers
+  leaving one by writing `clearTerminal + fullStaticOutput` — the whole session
+  reprinted and the user's scrollback wiped, every time a panel closes.
+- **One width for a block and for the count of what it hides.** The preview, its
+  "22 more lines", and the pager that shows the rest all wrap against the modal's
+  inner width. Two widths make those two numbers disagree, and a wrapped row that
+  Ink counts as one leaves the previous frame on screen.
+- **The frame's width is never a number of cells.** Ink repaints on the resize
+  event itself and paints the tree it already holds — components do not re-run
+  first — so a width measured before a drag is laid into a terminal that has
+  since narrowed. Those rows wrap, Ink sizes a frame by counting newlines and
+  counts each as one, and its next erase leaves the remainder standing: one
+  ghost per resize, stacking. So the inset is `paddingRight` on the root and
+  panels stretch to their container, both of which Yoga re-derives on that same
+  repaint. `frameWidth` is for arithmetic we do ourselves — what a preview wraps
+  at, what the pager counts — and never for laying anything out.
+- **A resize is not debounced.** Every frame between the drag starting and a
+  debounce firing is laid out against dimensions that are already wrong, which
+  is the defect above with a longer window. Ink throttles its own painting to
+  30fps; there is no render storm left for a debounce here to prevent.
 - **Venues are commands too.** Every venue in the build is in the `/` menu with its
   status inline, and `/<venue> <sub>` scopes an action to it. There is no separate
   discovery step, and the menu doubles as the venue overview.

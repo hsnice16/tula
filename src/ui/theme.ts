@@ -17,6 +17,8 @@ export const theme = {
   danger: 'red',
   /** Disabled chrome while a request is in flight. */
   muted: 'gray',
+  /** Text on the accent bar. Dark enough to read where gold is the ground. */
+  onAccent: '#1a1710',
   /**
    * A warm panel behind the input so the line you type on is a surface rather
    * than a gap. Tinted toward the accent rather than neutral grey, and kept

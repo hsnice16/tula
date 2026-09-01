@@ -1,5 +1,4 @@
 import { ask } from './cli/prompt.js'
-import * as commands from './cli/commands.js'
 import { Session } from './cli/session.js'
 import { dispatchCommand, parseCommand } from './cli/shell.js'
 import { aaveConnector } from './connectors/aave.js'

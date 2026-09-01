@@ -45,6 +45,13 @@ whole path with any address and no credentials at all.
   Upgrades are their own commit, so the diff shows what moved.
 - No credential, address, or balance from a real account anywhere in the diff —
   including test fixtures and pasted output.
+- A new module is listed in the AGENTS.md layout, and anything that changed
+  behaviour is reflected in `README.md` and `CHANGELOG.md`. `guard.sh` fails on
+  a module nobody documented; a doc describing what the code used to do is
+  worse than no doc at all.
+- Anything touching the shell was **run**, not just compiled. A terminal UI has
+  failure modes no test sees — a frame taller than the viewport, a row that
+  wraps where the layout counted one. Open it and look at the screen.
 
 ## The rules that will get a PR rejected
 

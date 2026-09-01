@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react'
 import { hasAmbientCredentials } from '../agent/agent.js'
 import { startSignIn } from '../agent/signin.js'
 import { APP_VERSION } from '../version.js'
-import { InputLine } from './TextInput.js'
 import { theme } from './theme.js'
 
 interface Props {

@@ -97,5 +97,26 @@ repo_url=$(grep -m1 'REPO_URL' src/version.ts | sed "s/.*'\([^']*\)'.*/\1/")
 grep -q "REPO=\"${repo_url#https://github.com/}\"" install.sh ||
   report "install.sh downloads from a different repository than src/version.ts names"
 
+# Docs drift silently, and a module nobody listed is a module nobody maintains.
+# Both directions: every shipped module appears in the AGENTS.md layout, and
+# every file that layout names still exists. Tests are excluded — they live
+# beside the code they cover, and the convention says so once, not per file.
+# -co: a module added in this very commit is still untracked when the hook runs.
+tracked() { git ls-files -co --exclude-standard "$@"; }
+shipped=$(tracked src scripts install.sh | grep -E '\.(tsx?|sh)$' | grep -v '\.test\.ts$' |
+  while read -r f; do basename "$f"; done | sort -u)
+
+for base in $(tracked src | grep -E '\.tsx?$' | grep -v '\.test\.ts$' |
+                while read -r f; do basename "$f"; done | sort -u); do
+  grep -qF "$base" AGENTS.md ||
+    report "$base is in the build but nowhere in AGENTS.md"
+done
+
+for named in $(sed -n '/^```text$/,/^```$/p' AGENTS.md |
+                 grep -oE '[a-zA-Z][a-zA-Z0-9.-]*\.(tsx?|sh)' | sort -u); do
+  printf '%s\n' "$shipped" | grep -qx "$named" ||
+    report "AGENTS.md still describes $named, which no longer exists"
+done
+
 [ $fail -eq 0 ] && echo "guard: clean"
 exit $fail

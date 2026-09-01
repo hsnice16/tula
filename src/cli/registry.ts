@@ -224,3 +224,108 @@ export function helpText(
     'Every number carries when it was true. A venue that fails is named, never hidden.',
   ].join('\n')
 }
+
+export interface PaletteEntry {
+  /** The whole command as it would be typed, minus the leading slash. */
+  path: string
+  args?: string
+  summary: string
+  /** Section label. Shown as a heading while browsing, dropped once ranked. */
+  group: string
+  /** Nothing left to supply, so it can be run outright rather than completed. */
+  runnable: boolean
+  /** Kept out of the menu, and out of the palette until something is typed. */
+  hidden?: boolean
+}
+
+/**
+ * The command surface flattened: every top-level command, plus every
+ * `/<venue> <sub>` and `/<source> <sub>` reachable right now. The `/` menu
+ * walks this two steps at a time, which is the wrong shape for someone who
+ * knows the verb but not which venue it hangs off.
+ */
+export function buildPalette(
+  venues: VenueEntry[] = [],
+  prices: PriceEntry[] = [],
+): PaletteEntry[] {
+  const entries: PaletteEntry[] = buildCommands(venues, prices).map((c) => ({
+    path: c.name,
+    ...(c.args ? { args: c.args } : {}),
+    summary: c.summary,
+    group: GROUP_LABELS[c.group ?? 'session'],
+    // A bare venue or price source runs its default sub, so it needs no typing.
+    runnable: c.args === undefined,
+  }))
+
+  for (const venue of venues) {
+    for (const sub of matchVenueSubcommands('', venue.connected)) {
+      entries.push({
+        path: `${venue.id} ${sub.name}`,
+        summary: sub.summary,
+        group: GROUP_LABELS.venues,
+        runnable: true,
+      })
+    }
+  }
+  for (const price of prices) {
+    for (const sub of matchPriceSubcommands('', price.active)) {
+      entries.push({
+        path: `${price.id} ${sub.name}`,
+        summary: sub.summary,
+        group: GROUP_LABELS.prices,
+        runnable: true,
+      })
+    }
+  }
+  for (const c of SLASH_COMMANDS.filter((c) => c.hidden)) {
+    entries.push({
+      path: c.name,
+      ...(c.args ? { args: c.args } : {}),
+      summary: c.summary,
+      group: GROUP_LABELS[c.group ?? 'session'],
+      runnable: c.args === undefined,
+      hidden: true,
+    })
+  }
+  return entries
+}
+
+/**
+ * Subsequence match, scored so the ranking is explainable rather than clever:
+ * a hit at a word boundary and a run of adjacent hits both beat the same
+ * characters scattered through the string. Null when one is missing entirely.
+ */
+function fuzzyScore(needle: string, hay: string): number | null {
+  let total = 0
+  let from = 0
+  let run = 0
+  for (const ch of needle) {
+    const at = hay.indexOf(ch, from)
+    if (at === -1) return null
+    run = at === from && from > 0 ? run + 1 : 0
+    const boundary = at === 0 || hay[at - 1] === ' ' || hay[at - 1] === '-'
+    total += 10 + run * 4 + (boundary ? 6 : 0) - Math.min(at - from, 8)
+    from = at + 1
+  }
+  return total
+}
+
+/**
+ * Ranked matches for the palette. The name is matched loosely and the summary
+ * only literally, and any name hit outranks every summary hit: someone typing
+ * `pos` means `/positions`, not each command whose description says "position".
+ */
+export function matchPalette(query: string, entries: PaletteEntry[]): PaletteEntry[] {
+  const needle = query.trim().toLowerCase().replace(/^\/+/, '')
+  if (needle === '') return entries.filter((e) => !e.hidden)
+
+  const ranked: { entry: PaletteEntry; rank: number }[] = []
+  for (const entry of entries) {
+    const path = fuzzyScore(needle, entry.path.toLowerCase())
+    if (path !== null) ranked.push({ entry, rank: path + 1_000 })
+    else if (entry.summary.toLowerCase().includes(needle)) ranked.push({ entry, rank: 0 })
+  }
+  // Stable, so equal ranks keep the order buildPalette put them in — grouped
+  // and alphabetical, the one order a user can predict without learning it.
+  return ranked.sort((a, b) => b.rank - a.rank).map((r) => r.entry)
+}

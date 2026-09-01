@@ -30,6 +30,7 @@
   "devDependencies": {
     "@types/bun": "1.4.0",
     "@types/react": "19.2.18",
+    "@xterm/headless": "6.0.0",
     "react-devtools-core": "7.0.1",
     "typescript": "7.0.2"
   },

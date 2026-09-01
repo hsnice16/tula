@@ -7,7 +7,7 @@ const ticker = (over: Partial<Ticker> & { symbol: string }): Ticker => ({
   ...over,
 })
 
-const respond = (body: unknown, ok = true, status = 200) =>
+const respond = (body: unknown, status = 200) =>
   async () => new Response(JSON.stringify(body), { status }) as Response
 
 describe('symbol collisions', () => {
@@ -60,7 +60,7 @@ describe('quoting', () => {
   })
 
   test('a rate limit says prices are gone and quantities are not', async () => {
-    const oracle = new CoinPaprikaOracle(respond({}, false, 429))
+    const oracle = new CoinPaprikaOracle(respond({}, 429))
     expect(oracle.quote('ETH')).rejects.toThrow(/rate limit.*quantities are still correct/s)
   })
 })

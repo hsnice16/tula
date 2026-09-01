@@ -4,11 +4,14 @@ import { Agent, hasAmbientCredentials } from '../agent/agent.js'
 import { belongsToVenue } from '../cli/commands.js'
 import { riskEngineFor } from '../cli/engine-adapter.js'
 import {
+  buildPalette,
   GROUP_LABELS,
   matchCommands,
+  matchPalette,
   matchPriceSubcommands,
   matchVenueSubcommands,
   parseCommand,
+  type PaletteEntry,
   type PriceEntry,
   type VenueEntry,
 } from '../cli/registry.js'
@@ -30,9 +33,12 @@ import {
 import { freshness, holdings } from '../core/format.js'
 import { typed } from './keys.js'
 import { Onboarding } from './Onboarding.js'
+import { Pager } from './Pager.js'
+import { Palette } from './Palette.js'
 import { SlashMenu, type MenuItem } from './SlashMenu.js'
 import { InputLine } from './TextInput.js'
 import { theme } from './theme.js'
+import { wrapLines } from './wrap.js'
 
 type EntryKind = 'prompt' | 'output' | 'answer' | 'error' | 'notice'
 
@@ -43,6 +49,26 @@ interface Entry {
 }
 
 const SPINNER = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+
+/**
+ * Rows an entry gets in the transcript before the rest goes behind ctrl+o. A
+ * 176-position book is a screenful per answer, and the question above it
+ * scrolls away before it can be read alongside what it returned.
+ */
+const PREVIEW_ROWS = 12
+
+/** Short enough to feel live under a drag, long enough to coalesce its burst. */
+const REDRAW_SETTLE_MS = 50
+
+/** Columns the modal spends on its own padding, outer and inner. */
+const MODAL_CHROME = 8
+
+/** What of an entry the transcript shows, and how much it is holding back. */
+function preview(text: string, width: number): { text: string; hidden: number } {
+  const rows = wrapLines(text, width)
+  if (rows.length <= PREVIEW_ROWS) return { text, hidden: 0 }
+  return { text: rows.slice(0, PREVIEW_ROWS).join('\n'), hidden: rows.length - PREVIEW_ROWS }
+}
 
 /**
  * What the model is doing, in the user's terms. A raw `get_positions` names an
@@ -64,9 +90,27 @@ function Line({ kind, text }: { kind: EntryKind; text: string }) {
   return <Text>{text}</Text>
 }
 
-type Menu =
-  | { level: 'top'; items: MenuItem[]; prefix: string; heading?: string }
-  | { level: 'venue'; venue: string; items: MenuItem[]; prefix: string; heading: string }
+function Output({ kind, text, width }: { kind: EntryKind; text: string; width: number }) {
+  const { text: shown, hidden } = preview(text, width)
+  return (
+    <Box marginBottom={1} paddingLeft={3} flexDirection="column">
+      <Line kind={kind} text={shown} />
+      {hidden > 0 && (
+        // The way out belongs where the dead end is, not in a help screen.
+        <Text dimColor>{`… ${hidden} more line${hidden === 1 ? '' : 's'} · ctrl+o`}</Text>
+      )}
+    </Box>
+  )
+}
+
+type Menu = { items: MenuItem[]; prefix: string; heading?: string } & (
+  | { level: 'top' }
+  | { level: 'venue'; venue: string; heading: string }
+) & {
+  /** Rows the unfiltered menu would need. Fixing the block at this height keeps
+   *  it from resizing as you type without reserving space it can never use. */
+  total: number
+}
 
 interface Props {
   session: Session
@@ -80,7 +124,26 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
   const { stdout } = useStdout()
   // Static children sit outside the layout flow, so a percentage width has
   // nothing to resolve against; the block has to be told the real column count.
-  const columns = stdout?.columns ?? 80
+  // Held as state because a modal is sized to the viewport, and Ink re-renders
+  // its own tree on resize without React ever reading the new dimensions.
+  const [viewport, setViewport] = useState(() => ({
+    columns: stdout?.columns ?? 80,
+    rows: stdout?.rows ?? 24,
+  }))
+  const { columns, rows } = viewport
+  // Only for arithmetic we do ourselves — what a preview wraps at, what the
+  // pager counts. The frame's own inset is `paddingRight` on the root, never a
+  // width in cells: Ink repaints on the resize event with the tree it already
+  // holds, so a width measured a moment ago lands in a terminal that is already
+  // narrower, while a padding is relative and Yoga re-derives it on that same
+  // repaint. Rows that wrap regardless are resize.ts's problem, not this one's.
+  const frameWidth = Math.max(20, columns - 1)
+  // One width for the transcript preview, the count of what it holds back, and
+  // the pager that shows the rest — the modal's inner width, which is the
+  // narrowest of the three. Wrapping the preview against its own wider column
+  // would make "22 more lines" and "1–15 of 34" two different arithmetics.
+  const bodyWidth = Math.max(20, frameWidth - MODAL_CHROME)
+
 
   const [agent, setAgent] = useState<Agent | null>(() =>
     // An `ant auth login` profile is a credential too: gating on a key string
@@ -105,6 +168,9 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
   const [frame, setFrame] = useState(0)
   const [menuIndex, setMenuIndex] = useState(0)
   const [menuDismissed, setMenuDismissed] = useState(false)
+  const [palette, setPalette] = useState<{ query: string; index: number } | null>(null)
+  // Addressed by entry id rather than index: `clear` empties the list under it.
+  const [pager, setPager] = useState<{ id: number; offset: number } | null>(null)
   const [history, setHistory] = useState<string[]>([])
   const historyIndex = useRef(-1)
   const nextId = useRef(0)
@@ -113,11 +179,45 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
     setEntries((prev) => [...prev, { id: nextId.current++, kind, text }])
   }, [])
 
+  const clearScreen = useCallback(() => {
+    setPager(null)
+    setEntries([])
+  }, [])
+
   useEffect(() => {
     if (!busy) return
     const timer = setInterval(() => setFrame((f) => f + 1), 80)
     return () => clearInterval(timer)
   }, [busy])
+
+  // The transcript is <Static>: Ink writes it once and never revisits it, so the
+  // screen a width change has to redraw (see guardResize) comes back without it.
+  // Remounting <Static> resets the index it renders from and the whole
+  // transcript is written again, at the width it is being read at.
+  const [generation, setGeneration] = useState(0)
+  // The viewport is not debounced: every frame between the drag starting and a
+  // debounce firing would be laid out against dimensions that are already wrong,
+  // and Ink throttles its own painting to 30fps anyway. The redraw is, because
+  // it rewrites the whole transcript and a drag of the pane is sixty resizes,
+  // only the last of which anyone reads.
+  useEffect(() => {
+    if (!stdout) return
+    let redraw: ReturnType<typeof setTimeout> | undefined
+    let last = stdout.columns
+    const onResize = () => {
+      setViewport({ columns: stdout.columns, rows: stdout.rows })
+      const rewrapped = stdout.columns !== last
+      last = stdout.columns
+      if (!rewrapped) return
+      clearTimeout(redraw)
+      redraw = setTimeout(() => setGeneration((at) => at + 1), REDRAW_SETTLE_MS)
+    }
+    stdout.on('resize', onResize)
+    return () => {
+      clearTimeout(redraw)
+      stdout.off('resize', onResize)
+    }
+  }, [stdout])
 
   // Every venue in the build, connected or not, so picking one from the menu is
   // the whole discovery step — no looking up names to type into a connect command.
@@ -169,7 +269,11 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
         ...(c.args ? { args: c.args } : {}),
         ...(c.group ? { group: GROUP_LABELS[c.group] } : {}),
       }))
-      return items.length > 0 ? { level: 'top', items, prefix: '/' } : null
+      if (items.length === 0) return null
+      const all = matchCommands('', venueEntries, priceEntries)
+      // Every row, plus the heading each group prints above its first.
+      const total = all.length + new Set(all.map((c) => c.group)).size
+      return { level: 'top', items, prefix: '/', total }
     }
 
     const head = rest.slice(0, space).toLowerCase()
@@ -183,7 +287,14 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
         summary: c.summary,
       }))
       if (subs.length === 0) return null
-      return { level: 'venue', venue: head, items: subs, prefix: `/${head} `, heading: head }
+      return {
+        level: 'venue',
+        venue: head,
+        items: subs,
+        prefix: `/${head} `,
+        heading: head,
+        total: matchPriceSubcommands('', price.active).length,
+      }
     }
 
     if (!connectors.has(head)) return null
@@ -199,6 +310,7 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
       items,
       prefix: `/${head} `,
       heading: connectors.get(head)?.venue.name ?? head,
+      total: matchVenueSubcommands('', entry?.connected ?? false).length,
     }
   }, [input, busy, menuDismissed, venueEntries, priceEntries, connectors])
 
@@ -261,7 +373,7 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
           }
           if (result.kind === 'ui') {
             if (result.action === 'exit') return exit()
-            if (result.action === 'clear') return setEntries([])
+            if (result.action === 'clear') return clearScreen()
             if (result.action === 'login') return setOnboarding(true)
           } else {
             push('output', result.output)
@@ -356,19 +468,157 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
       const next = Math.min(history.length, Math.max(0, current + direction))
       historyIndex.current = next === history.length ? -1 : next
       setLine(next === history.length ? '' : (history[next] ?? ''))
+      // A recalled line usually starts with a slash, which would re-open the
+      // menu and hand it the next arrow — leaving history one step deep however
+      // often you press. Typing or deleting anything brings the menu back.
+      setMenuDismissed(true)
     },
     [history, setLine],
+  )
+
+  const expandable = useMemo(
+    () =>
+      entries.filter(
+        (e) => e.kind !== 'prompt' && wrapLines(e.text, bodyWidth).length > PREVIEW_ROWS,
+      ),
+    [entries, bodyWidth],
+  )
+
+  const paletteItems = useMemo(
+    () => buildPalette(venueEntries, priceEntries),
+    [venueEntries, priceEntries],
+  )
+  const paletteMatches = useMemo(
+    () => (palette ? matchPalette(palette.query, paletteItems) : []),
+    [palette, paletteItems],
+  )
+
+  // What the modal leaves for content, after its padding, title and footer.
+  const pagerHeight = Math.max(3, rows - 9)
+  // Fixed, so filtering never resizes the block under the input line, but no
+  // taller than the menu can fill or than the frame can afford: the input box,
+  // the trailing count and the status line all come out of the same viewport.
+  const menuRows = Math.max(4, Math.min(rows - 8, menu?.total ?? 0))
+
+  const paged = useMemo(() => {
+    if (!pager) return null
+    const at = entries.findIndex((e) => e.id === pager.id)
+    const entry = entries[at]
+    if (!entry) return null
+    // An output carries no title of its own; the prompt block above it is the
+    // only thing on screen that says what was asked for.
+    const title =
+      entries
+        .slice(0, at)
+        .reverse()
+        .find((e) => e.kind === 'prompt')
+        ?.text.replace(/^❯\s*/, '') ?? 'output'
+    return {
+      lines: wrapLines(entry.text, bodyWidth),
+      title,
+      older: Math.max(0, expandable.findIndex((e) => e.id === pager.id)),
+    }
+  }, [pager, entries, expandable, bodyWidth])
+
+  // Clamped here rather than in state: a resize changes both the wrap and the
+  // height under an offset that was valid when it was set.
+  const pagerOffset = Math.min(
+    pager?.offset ?? 0,
+    Math.max(0, (paged?.lines.length ?? 0) - pagerHeight),
+  )
+
+  const openPager = useCallback(() => {
+    setPager((prev) => {
+      if (!prev) {
+        const last = expandable.at(-1)
+        return last ? { id: last.id, offset: 0 } : null
+      }
+      // Pressed again inside the pane it walks back through the older ones, so
+      // the whole transcript is reachable without inventing a second binding.
+      const older = expandable[expandable.findIndex((e) => e.id === prev.id) - 1]
+      return older ? { id: older.id, offset: 0 } : prev
+    })
+  }, [expandable])
+
+  const scrollPager = useCallback(
+    (by: number) => {
+      const max = Math.max(0, (paged?.lines.length ?? 0) - pagerHeight)
+      // Stepped from the clamped offset, not the stored one: after a resize the
+      // stored value can sit past the end, and scrolling up would do nothing
+      // until it had been pressed however many rows the window had lost.
+      setPager((p) => (p ? { ...p, offset: Math.min(max, Math.max(0, pagerOffset + by)) } : null))
+    },
+    [paged, pagerHeight, pagerOffset],
+  )
+
+  const runFromPalette = useCallback(
+    (entry: PaletteEntry, fill: boolean) => {
+      setPalette(null)
+      // Arguments cannot be guessed, so anything declaring them lands on the
+      // line with the cursor where the first one goes, rather than running short.
+      if (fill || !entry.runnable) return setLine(`/${entry.path} `)
+      void submit(`/${entry.path}`)
+    },
+    [setLine, submit],
   )
 
   useInput(
     (ch, key) => {
       if (key.ctrl && ch === 'c') {
+        if (pager) return setPager(null)
+        if (palette) return setPalette(null)
         if (input.length > 0) return setLine('')
         return exit()
       }
       if (key.ctrl && ch === 'd' && input.length === 0) return exit()
-      if (key.ctrl && ch === 'l') return setEntries([])
+      if (key.ctrl && ch === 'l') return clearScreen()
+
+      // Above the busy gate on purpose: reading what an earlier command
+      // returned is the natural thing to do while the next one is in flight.
+      if (key.ctrl && ch === 'o') {
+        setPalette(null)
+        return openPager()
+      }
+
+      if (pager) {
+        if (key.escape || (ch === 'q' && !key.ctrl)) return setPager(null)
+        if (key.upArrow) return scrollPager(-1)
+        if (key.downArrow) return scrollPager(1)
+        if (key.pageUp) return scrollPager(-pagerHeight)
+        if (key.pageDown) return scrollPager(pagerHeight)
+        return
+      }
+
       if (busy) return
+
+      // Seeded from the line, so a half-typed command becomes the search
+      // rather than something to close the palette and go back to.
+      if (key.ctrl && ch === 'k') {
+        return setPalette((p) => (p ? null : { query: input.replace(/^\//, ''), index: 0 }))
+      }
+
+      if (palette) {
+        const chosen = paletteMatches[palette.index]
+        if (key.escape) return setPalette(null)
+        if (key.upArrow) {
+          return setPalette((p) => (p ? { ...p, index: Math.max(0, p.index - 1) } : null))
+        }
+        if (key.downArrow) {
+          const last = paletteMatches.length - 1
+          return setPalette((p) => (p ? { ...p, index: Math.min(last, p.index + 1) } : null))
+        }
+        if (key.return || key.tab) {
+          if (chosen) runFromPalette(chosen, key.tab)
+          return
+        }
+        if (key.backspace || key.delete) {
+          return setPalette((p) => (p ? { query: p.query.slice(0, -1), index: 0 } : null))
+        }
+        if (key.ctrl || key.meta || !ch) return
+        const { text } = typed(ch)
+        if (!text) return
+        return setPalette((p) => (p ? { query: p.query + text, index: 0 } : null))
+      }
 
       if (menu) {
         if (key.upArrow) return setMenuIndex((i) => Math.max(0, i - 1))
@@ -477,8 +727,8 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
     .map((c) => c.venue.name)
 
   return (
-    <Box flexDirection="column">
-      <Static items={entries}>
+    <Box flexDirection="column" paddingRight={1}>
+      <Static key={generation} items={entries}>
         {(entry) =>
           entry.kind === 'prompt' ? (
             // The line you asked for is a block, so a long transcript reads as a
@@ -486,72 +736,92 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
             <Box
               key={entry.id}
               marginBottom={1}
-              width={columns}
+              width={frameWidth}
               backgroundColor={theme.surface}
               paddingX={1}
             >
               <Text color={theme.accent}>{entry.text}</Text>
             </Box>
           ) : (
-            <Box key={entry.id} marginBottom={1} paddingLeft={3}>
-              <Line kind={entry.kind} text={entry.text} />
-            </Box>
+            <Output key={entry.id} kind={entry.kind} text={entry.text} width={bodyWidth} />
           )
         }
       </Static>
 
-      {nothingConnected && entries.length === 0 && (
-        <Box marginBottom={1} paddingLeft={1} flexDirection="column">
-          <Text color={theme.notice}>No venue connected yet, so there is nothing to measure.</Text>
-          <Text dimColor>{`Type / and pick one — ${[...connectors.keys()].join(', ')}.`}</Text>
-          <Text dimColor>
-            {addressOnly.length > 0
-              ? `${addressOnly.join(' and ')} need only a public address — no key, nothing to leak.`
-              : 'Exchange keys must be read-only; tula verifies that before storing one.'}
-          </Text>
-        </Box>
-      )}
-
-      {streaming && (
-        <Box marginBottom={1} paddingLeft={3}>
-          <Text>{streaming}</Text>
-        </Box>
-      )}
-
-      {busy && !streaming && (
-        <Box marginBottom={1} paddingLeft={3}>
-          <Text color={theme.accent}>{`${SPINNER[frame % SPINNER.length]} ${activity || 'working'}`}</Text>
-        </Box>
-      )}
-
-      {menu && (
-        <SlashMenu
-          items={menu.items}
-          selected={menuIndex}
-          prefix={menu.prefix}
-          {...(menu.level === 'venue' ? { heading: menu.heading } : {})}
+      {palette ? (
+        <Palette
+          query={palette.query}
+          matches={paletteMatches}
+          selected={palette.index}
+          columns={frameWidth}
+          rows={rows}
         />
-      )}
-
-      <Box
-        borderStyle="round"
-        borderColor={busy ? theme.muted : theme.accent}
-        borderLeft={false}
-        borderRight={false}
-        paddingX={1}
-      >
-        <Text color={busy ? theme.muted : theme.accent}>{'❯ '}</Text>
-        <InputLine
-          value={input}
-          cursor={cursor}
-          dim={busy}
-          placeholder={busy ? '' : 'ask anything, or / for commands and venues'}
+      ) : pager && paged ? (
+        <Pager
+          title={paged.title}
+          lines={paged.lines}
+          offset={pagerOffset}
+          height={pagerHeight}
+          older={paged.older}
+          rows={rows}
         />
-      </Box>
+      ) : (
+        <>
+        {nothingConnected && entries.length === 0 && (
+          <Box marginBottom={1} paddingLeft={1} flexDirection="column">
+            <Text color={theme.notice}>No venue connected yet, so there is nothing to measure.</Text>
+            <Text dimColor>{`Type / and pick one — ${[...connectors.keys()].join(', ')}.`}</Text>
+            <Text dimColor>
+              {addressOnly.length > 0
+                ? `${addressOnly.join(' and ')} need only a public address — no key, nothing to leak.`
+                : 'Exchange keys must be read-only; tula verifies that before storing one.'}
+            </Text>
+          </Box>
+        )}
 
-      <Box paddingLeft={1}>
-        <Text dimColor>{status}</Text>
-      </Box>
+        {streaming && (
+          <Box marginBottom={1} paddingLeft={3}>
+            <Text>{streaming}</Text>
+          </Box>
+        )}
+
+        {busy && !streaming && (
+          <Box marginBottom={1} paddingLeft={3}>
+            <Text color={theme.accent}>{`${SPINNER[frame % SPINNER.length]} ${activity || 'working'}`}</Text>
+          </Box>
+        )}
+
+        <Box
+          borderStyle="round"
+          borderColor={busy ? theme.muted : theme.accent}
+          borderLeft={false}
+          borderRight={false}
+          paddingX={1}
+        >
+          <Text color={busy ? theme.muted : theme.accent}>{'❯ '}</Text>
+          <InputLine
+            value={input}
+            cursor={cursor}
+            dim={busy}
+            placeholder={busy ? '' : 'ask anything · / for commands · ctrl+k to search them'}
+          />
+        </Box>
+
+        {menu && (
+          <SlashMenu
+            items={menu.items}
+            selected={menuIndex}
+            prefix={menu.prefix}
+            limit={menuRows}
+            {...(menu.level === 'venue' ? { heading: menu.heading } : {})}
+          />
+        )}
+
+        <Box paddingLeft={1}>
+          <Text dimColor>{status}</Text>
+        </Box>
+        </>
+      )}
     </Box>
   )
 }
