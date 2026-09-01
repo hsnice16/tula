@@ -1,9 +1,8 @@
 /**
  * Hard-wrap to a column count, so a rendered row and a counted line are the
- * same unit. The transcript keeps the first N rows of an entry and the pager
- * scrolls by rows; if either counted source lines instead, a wide table would
- * claim twelve lines while occupying twenty, and the pager would overflow the
- * border it draws around itself.
+ * same unit. The transcript keeps the first N rows of an entry and counts the
+ * rest; counting source lines instead, a wide table would claim twelve lines
+ * while occupying twenty, and "18 more lines" would be short by eight.
  */
 export function wrapLines(text: string, width: number): string[] {
   const columns = Math.max(1, Math.floor(width))

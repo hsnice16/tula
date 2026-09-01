@@ -471,3 +471,72 @@ test('a drag leaves no blank band on a screen that was full', async () => {
     screen.stop()
   }
 })
+
+/**
+ * ctrl+o is a mode rather than a pane. The whole argument for it is that what
+ * was held back joins the transcript where the question that produced it
+ * already is — so this asserts on the live screen, which is the only place a
+ * pane and an expansion look different.
+ */
+test('ctrl+o puts the rest of an entry back where it was', async () => {
+  const screen = await open(195, 63)
+  try {
+    await screen.press('/help\r')
+    // Line nineteen of /help, so it is behind the twelve-row preview.
+    const rest = () => screen.visible().some((row) => row.includes('/refresh'))
+    const asked = () => screen.visible().some((row) => row.includes('❯ /help'))
+    expect(rest()).toBe(false)
+
+    await screen.press('\x0f')
+    expect(rest()).toBe(true)
+    expect(asked()).toBe(true)
+    // Nothing on screen says "… more lines" now, so the way back has to be here.
+    expect(screen.visible().some((row) => row.includes('ctrl+o to collapse'))).toBe(true)
+    expectOneInputBox(screen)
+
+    await screen.press('\x0f')
+    expect(rest()).toBe(false)
+    expect(asked()).toBe(true)
+    expectOneInputBox(screen)
+  } finally {
+    screen.stop()
+  }
+})
+
+/**
+ * The mode outlives the entry it was turned on for. Nothing re-renders a
+ * <Static> child, so this is only true if the flag is read when the next entry
+ * is written — which is a different code path from the redraw above.
+ */
+test('output arriving while ctrl+o is on comes through whole', async () => {
+  const screen = await open(195, 63)
+  try {
+    await screen.press('/help\r')
+    await screen.press('\x0f')
+    await screen.press('/help\r')
+    expect(screen.visible().filter((row) => row.includes('more lines'))).toEqual([])
+    // Line nineteen of both answers, so two of them is both arriving whole.
+    expect(screen.visible().filter((row) => row.includes('/refresh'))).toHaveLength(2)
+  } finally {
+    screen.stop()
+  }
+})
+
+/**
+ * The redraw an expansion needs is the one a resize needs, and it appends the
+ * same way: without the clear ahead of it the collapsed copy stays above the
+ * expanded one, and toggling is how a user would stack a dozen of them.
+ */
+test('toggling ctrl+o does not leave a copy of the transcript per press', async () => {
+  const screen = await open(195, 63)
+  try {
+    await screen.press('/help\r')
+    const written = () => screen.rows().filter((row) => row.includes('Type / for commands')).length
+    expect(written()).toBe(1)
+    for (let at = 0; at < 6; at++) await screen.press('\x0f')
+    expect(written()).toBe(1)
+    expectOneInputBox(screen)
+  } finally {
+    screen.stop()
+  }
+})

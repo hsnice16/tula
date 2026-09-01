@@ -33,8 +33,8 @@ import {
 import { freshness, holdings } from '../core/format.js'
 import { typed } from './keys.js'
 import { Onboarding } from './Onboarding.js'
-import { Pager } from './Pager.js'
 import { Palette } from './Palette.js'
+import { clearForRedraw } from './resize.js'
 import { SlashMenu, type MenuItem } from './SlashMenu.js'
 import { InputLine } from './TextInput.js'
 import { theme } from './theme.js'
@@ -51,8 +51,8 @@ interface Entry {
 const SPINNER = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 
 /**
- * Rows an entry gets in the transcript before the rest goes behind ctrl+o. A
- * 176-position book is a screenful per answer, and the question above it
+ * Rows an entry gets in the transcript before the rest is collapsed to a count.
+ * A 176-position book is a screenful per answer, and the question above it
  * scrolls away before it can be read alongside what it returned.
  */
 const PREVIEW_ROWS = 12
@@ -60,8 +60,8 @@ const PREVIEW_ROWS = 12
 /** Short enough to feel live under a drag, long enough to coalesce its burst. */
 const REDRAW_SETTLE_MS = 50
 
-/** Columns the modal spends on its own padding, outer and inner. */
-const MODAL_CHROME = 8
+/** Drawn at, and subtracted from, the width an output block wraps against. */
+const OUTPUT_INDENT = 3
 
 /** What of an entry the transcript shows, and how much it is holding back. */
 function preview(text: string, width: number): { text: string; hidden: number } {
@@ -90,10 +90,20 @@ function Line({ kind, text }: { kind: EntryKind; text: string }) {
   return <Text>{text}</Text>
 }
 
-function Output({ kind, text, width }: { kind: EntryKind; text: string; width: number }) {
-  const { text: shown, hidden } = preview(text, width)
+function Output({
+  kind,
+  text,
+  width,
+  expanded,
+}: {
+  kind: EntryKind
+  text: string
+  width: number
+  expanded: boolean
+}) {
+  const { text: shown, hidden } = expanded ? { text, hidden: 0 } : preview(text, width)
   return (
-    <Box marginBottom={1} paddingLeft={3} flexDirection="column">
+    <Box marginBottom={1} paddingLeft={OUTPUT_INDENT} flexDirection="column">
       <Line kind={kind} text={shown} />
       {hidden > 0 && (
         // The way out belongs where the dead end is, not in a help screen.
@@ -131,19 +141,16 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
     rows: stdout?.rows ?? 24,
   }))
   const { columns, rows } = viewport
-  // Only for arithmetic we do ourselves — what a preview wraps at, what the
-  // pager counts. The frame's own inset is `paddingRight` on the root, never a
-  // width in cells: Ink repaints on the resize event with the tree it already
-  // holds, so a width measured a moment ago lands in a terminal that is already
-  // narrower, while a padding is relative and Yoga re-derives it on that same
-  // repaint. Rows that wrap regardless are resize.ts's problem, not this one's.
+  // Only for arithmetic we do ourselves — what a preview wraps at, and the
+  // count of what it holds back. The frame's own inset is `paddingRight` on the
+  // root, never a width in cells: Ink repaints on the resize event with the tree
+  // it already holds, so a width measured a moment ago lands in a terminal that
+  // is already narrower, while a padding is relative and Yoga re-derives it on
+  // that same repaint. Rows that wrap regardless are resize.ts's problem.
   const frameWidth = Math.max(20, columns - 1)
-  // One width for the transcript preview, the count of what it holds back, and
-  // the pager that shows the rest — the modal's inner width, which is the
-  // narrowest of the three. Wrapping the preview against its own wider column
-  // would make "22 more lines" and "1–15 of 34" two different arithmetics.
-  const bodyWidth = Math.max(20, frameWidth - MODAL_CHROME)
-
+  // Measured, not chosen: "22 more lines" is only true if it counts the rows the
+  // block would really take, and Ink wraps it at the width the indent leaves.
+  const bodyWidth = Math.max(20, frameWidth - OUTPUT_INDENT)
 
   const [agent, setAgent] = useState<Agent | null>(() =>
     // An `ant auth login` profile is a credential too: gating on a key string
@@ -169,8 +176,10 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
   const [menuIndex, setMenuIndex] = useState(0)
   const [menuDismissed, setMenuDismissed] = useState(false)
   const [palette, setPalette] = useState<{ query: string; index: number } | null>(null)
-  // Addressed by entry id rather than index: `clear` empties the list under it.
-  const [pager, setPager] = useState<{ id: number; offset: number } | null>(null)
+  // Whole-transcript rather than per-entry, and it outlives the entry it was
+  // turned on for: after reading "18 more lines" you usually want the answer
+  // above it whole too, and the next one as well.
+  const [expanded, setExpanded] = useState(false)
   const [history, setHistory] = useState<string[]>([])
   const historyIndex = useRef(-1)
   const nextId = useRef(0)
@@ -180,7 +189,6 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
   }, [])
 
   const clearScreen = useCallback(() => {
-    setPager(null)
     setEntries([])
   }, [])
 
@@ -476,9 +484,11 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
     [history, setLine],
   )
 
-  const expandable = useMemo(
+  // Whether the transcript is holding anything back, so a toggle that would
+  // change nothing on screen does not cost a redraw or the scrollback with it.
+  const truncated = useMemo(
     () =>
-      entries.filter(
+      entries.some(
         (e) => e.kind !== 'prompt' && wrapLines(e.text, bodyWidth).length > PREVIEW_ROWS,
       ),
     [entries, bodyWidth],
@@ -493,63 +503,21 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
     [palette, paletteItems],
   )
 
-  // What the modal leaves for content, after its padding, title and footer.
-  const pagerHeight = Math.max(3, rows - 9)
   // Fixed, so filtering never resizes the block under the input line, but no
   // taller than the menu can fill or than the frame can afford: the input box,
-  // the trailing count and the status line all come out of the same viewport.
-  const menuRows = Math.max(4, Math.min(rows - 8, menu?.total ?? 0))
+  // the trailing count and the status line all come out of the same viewport —
+  // and one more row of it while the expanded hint is up.
+  const menuRows = Math.max(4, Math.min(rows - 8 - (expanded ? 1 : 0), menu?.total ?? 0))
 
-  const paged = useMemo(() => {
-    if (!pager) return null
-    const at = entries.findIndex((e) => e.id === pager.id)
-    const entry = entries[at]
-    if (!entry) return null
-    // An output carries no title of its own; the prompt block above it is the
-    // only thing on screen that says what was asked for.
-    const title =
-      entries
-        .slice(0, at)
-        .reverse()
-        .find((e) => e.kind === 'prompt')
-        ?.text.replace(/^❯\s*/, '') ?? 'output'
-    return {
-      lines: wrapLines(entry.text, bodyWidth),
-      title,
-      older: Math.max(0, expandable.findIndex((e) => e.id === pager.id)),
-    }
-  }, [pager, entries, expandable, bodyWidth])
-
-  // Clamped here rather than in state: a resize changes both the wrap and the
-  // height under an offset that was valid when it was set.
-  const pagerOffset = Math.min(
-    pager?.offset ?? 0,
-    Math.max(0, (paged?.lines.length ?? 0) - pagerHeight),
-  )
-
-  const openPager = useCallback(() => {
-    setPager((prev) => {
-      if (!prev) {
-        const last = expandable.at(-1)
-        return last ? { id: last.id, offset: 0 } : null
-      }
-      // Pressed again inside the pane it walks back through the older ones, so
-      // the whole transcript is reachable without inventing a second binding.
-      const older = expandable[expandable.findIndex((e) => e.id === prev.id) - 1]
-      return older ? { id: older.id, offset: 0 } : prev
-    })
-  }, [expandable])
-
-  const scrollPager = useCallback(
-    (by: number) => {
-      const max = Math.max(0, (paged?.lines.length ?? 0) - pagerHeight)
-      // Stepped from the clamped offset, not the stored one: after a resize the
-      // stored value can sit past the end, and scrolling up would do nothing
-      // until it had been pressed however many rows the window had lost.
-      setPager((p) => (p ? { ...p, offset: Math.min(max, Math.max(0, pagerOffset + by)) } : null))
-    },
-    [paged, pagerHeight, pagerOffset],
-  )
+  const toggleExpanded = useCallback(() => {
+    setExpanded((on) => !on)
+    if (!truncated || !stdout) return
+    // <Static> is written once, so the transcript can only come back at the
+    // other setting by being written again — the same redraw, and the same cost
+    // in scrollback, that a width change owes.
+    clearForRedraw(stdout)
+    setGeneration((at) => at + 1)
+  }, [truncated, stdout])
 
   const runFromPalette = useCallback(
     (entry: PaletteEntry, fill: boolean) => {
@@ -565,7 +533,6 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
   useInput(
     (ch, key) => {
       if (key.ctrl && ch === 'c') {
-        if (pager) return setPager(null)
         if (palette) return setPalette(null)
         if (input.length > 0) return setLine('')
         return exit()
@@ -577,16 +544,7 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
       // returned is the natural thing to do while the next one is in flight.
       if (key.ctrl && ch === 'o') {
         setPalette(null)
-        return openPager()
-      }
-
-      if (pager) {
-        if (key.escape || (ch === 'q' && !key.ctrl)) return setPager(null)
-        if (key.upArrow) return scrollPager(-1)
-        if (key.downArrow) return scrollPager(1)
-        if (key.pageUp) return scrollPager(-pagerHeight)
-        if (key.pageDown) return scrollPager(pagerHeight)
-        return
+        return toggleExpanded()
       }
 
       if (busy) return
@@ -743,7 +701,13 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
               <Text color={theme.accent}>{entry.text}</Text>
             </Box>
           ) : (
-            <Output key={entry.id} kind={entry.kind} text={entry.text} width={bodyWidth} />
+            <Output
+              key={entry.id}
+              kind={entry.kind}
+              text={entry.text}
+              width={bodyWidth}
+              expanded={expanded}
+            />
           )
         }
       </Static>
@@ -754,15 +718,6 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
           matches={paletteMatches}
           selected={palette.index}
           columns={frameWidth}
-          rows={rows}
-        />
-      ) : pager && paged ? (
-        <Pager
-          title={paged.title}
-          lines={paged.lines}
-          offset={pagerOffset}
-          height={pagerHeight}
-          older={paged.older}
           rows={rows}
         />
       ) : (
@@ -817,8 +772,19 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
           />
         )}
 
-        <Box paddingLeft={1}>
-          <Text dimColor>{status}</Text>
+        <Box paddingLeft={1} flexDirection="column">
+          {/* Truncated on purpose: a status line that wraps is a row Ink counts
+              as one, and its next erase leaves the remainder standing. */}
+          <Text dimColor wrap="truncate">
+            {status}
+          </Text>
+          {/* Nothing is marked "… more lines" while this is on, so the way back
+              has to be somewhere that does not depend on there being one. */}
+          {expanded && (
+            <Text color={theme.notice} wrap="truncate">
+              every line is shown · ctrl+o to collapse
+            </Text>
+          )}
         </Box>
         </>
       )}

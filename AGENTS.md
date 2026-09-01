@@ -153,13 +153,12 @@ src/
     Onboarding.tsx      # first-run API key flow
     ConnectFlow.tsx     # in-app venue connect; masks secret fields
     SlashMenu.tsx       # filtered menu, grouped; fixed height, below the input
-    Modal.tsx           # the viewport-sized panel both takeovers are built on
+    Modal.tsx           # the viewport-sized panel ctrl+k is built on
     Palette.tsx         # ctrl+k: the same surface flattened and ranked
-    Pager.tsx           # ctrl+o: one truncated entry in full, scrollable
     theme.ts            # the palette; no colour literal belongs anywhere else
     TextInput.tsx       # presentational input line; no key handling
     keys.ts             # paste vs. keystroke; what a trailing newline means
-    wrap.ts             # rows, not lines — what truncation and the pager count
+    wrap.ts             # rows, not lines — what truncation counts
     run.tsx             # render + waitUntilExit
     resize.ts           # redraws the screen on a width change; Ink's erase miscounts rewrapped rows
     table.ts            # column layout
@@ -237,10 +236,15 @@ Two rules, and they are the reason the architecture exists:
   frame at or above the terminal height counts as fullscreen, and Ink answers
   leaving one by writing `clearTerminal + fullStaticOutput` — the whole session
   reprinted and the user's scrollback wiped, every time a panel closes.
-- **One width for a block and for the count of what it hides.** The preview, its
-  "22 more lines", and the pager that shows the rest all wrap against the modal's
-  inner width. Two widths make those two numbers disagree, and a wrapped row that
-  Ink counts as one leaves the previous frame on screen.
+- **One width for a block and for the count of what it hides.** The preview and
+  its "22 more lines" wrap against the same width, or the count is measured in
+  rows the block does not have.
+- **ctrl+o expands in place; it does not open a pane.** What was held back joins
+  the transcript where the question that produced it already is, and the line
+  you type on does not move. A pane hides the question to show the answer, which
+  is the problem truncation was introduced to solve. Because the transcript is
+  <Static>, the mode change costs the same screen-and-scrollback redraw a width
+  change does — so it is skipped when nothing is truncated.
 - **The frame's width is never a number of cells.** Ink repaints on the resize
   event itself and paints the tree it already holds — components do not re-run
   first — so a width measured before a drag is laid into a terminal that has
@@ -249,7 +253,8 @@ Two rules, and they are the reason the architecture exists:
   ghost per resize, stacking. So the inset is `paddingRight` on the root and
   panels stretch to their container, both of which Yoga re-derives on that same
   repaint. `frameWidth` is for arithmetic we do ourselves — what a preview wraps
-  at, what the pager counts — and never for laying anything out.
+  at, what the count of what it holds back is measured in — and never for laying
+  anything out.
 - **A resize is not debounced.** Every frame between the drag starting and a
   debounce firing is laid out against dimensions that are already wrong, which
   is the defect above with a longer window. Ink throttles its own painting to

@@ -11,10 +11,6 @@
  * leaves that many rows empty, under the frame or as a gap above it. Drawing
  * the whole screen again is the only version that owes the terminal nothing.
  *
- * The scrollback goes with it because the transcript is <Static>: Ink writes it
- * once, so a redraw must re-emit it, and re-emitting appends. Clear the viewport
- * alone and the copy that had scrolled off the top survives to stack.
- *
  * Widening leaves no ghost, but the transcript carries Ink's line breaks rather
  * than the terminal's and the terminal cannot rejoin them, so it is owed a
  * redraw too — or a widened pane stays wrapped for the width it left.
@@ -27,11 +23,21 @@ export function guardResize(stdout: NodeJS.WriteStream): () => void {
   const onResize = () => {
     const columns = stdout.columns
     // Height alone rewraps nothing, and Ink handles it without help.
-    if (columns !== last) stdout.write('\x1b[2J\x1b[3J\x1b[H')
+    if (columns !== last) clearForRedraw(stdout)
     last = columns
   }
   stdout.on('resize', onResize)
   return () => {
     stdout.off('resize', onResize)
   }
+}
+
+/**
+ * Scrollback too (`3J`), not just the viewport. The transcript is <Static>: Ink
+ * writes it once, so anything that redraws it has to re-emit it, and re-emitting
+ * appends — clear the viewport alone and the copy that had scrolled off the top
+ * survives to stack. The cost is whatever sat above tula before it started.
+ */
+export function clearForRedraw(stdout: NodeJS.WriteStream): void {
+  stdout.write('\x1b[2J\x1b[3J\x1b[H')
 }
