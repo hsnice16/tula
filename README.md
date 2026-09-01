@@ -1,11 +1,12 @@
 # tula
 
-**See your true exposure across every venue you trade on.**
+**Your true exposure, what breaks first, and more, across every venue at once.**
 
 [![CI](https://github.com/hsnice16/tula/actions/workflows/ci.yml/badge.svg)](https://github.com/hsnice16/tula/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
-Pre-alpha. Read-only, non-custodial, and it cannot move your money.
+Read-only and non-custodial — placing trades will come later, and today no
+code path could move your money.
 
 The name is taken from Sanskrit: **tula**, the balance. The scale that weighs one
 side against the other, and the same object Latin calls *Libra*.
@@ -133,7 +134,7 @@ answer — every command works without a model. Type `/` for the command menu.
 
 Building from source: [CONTRIBUTING.md](./CONTRIBUTING.md).
 
-### Trying it, pre-alpha
+### Trying it
 
 Point it at a public address first — Wallet, Hyperliquid and Aave need no
 credential, so you can see the whole cross-venue path work before deciding
@@ -164,7 +165,7 @@ useful thing you can send.
 | | |
 |---|---|
 | Net exposure, scenarios, liquidation distance | working |
-| Interactive shell — slash commands, ctrl+k to search them, ctrl+o for long output, natural language | working |
+| Interactive shell — slash commands, ctrl+k to search them, ctrl+o for long output, plain English | working |
 | Prices — CoinGecko, CoinPaprika, CoinMarketCap, CryptoCompare | working; one active at a time, `/<source> use` switches |
 | Kraken margin and open orders | not yet |
 | Aave on Arbitrum / Base | not yet — Ethereum only |

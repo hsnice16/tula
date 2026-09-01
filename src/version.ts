@@ -12,4 +12,4 @@ export const REPO_URL = 'https://github.com/hsnice16/tula'
  */
 export const SITE_URL = 'https://hsnice16.github.io/tula'
 
-export const APP_DESCRIPTION = 'See your true exposure across every venue you trade on.'
+export const APP_DESCRIPTION = 'Your true exposure, what breaks first, and more, across every venue at once.'

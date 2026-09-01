@@ -13,7 +13,5 @@ export const INSTALL_COMMAND = `curl --proto '=https' --tlsv1.2 -LsSf ${SITE}/in
 export const NAV = [
   { href: '/', label: 'Overview' },
   { href: '/install', label: 'Install' },
-  { href: '/roadmap', label: 'Roadmap' },
-  { href: '/changelog', label: 'Changelog' },
   { href: '/security', label: 'Security' },
 ] as const

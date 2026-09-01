@@ -6,9 +6,6 @@ on:
     paths:
       - 'site/**'
       - 'install.sh'
-      - 'CHANGELOG.md'
-      - 'ROADMAP.md'
-      - 'tasks/**'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -48,8 +45,6 @@ jobs:
       # people pipe into a shell is one copy too many.
       - run: cp install.sh site/public/install.sh
 
-      # The changelog and roadmap pages read CHANGELOG.md and tasks/ from the
-      # repository at build time, so the site cannot misreport what shipped.
       - run: bun run build
         working-directory: site
 

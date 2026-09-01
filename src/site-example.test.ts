@@ -4,7 +4,7 @@ import Decimal from 'decimal.js'
 import { netExposure, portfolioValue } from './core/exposure.js'
 import { pct, quantity, usd } from './core/format.js'
 import type { Position, PositionKind } from './core/position.js'
-import { whatBreaksFirst } from './core/risk.js'
+import { scenario, whatBreaksFirst } from './core/risk.js'
 
 /**
  * The front page publishes tula's output as its argument for the product, and
@@ -39,24 +39,52 @@ const position = (
   ...(liquidation ? { liquidation } : {}),
 })
 
-// The book the page says it is showing: one asset held three ways across three
-// venues, which is the claim the whole product rests on.
+// The book the page says it is showing. ETH held three ways across three venues
+// is the claim the whole product rests on; the rest is there because a book of
+// three assets is not one, and because the page shows ctrl+o holding a line back
+// — which the tool only does past twelve rows.
 const BOOK: Position[] = [
   position('kraken', 'spot', 'ETH', '4'),
   position('hyperliquid', 'perp', 'ETH', '-2', { price: d('3412') }),
   position('aave', 'collateral', 'ETH', '4.64', { healthFactor: d('1.37') }),
+  position('kraken', 'spot', 'BTC', '0.12'),
+  position('kraken', 'spot', 'SOL', '30'),
+  position('wallet', 'spot', 'LINK', '180'),
   position('wallet', 'spot', 'USDC', '1200'),
+  position('wallet', 'spot', 'ARB', '900'),
   position('kraken', 'spot', 'USDT', '480'),
+  position('wallet', 'spot', 'OP', '320'),
+  position('wallet', 'spot', 'UNI', '60'),
 ]
 
 const PRICES = new Map([
   ['ETH', d('2450')],
+  ['BTC', d('68000')],
+  ['SOL', d('145')],
+  ['LINK', d('14.20')],
   ['USDC', d('1')],
+  ['ARB', d('0.62')],
   ['USDT', d('1')],
+  ['OP', d('1.45')],
+  ['UNI', d('7.30')],
 ])
+
+/** The move the question printed beside the answer asks about. */
+const SHOCK = [{ asset: 'ETH', pct: d('-0.2') }]
 
 const page = readFileSync(PAGE, 'utf8')
 const shows = (text: string) => page.includes(text)
+
+/**
+ * The two blocks of the page that quote the tool: the command transcript and
+ * the answer to a question asked in plain English. Read separately rather than
+ * as one span, because the prose and the panel between them are full of lengths
+ * and sizes that look exactly like figures.
+ */
+const QUOTED = [
+  page.slice(page.indexOf('ASSET'), page.indexOf('</Session>')),
+  page.slice(page.indexOf('<Ask'), page.indexOf('</Ask>')),
+]
 
 describe('the published example', () => {
   test('nets the same figure the engine does', () => {
@@ -90,18 +118,58 @@ describe('the published example', () => {
     expect(row).toContain(pct(aave!.move!))
   })
 
+  test('holds back the line the transcript would hold back', () => {
+    // PREVIEW_ROWS in src/ui/app.tsx is twelve: the table's header, its rule, a
+    // row per asset and the blank before the total come to exactly that, so the
+    // total is the one line ctrl+o has to reveal. The page draws that swap in
+    // place, one row either way, and an asset more or fewer here would publish a
+    // split the tool would never make.
+    const table = page.indexOf('{`ASSET')
+    const shown = page.slice(table, page.indexOf('`}', table))
+    expect(shown.split('\n').length - 1).toBe(2 + netExposure(BOOK, PRICES).length + 1)
+
+    const total = portfolioValue(netExposure(BOOK, PRICES)).total
+    // Biome owns the quote character in the page; the claim here is the wrapper.
+    const anyQuote = (text: string) => text.replace(/['"]/g, '"')
+    expect(anyQuote(page)).toContain(anyQuote(`<Held>{"Net value  ${usd(total)}"}</Held>`))
+  })
+
+  test('answers the question above it with the scenario the engine runs', () => {
+    const result = scenario(BOOK, PRICES, SHOCK)
+    // Flattened: the answer is hand-wrapped to the frame, and where a line
+    // breaks is a layout decision rather than a claim about any figure.
+    const answer = QUOTED[1]!.replace(/\s+/g, ' ')
+    expect(answer).toContain(usd(result.after.total))
+    expect(answer).toContain(usd(result.change))
+    // "nothing liquidates" is the load-bearing half of that answer, and it is a
+    // claim about this book under this shock — not a safe thing to leave typed.
+    expect(result.liquidated).toEqual([])
+    expect(answer).toContain('nothing liquidates')
+  })
+
+  test('states the venue and position counts of this book', () => {
+    // The status line is the frame's claim about what is loaded behind the two
+    // answers above it, and it is the one line on the page not computed by a
+    // command whose output is quoted directly.
+    const venues = new Set(BOOK.map((p) => p.venue)).size
+    expect(shows(`${venues} venues  ·  ${BOOK.length} positions`)).toBe(true)
+  })
+
   test('publishes no real balance — every figure traces to this book', () => {
     // A number on the page that this book neither states nor produces is a real
     // holding somebody pasted in. CONTRIBUTING forbids exactly that, "including
     // test fixtures and pasted output", and the page is pasted output.
     const bare = (value: string) => value.replace(/[$,%+-]/g, '')
     const exposures = netExposure(BOOK, PRICES)
+    const shocked = scenario(BOOK, PRICES, SHOCK)
     const allowed = new Set(
       [
         // Computed here.
         ...exposures.flatMap((e) => [quantity(e.delta), usd(e.notional)]),
         ...whatBreaksFirst(BOOK, PRICES).map((r) => pct(r.move!)),
         usd(portfolioValue(exposures).total),
+        usd(shocked.after.total),
+        usd(shocked.change),
         // Stated by the book itself: a liquidation price and a health factor are
         // inputs the venue gave us, and the table prints them beside the move.
         ...BOOK.flatMap((p) => [
@@ -112,11 +180,11 @@ describe('the published example', () => {
       ].map(bare),
     )
 
-    const terminal = page.slice(page.indexOf('ASSET'), page.indexOf('</Terminal>'))
-    const figures = terminal.match(/\d[\d,]*\.\d+/g) ?? []
+    const figures = QUOTED.flatMap((block) => block.match(/\d[\d,]*\.\d+/g) ?? [])
     expect(figures.length).toBeGreaterThan(5)
     for (const figure of figures) {
       expect({ figure, allowed: allowed.has(bare(figure)) }).toEqual({ figure, allowed: true })
     }
   })
 })
+

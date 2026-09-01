@@ -1,32 +1,12 @@
-import Link from 'next/link'
-import { Nav } from '@/components/Nav'
-import { Cmd, Terminal } from '@/components/Terminal'
-
-const VENUES = [
-  ['Wallet', 'Ethereum', 'ETH and ERC-20 holdings', 'a public address'],
-  ['Hyperliquid', '', 'perps with liquidation price, spot, margin', 'a public address'],
-  ['Aave v3', 'Ethereum', 'collateral, debt, health factor', 'a public address'],
-  ['Kraken', '', 'spot and staked balances', 'a query-only key'],
-  ['Binance', '', 'spot and futures', 'a read-only key'],
-  ['Coinbase Advanced', '', 'spot and held balances', 'a view-only CDP key'],
-  ['Stripe', '', 'balances per currency', 'a restricted key'],
-  ['Circle Mint', '', 'available and unsettled', 'a restricted key'],
-] as const
-
-const REFUSALS = [
-  ['Move your money', 'No code path can place an order. The build fails if one appears.'],
-  ['Ask for a seed phrase', 'On-chain reads take a public address. No field accepts a key.'],
-  ['Do arithmetic in the model', 'Deterministic code computes every figure. The model narrates.'],
-  ['Need a model at all', 'Every view has a command behind it. No key required.'],
-] as const
-
-const LIMITS = [
-  ['Kraken margin and open orders', 'not read'],
-  ['Aave', 'Ethereum only'],
-  ['Kraken, Binance, Coinbase, Stripe, Circle', 'not run against a live account'],
-  ['Assets the price source does not know', 'quantity shown, no notional'],
-  ['Alpine and other musl Linux', 'glibc builds only'],
-] as const
+import Image, { type StaticImageData } from 'next/image'
+import type { ReactNode } from 'react'
+import { Ask } from '@/components/Ask'
+import { Link } from '@/components/Link'
+import { Note } from '@/components/Note'
+import { Held, Prompt, Session } from '@/components/Session'
+import aaveMark from '@/public/venues/aave.png'
+import hyperliquidMark from '@/public/venues/hyperliquid.png'
+import krakenMark from '@/public/venues/kraken.png'
 
 // The one book every figure on this page comes from. Synthetic on purpose: real
 // balances belong to a real person, and they go stale. src/site-example.test.ts
@@ -37,105 +17,119 @@ const SEEN = [
   ['aave', 'ETH collateral', '+4.64'],
 ] as const
 
+/**
+ * A venue's own mark, inline in a sentence. Height is per-venue because the two
+ * glyphs are different shapes — Aave's ghost is twice as wide as it is tall, so
+ * matching Hyperliquid's height would make it read as the larger of the two.
+ * `font-style` cannot reach an image, so the slant that matches the italic
+ * around it has to be a transform.
+ */
+function Mark({ src, venue, size }: { src: StaticImageData; venue: string; size: string }) {
+  return (
+    <Image
+      src={src}
+      alt={venue}
+      className={`mr-1.5 inline-block w-auto -skew-x-10 align-middle ${size}`}
+    />
+  )
+}
+
+/**
+ * The emphasis a paragraph runs on: a venue's name, the reader's, or the one
+ * word its argument turns on. Lifted off the body copy but short of `ink`,
+ * which is the heading's weight.
+ */
+function Named({ children }: { children: ReactNode }) {
+  return <em className="font-medium italic text-ink/75">{children}</em>
+}
+
 export default function Page() {
   return (
     <>
-      <Nav current="/" />
+      <section className="pt-9 pb-18">
+        <div className="wrap py-18">
+          <p className="eyebrow mb-6">
+            <Note term="Read-only">Only for the moment. Placing trades will come later.</Note>.
+            Non-custodial.
+          </p>
+          <h1 className="mb-5 max-w-[52rem] text-[clamp(2.1rem,5.2vw,3.4rem)] font-medium leading-[1.08] tracking-[-0.025em]">
+            <span className="block font-normal text-dim">
+              Every venue weighs only what it holds.
+            </span>
+            tula weighs what you hold.
+          </h1>
+          <p className="mb-8 max-w-[34rem] text-[1.05rem] italic text-dim">
+            Your true exposure, what breaks first, and more, across every venue at once.
+          </p>
+          <div className="mb-14 flex flex-wrap gap-3">
+            <Link className="btn btn-primary" href="/install">
+              Install
+            </Link>
+            <Link className="btn" href="/security">
+              Security model
+            </Link>
+          </div>
 
-      <section className="relative overflow-hidden border-b border-rule">
-        {/* A dot grid, so the empty half of the hero is a surface rather than a void. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-80 [background-image:radial-gradient(var(--color-rule)_1px,transparent_1px)] [background-size:22px_22px] [mask-image:radial-gradient(ellipse_80%_60%_at_70%_40%,#000_30%,transparent_75%)]"
-        />
-        <div className="wrap relative">
-          <div className="grid items-center gap-14 py-16 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-            <div>
-              <p className="eyebrow mb-6">Read-only. Non-custodial. Pre-alpha.</p>
-              <h1 className="mb-5 text-[clamp(2.1rem,5.2vw,3.4rem)] font-medium leading-[1.08] tracking-[-0.025em]">
-                <span className="block font-normal text-dim">
-                  Every venue weighs only what it holds.
-                </span>
-                Nothing weighs both sides.
-              </h1>
-              <p className="mb-8 max-w-[30rem] text-[1.05rem] text-dim">
-                Your real exposure, and what breaks first, across every venue at once.
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <Link className="btn btn-primary" href="/install">
-                  Install
-                </Link>
-                <Link className="btn" href="/security">
-                  Security model
-                </Link>
-              </div>
-            </div>
-
-            <Terminal title="tula">
-              <Cmd>$ tula exposure</Cmd>
-              {`
-
-ASSET   NET    NOTIONAL  VENUES                   AS OF
-─────  ────  ──────────  ───────────────────────  ──────
-ETH    6.64  $16,268.00  kraken hyperliquid aave  4s ago
-USDC   1200   $1,200.00  wallet                   4s ago
-USDT    480     $480.00  kraken                   4s ago
-
-Net value  $17,948.00
+          <Session status="4 venues  ·  11 positions  ·  09:14:02 (4s ago)  ·  commands only">
+            <Prompt>❯ /exposure</Prompt>
+            {`ASSET   NET    NOTIONAL  VENUES                   AS OF
+─────  ────  ──────────  ───────────────────────  ─────────────────
+ETH    6.64  $16,268.00  kraken hyperliquid aave  09:14:02 (4s ago)
+BTC    0.12   $8,160.00  kraken                   09:14:02 (4s ago)
+SOL      30   $4,350.00  kraken                   09:14:02 (4s ago)
+LINK    180   $2,556.00  wallet                   09:14:02 (4s ago)
+USDC   1200   $1,200.00  wallet                   09:14:02 (4s ago)
+ARB     900     $558.00  wallet                   09:14:02 (4s ago)
+USDT    480     $480.00  kraken                   09:14:02 (4s ago)
+OP      320     $464.00  wallet                   09:14:02 (4s ago)
+UNI      60     $438.00  wallet                   09:14:02 (4s ago)
 
 `}
-              <Cmd>$ tula breaks</Cmd>
-              {`
-
-VENUE        ASSET  MOVE TO LIQ  TRIGGER
-───────────  ─────  ───────────  ──────────────────
-aave         ETH         -27.0%  health factor 1.37
-hyperliquid  ETH         +39.3%  liq price 3412.00`}
-            </Terminal>
-          </div>
+            <Held>{'Net value  $34,474.00'}</Held>
+            <Prompt>❯ /breaks</Prompt>
+            {`VENUE        ASSET  KIND        MOVE TO LIQ  TRIGGER             AS OF
+───────────  ─────  ──────────  ───────────  ──────────────────  ─────────────────
+aave         ETH    collateral       -27.0%  health factor 1.37  09:14:02 (4s ago)
+hyperliquid  ETH    perp             +39.3%  liq price 3412.00   09:14:02 (4s ago)`}
+          </Session>
         </div>
       </section>
 
-      <section className="band">
+      {/* Every gap between sections is 13.5rem: each opens on pt-18 and its
+          predecessor's bottom padding makes up the rest. The hero reaches it
+          with pb-18 over an inner py-18. */}
+      <section className="pt-18 pb-36">
         <div className="wrap">
-          <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              ['8', 'venues'],
-              ['4', 'domains'],
-              ['3', 'need no credential'],
-              ['0', 'ways to move your money'],
-            ].map(([n, label], i) => (
-              <div
-                key={label}
-                className={`px-6 py-8 ${i > 0 ? 'border-t border-rule lg:border-l lg:border-t-0' : ''}`}
-              >
-                <dt className="font-mono text-[2.4rem] font-bold leading-none tracking-[-0.02em] text-accent">
-                  {n}
-                </dt>
-                <dd className="mt-2.5 text-[0.82rem] leading-snug text-dim">{label}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-      </section>
-
-      <section className="band py-18">
-        <div className="wrap">
-          <p className="label mb-5">
-            <span className="text-accent-dim">01</span> The gap
-          </p>
+          <p className="label mb-8">The gap it fills</p>
           <div className="grid min-w-0 items-start gap-14 lg:grid-cols-2">
             <div>
               <h2 className="mb-4 text-[clamp(1.4rem,3vw,1.85rem)] font-medium leading-tight tracking-[-0.02em]">
-                No venue will ever build this.
+                No venue sees the whole position.
               </h2>
               <p className="text-dim">
-                Kraken sees Kraken. Aave sees a health factor and nothing either side of it.
-                Aggregating across competitors is against every venue&apos;s interest.
+                <Named>
+                  <Mark src={krakenMark} venue="Kraken" size="h-[0.78em]" />
+                  Kraken
+                </Named>{' '}
+                sees spot ETH and calls it a balance.{' '}
+                <Named>
+                  <Mark src={hyperliquidMark} venue="Hyperliquid" size="h-[0.8em]" />
+                  Hyperliquid
+                </Named>{' '}
+                sees a perp and its liquidation price.{' '}
+                <Named>
+                  <Mark src={aaveMark} venue="Aave" size="h-[0.65em]" />
+                  Aave
+                </Named>{' '}
+                sees a health factor and nothing either side of it.
+              </p>
+              <p className="mt-4 text-dim">
+                Each one is right about its own share, but <Named>your</Named> true exposure only
+                appears once all three are read together.
               </p>
             </div>
 
-            <div className="overflow-hidden rounded border border-rule bg-panel">
+            <div className="overflow-hidden rounded border border-rule bg-panel shadow-lift">
               <p className="border-b border-rule px-4 py-3 font-mono text-[0.68rem] uppercase tracking-[0.14em] text-faint">
                 One asset, three venues
               </p>
@@ -162,80 +156,32 @@ hyperliquid  ETH         +39.3%  liq price 3412.00`}
         </div>
       </section>
 
-      <section className="band py-18">
+      <section className="pt-18 pb-54">
         <div className="wrap">
-          <p className="label mb-5">
-            <span className="text-accent-dim">02</span> What it reads
-          </p>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[34rem] border-collapse text-[0.89rem]">
-              <thead>
-                <tr>
-                  {['Venue', 'Reads', 'Needs'].map((h) => (
-                    <th
-                      key={h}
-                      className="border-b border-rule px-3 py-2.5 text-left font-mono text-[0.68rem] font-normal uppercase tracking-[0.12em] text-faint"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {VENUES.map(([name, chain, reads, needs]) => (
-                  <tr key={name}>
-                    <td className="border-b border-rule px-3 py-2.5 align-top">
-                      <strong className="font-semibold text-ink">{name}</strong>
-                      {chain ? <span className="text-dim"> {chain}</span> : null}
-                    </td>
-                    <td className="border-b border-rule px-3 py-2.5 align-top text-dim">{reads}</td>
-                    <td className="border-b border-rule px-3 py-2.5 align-top text-dim">{needs}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <p className="label mb-8">Plain English</p>
+          {/* The frame runs the full column rather than half of it, so the
+              answer wraps where a terminal would. Half a column is narrower
+              than any terminal anybody reads this in, and hand-wrapping to it
+              would publish a picture of a width the tool never renders at. */}
+          <div className="mb-12 max-w-[42rem]">
+            <h2 className="mb-4 text-[clamp(1.4rem,3vw,1.85rem)] font-medium leading-tight tracking-[-0.02em]">
+              You can just ask.
+            </h2>
+            <p className="text-dim">Type a question instead of a command, and tula answers it.</p>
+            <p className="mt-4 text-dim">
+              Connect a model, and it answers in plain English. Every command still works without
+              one.
+            </p>
           </div>
-          <p className="mt-5 text-[0.9rem] text-faint">
-            Priced by CoinGecko, CoinMarketCap, CryptoCompare or CoinPaprika — one at a time.
-          </p>
-        </div>
-      </section>
 
-      <section className="band py-18">
-        <div className="wrap">
-          <p className="label mb-5">
-            <span className="text-accent-dim">03</span> What it does not do
-          </p>
-          <div className="grid gap-px overflow-hidden rounded border border-rule bg-rule sm:grid-cols-2 lg:grid-cols-4">
-            {REFUSALS.map(([title, body]) => (
-              <div key={title} className="bg-bg px-5 py-5">
-                <h3 className="mb-1.5 text-[0.95rem] font-semibold text-ink">{title}</h3>
-                <p className="text-[0.88rem] leading-relaxed text-dim">{body}</p>
-              </div>
-            ))}
-          </div>
-          <p className="mt-6">
-            <Link href="/security">How each one is enforced</Link>
-          </p>
-        </div>
-      </section>
+          <Ask question="what's my real ETH exposure, and what breaks first if ETH drops 20%?">
+            {`Net long 6.64 ETH, $16,268.00 across kraken, hyperliquid and aave, as of
+09:14:02 (4s ago).
 
-      <section className="band py-18">
-        <div className="wrap">
-          <p className="label mb-5">
-            <span className="text-accent-dim">04</span> What it does not read yet
-          </p>
-          <dl className="max-w-[46rem]">
-            {LIMITS.map(([claim, state]) => (
-              <div
-                key={claim}
-                className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 border-b border-rule-soft py-3 last:border-b-0"
-              >
-                <dt className="text-ink">{claim}</dt>
-                <dd className="font-mono text-[0.8rem] text-faint">{state}</dd>
-              </div>
-            ))}
-          </dl>
+A 20% fall takes the book to $31,220.40, a change of -$3,253.60, and
+nothing liquidates. Aave is nearest: a health factor of 1.37 breaks at
+-27.0%. The hyperliquid short breaks the other way, +39.3%.`}
+          </Ask>
         </div>
       </section>
     </>

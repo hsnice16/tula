@@ -34,9 +34,9 @@ if grep -rniE "\\b(demo|dummy|fake|toy|playground|just a test|for now)\\b" src -
   report "language that reads as a toy project is in shipped source"
 fi
 # The site's own source only: node_modules and .next are dependencies and build
-# output, and the changelog's job is to record that the fixture was removed —
-# that history is the rule being kept, not broken. It is read from CHANGELOG.md
-# at build time and never lives in these files.
+# output. The changelog is excluded because its job is to record that the
+# fixture was removed — that history is the rule being kept, not broken — and it
+# is read on GitHub, never rendered into these files.
 if [ -d site/app ] && grep -rniE "\\b(demo|dummy|fake|toy|playground|just a test|for now)\\b" \
      site/app site/components site/lib; then
   report "language that reads as a toy project is on the site"
@@ -91,6 +91,14 @@ grep -q "\"homepage\": \"$site_url\"" package.json ||
 # 404s on the deployed project site — the one place nobody tests.
 if grep -rn '<a href="/' site/app site/components --include='*.tsx' 2>/dev/null; then
   report "an internal link bypasses basePath; use <Link> instead"
+fi
+
+# components/Link is where every internal route turns Next's own scroll reset
+# off, so that ScrollToTop has a scroll left to animate. Importing next/link
+# anywhere else takes the jump back without saying so.
+if grep -rnE "from ['\"]next/link['\"]" site/app site/components --include='*.tsx' 2>/dev/null |
+     grep -v '^site/components/Link.tsx:'; then
+  report "an internal link bypasses components/Link; the page would jump to the top"
 fi
 
 repo_url=$(grep -m1 'REPO_URL' src/version.ts | sed "s/.*'\([^']*\)'.*/\1/")

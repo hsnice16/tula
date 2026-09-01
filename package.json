@@ -1,7 +1,7 @@
 {
   "name": "@tula/cli",
   "version": "0.3.0",
-  "description": "See your true exposure across every venue you trade on.",
+  "description": "Your true exposure, what breaks first, and more, across every venue at once.",
   "license": "MIT",
   "type": "module",
   "bin": {

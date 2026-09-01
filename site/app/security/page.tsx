@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
-import { Nav } from '@/components/Nav'
+import { Ext } from '@/components/Ext'
+import { Link } from '@/components/Link'
 import { REPO } from '@/lib/site'
 
 export const metadata: Metadata = {
@@ -49,60 +49,57 @@ const NOTES = [
 
 export default function Page() {
   return (
-    <>
-      <Nav current="/security" />
-      <main className="wrap py-16">
-        <h1 className="mb-5 text-[clamp(2rem,4.5vw,2.8rem)] font-medium tracking-[-0.025em]">
-          Security model
-        </h1>
-        <p className="mb-8 max-w-[42rem] text-[1.08rem] text-dim">
-          Read-only and non-custodial. That removes theft, not data risk: it builds one view of an
-          entire cross-venue net worth.
+    <main className="wrap py-16">
+      <h1 className="mb-5 text-[clamp(2rem,4.5vw,2.8rem)] font-medium tracking-[-0.025em]">
+        Security model
+      </h1>
+      <p className="mb-8 max-w-[42rem] text-[1.08rem] text-dim">
+        Read-only and non-custodial. That removes theft, not data risk: it builds one view of an
+        entire cross-venue net worth.
+      </p>
+
+      <div className="mb-14 max-w-[46rem] rounded-r border border-l-2 border-rule border-l-accent-dim bg-panel px-5 py-4">
+        <p>
+          <strong className="font-semibold text-white">This page is canonical.</strong> tula comes
+          from <Ext href={REPO}>github.com/hsnice16/tula</Ext> and{' '}
+          <Link href="/install">its install page</Link>, nowhere else. Anything{' '}
+          <code className="font-mono text-[0.86rem] text-notice">gh attestation verify</code>{' '}
+          rejects did not come from this project.
         </p>
+      </div>
 
-        <div className="mb-14 max-w-[46rem] rounded-r border border-l-2 border-rule border-l-accent-dim bg-panel px-5 py-4">
-          <p>
-            <strong className="font-semibold text-white">This page is canonical.</strong> tula comes
-            from <a href={REPO}>github.com/hsnice16/tula</a> and{' '}
-            <Link href="/install">its install page</Link>, nowhere else. Anything{' '}
-            <code className="font-mono text-[0.86rem] text-notice">gh attestation verify</code>{' '}
-            rejects did not come from this project.
-          </p>
-        </div>
+      <p className="label mb-6">
+        <span className="text-accent-dim">01</span> Promises, and what enforces them
+      </p>
+      <dl className="mb-16 max-w-[52rem]">
+        {PROMISES.map(([promise, enforced]) => (
+          <div
+            key={promise}
+            className="flex flex-wrap items-baseline justify-between gap-x-8 gap-y-1 border-b border-rule-soft py-3.5 last:border-b-0"
+          >
+            <dt className="text-ink">{promise}</dt>
+            <dd className="font-mono text-[0.78rem] text-faint">{enforced}</dd>
+          </div>
+        ))}
+      </dl>
 
-        <p className="label mb-6">
-          <span className="text-accent-dim">01</span> Promises, and what enforces them
-        </p>
-        <dl className="mb-16 max-w-[52rem]">
-          {PROMISES.map(([promise, enforced]) => (
-            <div
-              key={promise}
-              className="flex flex-wrap items-baseline justify-between gap-x-8 gap-y-1 border-b border-rule-soft py-3.5 last:border-b-0"
-            >
-              <dt className="text-ink">{promise}</dt>
-              <dd className="font-mono text-[0.78rem] text-faint">{enforced}</dd>
-            </div>
-          ))}
-        </dl>
+      <div className="grid gap-px overflow-hidden rounded border border-rule bg-rule md:grid-cols-2">
+        {NOTES.map(([title, body], i) => (
+          // An odd count leaves a visible empty cell; the last one takes the row.
+          <div
+            key={title}
+            className={`bg-bg px-5 py-5 ${i === NOTES.length - 1 && NOTES.length % 2 ? 'md:col-span-2' : ''}`}
+          >
+            <h2 className="mb-2 text-[0.95rem] font-semibold text-ink">{title}</h2>
+            <p className="text-[0.88rem] leading-relaxed text-dim">{body}</p>
+          </div>
+        ))}
+      </div>
 
-        <div className="grid gap-px overflow-hidden rounded border border-rule bg-rule md:grid-cols-2">
-          {NOTES.map(([title, body], i) => (
-            // An odd count leaves a visible empty cell; the last one takes the row.
-            <div
-              key={title}
-              className={`bg-bg px-5 py-5 ${i === NOTES.length - 1 && NOTES.length % 2 ? 'md:col-span-2' : ''}`}
-            >
-              <h2 className="mb-2 text-[0.95rem] font-semibold text-ink">{title}</h2>
-              <p className="text-[0.88rem] leading-relaxed text-dim">{body}</p>
-            </div>
-          ))}
-        </div>
-
-        <p className="mt-10 text-dim">
-          Report a vulnerability in <a href={`${REPO}/blob/main/SECURITY.md`}>SECURITY.md</a>. Not
-          as a public issue.
-        </p>
-      </main>
-    </>
+      <p className="mt-10 text-dim">
+        Report a vulnerability in <Ext href={`${REPO}/blob/main/SECURITY.md`}>SECURITY.md</Ext>. Not
+        as a public issue.
+      </p>
+    </main>
   )
 }

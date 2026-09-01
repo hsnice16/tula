@@ -15,7 +15,7 @@ import { buildOracle } from './prices/providers.js'
 import { runApp } from './ui/run.js'
 import { envApiKey } from './agent/agent.js'
 import * as secrets from './secrets/store.js'
-import { APP_VERSION } from './version.js'
+import { APP_DESCRIPTION, APP_VERSION } from './version.js'
 
 // The three that need only a public address come first: they are the cheapest
 // thing a new user can safely connect. The menu sorts alphabetically; this order
@@ -95,7 +95,7 @@ async function connect(venueId: string | undefined): Promise<void> {
 
 function usage(): string {
   return [
-    `tula ${APP_VERSION} — see your true exposure across every venue you trade on.`,
+    `tula ${APP_VERSION} — ${APP_DESCRIPTION}`,
     '',
     '  tula                    open the shell — ask questions or use /commands',
     '  tula connect <venue>    connect a venue with a read-only key',

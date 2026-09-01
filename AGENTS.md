@@ -372,7 +372,7 @@ imported by `site/`.
 
 ```bash
 cd site && bun install     # node 22 on PATH; see the environment note below
-bun run dev                # local, no basePath surprises
+bun run dev                # http://localhost:3000/tula/ — basePath applies here too
 bun run build              # -> site/out, static
 ```
 
@@ -383,21 +383,30 @@ bun run build              # -> site/out, static
   `/<repo>/`. A custom apex domain later drops it and adds `public/CNAME`
   instead. `public/.nojekyll` is required or Pages' Jekyll step drops `_next/`
   and the site loads unstyled.
-- **Internal links use `<Link>`, never a raw `<a href="/...">`.** Next applies
-  `basePath` to the first and not the second, so a raw anchor 404s in production
-  while working perfectly in `next dev`.
+- **Internal links use `<Link>` from `components/Link`, never `next/link` and
+  never a raw `<a href="/...">`.** Next applies `basePath` to a `<Link>` and not
+  to a raw anchor, so the anchor points outside the site and 404s — in `next dev`
+  as well as in production, since `basePath` is not a production-only setting. The wrapper adds `scroll={false}`: Next's own reset puts the new
+  page at the top in the frame it renders, and `components/Scroll` is what walks
+  the reader up there instead — it cannot animate a jump already taken.
+  `guard.sh` fails on both a raw anchor and a direct `next/link` import.
+- **Off-site links use `<Ext>`, never a raw `<a>`.** It carries the `_blank`
+  target every external link on the site opens with, and the `rel` that keeps the
+  opened page from reaching back through `window.opener`. Between the two rules
+  no page should contain a bare anchor at all.
 - `install.sh` lives at the repository root, where CI tests it, and the Pages
   workflow copies it into `public/` at build time. `site/public/install.sh` is
   generated and gitignored — two copies of a script people pipe into a shell is
   one copy too many.
 - `agentRules: false` in `next.config.ts`: `next dev` otherwise writes a second
   AGENTS.md and CLAUDE.md under `site/`, and this file is the only one.
-- **The changelog and roadmap pages are not written, they are read.**
-  `app/changelog` renders `CHANGELOG.md`; `app/roadmap` renders `ROADMAP.md` plus
-  every `**Status**:` line under `tasks/`. A status on the site is therefore the
-  status in the repository, and cannot drift. `lib/markdown.ts` covers only the
-  markdown subset those two files use — a markdown dependency would not earn its
-  place.
+- **The changelog and the roadmap are not on the site.** `CHANGELOG.md`,
+  `ROADMAP.md` and `tasks/` are read where they are written, on GitHub. They had
+  been rendered at build time, which kept them honest but meant every status edit
+  redeployed the site; the repository is the one place they can be edited and
+  read as the same file. Nothing under `site/` may reach up to the repository
+  root for content again — `lib/content.ts` and `lib/markdown.ts` existed only
+  for those pages and are gone with them.
 - `scripts/guard.sh` holds `site/app`, `site/components` and `site/lib` to the
   same language rule as `src/`.
 - **English only**, here and in the README: the name is described as taken from
@@ -405,11 +414,56 @@ bun run build              # -> site/out, static
   font or script. The wordmark and the etymology line are gone from the site. The
   name's origin belongs in `README.md`, not in front of someone deciding whether
   to trust a binary.
+- **Five client component files, and each one earns it by needing something
+  CSS cannot read.** `Session.tsx` draws the front page's frame and works `/`,
+  ctrl+k and ctrl+o on a loop because a transcript cannot show a keystroke —
+  every state it passes through is one the binary draws, in the binary's own
+  palette (`src/ui/theme.ts`, not the site tokens). `Ask.tsx` runs the same
+  frame through a question: the spinner row is overwritten as it works and then
+  replaced by the answer, so a still frame is the one picture of tula answering
+  that cannot contain it. That row is `activity` in `src/ui/app.tsx`, not the
+  status line under it, which goes on saying what is loaded throughout. It
+  shows `thinking` and one tool label and no more —
+  the model asks for its tools in a single turn and `src/agent/agent.ts` runs
+  that batch synchronously, so every label but the last is overwritten before
+  Ink paints. It rests on the answer rather than on the work, because that is
+  the state a reader who has turned motion off is left with.
+  `Note.tsx` leans its card toward the pointer.
+  `Nav.tsx` measures where the active item sits so one underline can travel
+  between them. `Scroll.tsx` scrolls the next page to the top, and sits out a
+  back or forward, where the reader is returning to a place they already had;
+  it also holds the back-to-top button, which rides above the footer rather
+  than over it — the moment somebody most wants that button is the moment they
+  have reached the site's other set of links, so the footer's visible height is
+  measured and the button lifted by it.
+- **The header is rendered by `app/layout.tsx`, not by each page.** A `<Nav>` per
+  page is a new one per route change, and an underline that remounts cannot
+  travel from where it was.
+- **Every number the front page states is pinned by `src/site-example.test.ts`.**
+  Both blocks that quote the tool — the command transcript and the answer to
+  the plain-English question — are recomputed from one synthetic book, the
+  scenario included, down to the claim that nothing liquidates under it. They
+  are scanned separately: the prose and panels between them are full of lengths
+  and sizes that a figure test cannot tell from figures. The page is read as
+  text, never imported: the two dependency trees must not meet.
+- **The overview names no model vendor.** "Connect a model", not the one the
+  binary happens to send to today. A second provider then costs no copy edit,
+  and the page never has to carry a "more coming soon" — a hedge on the page
+  somebody is using to decide whether to trust a binary costs more than it
+  buys. Two pages name Anthropic and both need to: the security page, because
+  egress is where the reader needs the specific destination, and the install
+  page, because `ANTHROPIC_API_KEY` is a variable somebody has to type.
 - **The site is not the README.** Prose is the last resort: a table, a labelled
   list or the tool's own output says it in fewer words and is scannable. The
-  overview page runs about 330 words and should not grow. `/changelog` and
-  `/roadmap` are the exception — they are generated, and trimming them would
-  misreport what shipped.
+  overview page runs about 130 words of prose — headings and paragraphs, not
+  the terminal frames or the panel — and should not grow.
+- **The overview makes two arguments and no more**: no venue sees the whole
+  position, and you can ask about it in plain English. Each shows rather than
+  says — three venues each holding part of one asset, and tula answering the
+  README's own question. The first is a two-column row, because a four-row
+  table does not want the page's full width; the second puts its prose above a
+  frame that takes all of it, because half a column is narrower than any
+  terminal it would be read in. A third argument belongs on its own page.
 
 ## Distribution
 

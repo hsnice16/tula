@@ -2,7 +2,7 @@ import { Box, Text, useInput } from 'ink'
 import { useEffect, useState } from 'react'
 import { hasAmbientCredentials } from '../agent/agent.js'
 import { startSignIn } from '../agent/signin.js'
-import { APP_VERSION } from '../version.js'
+import { APP_DESCRIPTION, APP_VERSION } from '../version.js'
 import { theme } from './theme.js'
 
 interface Props {
@@ -97,7 +97,7 @@ export function Onboarding({ onDone }: Props) {
         <Text bold color={theme.accent}>
           {`tula ${APP_VERSION}`}
         </Text>
-        <Text dimColor>See your true exposure across every venue you trade on.</Text>
+        <Text dimColor>{APP_DESCRIPTION}</Text>
       </Box>
 
       <Box marginTop={1} flexDirection="column">

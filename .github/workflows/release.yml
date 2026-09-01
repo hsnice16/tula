@@ -201,7 +201,7 @@ jobs:
             echo "gh attestation verify tula-v$VERSION-darwin-arm64.tar.gz --repo $GITHUB_REPOSITORY"
             echo '```'
             echo
-            echo "Changelog: $site/changelog/"
+            echo "Changelog: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/v$VERSION/CHANGELOG.md"
           } >"$notes"
           gh release create "v$VERSION" dist/release/* \
             --title "tula v$VERSION" \

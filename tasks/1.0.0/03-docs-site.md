@@ -8,11 +8,11 @@ A canonical origin a user can check before trusting a binary.
 
 ## Acceptance
 
-- Install, connect, and the security model, each on one page.
+- An overview, install and the security model, each on one page. Connecting is
+  part of install, not a fourth page.
 - A canonical page users can check before trusting a binary - impersonation defence.
 - The install script is served from the documented origin only.
-- Changelog and roadmap are read from `CHANGELOG.md` and `tasks/` at build time,
-  never transcribed.
+- The changelog and the roadmap are not published — they stay in the repository.
 
 ## Notes
 
@@ -40,3 +40,8 @@ says a `curl | sh` claiming to be tula did not come from this project. A docs si
 describing an install path that does not exist is an impersonation surface, not a
 convenience. `scripts/guard.sh` now holds `site/` to the same language rule as
 `src/`.
+
+The site did render `/changelog` and `/roadmap` from `CHANGELOG.md`, `ROADMAP.md`
+and the `**Status**:` lines under `tasks/`, which made drift impossible but tied
+every status edit to a Pages deploy. They were dropped rather than transcribed:
+GitHub already renders those files at the place they are edited.
