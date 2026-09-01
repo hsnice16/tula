@@ -318,6 +318,92 @@ test('narrowing with the command menu open', async () => {
   }
 })
 
+/**
+ * ctrl+k used to fill the viewport with a panel and nothing else, which pushed
+ * the transcript over the top of the screen — where nothing can hand it back.
+ * Closing left the status line alone on a blank screen, and the answer you
+ * opened the search from was gone for good.
+ */
+test('ctrl+k floats over the transcript, and closing puts the screen back', async () => {
+  const screen = await open(120, 24)
+  try {
+    await screen.press('/help\r')
+    const asked = () => screen.visible().some((row) => row.includes('❯ /help'))
+    const answered = () => screen.visible().some((row) => row.includes('your book'))
+    expect([asked(), answered()]).toEqual([true, true])
+
+    await screen.press('\x0b')
+    // The dialog is a box with rows of transcript still standing either side of
+    // it — which is the whole claim, and the one a full-height panel fails.
+    const framed = screen.visible().filter((row) => row.includes('│'))
+    expect(framed.length).toBeGreaterThan(8)
+    expect(framed.some((row) => /\S\s+│/.test(row))).toBe(true)
+    expect([asked(), answered()]).toEqual([true, true])
+    expect(screen.visible().filter(isStatus)).toHaveLength(1)
+    // Nothing above the fold: the frame grew into a cleared screen rather than
+    // scrolling to make room, so the backdrop cannot be scrolled off or behind.
+    expect(screen.rows()).toHaveLength(24)
+
+    await screen.press('\x1b')
+    expect(screen.visible().some((row) => row.includes('│'))).toBe(false)
+    expect([asked(), answered()]).toEqual([true, true])
+    expectOneInputBox(screen)
+  } finally {
+    screen.stop()
+  }
+})
+
+/**
+ * The overlay is a copy of the screen with the dialog written over it, and the
+ * real transcript is <Static> — emitted once. Every open scrolls that copy in
+ * and every close makes Ink reprint what <Static> holds, so a leak here is one
+ * more transcript in the buffer per press, growing without bound.
+ */
+test('opening and closing the palette does not stack copies of the transcript', async () => {
+  const screen = await open(120, 24)
+  try {
+    const written = () => screen.rows().filter((row) => row.includes('Type / for commands')).length
+    for (let at = 0; at < 4; at++) await screen.press('/help\r')
+    expect(written()).toBe(4)
+    for (let at = 0; at < 5; at++) {
+      await screen.press('\x0b')
+      await screen.press('\x1b')
+    }
+    expect(written()).toBe(4)
+    expectOneFrame(screen)
+  } finally {
+    screen.stop()
+  }
+})
+
+/**
+ * The copy is what the dialog is laid over, so it has to reach the line you were
+ * typing on. Cut to whole entries it stopped up to an entry short, leaving a
+ * band of blank rows exactly where the real screen has transcript.
+ */
+test('the backdrop behind the palette reaches the input box', async () => {
+  const screen = await open(120, 30)
+  try {
+    for (let at = 0; at < 5; at++) await screen.press('/help\r')
+    await screen.press('\x0b')
+    const rows = screen.visible()
+    const rule = rows.findIndex(isRule)
+    expect(rule).toBeGreaterThan(0)
+    // Every row above the input box is transcript, and the dialog sits in the
+    // middle of them: a blank run here is the copy falling short of the frame.
+    let run = 0
+    let longest = 0
+    for (const row of rows.slice(0, rule)) {
+      run = row.trim() ? 0 : run + 1
+      longest = Math.max(longest, run)
+    }
+    if (longest > 1) dump(screen)
+    expect(longest).toBeLessThanOrEqual(1)
+  } finally {
+    screen.stop()
+  }
+})
+
 test('narrowing with a panel open, then closing it', async () => {
   const screen = await open(195, 33)
   try {

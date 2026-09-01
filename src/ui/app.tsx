@@ -33,7 +33,7 @@ import {
 import { freshness, holdings } from '../core/format.js'
 import { typed } from './keys.js'
 import { Onboarding } from './Onboarding.js'
-import { Palette } from './Palette.js'
+import { FRAME_ROWS, Palette } from './Palette.js'
 import { clearForRedraw } from './resize.js'
 import { SlashMenu, type MenuItem } from './SlashMenu.js'
 import { InputLine } from './TextInput.js'
@@ -63,11 +63,19 @@ const REDRAW_SETTLE_MS = 50
 /** Drawn at, and subtracted from, the width an output block wraps against. */
 const OUTPUT_INDENT = 3
 
-/** What of an entry the transcript shows, and how much it is holding back. */
-function preview(text: string, width: number): { text: string; hidden: number } {
+/** What of an entry the transcript shows, the rows that takes, and what it holds back. */
+function preview(
+  text: string,
+  width: number,
+  expanded: boolean,
+): { text: string; rows: number; hidden: number } {
   const rows = wrapLines(text, width)
-  if (rows.length <= PREVIEW_ROWS) return { text, hidden: 0 }
-  return { text: rows.slice(0, PREVIEW_ROWS).join('\n'), hidden: rows.length - PREVIEW_ROWS }
+  if (expanded || rows.length <= PREVIEW_ROWS) return { text, rows: rows.length, hidden: 0 }
+  return {
+    text: rows.slice(0, PREVIEW_ROWS).join('\n'),
+    rows: PREVIEW_ROWS,
+    hidden: rows.length - PREVIEW_ROWS,
+  }
 }
 
 /**
@@ -90,11 +98,11 @@ function loadLabel(step: LoadStep): string {
     : `pricing ${step.assets} asset${step.assets === 1 ? '' : 's'}`
 }
 
-function Line({ kind, text }: { kind: EntryKind; text: string }) {
-  if (kind === 'prompt') return <Text color={theme.accent}>{text}</Text>
-  if (kind === 'error') return <Text color={theme.danger}>{text}</Text>
-  if (kind === 'notice') return <Text color={theme.notice}>{text}</Text>
-  return <Text>{text}</Text>
+function Line({ kind, text, dim }: { kind: EntryKind; text: string; dim: boolean }) {
+  if (kind === 'prompt') return <Text color={theme.accent} dimColor={dim}>{text}</Text>
+  if (kind === 'error') return <Text color={theme.danger} dimColor={dim}>{text}</Text>
+  if (kind === 'notice') return <Text color={theme.notice} dimColor={dim}>{text}</Text>
+  return <Text dimColor={dim}>{text}</Text>
 }
 
 function Output({
@@ -102,22 +110,105 @@ function Output({
   text,
   width,
   expanded,
+  dim,
+  trimTop,
 }: {
   kind: EntryKind
   text: string
   width: number
   expanded: boolean
+  dim: boolean
+  trimTop: number
 }) {
-  const { text: shown, hidden } = expanded ? { text, hidden: 0 } : preview(text, width)
+  const { text: shown, hidden } = preview(text, width, expanded)
+  const cut = trimTop > 0 ? wrapLines(shown, width).slice(trimTop).join('\n') : shown
   return (
     <Box marginBottom={1} paddingLeft={OUTPUT_INDENT} flexDirection="column">
-      <Line kind={kind} text={shown} />
+      <Line kind={kind} text={cut} dim={dim} />
       {hidden > 0 && (
         // The way out belongs where the dead end is, not in a help screen.
         <Text dimColor>{`… ${hidden} more line${hidden === 1 ? '' : 's'} · ctrl+o`}</Text>
       )}
     </Box>
   )
+}
+
+/**
+ * One entry, drawn identically whether it is going into scrollback or being
+ * copied back onto the screen behind the palette. Two renderers would drift.
+ */
+function TranscriptEntry({
+  entry,
+  frameWidth,
+  bodyWidth,
+  expanded,
+  dim = false,
+  trimTop = 0,
+}: {
+  entry: Entry
+  frameWidth: number
+  bodyWidth: number
+  expanded: boolean
+  /** Set for the copy behind the palette, which is a backdrop rather than the thing being read. */
+  dim?: boolean
+  /** Leading rows the top of the screen has already cut off. */
+  trimTop?: number
+}) {
+  // The line you asked for is a block, so a long transcript reads as a sequence
+  // of questions rather than an undifferentiated wall.
+  if (entry.kind === 'prompt') {
+    return (
+      <Box marginBottom={1} width={frameWidth} backgroundColor={theme.surface} paddingX={1}>
+        <Text color={theme.accent} dimColor={dim}>
+          {entry.text}
+        </Text>
+      </Box>
+    )
+  }
+  return (
+    <Output
+      kind={entry.kind}
+      text={entry.text}
+      width={bodyWidth}
+      expanded={expanded}
+      dim={dim}
+      trimTop={trimTop}
+    />
+  )
+}
+
+/** What `TranscriptEntry` will occupy, so the copy can be cut to the rows it has. */
+function entryRows(entry: Entry, width: number, expanded: boolean): number {
+  if (entry.kind === 'prompt') return 2
+  const { rows, hidden } = preview(entry.text, width, expanded)
+  return rows + (hidden > 0 ? 1 : 0) + 1
+}
+
+/**
+ * The last entries that fit, with the one that overruns cut to the rows it has
+ * left — which is what the top of a scrolled screen looks like. Cutting here
+ * rather than clipping the box is the only version that is exact: Yoga overflows
+ * a bottom-aligned column downwards, so the rows lost are the newest, not the
+ * oldest, and every write after the first lands on the one before it.
+ */
+function transcriptTail(entries: Entry[], budget: number, width: number, expanded: boolean) {
+  const tail: { entry: Entry; trimTop: number }[] = []
+  let used = 0
+  for (let at = entries.length - 1; at >= 0; at--) {
+    const entry = entries[at]
+    if (!entry) break
+    const height = entryRows(entry, width, expanded)
+    if (used + height > budget) {
+      // Under two rows only the margin is left to draw. A prompt is a block,
+      // and half of one reads as broken rather than as scrolled past.
+      const room = budget - used
+      if (entry.kind !== 'prompt' && room > 1) tail.unshift({ entry, trimTop: height - room })
+      break
+    }
+    used += height
+    tail.unshift({ entry, trimTop: 0 })
+  }
+  return tail
 }
 
 type Menu = { items: MenuItem[]; prefix: string; heading?: string } & (
@@ -528,7 +619,7 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
   const truncated = useMemo(
     () =>
       entries.some(
-        (e) => e.kind !== 'prompt' && wrapLines(e.text, bodyWidth).length > PREVIEW_ROWS,
+        (e) => e.kind !== 'prompt' && preview(e.text, bodyWidth, false).hidden > 0,
       ),
     [entries, bodyWidth],
   )
@@ -548,6 +639,10 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
   // and one more row of it while the expanded hint is up.
   const menuRows = Math.max(4, Math.min(rows - 8 - (expanded ? 1 : 0), menu?.total ?? 0))
 
+  // What the copy behind the dialog has left once the frame under it is drawn,
+  // plus the row the ctrl+o hint adds to the status line while it is up.
+  const backdropRows = Math.max(0, rows - FRAME_ROWS - (expanded ? 1 : 0))
+
   const toggleExpanded = useCallback(() => {
     setExpanded((on) => !on)
     if (!truncated || !stdout) return
@@ -557,6 +652,18 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
     clearForRedraw(stdout)
     setGeneration((at) => at + 1)
   }, [truncated, stdout])
+
+  /**
+   * The frame is about to grow from a few rows to the whole viewport, and a
+   * terminal makes that room by scrolling: the transcript slides up under the
+   * dialog, and the copy that goes over the top stays there to be scrolled back
+   * into. Clearing first lands the frame on an empty screen at exactly its own
+   * height — nothing moves, and there is nothing behind it to scroll to.
+   */
+  const openPalette = useCallback(() => {
+    if (stdout) clearForRedraw(stdout)
+    setPalette({ query: input.replace(/^\//, ''), index: 0 })
+  }, [stdout, input])
 
   const runFromPalette = useCallback(
     (entry: PaletteEntry, fill: boolean) => {
@@ -591,7 +698,8 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
       // Seeded from the line, so a half-typed command becomes the search
       // rather than something to close the palette and go back to.
       if (key.ctrl && ch === 'k') {
-        return setPalette((p) => (p ? null : { query: input.replace(/^\//, ''), index: 0 }))
+        if (palette) return setPalette(null)
+        return openPalette()
       }
 
       if (palette) {
@@ -724,32 +832,57 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
     .filter((c) => c.fields.every((f) => !f.secret))
     .map((c) => c.venue.name)
 
+  // Drawn either as the live frame or, with the palette open, as the copy the
+  // dialog floats over — so what is behind it is the screen, not an echo of it.
+  // Behind the dialog it is inert, and reads that way: the same treatment a
+  // command in flight gets, because in both cases the line is not taking input.
+  const renderInputBox = (inert: boolean) => (
+    <Box
+      borderStyle="round"
+      borderColor={busy || inert ? theme.muted : theme.accent}
+      borderLeft={false}
+      borderRight={false}
+      paddingX={1}
+    >
+      <Text color={busy || inert ? theme.muted : theme.accent}>{'❯ '}</Text>
+      <InputLine
+        value={input}
+        cursor={cursor}
+        dim={busy || inert}
+        placeholder={busy ? '' : 'ask anything · / for commands · ctrl+k to search them'}
+      />
+    </Box>
+  )
+
+  const statusBox = (
+    <Box paddingLeft={1} flexDirection="column">
+      {/* Truncated on purpose: a status line that wraps is a row Ink counts
+          as one, and its next erase leaves the remainder standing. */}
+      <Text dimColor wrap="truncate">
+        {status}
+      </Text>
+      {/* Nothing is marked "… more lines" while this is on, so the way back
+          has to be somewhere that does not depend on there being one. */}
+      {expanded && (
+        <Text color={theme.notice} wrap="truncate">
+          every line is shown · ctrl+o to collapse
+        </Text>
+      )}
+    </Box>
+  )
+
   return (
     <Box flexDirection="column" paddingRight={1}>
       <Static key={generation} items={entries}>
-        {(entry) =>
-          entry.kind === 'prompt' ? (
-            // The line you asked for is a block, so a long transcript reads as a
-            // sequence of questions rather than an undifferentiated wall.
-            <Box
-              key={entry.id}
-              marginBottom={1}
-              width={frameWidth}
-              backgroundColor={theme.surface}
-              paddingX={1}
-            >
-              <Text color={theme.accent}>{entry.text}</Text>
-            </Box>
-          ) : (
-            <Output
-              key={entry.id}
-              kind={entry.kind}
-              text={entry.text}
-              width={bodyWidth}
-              expanded={expanded}
-            />
-          )
-        }
+        {(entry) => (
+          <TranscriptEntry
+            key={entry.id}
+            entry={entry}
+            frameWidth={frameWidth}
+            bodyWidth={bodyWidth}
+            expanded={expanded}
+          />
+        )}
       </Static>
 
       {palette ? (
@@ -759,76 +892,73 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
           selected={palette.index}
           columns={frameWidth}
           rows={rows}
+          behind={
+            <>
+              {transcriptTail(entries, backdropRows, bodyWidth, expanded).map(
+                ({ entry, trimTop }) => (
+                  <TranscriptEntry
+                    key={entry.id}
+                    entry={entry}
+                    frameWidth={frameWidth}
+                    bodyWidth={bodyWidth}
+                    expanded={expanded}
+                    dim
+                    trimTop={trimTop}
+                  />
+                ),
+              )}
+              {/* Only ever the shortfall when the whole transcript is shorter
+                  than the screen, which is where the real one leaves it too. */}
+              <Box flexGrow={1} />
+              {renderInputBox(true)}
+              {statusBox}
+            </>
+          }
         />
       ) : (
         <>
-        {nothingConnected && entries.length === 0 && (
-          <Box marginBottom={1} paddingLeft={1} flexDirection="column">
-            <Text color={theme.notice}>No venue connected yet, so there is nothing to measure.</Text>
-            <Text dimColor>{`Type / and pick one — ${[...connectors.keys()].join(', ')}.`}</Text>
-            <Text dimColor>
-              {addressOnly.length > 0
-                ? `${addressOnly.join(' and ')} need only a public address — no key, nothing to leak.`
-                : 'Exchange keys must be read-only; tula verifies that before storing one.'}
-            </Text>
-          </Box>
-        )}
-
-        {streaming && (
-          <Box marginBottom={1} paddingLeft={3}>
-            <Text>{streaming}</Text>
-          </Box>
-        )}
-
-        {busy && !streaming && (
-          <Box marginBottom={1} paddingLeft={3}>
-            <Text color={theme.accent} wrap="truncate">
-              {`${SPINNER[frame % SPINNER.length]} ${activity || 'working'}`}
-              {elapsed > 0 ? `  ·  ${elapsed}s` : ''}
-            </Text>
-          </Box>
-        )}
-
-        <Box
-          borderStyle="round"
-          borderColor={busy ? theme.muted : theme.accent}
-          borderLeft={false}
-          borderRight={false}
-          paddingX={1}
-        >
-          <Text color={busy ? theme.muted : theme.accent}>{'❯ '}</Text>
-          <InputLine
-            value={input}
-            cursor={cursor}
-            dim={busy}
-            placeholder={busy ? '' : 'ask anything · / for commands · ctrl+k to search them'}
-          />
-        </Box>
-
-        {menu && (
-          <SlashMenu
-            items={menu.items}
-            selected={menuIndex}
-            prefix={menu.prefix}
-            limit={menuRows}
-            {...(menu.level === 'venue' ? { heading: menu.heading } : {})}
-          />
-        )}
-
-        <Box paddingLeft={1} flexDirection="column">
-          {/* Truncated on purpose: a status line that wraps is a row Ink counts
-              as one, and its next erase leaves the remainder standing. */}
-          <Text dimColor wrap="truncate">
-            {status}
-          </Text>
-          {/* Nothing is marked "… more lines" while this is on, so the way back
-              has to be somewhere that does not depend on there being one. */}
-          {expanded && (
-            <Text color={theme.notice} wrap="truncate">
-              every line is shown · ctrl+o to collapse
-            </Text>
+          {nothingConnected && entries.length === 0 && (
+            <Box marginBottom={1} paddingLeft={1} flexDirection="column">
+              <Text color={theme.notice}>
+                No venue connected yet, so there is nothing to measure.
+              </Text>
+              <Text dimColor>{`Type / and pick one — ${[...connectors.keys()].join(', ')}.`}</Text>
+              <Text dimColor>
+                {addressOnly.length > 0
+                  ? `${addressOnly.join(' and ')} need only a public address — no key, nothing to leak.`
+                  : 'Exchange keys must be read-only; tula verifies that before storing one.'}
+              </Text>
+            </Box>
           )}
-        </Box>
+
+          {streaming && (
+            <Box marginBottom={1} paddingLeft={3}>
+              <Text>{streaming}</Text>
+            </Box>
+          )}
+
+          {busy && !streaming && (
+            <Box marginBottom={1} paddingLeft={3}>
+              <Text color={theme.accent} wrap="truncate">
+                {`${SPINNER[frame % SPINNER.length]} ${activity || 'working'}`}
+                {elapsed > 0 ? `  ·  ${elapsed}s` : ''}
+              </Text>
+            </Box>
+          )}
+
+          {renderInputBox(false)}
+
+          {menu && (
+            <SlashMenu
+              items={menu.items}
+              selected={menuIndex}
+              prefix={menu.prefix}
+              limit={menuRows}
+              {...(menu.level === 'venue' ? { heading: menu.heading } : {})}
+            />
+          )}
+
+          {statusBox}
         </>
       )}
     </Box>

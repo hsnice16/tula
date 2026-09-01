@@ -153,8 +153,7 @@ src/
     Onboarding.tsx      # first-run API key flow
     ConnectFlow.tsx     # in-app venue connect; masks secret fields
     SlashMenu.tsx       # filtered menu, grouped; fixed height, below the input
-    Modal.tsx           # the viewport-sized panel ctrl+k is built on
-    Palette.tsx         # ctrl+k: the same surface flattened and ranked
+    Palette.tsx         # ctrl+k: the same surface flattened and ranked, floated over the screen
     theme.ts            # the palette; no colour literal belongs anywhere else
     TextInput.tsx       # presentational input line; no key handling
     keys.ts             # paste vs. keystroke; what a trailing newline means
@@ -232,10 +231,15 @@ Two rules, and they are the reason the architecture exists:
   input and holds a fixed height, so filtering never resizes the block the line
   you are typing on rests against. Motion for its own sake is the other failure:
   a typewriter reveal on a table of numbers reads as the tool being slow.
-- **A modal is one row short of the viewport, never taller and never equal.** A
-  frame at or above the terminal height counts as fullscreen, and Ink answers
-  leaving one by writing `clearTerminal + fullStaticOutput` — the whole session
-  reprinted and the user's scrollback wiped, every time a panel closes.
+- **A modal is exactly the viewport, never a row more and never a row less.**
+  Ink composites a frame into a cell grid, so an absolute box overlaps its
+  siblings — but <Static> is not in that grid, so a dialog floats over a redraw
+  of the screen, and the redraw is the whole of it. A row short leaves that copy
+  scrolled in under the real transcript with nothing to put the real one back; a
+  row over and Ink clears on every keystroke. Exactly the viewport counts as
+  fullscreen, and leaving it is what makes Ink reprint <Static>. Opening clears
+  first: growing a frame to fill the screen scrolls it, and rows that go over
+  the top are past recall.
 - **One width for a block and for the count of what it hides.** The preview and
   its "22 more lines" wrap against the same width, or the count is measured in
   rows the block does not have.
@@ -254,7 +258,8 @@ Two rules, and they are the reason the architecture exists:
   panels stretch to their container, both of which Yoga re-derives on that same
   repaint. `frameWidth` is for arithmetic we do ourselves — what a preview wraps
   at, what the count of what it holds back is measured in — and never for laying
-  anything out.
+  anything out. A floating dialog is the exception: narrower than the frame by
+  construction and truncated row by row, so a stale width costs it nothing.
 - **A resize is not debounced.** Every frame between the drag starting and a
   debounce firing is laid out against dimensions that are already wrong, which
   is the defect above with a longer window. Ink throttles its own painting to
