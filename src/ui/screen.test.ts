@@ -101,7 +101,16 @@ async function open(columns: number, rows: number): Promise<Screen> {
       initialVenues: [],
     }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    { stdout: stdout as any, stdin: stdin as any, exitOnCtrlC: false, patchConsole: false },
+    {
+      stdout: stdout as any,
+      stdin: stdin as any,
+      exitOnCtrlC: false,
+      patchConsole: false,
+      // Ink drops its erase sequences where it detects CI, writing every frame
+      // one under the last — which is the defect this file exists to catch. The
+      // terminal under test is a user's, never the runner's.
+      interactive: true,
+    },
   )
 
   const settle = async () => {
