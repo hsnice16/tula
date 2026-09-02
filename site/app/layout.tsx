@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
+import { Analytics } from '@/components/Analytics'
 import { Footer } from '@/components/Footer'
 import { JsonLd } from '@/components/JsonLd'
 import { Nav } from '@/components/Nav'
@@ -90,6 +91,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en" data-scroll-behavior="smooth">
       <body>
         <JsonLd schema={SCHEMA} />
+        <Analytics />
         {/* The header lives here rather than on each page so that one instance
             of it survives a route change — an underline that remounts cannot
             travel from where it was. */}

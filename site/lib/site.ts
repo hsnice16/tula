@@ -4,6 +4,14 @@ export const SITE = 'https://hsnice16.github.io/tula'
 
 export const NAME = 'tula'
 
+/**
+ * GA4, for the site alone. Held here rather than read from `process.env`
+ * because the Pages workflow sets no environment: an id that arrived that way
+ * would build to nothing in CI and deploy a page with no tag at all, and
+ * nothing would report the absence. It is public in the page source regardless.
+ */
+export const GA_MEASUREMENT_ID = 'G-14L4YMLWGV'
+
 export const AUTHOR = { name: 'Himanshu Singh', url: 'https://github.com/hsnice16' } as const
 
 /**

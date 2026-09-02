@@ -523,6 +523,15 @@ bun run build              # -> site/out, static
 - **`components/JsonLd.tsx` renders schema.org, and only ever restates the page
   it sits on.** Structured data is a second encoding of a claim, never a place
   to make a new one — nothing there is checked by a reader who can see the page.
+- **The site is measured; the binary is not.** `components/Analytics.tsx` loads
+  GA4 and nothing else, and only in a production build — `next dev` would
+  otherwise file a developer's own reading as traffic. The id sits in
+  `lib/site.ts` rather than in an env var because the Pages workflow sets no
+  environment: an id read from `process.env` would deploy a page carrying no tag
+  at all, with nothing to report the absence. `anonymize_ip` is deliberately not
+  passed — GA4 truncates the address itself and ignores it, so sending it would
+  advertise a control that is not ours to offer. The security page's egress card
+  names the split, because the reader is on the site while it happens.
 - **`public/.well-known/security.txt`** is RFC 9116. It belongs at the domain
   root, which on a project site belongs to the account, so it moves there with
   the apex domain and `Canonical` says where it is until then. `guard.sh` fails
