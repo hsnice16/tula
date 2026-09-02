@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Copy } from '@/components/Copy'
 
 /**
  * Window chrome matters: it says "this is the actual output of the tool" rather
@@ -30,10 +31,16 @@ export function Frame({
   )
 }
 
-/** A block of shell, quoted as text. `Session` is the one that draws tula itself. */
-export function Terminal({ title, children }: { title: string; children: ReactNode }) {
+/**
+ * A block of shell, quoted as text. `Session` is the one that draws tula itself.
+ *
+ * `children` is a string rather than a `ReactNode` so the copy button can be
+ * handed the same value the block renders. Anything richer would put the text
+ * on the clipboard and the markup on the page, and the two would drift.
+ */
+export function Terminal({ title, children }: { title: string; children: string }) {
   return (
-    <Frame title={title}>
+    <Frame title={title} aside={<Copy text={children} label={title} />}>
       <pre className="overflow-x-auto px-4 pb-5 pt-4 font-mono text-[0.8rem] leading-[1.62]">
         {children}
       </pre>

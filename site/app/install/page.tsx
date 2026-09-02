@@ -123,9 +123,13 @@ export default function Page() {
           The same binary. Homebrew serves the attested archive; npm repackages it, so its tarball
           carries no attestation — verify through Homebrew or the install script.
         </p>
-        <Terminal title="brew · npm">
-          {'brew install hsnice16/tap/tula\nnpm install -g @tula/cli'}
-        </Terminal>
+        {/* One frame each, for the same reason the three below are separate:
+            they are alternatives, and a single copy button over both hands the
+            reader a paste that installs tula twice. */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Terminal title="homebrew">{'brew install hsnice16/tap/tula'}</Terminal>
+          <Terminal title="npm">{'npm install -g @tula/cli'}</Terminal>
+        </div>
       </div>
 
       <p className="label mb-8">Verify it yourself</p>
@@ -167,9 +171,6 @@ export default function Page() {
       </div>
 
       <p className="label mb-8">Update, go back, remove</p>
-      {/* One frame each, never three lines in one. They are alternatives, and a
-          reader who selects a block and pastes it should not install, relink and
-          then delete their keys in that order. */}
       <div className="grid max-w-[46rem] gap-6">
         <div>
           <p className="mb-4 text-dim">To update, run the install command again.</p>

@@ -467,12 +467,16 @@ bun run build              # -> site/out, static
   both ends; wrapped, `ml-auto` leaves each half on the edge it was pushed to and
   they read as two halves that missed each other. `globals.css` says why the
   breakpoint sits where it does.
+- **One command per terminal frame on the install page.** Every frame carries
+  a copy button, so two alternatives sharing one is a paste that installs
+  tula twice — which is why Homebrew and npm are separate frames, and why
+  update, go back and remove are three. Sequential steps may share one.
 - **A table that would scroll sideways stacks instead.** The install page's
   "what it runs on" rows carry the note that answers the question, and a
   sideways-scrolling table puts it off a phone with nothing to say it is there.
   Horizontal scroll is right for the terminal frames, which are a picture of a
   fixed-width grid, and wrong for anything a reader has to read.
-- **Five client component files, and each one earns it by needing something
+- **Six client component files, and each one earns it by needing something
   CSS cannot read.** `Session.tsx` draws the front page's frame and works `/`,
   ctrl+k and ctrl+o on a loop because a transcript cannot show a keystroke —
   every state it passes through is one the binary draws, in the binary's own
@@ -487,6 +491,11 @@ bun run build              # -> site/out, static
   Ink paints. It rests on the answer rather than on the work, because that is
   the state a reader who has turned motion off is left with.
   `Note.tsx` leans its card toward the pointer.
+  `Copy.tsx` puts a command on the clipboard and holds the answer for a
+  moment; it is handed the text rather than reading it back out of the
+  block, and its live region sits outside the button, because a button's
+  children are presentational and a region nested in one is not reliably
+  announced.
   `Nav.tsx` measures where the active item sits so one underline can travel
   between them. `Scroll.tsx` scrolls the next page to the top, and sits out a
   back or forward, where the reader is returning to a place they already had;
