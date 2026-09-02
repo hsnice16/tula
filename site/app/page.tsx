@@ -45,7 +45,7 @@ function Named({ children }: { children: ReactNode }) {
 
 export default function Page() {
   return (
-    <>
+    <main>
       <section className="pt-9 pb-18">
         <div className="wrap py-18">
           <p className="eyebrow mb-6">
@@ -184,6 +184,6 @@ nothing liquidates. Aave is nearest: a health factor of 1.37 breaks at
           </Ask>
         </div>
       </section>
-    </>
+    </main>
   )
 }

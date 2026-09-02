@@ -1,13 +1,20 @@
 import type { Metadata } from 'next'
 import { Code } from '@/components/Code'
 import { Ext } from '@/components/Ext'
+import { breadcrumb, JsonLd } from '@/components/JsonLd'
 import { Terminal } from '@/components/Terminal'
-import { INSTALL_COMMAND, REPO, SITE } from '@/lib/site'
+import { INSTALL_COMMAND, NAME, OG, REPO, SITE, TWITTER } from '@/lib/site'
+
+const TITLE = 'Install — one command, and every download checked'
+const SUMMARY =
+  'Install tula on macOS or Linux with one command. Every release carries a published checksum and a sigstore-backed build attestation, and the installer refuses a binary that does not match. Also on Homebrew and npm.'
 
 export const metadata: Metadata = {
-  title: 'Install tula',
-  description:
-    'One command. Every release is attested, and the installer refuses a binary whose checksum or attestation does not match.',
+  title: TITLE,
+  description: SUMMARY,
+  alternates: { canonical: '/install' },
+  openGraph: { ...OG, type: 'website', url: '/install', title: TITLE, description: SUMMARY },
+  twitter: { ...TWITTER, title: `${TITLE} · ${NAME}`, description: SUMMARY },
 }
 
 const CHECKS = [
@@ -43,6 +50,7 @@ const SYSTEMS = [
 export default function Page() {
   return (
     <main className="wrap pt-16 pb-54">
+      <JsonLd schema={breadcrumb('Install', '/install')} />
       <h1 className="mb-5 text-[clamp(2rem,4.5vw,2.8rem)] font-medium tracking-[-0.025em]">
         Install
       </h1>

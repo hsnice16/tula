@@ -1,0 +1,11 @@
+<!-- The name is the balance, so the mark is the object: a beam over its base,
+     which is also the Libra glyph the same scale is drawn as. Strokes rather
+     than a wordmark, because at 16px four letters are four smudges. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="tula">
+  <title>tula</title>
+  <rect width="32" height="32" rx="7" fill="#131211"/>
+  <g fill="none" stroke="#d4a72c" stroke-width="2.4" stroke-linecap="round">
+    <path d="M6 15h5a5 5 0 0 1 10 0h5"/>
+    <path d="M6 22h20"/>
+  </g>
+</svg>

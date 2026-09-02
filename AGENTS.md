@@ -489,6 +489,40 @@ bun run build              # -> site/out, static
   each carries "placing trades will come later", and the promise stated flatly
   is the one that never moves — funds do not leave a venue. A withdrawn security
   promise reads as though it was never true.
+- **`lib/site.ts` holds every string more than one file states**: the name, the
+  one-sentence description, the keyword list, the nav routes with the blurb each
+  one is summarised by, and the preview card's dimensions and alt text. The nav
+  blurbs feed the header, the sitemap and `llms.txt` from one place, so a fourth
+  page cannot ship unindexed or unsummarised. `src/site-claims.test.ts` reads
+  this file rather than `layout.tsx` for the trading caveat — the description is
+  written here and rendered there.
+- **`metadataBase` is the deployed URL including `/tula`.** Next resolves every
+  canonical, `og:url` and image against it, and one without the base path
+  publishes canonicals at an origin that serves the account's own pages.
+- **The preview card is `app/og.png/route.tsx`, not Next's `opengraph-image`
+  convention.** That convention exports a file with no extension at all, which
+  GitHub Pages serves as a byte stream — and a card crawler drops any image
+  whose content type is not an image, a failure invisible from the site itself.
+  A route handler whose path carries `.png` gets the type right, at the cost of
+  naming the image by hand in `OG_IMAGE` rather than having Next infer it.
+- **Every metadata route needs `export const dynamic = 'force-static'`.** Under
+  `output: export` the build refuses to collect a route it cannot prove is
+  static, and a `new Date()` in the sitemap is enough to make it doubt.
+- **`robots.txt` here is read by nothing**, for the same reason `security.txt`
+  is: a crawler fetches it from the origin root, which on a project site belongs
+  to the account, and `hsnice16.github.io/robots.txt` is a 404 — which crawlers
+  read as "allow everything". It grants nothing that is not already granted, and
+  is kept as the written record of the policy rather than as load-bearing.
+  Discovery is what has to work instead: `llms.txt` is linked from the footer of
+  every page, and the sitemap is submitted by hand. A domain is deferred and not
+  planned — `tasks/1.0.0/03-docs-site.md` says why — so nothing here waits on
+  one.
+- **`llms.txt` links to `/security` rather than restating it.** It is the file
+  nobody would think to update, so a security promise copied into it is the copy
+  that goes stale. What it may state is what `lib/site.ts` already holds.
+- **`components/JsonLd.tsx` renders schema.org, and only ever restates the page
+  it sits on.** Structured data is a second encoding of a claim, never a place
+  to make a new one — nothing there is checked by a reader who can see the page.
 - **`public/.well-known/security.txt`** is RFC 9116. It belongs at the domain
   root, which on a project site belongs to the account, so it moves there with
   the apex domain and `Canonical` says where it is until then. `guard.sh` fails
@@ -500,7 +534,11 @@ bun run build              # -> site/out, static
   scenario included, down to the claim that nothing liquidates under it. They
   are scanned separately: the prose and panels between them are full of lengths
   and sizes that a figure test cannot tell from figures. The page is read as
-  text, never imported: the two dependency trees must not meet.
+  text, never imported: the two dependency trees must not meet. The preview
+  card is held to the same book: its venue rows must match the page's character
+  for character, and it states the netted figure and the liquidation distance
+  the engine computes. A link pasted into a chat is the whole of the site for
+  most people, and nobody scrolls past a picture to a correction.
 - **The overview names no model vendor.** "Connect a model", not the one the
   binary happens to send to today. A second provider then costs no copy edit,
   and the page never has to carry a "more coming soon" — a hedge on the page

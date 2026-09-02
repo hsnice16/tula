@@ -1,12 +1,20 @@
 import type { Metadata } from 'next'
 import { Code } from '@/components/Code'
 import { Ext } from '@/components/Ext'
+import { breadcrumb, JsonLd } from '@/components/JsonLd'
 import { Link } from '@/components/Link'
-import { REPO } from '@/lib/site'
+import { NAME, OG, REPO, TWITTER } from '@/lib/site'
+
+const TITLE = 'Security model — non-custodial, and read-only'
+const SUMMARY =
+  'What tula promises about your credentials and your funds, and what enforces each in the build: no code path can move funds off a venue, a key that can withdraw is refused rather than warned about, and your keys never reach the model.'
 
 export const metadata: Metadata = {
-  title: 'tula security model',
-  description: 'What tula promises about your credentials and your funds, and what enforces each.',
+  title: TITLE,
+  description: SUMMARY,
+  alternates: { canonical: '/security' },
+  openGraph: { ...OG, type: 'website', url: '/security', title: TITLE, description: SUMMARY },
+  twitter: { ...TWITTER, title: `${TITLE} · ${NAME}`, description: SUMMARY },
 }
 
 const PROMISES = [
@@ -61,6 +69,7 @@ const NOTES = [
 export default function Page() {
   return (
     <main className="wrap pt-16 pb-54">
+      <JsonLd schema={breadcrumb('Security', '/security')} />
       <h1 className="mb-5 text-[clamp(2rem,4.5vw,2.8rem)] font-medium tracking-[-0.025em]">
         Security model
       </h1>

@@ -30,7 +30,9 @@ const CAVEAT = /placing trades will come later|trading will come later|will come
 
 const CLAIMS = [
   'site/app/security/page.tsx',
-  'site/app/layout.tsx',
+  // Not layout.tsx: the site's meta description, its card and its llms.txt all
+  // render one sentence held here, so this is the file the caveat has to be in.
+  'site/lib/site.ts',
   'site/app/page.tsx',
   'README.md',
   'SECURITY.md',

@@ -19,6 +19,14 @@ import { scenario, whatBreaksFirst } from './core/risk.js'
  */
 const PAGE = 'site/app/page.tsx'
 
+/**
+ * The card a link to the site unfurls as. It quotes the same book in the shape
+ * a preview has room for, and it is read far more often than the page — a link
+ * pasted into a chat is the whole of it for most people, and nobody scrolls
+ * past a picture to a correction.
+ */
+const CARD = 'site/app/og.png/route.tsx'
+
 const d = (v: string) => new Decimal(v)
 
 const at = new Date()
@@ -73,7 +81,16 @@ const PRICES = new Map([
 const SHOCK = [{ asset: 'ETH', pct: d('-0.2') }]
 
 const page = readFileSync(PAGE, 'utf8')
+const card = readFileSync(CARD, 'utf8')
 const shows = (text: string) => page.includes(text)
+
+/** The tuple rows of a `const X = [...] as const` table, as written. */
+const table = (source: string, name: string) => {
+  const start = source.indexOf(`const ${name} = [`)
+  return source
+    .slice(source.indexOf('[', start), source.indexOf('] as const', start))
+    .trim()
+}
 
 /**
  * The two blocks of the page that quote the tool: the command transcript and
@@ -188,3 +205,17 @@ describe('the published example', () => {
   })
 })
 
+describe('the preview card', () => {
+  test('quotes the venue rows the page quotes', () => {
+    // Two files draw the same three rows, and only one of them is ever looked
+    // at while editing the other.
+    expect(table(card, 'ROWS')).toBe(table(page, 'SEEN'))
+  })
+
+  test('publishes the netted figure and the distance the risk engine computes', () => {
+    const eth = netExposure(BOOK, PRICES).find((e) => e.asset === 'ETH')
+    const aave = whatBreaksFirst(BOOK, PRICES).find((r) => r.position.venue === 'aave')
+    expect(card).toContain(quantity(eth!.delta))
+    expect(card).toContain(pct(aave!.move!))
+  })
+})

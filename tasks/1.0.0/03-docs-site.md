@@ -35,11 +35,17 @@ the trust anchor is the GitHub artifact attestation, not the hostname - see
 `../0.8.0/02-artifact-attestations.md`. Pages serves a canonical origin today for
 nothing; point a domain at it when there is a binary worth installing.
 
-The install page deliberately documents that no install script exists yet, and
-says a `curl | sh` claiming to be tula did not come from this project. A docs site
-describing an install path that does not exist is an impersonation surface, not a
-convenience. `scripts/guard.sh` now holds `site/` to the same language rule as
-`src/`.
+Serving from a project path is what makes `robots.txt` and `.well-known/` inert:
+a crawler reads both at the origin root, which belongs to the account. Neither
+costs anything — `hsnice16.github.io/robots.txt` is a 404, which crawlers read as
+"allow everything" — so discovery is not built on them. `llms.txt` is linked from
+the footer of every page and the sitemap is submitted by hand instead.
+
+The install page shipped before the script did and said so, documenting that no
+install script existed yet and that a `curl | sh` claiming to be tula had not
+come from this project: a docs site describing an install path that does not
+exist is an impersonation surface, not a convenience. The script is published
+now. `scripts/guard.sh` holds `site/` to the same language rule as `src/`.
 
 The site did render `/changelog` and `/roadmap` from `CHANGELOG.md`, `ROADMAP.md`
 and the `**Status**:` lines under `tasks/`, which made drift impossible but tied
