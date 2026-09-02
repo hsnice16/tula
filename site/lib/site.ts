@@ -12,6 +12,14 @@ export const NAME = 'tula'
  */
 export const GA_MEASUREMENT_ID = 'G-14L4YMLWGV'
 
+/**
+ * Search Console ownership. It stays after the property verifies: Google
+ * re-checks the tag periodically and un-verifies the property when it goes,
+ * which takes the sitemap and the index coverage with it. Not an env var, for
+ * the same reason the measurement id is not — the Pages workflow sets none.
+ */
+export const GOOGLE_SITE_VERIFICATION = '_P43RYmlEi0KfBDT9dPH3lI6PhGLWZE-OIIzl0ieHws'
+
 export const AUTHOR = { name: 'Himanshu Singh', url: 'https://github.com/hsnice16' } as const
 
 /**

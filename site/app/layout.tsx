@@ -5,7 +5,17 @@ import { Footer } from '@/components/Footer'
 import { JsonLd } from '@/components/JsonLd'
 import { Nav } from '@/components/Nav'
 import { BackToTop, ScrollToTop } from '@/components/Scroll'
-import { AUTHOR, DESCRIPTION, KEYWORDS, NAME, OG, REPO, SITE, TWITTER } from '@/lib/site'
+import {
+  AUTHOR,
+  DESCRIPTION,
+  GOOGLE_SITE_VERIFICATION,
+  KEYWORDS,
+  NAME,
+  OG,
+  REPO,
+  SITE,
+  TWITTER,
+} from '@/lib/site'
 import './globals.css'
 
 const TITLE = 'tula — your true exposure, and what breaks first'
@@ -22,6 +32,7 @@ export const metadata: Metadata = {
   creator: AUTHOR.name,
   authors: [{ name: AUTHOR.name, url: AUTHOR.url }],
   alternates: { canonical: '/' },
+  verification: { google: GOOGLE_SITE_VERIFICATION },
   openGraph: { ...OG, type: 'website', url: '/', title: TITLE, description: DESCRIPTION },
   twitter: { ...TWITTER, title: TITLE, description: DESCRIPTION },
   robots: {

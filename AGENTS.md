@@ -532,6 +532,9 @@ bun run build              # -> site/out, static
   passed — GA4 truncates the address itself and ignores it, so sending it would
   advertise a control that is not ours to offer. The security page's egress card
   names the split, because the reader is on the site while it happens.
+  `GOOGLE_SITE_VERIFICATION` sits beside the id: it is Search Console ownership,
+  and it stays after the property verifies, because Google re-checks the tag and
+  un-verifies when it goes — taking the sitemap and the index coverage with it.
 - **`public/.well-known/security.txt`** is RFC 9116. It belongs at the domain
   root, which on a project site belongs to the account, so it moves there with
   the apex domain and `Canonical` says where it is until then. `guard.sh` fails
