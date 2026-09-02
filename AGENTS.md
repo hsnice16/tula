@@ -435,6 +435,10 @@ bun run build              # -> site/out, static
   workflow copies it into `public/` at build time. `site/public/install.sh` is
   generated and gitignored — two copies of a script people pipe into a shell is
   one copy too many.
+- `app/not-found.tsx` is the 404, exported to `out/404.html` — the one file
+  GitHub Pages serves for every path under `/tula/` it has nothing at. It is not
+  in `NAV`, which is the list of routes the sitemap and `llms.txt` publish, and a
+  404 in either is a 404 arrived at from a search result.
 - `agentRules: false` in `next.config.ts`: `next dev` otherwise writes a second
   AGENTS.md and CLAUDE.md under `site/`, and this file is the only one.
 - **The changelog and the roadmap are not on the site.** `CHANGELOG.md`,
