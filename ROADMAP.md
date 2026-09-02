@@ -37,7 +37,7 @@ pre-1.0:
 | **minor** | A new venue, command or capability — and, while `0.x`, anything breaking |
 | **major** | `1.0.0` is the stability promise. `2.0.0` is execution. |
 
-A hyphen means pre-release (`0.3.0-alpha.1`). It is the only signal: the binary
+A hyphen means pre-release (`0.2.0-alpha.1`). It is the only signal: the binary
 derives its label from it and `release.yml` picks `--prerelease` and the npm
 dist-tag from it, so there is nothing to keep in step by hand.
 

@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
+import { Code } from '@/components/Code'
 import { Ext } from '@/components/Ext'
-import { Cmd, Terminal } from '@/components/Terminal'
-import { INSTALL_COMMAND, REPO } from '@/lib/site'
+import { Terminal } from '@/components/Terminal'
+import { INSTALL_COMMAND, REPO, SITE } from '@/lib/site'
 
 export const metadata: Metadata = {
   title: 'Install tula',
@@ -13,30 +14,30 @@ const CHECKS = [
   ['Published checksum', 'Always. Refuses a download that does not match.'],
   [
     'Build attestation',
-    'Sigstore-backed, keyless. Refuses a binary this repo did not build — where the GitHub CLI is installed to check it.',
+    'Sigstore-backed, keyless. Refuses a binary this repo did not build — where the GitHub CLI is installed and signed in to check it.',
   ],
   ['Versioned installs', '~/.tula/versions, behind a symlink. Going back is a link flip.'],
 ] as const
 
 const FLAGS = [
-  ["--proto '=https'", 'No HTTP downgrade on redirect'],
-  ['--tlsv1.2', 'TLS floor'],
-  ['-f', 'Fail rather than pipe an error page into a shell'],
+  ["--proto '=https'", 'Only HTTPS, on redirects too'],
+  ['--tlsv1.2', 'Nothing older than TLS 1.2'],
+  ['-L', 'Follow a redirect'],
+  ['-s', 'No progress bar'],
+  ['-S', 'But still show errors'],
+  ['-f', 'Stop on an HTTP error, so an error page is never piped into a shell'],
 ] as const
 
-const ENV = [
-  ['TULA_VERSION', 'Install an exact version. Pin this in CI.'],
-  [
-    'TULA_REQUIRE_ATTESTATION',
-    'Refuse to install unproven, rather than say so. Needs the GitHub CLI.',
-  ],
-  ['TULA_INSTALL_DIR', 'Where versions live. Default ~/.tula.'],
-  ['TULA_NO_MODIFY_PATH', 'Leave your shell profile alone.'],
-  ['TULA_CONFIG_DIR', 'Redirects the credential store.'],
-  ['TULA_ETH_RPC', 'Ethereum RPC. Defaults to a public node.'],
-  ['TULA_TOKEN_LIST', 'Token Lists URL wallet balances are read against.'],
-  ['TULA_PRICE_PAGES', 'Widens CoinGecko coverage past the top 500.'],
-  ['ANTHROPIC_API_KEY', 'Enables plain English. Optional.'],
+/**
+ * What the reader is really asking is "will it run on mine?", so the rows are
+ * systems rather than the four build targets — the two that have no build are
+ * the rows most worth printing, and a target list cannot carry them.
+ */
+const SYSTEMS = [
+  ['macOS', 'Yes', 'Intel and ARM, 64-bit.'],
+  ['Linux', 'Yes', 'Intel and ARM, 64-bit. Needs glibc.'],
+  ['Alpine, or any musl Linux', 'No', 'The installer says so and stops.'],
+  ['Windows', 'Through WSL', 'Install inside WSL, where it is Linux. There is no native build.'],
 ] as const
 
 export default function Page() {
@@ -46,14 +47,14 @@ export default function Page() {
         Install
       </h1>
       <p className="mb-10 max-w-[36rem] text-[1.05rem] text-dim">
-        macOS and Linux, Apple Silicon and x86. One binary, nothing beside it.
+        One file, and nothing else to install beside it.
       </p>
 
       <Terminal title="install">{INSTALL_COMMAND}</Terminal>
 
       {/* A legend for the command directly above, so it sits tight under it —
             justified across the full column reads as two unrelated lists. */}
-      <dl className="mt-5 mb-20 grid grid-cols-[auto_1fr] gap-x-7 gap-y-1.5 text-[0.82rem]">
+      <dl className="mt-5 grid grid-cols-[auto_1fr] gap-x-7 gap-y-1.5 text-[0.82rem]">
         {FLAGS.map(([flag, why]) => (
           <div key={flag} className="contents">
             <dt className="font-mono text-notice">{flag}</dt>
@@ -61,82 +62,117 @@ export default function Page() {
           </div>
         ))}
       </dl>
-
-      <p className="label mb-5">
-        <span className="text-accent-dim">01</span> Every install is checked
+      <p className="mt-5 mb-54 max-w-[42rem] text-[0.9rem] text-faint">
+        This pipes a script into a shell, so read it before you run it.{' '}
+        <Ext href={`${SITE}/install.sh`}>install.sh</Ext> is what the command fetches, copied
+        straight from <Ext href={`${REPO}/blob/main/install.sh`}>the one in the repo</Ext> — the
+        same file, and the one every test runs against.
       </p>
-      <div className="mb-16 grid gap-px overflow-hidden rounded border border-rule bg-rule sm:grid-cols-3">
+
+      <p className="label mb-8">Every install is checked</p>
+      <div className="mb-54 grid gap-px overflow-hidden rounded border border-rule bg-rule sm:grid-cols-3">
         {CHECKS.map(([title, body]) => (
           <div key={title} className="bg-bg px-5 py-5">
-            <h3 className="mb-1.5 text-[0.95rem] font-semibold text-ink">{title}</h3>
+            <h2 className="mb-1.5 text-[0.95rem] font-semibold text-ink">{title}</h2>
             <p className="text-[0.88rem] leading-relaxed text-dim">{body}</p>
           </div>
         ))}
       </div>
 
-      <div className="grid min-w-0 items-start gap-12 lg:grid-cols-2">
-        <div>
-          <p className="label mb-5">
-            <span className="text-accent-dim">02</span> First run
-          </p>
-          <p className="mb-5 text-dim">
-            Wallet, Hyperliquid and Aave take a public address. Nothing secret is needed.
-          </p>
-          <Terminal title="try it">
-            <Cmd>tula</Cmd>
-            {`
-
-`}
-            <span className="text-faint">
-              {'# / -> wallet -> connect -> any 0x address\n# then /exposure and /breaks'}
-            </span>
-          </Terminal>
-        </div>
-
-        <div>
-          <p className="label mb-5">
-            <span className="text-accent-dim">03</span> Other channels
-          </p>
-          <p className="mb-5 text-dim">The same attested binary, through a package manager.</p>
-          <Terminal title="brew · npm">
-            {'brew install hsnice16/tap/tula\nnpm install -g @tula/cli'}
-          </Terminal>
-        </div>
-      </div>
-
-      <p className="label mb-5 mt-16">
-        <span className="text-accent-dim">04</span> Verify it yourself
-      </p>
-      <div className="max-w-[46rem]">
-        <Terminal title="verify">
-          {'gh attestation verify tula-v0.3.0-alpha.1-darwin-arm64.tar.gz --repo hsnice16/tula'}
-        </Terminal>
-        <p className="mt-4 text-dim">
-          A checksum served beside a file only proves it is intact. This proves who built it.
-        </p>
-      </div>
-
-      <p className="label mb-5 mt-16">
-        <span className="text-accent-dim">05</span> Environment
-      </p>
-      <div className="overflow-x-auto">
+      <p className="label mb-8">What it runs on</p>
+      <div className="mb-54 overflow-x-auto">
         <table className="w-full min-w-[34rem] border-collapse text-[0.89rem]">
           <tbody>
-            {ENV.map(([name, does]) => (
-              <tr key={name}>
-                <td className="w-64 border-b border-rule px-3 py-2.5 align-top">
-                  <code className="font-mono text-[0.8rem] text-notice">{name}</code>
+            {SYSTEMS.map(([system, works, note]) => (
+              <tr key={system}>
+                <td className="w-56 border-b border-rule px-3 py-2.5 align-top text-ink">
+                  {system}
                 </td>
-                <td className="border-b border-rule px-3 py-2.5 align-top text-dim">{does}</td>
+                <td className="w-32 border-b border-rule px-3 py-2.5 align-top font-mono text-[0.8rem] text-notice">
+                  {works}
+                </td>
+                <td className="border-b border-rule px-3 py-2.5 align-top text-dim">{note}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      <p className="mt-14 text-[0.9rem] text-faint">
-        Building from source: <Ext href={`${REPO}/blob/main/CONTRIBUTING.md`}>CONTRIBUTING.md</Ext>
-      </p>
+      <p className="label mb-8">Other channels</p>
+      <div className="mb-54 max-w-[46rem]">
+        <p className="mb-5 text-dim">
+          The same binary. Homebrew serves the attested archive; npm repackages it, so its tarball
+          carries no attestation — verify through Homebrew or the install script.
+        </p>
+        <Terminal title="brew · npm">
+          {'brew install hsnice16/tap/tula\nnpm install -g @tula/cli'}
+        </Terminal>
+      </div>
+
+      <p className="label mb-8">Verify it yourself</p>
+      <div className="mb-54 max-w-[46rem]">
+        <Terminal title="verify">
+          {
+            'curl -fLO https://github.com/hsnice16/tula/releases/download/v0.1.0/tula-v0.1.0-darwin-arm64.tar.gz\ngh attestation verify tula-v0.1.0-darwin-arm64.tar.gz --repo hsnice16/tula'
+          }
+        </Terminal>
+        <p className="mt-4 text-dim">
+          A checksum served beside a file only proves it is intact. This proves who built it. The
+          attestation covers the archive, not the binary inside it, and the installer keeps no copy
+          — so the download is the first step, not a repeat of one.
+        </p>
+        <p className="mt-4 text-dim">
+          You need the GitHub CLI, signed in with <Code>gh auth login</Code>. It will not fetch an
+          attestation without a token, even for a public repository.
+        </p>
+      </div>
+
+      <p className="label mb-8">Where it puts things</p>
+      <div className="mb-54 max-w-[46rem]">
+        <p className="mb-4 text-dim">
+          Everything lives under <Code>~/.tula</Code>. Each version goes in its own folder, and{' '}
+          <Code>~/.tula/bin/tula</Code> is a link to the one you are running. Your keys are kept
+          somewhere else, <Code>~/.config/tula</Code>, so a reinstall never touches them.
+        </p>
+        <p className="mb-4 text-dim">
+          If <Code>~/.tula/bin</Code> is not on your PATH, the installer adds a line to your zsh,
+          bash or fish profile and tells you which file it changed. Under any other shell it prints
+          the line for you to add and edits nothing. Set <Code>TULA_NO_MODIFY_PATH=1</Code> and it
+          prints rather than edits, whatever your shell.
+        </p>
+        <p className="text-dim">
+          To install one exact version instead of the newest, set <Code>TULA_VERSION</Code>. Pin it
+          that way in CI, and set <Code>TULA_REQUIRE_ATTESTATION=1</Code> to make a missing
+          provenance check a refusal rather than a warning.
+        </p>
+      </div>
+
+      <p className="label mb-8">Update, go back, remove</p>
+      {/* One frame each, never three lines in one. They are alternatives, and a
+          reader who selects a block and pastes it should not install, relink and
+          then delete their keys in that order. */}
+      <div className="grid max-w-[46rem] gap-6">
+        <div>
+          <p className="mb-4 text-dim">To update, run the install command again.</p>
+          <Terminal title="update">{INSTALL_COMMAND}</Terminal>
+        </div>
+        <div>
+          <p className="mb-4 text-dim">
+            Old versions stay where they are, so going back to one is a link flip and not another
+            download.
+          </p>
+          <Terminal title="go back">
+            {'ln -sf ~/.tula/versions/<version>/tula ~/.tula/bin/tula'}
+          </Terminal>
+        </div>
+        <div>
+          <p className="mb-4 text-dim">
+            To remove tula, delete both folders — the second one holds the keys you saved — and the
+            line the installer added to your shell profile.
+          </p>
+          <Terminal title="remove">{'rm -rf ~/.tula ~/.config/tula'}</Terminal>
+        </div>
+      </div>
     </main>
   )
 }

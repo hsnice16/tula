@@ -121,11 +121,11 @@ hyperliquid  ETH    perp             +39.3%  liq price 3412.00   09:14:02 (4s ag
                   <Mark src={aaveMark} venue="Aave" size="h-[0.65em]" />
                   Aave
                 </Named>{' '}
-                sees a health factor and nothing either side of it.
+                sees a health factor and nothing on either side of it.
               </p>
               <p className="mt-4 text-dim">
-                Each one is right about its own share, but <Named>your</Named> true exposure only
-                appears once all three are read together.
+                Each one is right about its own piece. <Named>Your</Named> real exposure only shows
+                up when you read all three together.
               </p>
             </div>
 
@@ -169,8 +169,8 @@ hyperliquid  ETH    perp             +39.3%  liq price 3412.00   09:14:02 (4s ag
             </h2>
             <p className="text-dim">Type a question instead of a command, and tula answers it.</p>
             <p className="mt-4 text-dim">
-              Connect a model, and it answers in plain English. Every command still works without
-              one.
+              Connect a model and the answer comes back in plain English. Every command still works
+              without one.
             </p>
           </div>
 

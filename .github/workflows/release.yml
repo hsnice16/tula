@@ -208,6 +208,19 @@ jobs:
             --notes-file "$notes" \
             $([ "$PRERELEASE" = true ] && echo --prerelease || echo --latest)
 
+      # A skipped job looks exactly like a green release, while the install
+      # page still tells people to use the channel that did not publish.
+      - name: channels
+        if: steps.version.outputs.publish == 'true'
+        env:
+          NPM: ${{ vars.PUBLISH_NPM }}
+          HOMEBREW: ${{ vars.PUBLISH_HOMEBREW }}
+        run: |
+          for channel in "npm:$NPM" "Homebrew:$HOMEBREW"; do
+            [ "${channel#*:}" = true ] ||
+              echo "::warning::${channel%%:*} is off; the install page still tells people to use it."
+          done
+
       # Uploaded on a dry run too: the artifacts and their checksums are the
       # thing you wanted to look at.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -218,6 +231,11 @@ jobs:
   npm:
     needs: release
     runs-on: ubuntu-latest
+    # `npm publish --provenance` mints an OIDC token, which the top-level
+    # contents:read does not allow. The release job grants itself this and this
+    # one does not inherit it.
+    permissions:
+      id-token: write
     # Skipped rather than failed when npm is not configured: the GitHub release
     # is already published and correct, and a missing token is a setup gap, not
     # a bad build. The same tag can be re-run once the token exists.
@@ -290,4 +308,4 @@ jobs:
           git add Formula
           git diff --cached --quiet && { echo "formulae unchanged"; exit 0; }
           git commit -m "tula $VERSION"
-          git push
+          git push -u origin HEAD

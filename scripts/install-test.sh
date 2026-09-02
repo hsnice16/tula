@@ -93,11 +93,24 @@ cp "$SHIM/curl" "$BIN/curl"
 
 # Turns the optional GitHub CLI on or off for one case. `command -v gh` is what
 # install.sh branches on, so absence has to be real absence on this PATH.
+#
+# The stub answers per subcommand rather than with one exit code, because
+# install.sh asks it two different questions: `auth status` for whether it can
+# reach the API at all, and `attestation verify` for the archive. A blanket
+# `exit 1` cannot tell a signed-out CLI from a forged download, which is the
+# very distinction the signed-out case exists to prove.
+gh_stub() {
+  printf '#!/bin/sh\ncase "$1 $2" in\n  "auth status") exit %s ;;\nesac\nexit %s\n' \
+    "$1" "$2" >"$BIN/gh"
+  chmod 755 "$BIN/gh"
+}
+
 with_gh() {
   case "$1" in
     absent) rm -f "$BIN/gh" ;;
-    passes) printf '#!/bin/sh\nexit 0\n' >"$BIN/gh"; chmod 755 "$BIN/gh" ;;
-    fails) printf '#!/bin/sh\nexit 1\n' >"$BIN/gh"; chmod 755 "$BIN/gh" ;;
+    passes) gh_stub 0 0 ;;
+    fails) gh_stub 0 1 ;;
+    signed_out) gh_stub 1 1 ;;
   esac
 }
 with_gh absent
@@ -158,6 +171,29 @@ if [ ! -e "$H/.tula/bin/tula" ] && case "$out" in *"failed attestation"*) true ;
   ok "refuses a binary that fails attestation, and installs nothing"
 else
   bad "refuses a binary that fails attestation, and installs nothing" "$out"
+fi
+
+# Signed out is not forged. This refused a good download and told the reader to
+# report it as a security incident, because `gh attestation verify` cannot reach
+# the API without a token and fails the same way either way.
+H="$WORK/h4b"
+mkdir -p "$H"
+with_gh signed_out
+out=$(run "$H")
+if [ -L "$H/.tula/bin/tula" ] &&
+  case "$out" in *"failed attestation"*) false ;; *"not signed in"*) true ;; *) false ;; esac; then
+  ok "installs and says provenance is unproven when gh is not signed in"
+else
+  bad "installs and says provenance is unproven when gh is not signed in" "$out"
+fi
+
+H="$WORK/h4c"
+mkdir -p "$H"
+out=$(run "$H" env TULA_REQUIRE_ATTESTATION=1)
+if [ ! -e "$H/.tula/bin/tula" ] && case "$out" in *"is not signed in"*) true ;; *) false ;; esac; then
+  ok "refuses when attestation is required and gh is not signed in"
+else
+  bad "refuses when attestation is required and gh is not signed in" "$out"
 fi
 
 H="$WORK/h5"

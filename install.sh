@@ -139,6 +139,20 @@ verify_attestation() {
         "Install it: https://cli.github.com"
     fi
     UNVERIFIED=1
+    UNVERIFIED_WHY="the GitHub CLI is not installed"
+    return 0
+  fi
+  # `gh attestation verify` will not call the API without a token, even for a
+  # public repository (cli/cli#11803), so an unauthenticated CLI fails exactly
+  # as a forged archive does. Not signed in is not proof of anything, so it is
+  # treated as the absent CLI above is rather than as the refusal below.
+  if ! gh auth status >/dev/null 2>&1; then
+    if [ -n "${TULA_REQUIRE_ATTESTATION:-}" ]; then
+      die "TULA_REQUIRE_ATTESTATION is set and the GitHub CLI is not signed in." \
+        "Sign in and retry:  gh auth login"
+    fi
+    UNVERIFIED=1
+    UNVERIFIED_WHY="the GitHub CLI is not signed in"
     return 0
   fi
   # A failure here is never advisory. A binary that fails its attestation is one
@@ -158,6 +172,7 @@ TARGET=$(detect_target)
 ARCHIVE="tula-v$VERSION-$TARGET.tar.gz"
 BASE="https://github.com/$REPO/releases/download/v$VERSION"
 UNVERIFIED=
+UNVERIFIED_WHY=
 
 say ""
 say "tula $VERSION — $TARGET"
@@ -247,7 +262,7 @@ fi
 
 if [ -n "$UNVERIFIED" ]; then
   say ""
-  say "Checksum verified. Provenance was not: the GitHub CLI is not installed,"
+  say "Checksum verified. Provenance was not: $UNVERIFIED_WHY,"
   say "so nothing here proved $REPO built this binary. To check that yourself,"
   say "verify the archive — the attestation is over that, not the binary inside:"
   note "curl -fLO $BASE/$ARCHIVE"

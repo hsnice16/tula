@@ -1,6 +1,6 @@
 {
   "name": "@tula/cli",
-  "version": "0.3.0-alpha.1",
+  "version": "0.1.0",
   "description": "Your true exposure, what breaks first, and more, across every venue at once.",
   "license": "MIT",
   "type": "module",

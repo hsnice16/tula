@@ -111,7 +111,7 @@ keyless, so there is no signing key for this project to generate, publish, rotat
 or lose.
 
 ```bash
-gh attestation verify tula-v0.3.0-alpha.1-darwin-arm64.tar.gz --repo hsnice16/tula
+gh attestation verify tula-v0.1.0-darwin-arm64.tar.gz --repo hsnice16/tula
 ```
 
 The subject is the archive, not the binary inside it, so verify the `.tar.gz`
@@ -119,13 +119,12 @@ rather than an installed `tula`. Homebrew downloads that same archive; npm
 repackages the binary into its own tarball, which carries no attestation of its
 own — use the install script or Homebrew where provenance has to be proven.
 
-The installer runs this automatically when the GitHub CLI is present and refuses
-to install on failure. Without it, the installer still verifies the published
-checksum, says plainly that provenance was **not** proven, and prints the download
-and the verify command — a checksum served beside the artifact only proves the
-file is intact,
-since whoever could replace one could replace both. `TULA_REQUIRE_ATTESTATION=1`
-turns the missing check into a refusal.
+The installer runs this automatically when the GitHub CLI is present and signed
+in, and refuses to install on failure. Without either, it still verifies the
+published checksum, says plainly that provenance was **not** proven, and prints
+the download and the verify command — a checksum served beside the artifact only
+proves the file is intact, since whoever could replace one could replace both.
+`TULA_REQUIRE_ATTESTATION=1` turns the missing check into a refusal.
 
 tula is built by `github.com/hsnice16/tula` and published to its install page,
 Homebrew and npm — one binary, built once. Anything you cannot verify against

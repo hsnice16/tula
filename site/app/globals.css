@@ -131,7 +131,11 @@
     color: var(--color-accent);
   }
 
-  /* A section marker whose rule runs to the edge of the column. */
+  /* A section marker whose rule runs to the edge of the column. Every page
+     spaces it the same, 216px above and 32px under, so a reader crossing
+     between them is not re-learning where a section starts. The overview
+     composes the 216 from a section pb-36 and the next pt-18; a page that is
+     one block has no seam to compose it from and states it as an mt-54. */
   .label {
     display: flex;
     align-items: center;

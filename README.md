@@ -120,13 +120,14 @@ curl --proto '=https' --tlsv1.2 -LsSf https://hsnice16.github.io/tula/install.sh
 brew install hsnice16/tap/tula     # or: npm install -g @tula/cli
 ```
 
-macOS and Linux, Apple Silicon and x86. The installer checks the download
-against its published checksum **and** against a sigstore-backed attestation
-proving this repository's release workflow built it, and refuses rather than
-warns. Check one by hand:
+macOS and Linux, on 64-bit Intel and ARM. Alpine and other musl systems are not
+supported, and there is no native Windows build — install inside WSL. The
+installer checks the download against its published checksum **and** against a
+sigstore-backed attestation proving this repository's release workflow built it,
+and refuses rather than warns. Check one by hand:
 
 ```bash
-gh attestation verify tula-v0.3.0-alpha.1-darwin-arm64.tar.gz --repo hsnice16/tula
+gh attestation verify tula-v0.1.0-darwin-arm64.tar.gz --repo hsnice16/tula
 ```
 
 Pin a version with `TULA_VERSION`, require provenance with

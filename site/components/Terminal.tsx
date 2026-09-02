@@ -40,8 +40,3 @@ export function Terminal({ title, children }: { title: string; children: ReactNo
     </Frame>
   )
 }
-
-/** A command typed at your own shell, before tula is running. */
-export const Cmd = ({ children }: { children: ReactNode }) => (
-  <span className="text-accent">{children}</span>
-)

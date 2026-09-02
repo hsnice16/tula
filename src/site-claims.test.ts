@@ -70,11 +70,39 @@ describe('retracted wordings stay retracted', () => {
   // not a promise to a user, so it carries the retracted list without owing the
   // reader the trading caveat. It still described the threat list that went.
   for (const path of [...CLAIMS, 'site/app/install/page.tsx', 'AGENTS.md']) {
+    // Both sides lowercased: one of these had come back capitalised at the head
+    // of a sentence, and a case-sensitive sweep read straight past it.
     test(`${path} carries none of them`, () => {
-      const text = flat(path)
-      for (const phrase of RETRACTED) expect(text).not.toContain(phrase)
+      const text = flat(path).toLowerCase()
+      for (const phrase of RETRACTED) expect(text).not.toContain(phrase.toLowerCase())
     })
   }
+})
+
+/**
+ * npm is the one channel `gh attestation verify` cannot check: the release job
+ * unpacks the attested archive and republishes the binary in a tarball of npm's
+ * own. Offering both channels under one promise is a promise wrong about one.
+ */
+describe('the install page keeps its two channels apart', () => {
+  const page = flat('site/app/install/page.tsx')
+
+  test('npm is named as the channel whose tarball carries no attestation', () => {
+    expect(page).toContain('npm install -g @tula/cli')
+    expect(page).toContain('npm repackages it, so its tarball carries no attestation')
+  })
+
+  test('and that is still what the release actually does to it', () => {
+    expect(read('scripts/npm-pack.sh')).toContain('tar -xzf "$RELEASE/tula-v$VERSION-$name.tar.gz"')
+  })
+
+  // The installer unpacks into a mktemp dir under a trap, so the reader running
+  // the verify line has no archive unless the page tells them to fetch one —
+  // and a verification that fails for a missing file reads like a rejected one.
+  test('the verify block downloads the archive it verifies', () => {
+    expect(page).toContain('curl -fLO')
+    expect(read('install.sh')).toContain('curl -fLO $BASE/$ARCHIVE')
+  })
 })
 
 describe('the security page names enforcement that exists', () => {
