@@ -1,4 +1,4 @@
-# 04 · The strategy artifact
+# 05 · The strategy artifact
 
 **Status**: planned
 

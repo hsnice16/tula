@@ -1,4 +1,5 @@
-import { chmod, mkdir, readFile, stat, writeFile } from 'node:fs/promises'
+import type { Stats } from 'node:fs'
+import { chmod, lstat, mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { ConnectorCredentials } from '../connectors/types.js'
@@ -9,6 +10,11 @@ import { TulaError } from '../core/errors.js'
  * call it and return results; if a credential ever lands in a tool response it
  * is sent verbatim to the model provider. Import it from `src/connectors/**`
  * only — never from `src/agent/**`.
+ *
+ * What this file does not do is encrypt. A key kept beside the ciphertext
+ * protects nothing, and a passphrase would break the one-shot commands that run
+ * unattended, so the store is plain JSON that only the owner can read. The
+ * security page states that outright; changing it here changes it there.
  */
 
 const REQUIRED_MODE = 0o600
@@ -34,21 +40,70 @@ export class PermissionsTooOpenError extends TulaError {
   }
 }
 
+export class DirectoryTooOpenError extends TulaError {
+  constructor(path: string, mode: number) {
+    super(
+      `${path} is mode ${mode.toString(8)}: anyone on this machine can write to it.\n` +
+        '  A credential file only you can read is one anyone can still replace.\n' +
+        `  Run: chmod 700 ${path}`,
+    )
+  }
+}
+
+export class NotARegularFileError extends TulaError {
+  constructor(path: string) {
+    super(
+      `${path} is not a regular file.\n` +
+        '  tula will not read credentials through a link, or write them through one.\n' +
+        `  Inspect it, then remove it: ls -l ${path}`,
+    )
+  }
+}
+
 async function load(): Promise<Store> {
-  let raw: string
+  const path = credentialsPath()
+
+  let info: Stats
   try {
-    raw = await readFile(credentialsPath(), 'utf8')
+    info = await lstat(path)
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return {}
     throw err
   }
 
+  // lstat, not stat: through a symlink the mode check reads the *target's*
+  // permissions, so a link planted here passes it and then takes the next write
+  // wherever it points.
+  if (info.isSymbolicLink() || !info.isFile()) throw new NotARegularFileError(path)
+
   // Refuse rather than warn: a group-readable key file on a shared box is
   // the same failure as no encryption at all.
-  const mode = (await stat(credentialsPath())).mode & 0o777
-  if (mode !== REQUIRED_MODE) throw new PermissionsTooOpenError(credentialsPath(), mode)
+  const mode = info.mode & 0o777
+  if (mode !== REQUIRED_MODE) throw new PermissionsTooOpenError(path, mode)
 
-  return JSON.parse(raw) as Store
+  // A file only you can read, in a directory anyone can write to, is a file
+  // anyone can replace. Write is the permission that matters — 755 leaves the
+  // contents unreadable and nothing to substitute, so it is not refused.
+  const dirMode = (await stat(configDir())).mode & 0o777
+  if (dirMode & 0o022) throw new DirectoryTooOpenError(configDir(), dirMode)
+
+  return JSON.parse(await readFile(path, 'utf8')) as Store
+}
+
+/**
+ * Written beside the target and renamed over it. The rename is atomic, so an
+ * interrupted write cannot leave a store truncated to nothing, and it *replaces*
+ * whatever is at the path rather than writing through it.
+ */
+async function save(store: Store): Promise<void> {
+  const path = credentialsPath()
+  await mkdir(configDir(), { recursive: true, mode: 0o700 })
+  const temp = `${path}.${process.pid}.tmp`
+  // writeFile's mode applies only when it creates the file; chmod covers the
+  // case where a previous run left one behind.
+  await writeFile(temp, JSON.stringify(store, null, 2), { mode: REQUIRED_MODE })
+  await chmod(temp, REQUIRED_MODE)
+  await rename(temp, path)
 }
 
 export async function get(venueId: string): Promise<ConnectorCredentials | undefined> {
@@ -58,18 +113,14 @@ export async function get(venueId: string): Promise<ConnectorCredentials | undef
 export async function put(venueId: string, creds: ConnectorCredentials): Promise<void> {
   const store = await load()
   store[venueId] = creds
-  await mkdir(configDir(), { recursive: true, mode: 0o700 })
-  await writeFile(credentialsPath(), JSON.stringify(store, null, 2), { mode: REQUIRED_MODE })
-  await chmod(credentialsPath(), REQUIRED_MODE)
+  await save(store)
 }
 
 export async function remove(venueId: string): Promise<void> {
   const store = await load()
   if (!(venueId in store)) return
   delete store[venueId]
-  await mkdir(configDir(), { recursive: true, mode: 0o700 })
-  await writeFile(credentialsPath(), JSON.stringify(store, null, 2), { mode: REQUIRED_MODE })
-  await chmod(credentialsPath(), REQUIRED_MODE)
+  await save(store)
 }
 
 export async function listVenues(): Promise<string[]> {

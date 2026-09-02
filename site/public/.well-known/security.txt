@@ -1,0 +1,8 @@
+# RFC 9116 places this at the domain root. This is a GitHub Pages project site,
+# so the root belongs to the account rather than to this project; it moves there
+# with the apex domain. Canonical says where it actually is until then.
+Contact: https://github.com/hsnice16/tula/security/advisories/new
+Expires: 2027-09-01T00:00:00.000Z
+Policy: https://github.com/hsnice16/tula/blob/main/SECURITY.md
+Canonical: https://hsnice16.github.io/tula/.well-known/security.txt
+Preferred-Languages: en

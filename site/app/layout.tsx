@@ -8,7 +8,7 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'tula — your true exposure, what breaks first, and more, across every venue at once',
   description:
-    'A terminal tool that answers what no single venue can: what is my real exposure, and what breaks first? Read-only and non-custodial — no code path can move your money.',
+    'A terminal tool that answers what no single venue can: what is my real exposure, and what breaks first? Non-custodial, and read-only for the moment — placing trades will come later.',
 }
 
 export default function RootLayout({ children }: { children: ReactNode }) {

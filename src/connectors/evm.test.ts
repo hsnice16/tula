@@ -35,4 +35,24 @@ describe('ABI helpers', () => {
   test('a too-short string returns empty rather than throwing', () => {
     expect(decodeString('0x00')).toBe('')
   })
+
+  // Whoever answers as the RPC chooses both the length prefix and the bytes.
+  const encode = (text: string, declaredBytes = Buffer.byteLength(text)) => {
+    const body = Buffer.from(text, 'utf8').toString('hex')
+    const pad = (n: number) => n.toString(16).padStart(64, '0')
+    return `0x${pad(32)}${pad(declaredBytes)}${body.padEnd(Math.ceil(body.length / 64) * 64, '0')}`
+  }
+
+  test('a symbol longer than any real one is cut, not passed through', () => {
+    const long = 'A'.repeat(500)
+    expect(decodeString(encode(long)).length).toBe(32)
+  })
+
+  test('a length prefix that lies about the payload does not over-read', () => {
+    expect(decodeString(encode('WETH', 4096))).toBe('WETH')
+  })
+
+  test('control characters and line breaks are stripped', () => {
+    expect(decodeString(encode('WE\nTH\u0000\u202e'))).toBe('WETH')
+  })
 })

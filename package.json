@@ -1,6 +1,6 @@
 {
   "name": "@tula/cli",
-  "version": "0.3.0",
+  "version": "0.3.0-alpha.1",
   "description": "Your true exposure, what breaks first, and more, across every venue at once.",
   "license": "MIT",
   "type": "module",
@@ -15,8 +15,8 @@
     "build": "bun build src/index.ts --compile --outfile dist/tula",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
-    "check": "tsc --noEmit && bun test && bash scripts/install-test.sh && bash scripts/guard.sh",
-    "guard": "bash scripts/guard.sh",
+    "check": "tsc --noEmit && bun test && bash scripts/install-test.sh && bash scripts/guard.sh && bash scripts/guard-test.sh",
+    "guard": "bash scripts/guard.sh && bash scripts/guard-test.sh",
     "prepare-hooks": "git config core.hooksPath .githooks",
     "test:install": "bash scripts/install-test.sh",
     "release:build": "bash scripts/release-build.sh"

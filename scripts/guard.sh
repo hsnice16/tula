@@ -5,19 +5,36 @@ set -uo pipefail
 fail=0
 report() { echo "GUARD FAILED: $1"; fail=1; }
 
-# No code path may place an order or move funds. Matched as a quoted endpoint
-# path so prose and the signing test vector (which signs a sample payload
-# without calling anything) do not trip it.
-if grep -rnE "['\"]/0/private/(AddOrder|AddOrderBatch|CancelOrder|CancelOrderBatch|CancelAll|EditOrder|Withdraw|WithdrawCancel)['\"]" \
-     src --include='*.ts' --exclude='*.test.ts'; then
-  report "an order or withdrawal endpoint is referenced in src/"
+# No code path may place an order or move funds — across every venue, not just
+# the first one that had a connector. Matched on the endpoint segment rather
+# than a whole path, because each venue spells the same act differently.
+#
+# `label:` and `hint:` lines are excluded: help links and field hints are prose
+# shown to the user, and a Kraken doc URL under /exchange/ is not a call site.
+# Whether the guard still catches a real one is asserted in guard-test.sh.
+WRITE_ENDPOINTS='AddOrderBatch|AddOrder|CancelOrderBatch|CancelOrder|CancelAll|EditOrder'
+WRITE_ENDPOINTS="$WRITE_ENDPOINTS|WithdrawCancel|Withdraw|withdraw|withdrawals"
+WRITE_ENDPOINTS="$WRITE_ENDPOINTS|orders|order|payouts|transfers|refunds|exchange"
+if grep -rnE "['\"][^'\"]*/($WRITE_ENDPOINTS)([/?][^'\"]*)?['\"]" \
+     src --include='*.ts' --exclude='*.test.ts' | grep -vE '(label|hint):'; then
+  report "an order, withdrawal or transfer endpoint is referenced in src/"
 fi
 
-# tula never handles key material. Public addresses only. Identifier forms
-# only, so the connect screen can promise in prose that we never ask for a seed.
-if grep -rnE "(privateKey|private_key|PRIVATE_KEY|seedPhrase|seed_phrase|SEED_PHRASE|mnemonic)" \
+# The same act on-chain is a signing RPC, not a path. eth_call and
+# eth_getBalance cannot write; everything that can is named here.
+if grep -rnE "(eth_sendTransaction|eth_sendRawTransaction|eth_signTransaction|eth_signTypedData|eth_sign|personal_sign)" \
      src --include='*.ts' --exclude='*.test.ts'; then
-  report "key material handled in src/"
+  report "a transaction-signing RPC is referenced in src/"
+fi
+
+# tula handles key material in exactly one place: the Coinbase connector, whose
+# CDP credential *is* an asymmetric private key. Confining it is what lets the
+# site say what tula does with a key rather than pretending it never sees one.
+# Everywhere else, a public address or an HMAC secret and nothing more.
+if grep -rlE "(createPrivateKey|createSign|BEGIN [A-Z ]*PRIVATE KEY|privateKey|private_key|PRIVATE_KEY|seedPhrase|seed_phrase|SEED_PHRASE|mnemonic)" \
+     src --include='*.ts' --include='*.tsx' --exclude='*.test.ts' |
+     grep -v '^src/connectors/coinbase.ts$'; then
+  report "key material is handled outside src/connectors/coinbase.ts"
 fi
 
 # The agent layer sees computed views only: no credential, no venue client.
@@ -50,6 +67,26 @@ app_version=$(grep -m1 'APP_VERSION' src/version.ts | sed "s/.*'\([^']*\)'.*/\1/
 if [ "$pkg_version" != "$app_version" ]; then
   report "package.json is $pkg_version and src/version.ts is $app_version"
 fi
+
+# Three files print a `gh attestation verify` command with a release filename in
+# it. A reader copies that line verbatim, so a stale version there sends them to
+# an archive that does not exist and reports as a failed verification — which is
+# the one thing this project must never say by accident.
+for f in SECURITY.md README.md site/app/install/page.tsx; do
+  # The whole filename, not a version parsed out of it: a pre-release version
+  # carries a hyphen, and so does every target suffix after it.
+  for named in $(grep -oE 'tula-v[A-Za-z0-9._-]+\.tar\.gz' "$f" | sort -u); do
+    case "$named" in
+      "tula-v$pkg_version-"*) ;;
+      *) report "$f names $named; this release is tula-v$pkg_version" ;;
+    esac
+  done
+done
+
+# One fact, one place. release.yml reads the hyphen; the binary must not be told
+# separately, or a stable release ships a binary that calls itself pre-release.
+grep -q "IS_PRE_RELEASE = APP_VERSION.includes('-')" src/version.ts ||
+  report "src/version.ts sets IS_PRE_RELEASE by hand; derive it from APP_VERSION"
 
 # install.sh builds its download URL from names release-build.sh chose. Drift
 # between them is invisible until a tag is pushed, and produces a release that
@@ -102,6 +139,29 @@ if grep -rnE "from ['\"]next/link['\"]" site/app site/components --include='*.ts
 fi
 
 repo_url=$(grep -m1 'REPO_URL' src/version.ts | sed "s/.*'\([^']*\)'.*/\1/")
+# An expired security.txt is worse than none: it is a published invitation to
+# report a vulnerability through a channel nobody promises to read any more.
+# RFC 9116 caps the lifetime at a year, so this fails while there is still time
+# to renew it rather than on the day it lapses.
+SECTXT=site/public/.well-known/security.txt
+if [ -f "$SECTXT" ]; then
+  expires=$(sed -n 's/^Expires: *//p' "$SECTXT")
+  [ -n "$expires" ] || report "security.txt has no Expires field; RFC 9116 requires one"
+  if [ -n "$expires" ]; then
+    # BSD date first, GNU second: this runs on a developer's mac and on CI.
+    left=$(( ( $(date -j -f '%Y-%m-%dT%H:%M:%S' "${expires%.*}" +%s 2>/dev/null ||
+                 date -d "$expires" +%s) - $(date +%s) ) / 86400 ))
+    [ "$left" -gt 30 ] || report "security.txt expires in $left days; renew it"
+  fi
+  grep -q "^Policy: $repo_url/blob/main/SECURITY.md\$" "$SECTXT" ||
+    report "security.txt does not point at $repo_url/blob/main/SECURITY.md"
+  # Two files name the channel a reporter is sent to. They drift apart silently,
+  # and the one nobody notices is the one nobody can report through.
+  contact=$(sed -n 's/^Contact: *//p' "$SECTXT")
+  grep -qF "$contact" SECURITY.md ||
+    report "security.txt Contact ($contact) is not the channel SECURITY.md names"
+fi
+
 grep -q "REPO=\"${repo_url#https://github.com/}\"" install.sh ||
   report "install.sh downloads from a different repository than src/version.ts names"
 

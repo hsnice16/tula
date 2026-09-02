@@ -1,6 +1,14 @@
 export const APP_NAME = 'tula'
-export const APP_VERSION = '0.3.0'
-export const IS_PRE_RELEASE = true
+export const APP_VERSION = '0.3.0-alpha.1'
+
+/**
+ * SemVer says a hyphen means pre-release, and `release.yml` already reads it
+ * that way to choose `--prerelease` over `--latest` and the npm dist-tag. This
+ * derives rather than restates it: the two were a hand-set boolean apart, and
+ * they had already drifted — a stable GitHub release whose binary printed
+ * "pre-release".
+ */
+export const IS_PRE_RELEASE = APP_VERSION.includes('-')
 export const REPO_URL = 'https://github.com/hsnice16/tula'
 
 /**

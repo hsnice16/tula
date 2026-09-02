@@ -1,6 +1,10 @@
 # tasks/
 
-Per-version work breakdown, readable by any agent (Claude Code, Cursor, Codex, Devin, etc.).
+Work breakdown, readable by any agent (Claude Code, Cursor, Codex, Devin, etc.).
+
+Folders are named for the version the work was planned under. Those names are
+history: [`ROADMAP.md`](../ROADMAP.md) tracks milestones, and a version number is
+chosen when a release is cut, from what went into it.
 
 ## Structure
 

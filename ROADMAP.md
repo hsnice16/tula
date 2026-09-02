@@ -7,24 +7,50 @@ authoritative.
 
 Per-version tasks in [`tasks/`](./tasks). Shipped work in [CHANGELOG.md](./CHANGELOG.md).
 
-| Version | Theme | Why here |
+| # | Theme | Why here |
 |---|---|---|
-| **0.1.0** | Foundations — schema, secrets boundary, Kraken | Prove the loop end to end on one venue before generalizing |
-| **0.2.0** | The shell — Ink surface, plain English, prices, net exposure | The daily driver must be venue-agnostic, or it is five browser tabs in one terminal |
-| **0.3.0** | Cross-domain — Hyperliquid, Aave | Three domains at once is the claim; two venues of one kind proves nothing |
-| **0.4.0** | Risk engine — liquidation distance, shocks, what breaks first | The feature people tell friends about |
-| **0.5.0** | Trust surface — `doctor`, staleness, scope audit | Asking for keys obliges us to prove what we do with them |
-| **0.6.0** | Breadth — aggregator API, the hand-built venues, wallet tokens, price sources | Hand-building the long tail is the treadmill that kills aggregators |
-| **0.7.0** | Watch mode and alerts | "Tell me before my health factor breaks 1.3" is why someone opens this daily |
-| **0.8.0** | Distribution — install script, attestations, Homebrew, npm | The install path is part of the security product, not logistics |
-| **1.0.0** | Hardening and public release | Read-only, non-custodial, complete |
-| **2.0.0** | Execution — trade diff, policy file, session keys | Guardrails enforced by a contract, not by app config |
+| **1** | Foundations — schema, secrets boundary, Kraken | Prove the loop end to end on one venue before generalizing |
+| **2** | The shell — Ink surface, plain English, prices, net exposure | The daily driver must be venue-agnostic, or it is five browser tabs in one terminal |
+| **3** | Cross-domain — Hyperliquid, Aave | Three domains at once is the claim; two venues of one kind proves nothing |
+| **4** | Breadth — the hand-built venues, wallet tokens, price sources, aggregator API | Hand-building the long tail is the treadmill that kills aggregators |
+| **5** | Distribution — install script, attestations, Homebrew, npm | The install path is part of the security product, not logistics |
+| **6** | Risk engine — liquidation distance, shocks, what breaks first | The feature people tell friends about |
+| **7** | Trust surface — `doctor`, staleness, scope audit | Asking for keys obliges us to prove what we do with them |
+| **8** | Watch mode and alerts | "Tell me before my health factor breaks 1.3" is why someone opens this daily |
+| **9** | Hardening, and the release that stops being a pre-release | Read-only, non-custodial, complete |
+| **10** | Execution — trade diff, policy file, session keys | Guardrails enforced by a contract, not by app config |
+
+1–6 are in the tree. The risk engine (6) landed alongside breadth and
+distribution rather than after them, and that reordering is why this table
+stopped naming versions: it used to, and a plan that moves makes a published
+number wrong. 7 onward is not built.
+
+## Versions
+
+Milestones are the plan; **versions describe releases**, and one is only chosen
+when a release is cut, from what actually went into it. [SemVer](https://semver.org),
+pre-1.0:
+
+| Bump | For |
+|---|---|
+| **patch** | Fixes, security hardening, doc and site corrections. No new surface. |
+| **minor** | A new venue, command or capability — and, while `0.x`, anything breaking |
+| **major** | `1.0.0` is the stability promise. `2.0.0` is execution. |
+
+A hyphen means pre-release (`0.3.0-alpha.1`). It is the only signal: the binary
+derives its label from it and `release.yml` picks `--prerelease` and the npm
+dist-tag from it, so there is nothing to keep in step by hand.
+
+The folders under [`tasks/`](./tasks) are named for the version they were planned
+under. Those names are history, not a promise about where the work ships.
 
 ## What v1 is not
 
 - **Not an execution venue.** No orders, no funds moved, no code path that could.
+  Placing trades will come later; moving funds will not.
 - **Not custodial.** Public addresses on-chain, query-only keys for exchanges.
-  tula never generates or stores a private key or seed phrase.
+  tula never generates a private key and never asks for a seed phrase. The one
+  it stores is Coinbase's CDP API key, which signs read requests only.
 - **Not a place the model does arithmetic.** It queries the risk engine and
   narrates what comes back, never touching a venue API or the secret store.
 - **Not dependent on a model.** Every view has a command behind it. Without a key

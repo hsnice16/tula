@@ -12,8 +12,23 @@ A terminal tool that answers one question no venue can: **what is my real exposu
 and what breaks first?** — across centralized exchanges, perp DEXs and lending
 protocols at once.
 
-See `README.md` for the product narrative, `ROADMAP.md` for version themes, and
-`tasks/` for the per-version work breakdown.
+See `README.md` for the product narrative, `ROADMAP.md` for the milestones and
+the versioning rules, and `tasks/` for the work breakdown.
+
+## Versioning
+
+[SemVer](https://semver.org), and the version describes a **release**, never a
+plan — the milestones live in `ROADMAP.md` precisely so a reordered plan cannot
+make a published number wrong. Pre-1.0: **patch** for fixes, security hardening
+and doc or site corrections; **minor** for a new venue, command or capability,
+and for anything breaking; **major** is reserved for `1.0.0` and `2.0.0`.
+
+A hyphen means pre-release. It is the only signal — `src/version.ts` derives
+`IS_PRE_RELEASE` from `APP_VERSION`, and `release.yml` reads the same hyphen to
+choose `--prerelease` over `--latest` and the npm dist-tag. They were once a
+hand-set boolean apart and had already drifted into a stable release whose
+binary called itself a pre-release; `guard.sh` now fails if the derivation is
+replaced by a literal.
 
 ## Stack
 
@@ -47,7 +62,7 @@ See `README.md` for the product narrative, `ROADMAP.md` for version themes, and
 bun install
 bun run typecheck      # tsc --noEmit
 bun test               # unit tests
-bun run check          # typecheck + test + guard, what CI runs
+bun run check          # typecheck + test + install path + guard + guard-test, what CI runs
 bun run build          # -> dist/tula
 bun run dev            # run from source
 ```
@@ -101,6 +116,7 @@ A change is finished when all of this is true, not when it works:
 install.sh              # the published installer; served from the site, tested in CI
 scripts/
   guard.sh              # the SECURITY.md promises, enforced
+  guard-test.sh         # plants a write path in src/ and expects guard.sh to name it
   release-build.sh      # cross-compiles the four published targets
   install-test.sh       # runs install.sh against a fake release, under a curl shim
   npm-pack.sh           # stages @tula/cli and its per-platform packages
@@ -311,21 +327,30 @@ it tell them what to do next?
 
 ## Security / threat surface (read before changing I/O)
 
-tula is read-only and non-custodial, which removes theft but not data risk: it
-builds an aggregated view of one person's entire cross-venue net worth.
+tula is non-custodial, and read-only for the moment — placing trades will come
+later. That removes theft of funds but not risk to data: it builds an aggregated
+view of one person's entire cross-venue net worth, and holds a key to every
+venue in it.
 
 1. **No credential may reach LLM context.** The command layer reads
    `src/secrets/store.ts` to save and hand credentials to connectors; the agent
-   layer (`src/agent/**`, 2.0) must never import it, and no value returned to
-   that layer may contain one. No `read_file` tool over the config, no splicing
+   layer (`src/agent/**`) must never import it, and no value returned to that
+   layer may contain one. No `read_file` tool over the config, no splicing
    config into a prompt, no logging tool I/O that includes credentials.
-2. **Never ask for a seed phrase or private key.** On-chain reads take a public
-   address. A seed-phrase field is a phishing template.
+2. **Never ask for a seed phrase.** On-chain reads take a public address. A
+   seed-phrase field is a phishing template. The one private key tula loads is
+   Coinbase's CDP API key, and `guard.sh` fails on key handling in any other
+   file.
 3. **Verify key scope at connect time.** `Connector.verifyScope` must call the
-   venue and refuse anything that can withdraw. Not documented — checked.
-4. **On-chain text is hostile.** Token names, memo fields, NFT metadata and
-   protocol descriptions are attacker-controlled and flow into context. They are
-   data, never instructions.
+   venue and refuse anything that can withdraw — permanently, trading or not.
+   A key that can trade is refused too, wherever the venue will say so. Not
+   documented — checked.
+4. **Bound every string somebody else writes.** Two reach the screen and the
+   model: an asset symbol and a venue's error text. Both are capped and
+   flattened to one line in `src/cli/session.ts`, where all seven connectors
+   arrive. They are data, never instructions. No memo, NFT metadata or protocol
+   description is read — a third source has to be bounded there and listed in
+   `SECURITY.md` in the same commit.
 
 Never add a code path that can place an order, and never import a venue's order
 endpoint — including "validate only" variants. The absence is the product.
@@ -353,12 +378,24 @@ The agent reads that task for goal and acceptance criteria, the version's
 
 ## Things to leave alone
 
-- The 600-mode refusal in `src/secrets/store.ts`. It refuses rather than warns
-  on purpose; a group-readable key file is the same failure as no protection.
+- The refusals in `src/secrets/store.ts`: mode 600, `lstat` rather than `stat`,
+  and a config directory nobody else may write to. They refuse rather than warn
+  on purpose. The file is plain JSON and stays that way — a key kept beside the
+  ciphertext protects nothing, and a passphrase breaks the commands that run
+  unattended — so those three checks are the entire defence, and the security
+  page says so in those words rather than implying encryption.
 - The signature test vector in `src/connectors/kraken.test.ts`. It is Kraken's
   published example; if it drifts, every private call fails as
   `EAPI:Invalid signature`, which reads as a bad key.
-- The tri-state `KeyScope`. Collapsing it to booleans reintroduces the lie.
+- The cap and the control-character strip in `decodeString` (`src/connectors/evm.ts`)
+  and in `reason()` (`src/cli/session.ts`). A decoded symbol and a venue's error
+  text are the two strings somebody else writes that are rendered *and* sent to
+  the model; both are capped and flattened to one line so neither can pose as an
+  instruction. `SECURITY.md` lists exactly these two, so a third has to be added
+  there in the same commit.
+- The tri-state `KeyScope`. Collapsing it to booleans reintroduces the lie. It
+  is also per-power on purpose: when trading ships, `isOverScoped` drops its
+  `canTrade` clause and the withdraw refusal stands unchanged.
 - `decimal.js` on every quantity.
 
 ## The site
@@ -439,6 +476,24 @@ bun run build              # -> site/out, static
 - **The header is rendered by `app/layout.tsx`, not by each page.** A `<Nav>` per
   page is a new one per route change, and an underline that remounts cannot
   travel from where it was.
+- **Every claim the security page makes is pinned by `src/site-claims.test.ts`.**
+  Numbers were pinned long before words were, and the words drifted first: the
+  page promised a guard check that only ever matched Kraken, said tula never
+  handled key material while the Coinbase connector loaded an EC private key,
+  and said the installer refuses what it cannot verify when without the GitHub
+  CLI it installs and says so. The test holds every surface that makes the claim
+  to the same wording, refuses the retracted phrasings by name, and checks each
+  promise against the guard or the module behind it.
+- **A claim that will expire is worded so it can be extended, never retracted.**
+  Trading is coming, so no surface says tula *cannot* place an order full stop:
+  each carries "placing trades will come later", and the promise stated flatly
+  is the one that never moves — funds do not leave a venue. A withdrawn security
+  promise reads as though it was never true.
+- **`public/.well-known/security.txt`** is RFC 9116. It belongs at the domain
+  root, which on a project site belongs to the account, so it moves there with
+  the apex domain and `Canonical` says where it is until then. `guard.sh` fails
+  30 days before `Expires`: a lapsed one is a published invitation to report
+  through a channel nobody promises to read.
 - **Every number the front page states is pinned by `src/site-example.test.ts`.**
   Both blocks that quote the tool — the command transcript and the answer to
   the plain-English question — are recomputed from one synthetic book, the
@@ -505,8 +560,8 @@ repository, and optionally the `APPLE_*` signing secrets.
 
 ```bash
 bun run prepare-hooks  # once per clone: points git at .githooks
-bun run check          # typecheck + tests + install test + guard
-bun run guard          # the SECURITY.md promises, enforced
+bun run check          # typecheck + tests + install test + guard + guard-test
+bun run guard          # the SECURITY.md promises, enforced, and proof they still are
 ```
 
 Hooks are a shell script under version control rather than a hook-runner

@@ -6,12 +6,15 @@ import { INSTALL_COMMAND, REPO } from '@/lib/site'
 export const metadata: Metadata = {
   title: 'Install tula',
   description:
-    'One command. Every release is attested, and the installer refuses a binary it cannot verify.',
+    'One command. Every release is attested, and the installer refuses a binary whose checksum or attestation does not match.',
 }
 
 const CHECKS = [
-  ['Published checksum', 'Refuses a download that does not match.'],
-  ['Build attestation', 'Sigstore-backed, keyless. Refuses a binary this repo did not build.'],
+  ['Published checksum', 'Always. Refuses a download that does not match.'],
+  [
+    'Build attestation',
+    'Sigstore-backed, keyless. Refuses a binary this repo did not build — where the GitHub CLI is installed to check it.',
+  ],
   ['Versioned installs', '~/.tula/versions, behind a symlink. Going back is a link flip.'],
 ] as const
 
@@ -23,7 +26,10 @@ const FLAGS = [
 
 const ENV = [
   ['TULA_VERSION', 'Install an exact version. Pin this in CI.'],
-  ['TULA_REQUIRE_ATTESTATION', 'Refuse to install unproven. Needs the GitHub CLI.'],
+  [
+    'TULA_REQUIRE_ATTESTATION',
+    'Refuse to install unproven, rather than say so. Needs the GitHub CLI.',
+  ],
   ['TULA_INSTALL_DIR', 'Where versions live. Default ~/.tula.'],
   ['TULA_NO_MODIFY_PATH', 'Leave your shell profile alone.'],
   ['TULA_CONFIG_DIR', 'Redirects the credential store.'],
@@ -35,7 +41,7 @@ const ENV = [
 
 export default function Page() {
   return (
-    <main className="wrap py-16">
+    <main className="wrap pt-16 pb-54">
       <h1 className="mb-5 text-[clamp(2rem,4.5vw,2.8rem)] font-medium tracking-[-0.025em]">
         Install
       </h1>
@@ -103,7 +109,7 @@ export default function Page() {
       </p>
       <div className="max-w-[46rem]">
         <Terminal title="verify">
-          {'gh attestation verify tula-v0.3.0-darwin-arm64.tar.gz --repo hsnice16/tula'}
+          {'gh attestation verify tula-v0.3.0-alpha.1-darwin-arm64.tar.gz --repo hsnice16/tula'}
         </Terminal>
         <p className="mt-4 text-dim">
           A checksum served beside a file only proves it is intact. This proves who built it.

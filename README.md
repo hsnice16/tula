@@ -5,8 +5,8 @@
 [![CI](https://github.com/hsnice16/tula/actions/workflows/ci.yml/badge.svg)](https://github.com/hsnice16/tula/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
-Read-only and non-custodial — placing trades will come later, and today no
-code path could move your money.
+Non-custodial, and read-only for the moment — placing trades will come later;
+moving funds will not.
 
 The name is taken from Sanskrit: **tula**, the balance. The scale that weighs one
 side against the other, and the same object Latin calls *Libra*.
@@ -61,12 +61,21 @@ incumbents are structurally unable to.
 
 ## Security posture
 
-tula is read-only and non-custodial. It cannot place an order or move funds,
-and there is no code path that could.
+tula is non-custodial, and read-only for the moment — placing trades will come
+later. No code path can move funds off a venue, and none places an order today;
+`scripts/guard.sh` fails the build if one appears, and `scripts/guard-test.sh`
+proves that check still catches one.
 
-- **It never asks for a seed phrase or private key.** On-chain positions are read
-  from public addresses. Anything prompting you for a seed phrase while claiming
-  to be tula is not tula.
+- **It never asks for a seed phrase.** On-chain positions are read from public
+  addresses. Anything prompting you for a seed phrase while claiming to be tula
+  is not tula. The one private key tula loads is a Coinbase CDP API key, which
+  signs read requests and cannot move funds; the guard fails if key handling
+  appears in any other file.
+- **Credentials are not encrypted at rest.** One file, `~/.config/tula/credentials.json`,
+  mode 600, plain JSON, refused if it is a link or if anything else can write to
+  its directory. A key kept beside the ciphertext would protect nothing and a
+  passphrase would break the unattended commands, so the choice is stated rather
+  than dressed up.
 - **Exchange API keys must be query-only.** Scope is verified against the venue at
   connect time; a key that can withdraw is refused, not warned about.
 - **Where a venue cannot prove scope, we say so.** Kraken exposes no endpoint that
@@ -82,9 +91,12 @@ and there is no code path that could.
   deterministic code and handed to it, already rounded and formatted by the same
   code that draws the tables. It has no raw value to re-round, so the sentence it
   writes and the row on screen cannot disagree.
-- **On-chain text is treated as hostile.** Token names, memo fields and protocol
-  descriptions are attacker-controlled. They are data, never instructions — a
-  read-only tool can still be talked into lying to you about a health factor.
+- **Text tula did not write is bounded.** Two strings reach the screen and the
+  model from outside: an asset symbol — as a venue's listing spells it, or as an
+  Aave reserve contract returns it — and a venue's own error text when one
+  fails. Both are capped and flattened to a single line, so neither can pose as
+  an instruction; a read-only tool can still be talked into lying to you about a
+  health factor.
 
 Network egress is limited to the venues you connect, the price oracle, and — only
 when you ask a question in plain English — Anthropic, which receives the computed
@@ -114,7 +126,7 @@ proving this repository's release workflow built it, and refuses rather than
 warns. Check one by hand:
 
 ```bash
-gh attestation verify tula-v0.3.0-darwin-arm64.tar.gz --repo hsnice16/tula
+gh attestation verify tula-v0.3.0-alpha.1-darwin-arm64.tar.gz --repo hsnice16/tula
 ```
 
 Pin a version with `TULA_VERSION`, require provenance with

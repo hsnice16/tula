@@ -1,23 +1,24 @@
 # Changelog
 
-Notable changes per version. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
-versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-`0.x` while the read-only risk view is finding its shape. `1.0` when it is
-complete and trustworthy without an agent. See [ROADMAP.md](./ROADMAP.md).
+Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions
+follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). A version is
+chosen when a release is cut, from what went into it — [ROADMAP.md](./ROADMAP.md)
+tracks the milestones and states the bump rules.
 
 This is the consumer-facing log: what changes a number tula reports, what it
 reads, what it refuses, or how you install it. What does **not** belong here —
 CI and build plumbing, refactors, and doc-only edits — stays in commit messages.
 
-## [0.3.0] - unreleased
+## [Unreleased]
 
-Real venues, a published install path, and nothing fake anywhere.
+Nothing is tagged yet, so everything below ships in the first release: real
+venues on a published install path, the query shell and the answer it exists to
+give — one net exposure per asset across venues, and what breaks first.
 
 ### Added
 
 - **Seven venues, three of them needing no credential at all.** Hyperliquid — perps with liquidation price and leverage, spot, and withdrawable margin, from a public address; verified against a live 176-position account. Aave v3 on Ethereum — per-asset collateral and debt with the account health factor over batched `eth_call`, reserves discovered on-chain rather than from hardcoded addresses; verified at health factors of 1.37 and 9.99. Wallet — native ETH and every ERC-20 on the Token Lists standard, with Aave receipt tokens excluded so a balance never double-counts collateral Aave already reports; verified against an address holding 65 tokens. Then Binance (spot and futures, scope proven from `apiRestrictions`), Coinbase Advanced (CDP keys over JWT, proven from `key_permissions`), Stripe (balances per currency from a restricted `rk_` key — an `sk_` key can create payouts, so it is refused rather than reported unknown), and Circle Mint, which exposes no way to read what a key may do, so transfer and redeem stay `unknown` and the connect screen says so. The five keyed venues are unit-tested but not yet run against live accounts.
-- **A published install path.** `curl --proto '=https' --tlsv1.2 -LsSf https://hsnice16.github.io/tula/install.sh | sh`, plus `brew install hsnice16/tap/tula` and `npm install -g @tula/cli`. The installer checks the download against its published checksum and against a sigstore-backed attestation proving this repository's workflow built it, and refuses rather than warns; `TULA_REQUIRE_ATTESTATION=1` makes it refuse to install unproven at all. Versions install side by side under `~/.tula/versions` behind a symlink, so going back to one is a link flip rather than a re-download — the direction that matters when a build is showing someone a wrong number. A launcher the user replaced is left alone.
+- **A published install path.** `curl --proto '=https' --tlsv1.2 -LsSf https://hsnice16.github.io/tula/install.sh | sh`, plus `brew install hsnice16/tap/tula` and `npm install -g @tula/cli`. The installer checks the download against its published checksum and refuses rather than warns; where the GitHub CLI is present it also verifies a sigstore-backed attestation proving this repository's workflow built it and refuses on failure, and where it is not it says plainly that provenance was not proven; `TULA_REQUIRE_ATTESTATION=1` makes it refuse to install unproven at all. Versions install side by side under `~/.tula/versions` behind a symlink, so going back to one is a link flip rather than a re-download — the direction that matters when a build is showing someone a wrong number. A launcher the user replaced is left alone.
 - **Homebrew and npm as second channels.** `brew install hsnice16/tap/tula` on two deliberately-named lines — `tula` lags and is promoted per release, `tula-latest` moves every time — because a bad build here does not fail loudly, it shows someone a wrong liquidation number. `npm install -g @tula/cli` resolves one per-platform package and copies the native binary over its launcher, so the installed tula never starts Node; Node is needed to install it, not to run it.
 - **Switchable price sources.** CoinGecko still needs no key; CoinMarketCap, CryptoCompare and CoinPaprika can replace it. Exactly one is active, and switching reprices the whole book rather than half of it — a book priced partly by two oracles is the silent inconsistency one-oracle-per-process exists to prevent. Keys are entered in the shell, never on a command line a shell history would keep, and only the active source's key is stored.
 - **Sign in with a browser, instead of pasting a key.** `/login` offers `ant auth login` first: it opens a browser and stores an OAuth profile the SDK reads on its own, so tula never sees, handles or stores the token — one fewer secret on disk in a tool whose argument is minimal credential handling. Delegated to the Anthropic CLI rather than reimplemented; a second OAuth client holding a token would be strictly worse than no token.
@@ -27,9 +28,24 @@ Real venues, a published install path, and nothing fake anywhere.
 - **Long output is kept to twelve lines, with ctrl+o for the rest.** A 176-position book was a screenful per answer, and the question that produced it scrolled off before it could be read beside what it returned. What is held back is counted, never dropped; ctrl+o puts it back in place — the transcript grows where it stands, the question stays above its answer, and the terminal's own scrollback is how you read up through it. It is a mode, not a pane: it stays on for output that arrives afterwards, and the footer says so while it is.
 - **`/about`** — what tula reads, what it structurally cannot do, where credentials sit, and whether plain English is available. The trust surface on one screen, so nobody reads the README to learn what the binary will not do.
 - **[A published site](https://hsnice16.github.io/tula/)** — overview, install and the security model. The changelog and the roadmap stay in the repository, where they are edited and read as the same file rather than rendered into a second copy. A separate package with its own lockfile, so its dependency tree never joins the binary's.
+- **The interactive shell**, on Ink. A bordered input with output above it and a live status line beneath — venues, positions, oldest data, whether the model is available. Line editing, cursor and history are hand-written rather than a dependency, because the front door of a process that reads exchange keys should not be one.
+- **`exposure`** — net exposure per asset across every venue, with notional and the venues that contributed. The same ETH held spot, short and pledged is one number. **`breaks`** — everything that can be liquidated, nearest first, with the required move expressed the same way for a perp liquidation price and an Aave health factor. **`shock <ASSET> <PCT>`** — reprice the whole book and report the change, the new health factors, and exactly what liquidates. **`venues`** — per-venue counts, freshness and failures.
+- **Plain English over the same vocabulary as the commands.** A line matching a known command runs deterministic code; anything else goes to `claude-opus-5` with adaptive thinking, streamed into the surface. Its entire tool surface is the risk engine — net exposure, positions, what breaks first, run scenario, venue status — and `scripts/guard.sh` fails the build if `src/agent/**` ever reaches a connector or the secret store.
+- **Slash commands with a menu.** `/` opens a filtered list with arguments and summaries; ↑↓ moves, Tab or Enter completes, Esc dismisses. A slash means a command and anything else is a question, with no heuristic to hold in your head. Every venue in the build is a first-class entry carrying its own status inline — position count and freshness, `FAILED`, or `not connected` — and `/<venue>` opens `connect`, `positions`, `breaks`, `status`, `docs`, `disconnect`. There is no longer a step where you must learn a venue's name to type it into a command.
+- **Connecting happens in the app**, with the venue's official links on screen at the step that needs them. Connectors declare their own credential fields, which are secret, and their help links, so the flow is generic.
+- **First-run onboarding** for the Anthropic key, with "continue without one" as a first-class choice. Stored at mode 600 under a reserved key the venue list never returns.
+- **CoinGecko price oracle**, batched into one request per refresh, and a session cache — one fetch per shell session, `refresh` to refetch. Cached data is never rendered as live.
+- **Canonical position schema** (`src/core/position.ts`) — signed quantities, a stored `delta`, and `asOf` on every position so freshness travels with the number.
+- **Secrets store** at `~/.config/tula/credentials.json`, mode 600 enforced on read, with no import path from the agent layer.
+- **Kraken connector** — request signing pinned to Kraken's published test vector, balance fetch, and asset normalization for the legacy `X`/`Z` prefixes and `.S`/`.M` yield suffixes.
+- **`tula connect <venue>`** — no-echo secret entry, key-scope verification, and refusal of any key that can withdraw. **`tula positions`** — every position across connected venues, with an `as_of` per row and a loud `INCOMPLETE` when a venue fails.
+- `TulaError`: user-actionable failures print one line, bugs keep their stack.
 
 ### Changed
 
+- **The security page says what the code does, and the build now proves it.** Its promises had drifted past their enforcement: it credited `guard.sh` with refusing any order or withdrawal endpoint when the check only ever matched Kraken's, said tula never handles key material while the Coinbase connector loads and signs with a CDP private key, and said the installer refuses what it cannot verify when without the GitHub CLI it installs and warns. Each claim is now either true or gone, and the build fails on an order, withdrawal or transfer endpoint in any connector, on a transaction-signing RPC, and on key handling outside the one connector whose credential is a private key.
+- **Nothing says tula cannot place an order full stop.** Trading is coming, and a security promise withdrawn on release day reads as though it was never true. Every surface now carries the front page's own caveat — placing trades will come later — while the promise stated flatly is the one that never moves: funds do not leave a venue. A key that can withdraw is still refused rather than warned about, and always will be.
+- **The security page says the credential file is not encrypted.** It is one file, mode 600, plain JSON. A key kept beside the ciphertext would protect nothing and a passphrase would break the commands that run unattended, so the permissions are the whole defence — which is worth saying outright rather than leaving a reader to assume otherwise and put the file in a backup.
 - **A wait says what it is waiting on.** The spinner read `working` for the whole of a load and then for whatever came after it, which behind a fetch carrying a 15s deadline per venue is indistinguishable from a hang. It now names each venue as it is read and then the pricing pass, and counts the seconds off beside it — so a slow venue is visibly a slow venue, and the number on screen is how long it has actually taken.
 - **Every figure reaches the model already rendered** — `"0.0113679"`, `"$27.75"`, `"-18.4%"`, `"19:24:22 (1s ago)"`, from the same code that draws the tables. It had been answering `0.01136790246459898 ETH, worth $27.753483398047303782` beside a table reading `0.0113679  $27.75`, leaving the reader to decide which was real. Rounding is arithmetic and the model may not do arithmetic; now it has nothing to round.
 - **Prices come from CoinGecko's market list** rather than a hand-written 22-asset symbol map. On a live 176-position book that took the unpriced count from 170 to 44. Tickers resolve in market-cap order, with the assets where a wrong price would cost most pinned to explicit ids so they never depend on that ordering.
@@ -41,9 +57,21 @@ Real venues, a published install path, and nothing fake anywhere.
 - The unpriced list is summarised rather than enumerated: a count and the largest few, not 170 symbols across ten lines.
 - **Renamed to tula** — taken from Sanskrit, the balance; the same object Latin calls *Libra*. Binary, config directory, `TULA_*` variables and npm scope all follow. Nothing was published under the old name.
 - Every dependency pinned to an exact version, with `bun.lock` committed. A caret range is a standing promise that code nobody has read yet is safe to run in a process holding exchange keys.
+- Upgraded to **Ink 7 and React 19**, which requires Node >= 22. All key handling moved into `app.tsx`: the slash menu and the line editor compete for the same arrow keys and Enter, and two input hooks cannot agree on who won.
+- The palette moved to a dulled gold (`#c9a227`) — the metal the rest of this is measured against. Saturated yellow was avoided deliberately: in a terminal it reads as a warning, and that meaning is kept in reserve. Red stays semantic.
+- `NetExposure.notional` is `Decimal | null`. Zero would read as no exposure.
+- The credential store resolves its path per call, so `TULA_CONFIG_DIR` works in tests rather than being frozen at import.
+- `connect` in a non-TTY with no piped input says it needs an interactive terminal instead of reporting the values as invalid.
 
 ### Fixed
 
+- **So is every asset symbol.** Binance and Hyperliquid passed the venue's raw string straight into a position, and a symbol is printed in every table and sent to the model with every position. All seven connectors now arrive at one place that caps it at 32 characters and strips control characters, rather than seven chances to forget.
+- **A failed venue's own error text is bounded too.** It is drawn on screen and returned to the model by `get_venue_status`, and its content is whatever the venue put in an error body — Binance's `msg`, 120 characters of a Coinbase response, Kraken's error array. Now capped at 200 characters and flattened to a single line in `src/cli/session.ts`, so a venue cannot answer with something that reads as a second message. It also fixes the rendering: `/status` prints one indented line per failure, and a multi-line message used to break out of that list.
+- **A token symbol read from a contract is bounded before anything renders or reads it.** `decodeString` took the length prefix from the response and returned whatever came back, and an Aave reserve's symbol becomes a position's asset name — rendered in the tables and handed to the model as a tool result. Whoever answers as the Ethereum RPC chose both the prefix and the bytes. It is now capped at 32 bytes with control characters and line breaks stripped, so a symbol cannot arrive carrying its own line. The security page had claimed memos, NFT metadata and protocol descriptions were the hostile surface; tula reads none of those, and did not mention the one string it does read. Both say the same true thing now.
+- **`SECURITY.md` no longer promises a 72-hour acknowledgement.** One person maintains this; a policy that misses its own stated clock is worse than one that never set it. It now says what it can keep — a reply usually within a week, and what to do if a week passes — and names the third injection surface it had left out.
+- **`SECURITY.md` names every host tula contacts.** It said two destinations, both of which you choose, and that nothing else was contacted to build the view — omitting the public Ethereum RPC and the token list, which are defaults rather than choices and each see the address being read. `guard.sh` also now fails when the `gh attestation verify` example in `SECURITY.md`, `README.md` or the install page names a release other than this one: a reader copies that line verbatim, and a stale filename reports as a failed verification.
+- **The `gh attestation verify` command the installer prints now names something that is actually attested.** The attestation's subject is the release archive; the installer pointed the command at the extracted binary, so anyone following it to check provenance for themselves got a rejection and had no way to tell that from a real one. It now prints the download and the archive. The security page said every channel could be checked that way, which is not true of npm — that repackages the binary into its own tarball, which carries no attestation; the page and `SECURITY.md` say so and point at the install script or Homebrew where provenance has to be proven.
+- **The credential store no longer follows a link, or trusts a directory anyone can write to.** `stat` reports a symlink's *target*, so a link planted at `credentials.json` passed the 600-mode check and then took the next write wherever it pointed — demonstrated writing a real key and secret into an attacker-chosen file, silently. It now `lstat`s and refuses anything but a regular file, refuses a config directory that is group- or world-writable, checks both before reading rather than after, and writes through a temporary file and a rename so an interrupted write cannot truncate the store.
 - **An unreachable venue hung the whole tool.** No outbound call had a deadline, so a venue that accepted the connection and went quiet — a rate-limited exchange, a saturated public RPC, a half-open NAT connection — blocked the refresh for as long as the OS was willing to wait. Measured at 76s for one unreachable RPC, with the shell spinning and no way out but Ctrl-C. Every call now goes through one `request()` with a 15s deadline, and `guard.sh` fails the build on a bare `fetch`. The deadline is a raced timer rather than `AbortSignal` alone, because the signal bounds the wait for a response and not for a connection: against a black-holed address a 3s signal took 75s to fire. A one-shot command now also exits once its output is written, instead of waiting on the socket of a venue that already failed.
 - **An Anthropic outage printed its raw JSON envelope.** `Error: {"type":"error","error":{"type":"overloaded_error",...}}` tells someone with money at risk nothing they can act on. Failures are now translated — which side failed, whether waiting helps, and that commands answer without the model — and a transient overload is retried five times before anyone sees it. A failed request no longer leaves the abandoned question in history, where the next one would be answered in its place.
 - **Plain English could answer "nothing is connected" about a connected venue**, because nothing forced a first load before a question. Relatedly, `/exposure` reported an empty book straight after a venue connected: storing credentials re-armed the open-with-state effect, which ran against the pre-connect cache and printed "nothing to measure" over a wallet that had just returned four positions.
@@ -65,50 +93,9 @@ Real venues, a published install path, and nothing fake anywhere.
 - Stripe quotes in each currency's minor unit and not all have two, so dividing everything by 100 would report a JPY balance as a hundredth of itself.
 - bun's `node:crypto` rejects `dsaEncoding: 'ieee-p1363'`, so Coinbase's ECDSA signatures are converted from DER to JOSE by hand; without it every request would present as a rejected key.
 - Address-only venues report `canTrade: false` and `canWithdraw: false` as proven facts — there is no credential to over-scope. That is a real contrast with Kraken, and the connect screen says which kind you are looking at.
-
-## [0.2.0] - unreleased
-
-The query shell, and the answer it exists to give: one net exposure per asset
-across venues, and what breaks first.
-
-### Added
-
-- **The interactive shell**, on Ink. A bordered input with output above it and a live status line beneath — venues, positions, oldest data, whether the model is available. Line editing, cursor and history are hand-written rather than a dependency, because the front door of a process that reads exchange keys should not be one.
-- **`exposure`** — net exposure per asset across every venue, with notional and the venues that contributed. The same ETH held spot, short and pledged is one number. **`breaks`** — everything that can be liquidated, nearest first, with the required move expressed the same way for a perp liquidation price and an Aave health factor. **`shock <ASSET> <PCT>`** — reprice the whole book and report the change, the new health factors, and exactly what liquidates. **`venues`** — per-venue counts, freshness and failures.
-- **Plain English over the same vocabulary as the commands.** A line matching a known command runs deterministic code; anything else goes to `claude-opus-5` with adaptive thinking, streamed into the surface. Its entire tool surface is the risk engine — net exposure, positions, what breaks first, run scenario, venue status — and `scripts/guard.sh` fails the build if `src/agent/**` ever reaches a connector or the secret store.
-- **Slash commands with a menu.** `/` opens a filtered list with arguments and summaries; ↑↓ moves, Tab or Enter completes, Esc dismisses. A slash means a command and anything else is a question, with no heuristic to hold in your head. Every venue in the build is a first-class entry carrying its own status inline — position count and freshness, `FAILED`, or `not connected` — and `/<venue>` opens `connect`, `positions`, `breaks`, `status`, `docs`, `disconnect`. There is no longer a step where you must learn a venue's name to type it into a command.
-- **Connecting happens in the app**, with the venue's official links on screen at the step that needs them. Connectors declare their own credential fields, which are secret, and their help links, so the flow is generic.
-- **First-run onboarding** for the Anthropic key, with "continue without one" as a first-class choice. Stored at mode 600 under a reserved key the venue list never returns.
-- **CoinGecko price oracle**, batched into one request per refresh, and a session cache — one fetch per shell session, `refresh` to refetch. Cached data is never rendered as live.
-
-### Changed
-
-- Upgraded to **Ink 7 and React 19**, which requires Node >= 22. All key handling moved into `app.tsx`: the slash menu and the line editor compete for the same arrow keys and Enter, and two input hooks cannot agree on who won.
-- The palette moved to a dulled gold (`#c9a227`) — the metal the rest of this is measured against. Saturated yellow was avoided deliberately: in a terminal it reads as a warning, and that meaning is kept in reserve. Red stays semantic.
-- `NetExposure.notional` is `Decimal | null`. Zero would read as no exposure.
-- The credential store resolves its path per call, so `TULA_CONFIG_DIR` works in tests rather than being frozen at import.
-- `connect` in a non-TTY with no piped input says it needs an interactive terminal instead of reporting the values as invalid.
-
-### Notes
-
 - Without an Anthropic key the product is unchanged except that plain English is unavailable. Every view has a command behind it.
-- The agent surface was planned for 2.0 and moved into 0.2.0. The hard boundary did not move with it.
+- The agent surface was planned for the execution milestone and pulled forward to the shell. The hard boundary did not move with it.
 - The compiled binary carries `react-devtools-core` (+2.3 MB): Ink imports it statically from a module it only loads when `DEV=true`, and marking it external breaks the binary at startup.
-- The 0.4.0 risk-engine tasks landed early. Getting the maths right against a fixture was cheaper than discovering it wrong against a live perp position.
-
-## [0.1.0] - unreleased
-
-First working vertical slice: one venue, real balances, on screen.
-
-### Added
-
-- **Canonical position schema** (`src/core/position.ts`) — signed quantities, a stored `delta`, and `asOf` on every position so freshness travels with the number.
-- **Secrets store** at `~/.config/tula/credentials.json`, mode 600 enforced on read, with no import path from the agent layer.
-- **Kraken connector** — request signing pinned to Kraken's published test vector, balance fetch, and asset normalization for the legacy `X`/`Z` prefixes and `.S`/`.M` yield suffixes.
-- **`tula connect <venue>`** — no-echo secret entry, key-scope verification, and refusal of any key that can withdraw. **`tula positions`** — every position across connected venues, with an `as_of` per row and a loud `INCOMPLETE` when a venue fails.
-- `TulaError`: user-actionable failures print one line, bugs keep their stack.
-
-### Notes
-
+- The risk-engine work landed alongside breadth rather than after it. Getting the maths right against a fixture was cheaper than discovering it wrong against a live perp position.
 - `KeyScope` is tri-state. Kraken exposes no endpoint reporting a key's permissions, and every endpoint gated on trade permission mutates an order, so `canTrade` is `unknown` rather than guessed at. Withdraw scope is provable, and is proven.
 - Kraken margin and open orders are not read yet, so on a margin account this is not a complete Kraken picture.

@@ -26,13 +26,26 @@ export const toBigInt = (word: string | undefined): bigint => (word ? BigInt(`0x
 export const wordToAddress = (word: string | undefined): string =>
   word ? `0x${word.slice(24)}` : '0x'
 
+/**
+ * The length prefix belongs to whoever answers as the RPC, so it does not get to
+ * size the read. `symbol()` in `src/cli/session.ts` bounds what is then kept.
+ */
+const MAX_SYMBOL_BYTES = 32
+
 /** ABI-encoded string: offset, length, then the bytes. */
 export function decodeString(hex: string): string {
   const body = hex.replace(/^0x/, '')
   if (body.length < 128) return ''
-  const length = Number(BigInt(`0x${body.slice(64, 128)}`))
+  const declared = Number(BigInt(`0x${body.slice(64, 128)}`))
+  const length = Math.min(declared, MAX_SYMBOL_BYTES)
   const bytes = body.slice(128, 128 + length * 2)
-  return Buffer.from(bytes, 'hex').toString('utf8').replace(/\0+$/, '')
+  return (
+    Buffer.from(bytes, 'hex')
+      .toString('utf8')
+      .replace(/\0+$/, '')
+      .replace(/[\p{Cc}\p{Cf}]/gu, '')
+      .trim()
+  )
 }
 
 interface RpcCall {

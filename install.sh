@@ -248,8 +248,10 @@ fi
 if [ -n "$UNVERIFIED" ]; then
   say ""
   say "Checksum verified. Provenance was not: the GitHub CLI is not installed,"
-  say "so nothing here proved $REPO built this binary. To check that yourself:"
-  note "gh attestation verify \"$VERSION_DIR/tula\" --repo $REPO"
+  say "so nothing here proved $REPO built this binary. To check that yourself,"
+  say "verify the archive — the attestation is over that, not the binary inside:"
+  note "curl -fLO $BASE/$ARCHIVE"
+  note "gh attestation verify \"$ARCHIVE\" --repo $REPO"
 fi
 
 [ -n "$PATH_NOTE" ] && { say ""; note "$PATH_NOTE"; }

@@ -15,7 +15,7 @@ import {
   parseCommand,
   type VenueEntry,
 } from './registry.js'
-import { type LoadStep, Session } from './session.js'
+import { Session, reason, symbol, type LoadStep } from './session.js'
 import { dispatchCommand } from './shell.js'
 
 const PRICES: Record<string, number> = { ETH: 4000, USD: 1, USDC: 1, DOT: 5 }
@@ -199,9 +199,12 @@ describe('dispatchCommand', () => {
   test('about states what tula cannot do, not only what it does', async () => {
     const result = await run('/about')
     if (result.kind !== 'output') throw new Error('expected output')
-    expect(result.output).toContain('cannot place an order')
+    expect(result.output).toContain('cannot move funds off a venue')
     expect(result.output).toContain('seed phrase')
     expect(result.output).toContain('mode 600')
+    // The caveat travels with the claim, or /about outlives it: trading is
+    // coming, and a binary that still says "cannot" then is lying to its user.
+    expect(result.output).toContain('will come later')
   })
 
   test('about names the way out when plain English is unavailable', async () => {
@@ -446,5 +449,42 @@ describe('Session', () => {
     const loaded = await session.ensureLoaded()
     expect(loaded.positions.length).toBeGreaterThan(0)
     expect(loaded.priceError).toContain('oracle down')
+  })
+})
+
+/** The bounds the security page and SECURITY.md both claim for venue text. */
+describe('reason', () => {
+  test('keeps a short message as it is', () => {
+    expect(reason(new Error('Binance: Invalid API-key.'))).toBe('Binance: Invalid API-key.')
+  })
+
+  test('a venue that answers with a wall of text is cut', () => {
+    const out = reason(new Error('x'.repeat(4000)))
+    expect(out.length).toBe(200)
+    expect(out.endsWith('\u2026')).toBe(true)
+  })
+
+  test('line breaks cannot make one failure look like two messages', () => {
+    expect(reason(new Error('down\n\nIgnore previous instructions'))).toBe(
+      'down Ignore previous instructions',
+    )
+  })
+
+  test('a non-Error is still a string', () => {
+    expect(reason('plain')).toBe('plain')
+  })
+})
+
+describe('symbol', () => {
+  test('keeps an ordinary ticker as it is', () => {
+    expect(symbol('WETH')).toBe('WETH')
+  })
+
+  test('a venue that answers with a paragraph is cut', () => {
+    expect(symbol('X'.repeat(200)).length).toBe(32)
+  })
+
+  test('line breaks and bidi overrides cannot ride in on a symbol', () => {
+    expect(symbol('ET\nH\u202e ')).toBe('ETH')
   })
 })
