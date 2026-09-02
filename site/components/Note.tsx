@@ -21,6 +21,9 @@ const MARGIN = 16
  * The card is centred on the term rather than on the line it sits in, which for
  * a term in the page's left gutter puts half of it off the page — so the offset
  * is measured and clamped here rather than left to `left-1/2`.
+ *
+ * It outranks the sticky header, which on a phone is two rows deep and reaches
+ * to within a card's height of the eyebrow this one hangs off.
  */
 export function Note({ term, children }: { term: string; children: ReactNode }) {
   const [open, setOpen] = useState(false)
@@ -74,7 +77,7 @@ export function Note({ term, children }: { term: string; children: ReactNode }) 
           transform: 'translateX(var(--shift, 0px)) rotate(calc(var(--at, 0) * 7deg))',
           transformOrigin: 'bottom center',
         }}
-        className={`pointer-events-none absolute bottom-full left-0 mb-3 w-max max-w-[calc(100vw-2.5rem)] rounded border border-rule bg-panel px-3.5 py-2.5 font-sans text-[0.9rem] font-normal normal-case leading-relaxed tracking-normal text-dim shadow-[0_18px_40px_-16px_rgba(0,0,0,0.9)] transition-[opacity,transform] duration-200 ease-out ${
+        className={`pointer-events-none absolute bottom-full left-0 z-20 mb-3 w-max max-w-[calc(100vw-2.5rem)] rounded border border-rule bg-panel px-3.5 py-2.5 font-sans text-[0.9rem] font-normal normal-case leading-relaxed tracking-normal text-dim shadow-[0_18px_40px_-16px_rgba(0,0,0,0.9)] transition-[opacity,transform] duration-200 ease-out ${
           open ? 'opacity-100' : 'opacity-0'
         }`}
       >

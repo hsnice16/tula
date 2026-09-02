@@ -455,6 +455,23 @@ bun run build              # -> site/out, static
   font or script. The wordmark and the etymology line are gone from the site. The
   name's origin belongs in `README.md`, not in front of someone deciding whether
   to trust a binary.
+- **One vertical rhythm, and it scales with the viewport.** Every section opens
+  on `pt-step`, and every gap between two of them is three of those, composed or
+  stated. The `--spacing-step*` tokens in `globals.css` are one clamp, so no page
+  can space its sections unlike the others, and a phone is not handed the 216px a
+  desktop gets between them — a quarter of its screen with nothing in it.
+  `--gutter` clamps for the same reason. A section gap belongs in these tokens,
+  not in a raw step count.
+- **The header and footer bars centre below the `phone` breakpoint.** A wordmark
+  held left against a nav held right is a shape that needs a row wide enough for
+  both ends; wrapped, `ml-auto` leaves each half on the edge it was pushed to and
+  they read as two halves that missed each other. `globals.css` says why the
+  breakpoint sits where it does.
+- **A table that would scroll sideways stacks instead.** The install page's
+  "what it runs on" rows carry the note that answers the question, and a
+  sideways-scrolling table puts it off a phone with nothing to say it is there.
+  Horizontal scroll is right for the terminal frames, which are a picture of a
+  fixed-width grid, and wrong for anything a reader has to read.
 - **Five client component files, and each one earns it by needing something
   CSS cannot read.** `Session.tsx` draws the front page's frame and works `/`,
   ctrl+k and ctrl+o on a loop because a transcript cannot show a keystroke —

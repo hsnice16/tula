@@ -33,6 +33,20 @@
      the palette dialog — set their own, shorter, or they look dropped. */
   --shadow-lift: 0 24px 60px -24px rgb(0 0 0 / 0.9);
 
+  /* Where the header and footer bars stop being a left end and a right end and
+     become two centred rows. Above every phone in portrait, and above the width
+     either bar runs out of room at, so it causes the wrap rather than guessing
+     it: set to the measured wrap point instead, it drifts the next time a nav
+     label or a font does. */
+  --breakpoint-phone: 28rem;
+
+  /* The page's vertical rhythm. Every gap between sections is `step-3`, and the
+     three scale together with the viewport: a gap that reads as room on a
+     desktop reads as a dead screen on a handset, where it is most of one. */
+  --spacing-step: clamp(2rem, 5.5vw, 4.5rem);
+  --spacing-step-2: calc(var(--spacing-step) * 2);
+  --spacing-step-3: calc(var(--spacing-step) * 3);
+
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Helvetica, Arial, sans-serif;
 }
@@ -64,7 +78,7 @@
    rule between them is drawn to these, so it lines up with the text it divides. */
 :root {
   --wrap: 74rem;
-  --gutter: 2rem;
+  --gutter: clamp(1.25rem, 4vw, 2rem);
 }
 
 @layer base {
@@ -132,10 +146,15 @@
   }
 
   /* A section marker whose rule runs to the edge of the column. Every page
-     spaces it the same, 216px above and 32px under, so a reader crossing
+     spaces it the same, `step-3` above and 32px under, so a reader crossing
      between them is not re-learning where a section starts. The overview
-     composes the 216 from a section pb-36 and the next pt-18; a page that is
-     one block has no seam to compose it from and states it as an mt-54. */
+     composes the three steps from a section pb-step-2 and the next pt-step; a
+     page that is one block has no seam to compose it from and puts an
+     mb-step-3 on the block above.
+
+     The rule does not shrink: a label long enough to wrap on a phone would
+     otherwise leave it nothing, and a marker with no rule is not the marker
+     every other section on the page is drawing. */
   .label {
     display: flex;
     align-items: center;
@@ -148,7 +167,7 @@
   }
   .label::after {
     content: "";
-    flex: 1;
+    flex: 1 0 2rem;
     height: 1px;
     background: var(--color-rule);
   }

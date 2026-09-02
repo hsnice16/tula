@@ -19,12 +19,12 @@ export const metadata: Metadata = {
  */
 export default function NotFound() {
   return (
-    <main className="wrap pt-16 pb-54">
+    <main className="wrap pt-16 pb-step-3">
       <p className="eyebrow mb-6">404</p>
       <h1 className="mb-5 max-w-[40rem] text-[clamp(2rem,4.5vw,2.8rem)] font-medium tracking-[-0.025em]">
         There is nothing at this address.
       </h1>
-      <p className="mb-54 max-w-[36rem] text-[1.05rem] text-dim">
+      <p className="mb-step-3 max-w-[36rem] text-[1.05rem] text-dim">
         The link may have moved, or the address may be mistyped. Everything the site publishes is
         below.
       </p>

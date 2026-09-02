@@ -68,7 +68,7 @@ const NOTES = [
 
 export default function Page() {
   return (
-    <main className="wrap pt-16 pb-54">
+    <main className="wrap pt-16 pb-step-3">
       <JsonLd schema={breadcrumb('Security', '/security')} />
       <h1 className="mb-5 text-[clamp(2rem,4.5vw,2.8rem)] font-medium tracking-[-0.025em]">
         Security model
@@ -82,7 +82,7 @@ export default function Page() {
         machine holds a key to every venue you connect.
       </p>
 
-      <div className="mb-54 max-w-[46rem] rounded-r border border-l-2 border-rule border-l-accent-dim bg-panel px-5 py-4 shadow-lift">
+      <div className="mb-step-3 max-w-[46rem] rounded-r border border-l-2 border-rule border-l-accent-dim bg-panel px-5 py-4 shadow-lift">
         <p>
           <strong className="font-semibold text-white">Every copy comes from here.</strong> tula is
           built by <Ext href={REPO}>github.com/hsnice16/tula</Ext> and published to{' '}
@@ -94,7 +94,7 @@ export default function Page() {
       </div>
 
       <p className="label mb-8">Promises, and what enforces them</p>
-      <dl className="mb-54 max-w-[52rem]">
+      <dl className="mb-step-3 max-w-[52rem]">
         {PROMISES.map(([promise, enforced]) => (
           <div
             key={promise}

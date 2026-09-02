@@ -75,8 +75,8 @@ Files agree, and agree with the code. A new module is in the AGENTS.md layout
 (`guard.sh` enforces that much). Behaviour changes are reflected in `README.md`
 and `CHANGELOG.md` — and the CHANGELOG is consumer-facing, so plumbing and
 refactors stay out of it. Versions, `.nvmrc`, `package.json` engines and the
-workflows say the same thing. `tasks/` status lines match reality; the site
-renders them, so a stale one is published.
+workflows say the same thing. `tasks/` status lines match reality — the
+repository is public and they are read where they are written.
 
 ## Reporting
 

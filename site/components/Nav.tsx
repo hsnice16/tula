@@ -72,14 +72,20 @@ export function Nav() {
 
   return (
     <header className="sticky top-0 z-10 border-b border-rule bg-bg/85 backdrop-blur">
-      <div className="wrap flex min-h-14 flex-wrap items-center gap-x-6 gap-y-2 py-3">
+      {/* Below `phone` the wordmark takes its own line and both rows centre. A
+          left end against a right end needs a row wide enough to hold both;
+          wrapped, it reads as two halves that missed each other. */}
+      <div className="wrap flex min-h-14 flex-wrap items-center gap-x-6 gap-y-2 py-3 max-phone:justify-center">
         <Link
           href="/"
-          className="font-mono text-base font-bold text-accent transition-colors duration-200"
+          className="font-mono text-base font-bold text-accent transition-colors duration-200 max-phone:w-full max-phone:text-center"
         >
           tula
         </Link>
-        <nav ref={list} className="relative ml-auto flex flex-wrap gap-6">
+        <nav
+          ref={list}
+          className="relative ml-auto flex flex-wrap gap-x-4 gap-y-2 max-phone:ml-0 max-phone:justify-center sm:gap-x-6"
+        >
           {mark && (
             <span
               aria-hidden="true"

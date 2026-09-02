@@ -46,8 +46,8 @@ function Named({ children }: { children: ReactNode }) {
 export default function Page() {
   return (
     <main>
-      <section className="pt-9 pb-18">
-        <div className="wrap py-18">
+      <section className="pt-9 pb-step">
+        <div className="wrap py-step">
           <p className="eyebrow mb-6">
             <Note term="Read-only">Only for the moment. Placing trades will come later.</Note>.
             Non-custodial.
@@ -95,10 +95,10 @@ hyperliquid  ETH    perp             +39.3%  liq price 3412.00   09:14:02 (4s ag
         </div>
       </section>
 
-      {/* Every gap between sections is 13.5rem: each opens on pt-18 and its
-          predecessor's bottom padding makes up the rest. The hero reaches it
-          with pb-18 over an inner py-18. */}
-      <section className="pt-18 pb-36">
+      {/* Every gap between sections is three steps: each opens on pt-step and
+          its predecessor's bottom padding makes up the rest. The hero reaches
+          it with pb-step over an inner py-step. */}
+      <section className="pt-step pb-step-2">
         <div className="wrap">
           <p className="label mb-8">The gap it fills</p>
           <div className="grid min-w-0 items-start gap-14 lg:grid-cols-2">
@@ -156,7 +156,7 @@ hyperliquid  ETH    perp             +39.3%  liq price 3412.00   09:14:02 (4s ag
         </div>
       </section>
 
-      <section className="pt-18 pb-54">
+      <section className="pt-step pb-step-3">
         <div className="wrap">
           <p className="label mb-8">Plain English</p>
           {/* The frame runs the full column rather than half of it, so the

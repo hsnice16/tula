@@ -49,7 +49,7 @@ const SYSTEMS = [
 
 export default function Page() {
   return (
-    <main className="wrap pt-16 pb-54">
+    <main className="wrap pt-16 pb-step-3">
       <JsonLd schema={breadcrumb('Install', '/install')} />
       <h1 className="mb-5 text-[clamp(2rem,4.5vw,2.8rem)] font-medium tracking-[-0.025em]">
         Install
@@ -70,7 +70,7 @@ export default function Page() {
           </div>
         ))}
       </dl>
-      <p className="mt-5 mb-54 max-w-[42rem] text-[0.9rem] text-faint">
+      <p className="mt-5 mb-step-3 max-w-[42rem] text-[0.9rem] text-faint">
         This pipes a script into a shell, so read it before you run it.{' '}
         <Ext href={`${SITE}/install.sh`}>install.sh</Ext> is what the command fetches, copied
         straight from <Ext href={`${REPO}/blob/main/install.sh`}>the one in the repo</Ext> — the
@@ -78,7 +78,10 @@ export default function Page() {
       </p>
 
       <p className="label mb-8">Every install is checked</p>
-      <div className="mb-54 grid gap-px overflow-hidden rounded border border-rule bg-rule sm:grid-cols-3">
+      {/* Three columns only where they are wide enough for a sentence. At the
+          `sm` these took, the longest ran six lines beside a neighbour of
+          three. */}
+      <div className="mb-step-3 grid gap-px overflow-hidden rounded border border-rule bg-rule md:grid-cols-3">
         {CHECKS.map(([title, body]) => (
           <div key={title} className="bg-bg px-5 py-5">
             <h2 className="mb-1.5 text-[0.95rem] font-semibold text-ink">{title}</h2>
@@ -88,18 +91,26 @@ export default function Page() {
       </div>
 
       <p className="label mb-8">What it runs on</p>
-      <div className="mb-54 overflow-x-auto">
-        <table className="w-full min-w-[34rem] border-collapse text-[0.89rem]">
-          <tbody>
+      {/* Below the table's own width every row is a block instead. The note is
+          what answers "will it run on mine?", and scrolled sideways it sits off
+          a phone with nothing to say it is there. */}
+      <div className="mb-step-3 sm:overflow-x-auto">
+        <table className="block w-full border-collapse text-[0.89rem] sm:table sm:min-w-[34rem]">
+          <tbody className="block sm:table-row-group">
             {SYSTEMS.map(([system, works, note]) => (
-              <tr key={system}>
-                <td className="w-56 border-b border-rule px-3 py-2.5 align-top text-ink">
+              <tr
+                key={system}
+                className="block border-b border-rule py-3 sm:table-row sm:border-b-0 sm:py-0"
+              >
+                <td className="inline-block text-ink sm:table-cell sm:w-56 sm:border-b sm:border-rule sm:px-3 sm:py-2.5 sm:align-top">
                   {system}
                 </td>
-                <td className="w-32 border-b border-rule px-3 py-2.5 align-top font-mono text-[0.8rem] text-notice">
+                <td className="ml-3 inline-block font-mono text-[0.8rem] text-notice sm:ml-0 sm:table-cell sm:w-32 sm:border-b sm:border-rule sm:px-3 sm:py-2.5 sm:align-top">
                   {works}
                 </td>
-                <td className="border-b border-rule px-3 py-2.5 align-top text-dim">{note}</td>
+                <td className="block text-dim sm:table-cell sm:border-b sm:border-rule sm:px-3 sm:py-2.5 sm:align-top">
+                  {note}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -107,7 +118,7 @@ export default function Page() {
       </div>
 
       <p className="label mb-8">Other channels</p>
-      <div className="mb-54 max-w-[46rem]">
+      <div className="mb-step-3 max-w-[46rem]">
         <p className="mb-5 text-dim">
           The same binary. Homebrew serves the attested archive; npm repackages it, so its tarball
           carries no attestation — verify through Homebrew or the install script.
@@ -118,7 +129,7 @@ export default function Page() {
       </div>
 
       <p className="label mb-8">Verify it yourself</p>
-      <div className="mb-54 max-w-[46rem]">
+      <div className="mb-step-3 max-w-[46rem]">
         <Terminal title="verify">
           {
             'curl -fLO https://github.com/hsnice16/tula/releases/download/v0.1.0/tula-v0.1.0-darwin-arm64.tar.gz\ngh attestation verify tula-v0.1.0-darwin-arm64.tar.gz --repo hsnice16/tula'
@@ -136,7 +147,7 @@ export default function Page() {
       </div>
 
       <p className="label mb-8">Where it puts things</p>
-      <div className="mb-54 max-w-[46rem]">
+      <div className="mb-step-3 max-w-[46rem]">
         <p className="mb-4 text-dim">
           Everything lives under <Code>~/.tula</Code>. Each version goes in its own folder, and{' '}
           <Code>~/.tula/bin/tula</Code> is a link to the one you are running. Your keys are kept
