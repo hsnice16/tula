@@ -35,12 +35,30 @@ function Mark({ src, venue, size }: { src: StaticImageData; venue: string; size:
 }
 
 /**
+ * The venues' own colours, restated here because the site is a separate package
+ * and cannot import `src/ui/brand.ts`. Kraken's is the one that differs: its own
+ * #7132f5 reaches 3.1:1 as type on this background and cannot be read, so this
+ * is that hue lifted past 4.5:1 and kept saturated, so it does not arrive at
+ * Aave's softer periwinkle on the way. The mark beside it stays true Kraken.
+ */
+const BRAND = {
+  kraken: '#9b5cff',
+  hyperliquid: '#97fce4',
+  aave: '#9c8cff',
+} as const
+
+/**
  * The emphasis a paragraph runs on: a venue's name, the reader's, or the one
  * word its argument turns on. Lifted off the body copy but short of `ink`,
- * which is the heading's weight.
+ * which is the heading's weight — except where it names a venue, which is worth
+ * that venue's own colour beside that venue's own mark.
  */
-function Named({ children }: { children: ReactNode }) {
-  return <em className="font-medium italic text-ink/75">{children}</em>
+function Named({ children, tone }: { children: ReactNode; tone?: string }) {
+  return (
+    <em className="font-medium italic text-ink/75" {...(tone ? { style: { color: tone } } : {})}>
+      {children}
+    </em>
+  )
 }
 
 export default function Page() {
@@ -107,17 +125,17 @@ hyperliquid  ETH    perp             +39.3%  liq price 3412.00   09:14:02 (4s ag
                 No venue sees the whole position.
               </h2>
               <p className="text-dim">
-                <Named>
+                <Named tone={BRAND.kraken}>
                   <Mark src={krakenMark} venue="Kraken" size="h-[0.78em]" />
                   Kraken
                 </Named>{' '}
                 sees spot ETH and calls it a balance.{' '}
-                <Named>
+                <Named tone={BRAND.hyperliquid}>
                   <Mark src={hyperliquidMark} venue="Hyperliquid" size="h-[0.8em]" />
                   Hyperliquid
                 </Named>{' '}
                 sees a perp and its liquidation price.{' '}
-                <Named>
+                <Named tone={BRAND.aave}>
                   <Mark src={aaveMark} venue="Aave" size="h-[0.65em]" />
                   Aave
                 </Named>{' '}

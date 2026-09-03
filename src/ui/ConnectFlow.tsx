@@ -2,6 +2,7 @@ import { Box, Text, useInput } from 'ink'
 import { useCallback, useEffect, useState } from 'react'
 import { isOverScoped, unverified, type Connectable, type ConnectorCredentials } from '../connectors/types.js'
 import * as secrets from '../secrets/store.js'
+import { BRAND_MARK, brandColor } from './brand.js'
 import { theme } from './theme.js'
 
 interface Props {
@@ -35,6 +36,7 @@ export function ConnectFlow({ target, onDone, save: store, doneMessage }: Props)
   const field = target.fields[index]
   // An address-only venue has no key to over-scope, so saying so would be a lie.
   const hasSecret = target.fields.some((f) => f.secret)
+  const mark = brandColor(target.id)
 
   useEffect(() => {
     if (!busy) return
@@ -115,7 +117,10 @@ export function ConnectFlow({ target, onDone, save: store, doneMessage }: Props)
 
   return (
     <Box flexDirection="column" paddingX={1} marginBottom={1}>
-      <Text bold color={theme.accent}>{`Connect ${target.name}`}</Text>
+      <Text bold wrap="truncate">
+        {mark && <Text color={mark}>{`${BRAND_MARK} `}</Text>}
+        <Text color={theme.accent}>{`Connect ${target.name}`}</Text>
+      </Text>
       <Text dimColor>
         {hasSecret
           ? 'Use a read-only key. tula verifies that before it stores anything.'

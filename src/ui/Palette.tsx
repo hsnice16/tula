@@ -1,6 +1,7 @@
 import { Box, Text, type BoxProps } from 'ink'
 import type { ReactNode } from 'react'
 import type { PaletteEntry } from '../cli/registry.js'
+import { BRAND_MARK, brandColor } from './brand.js'
 import { theme } from './theme.js'
 
 interface Props {
@@ -29,8 +30,8 @@ const CHROME_ROWS = 10
 /** About a third of a screen, which is as much list as is worth reading without narrowing it. */
 const WINDOW_ROWS = 12
 
-/** Fits `/shock <asset> <percent>` and the longest summary beside it, untruncated. */
-const DIALOG_COLUMNS = 88
+/** Fits `/shock <asset> <percent>`, the longest summary beside it and the mark gutter, untruncated. */
+const DIALOG_COLUMNS = 90
 
 /** The input box and the status line: rows the dialog centres above rather than sits on. */
 export const FRAME_ROWS = 4
@@ -131,15 +132,19 @@ export function Palette({ query, matches, selected, columns, rows, behind }: Pro
               </Text>
             )
           }
+          const style =
+            item.at === selected ? { bold: true, color: theme.onAccent } : { dimColor: true }
+          // The selected row is a gold bar, and a brand colour laid on it is
+          // unreadable at best and a different brand at worst. Identity gives
+          // way to legibility for the one row that has the cursor on it.
+          const brand = brandColor(item.entry.path)
+          const mark = brand && (item.at === selected ? theme.onAccent : brand)
           return (
             <Row key={item.entry.path} selected={item.at === selected} width={inner}>
-              <Text
-                wrap="truncate"
-                {...(item.at === selected
-                  ? { bold: true, color: theme.onAccent }
-                  : { dimColor: true })}
-              >
-                {` ${label(item.entry).padEnd(width)}  ${item.entry.summary}`}
+              <Text wrap="truncate">
+                <Text {...style}>{` ${label(item.entry).padEnd(width)}  `}</Text>
+                {mark ? <Text color={mark}>{BRAND_MARK}</Text> : <Text> </Text>}
+                <Text {...style}>{` ${item.entry.summary}`}</Text>
               </Text>
             </Row>
           )

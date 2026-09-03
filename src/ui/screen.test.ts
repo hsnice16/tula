@@ -782,3 +782,29 @@ test('/clear takes the transcript off the screen, not just out of the state', as
     screen.stop()
   }
 })
+
+/**
+ * The mark is a gutter at the head of the summary, not a prefix on the row: the
+ * names are the column being read down, so both they and the summaries beside
+ * them have to start where a row with no mark starts them. Colour is the one
+ * thing this file cannot see — `translateToString` returns the grid's
+ * characters — so what is asserted here is the shape the colour is carried in.
+ */
+test('a venue mark takes a gutter, and both columns still line up', async () => {
+  const screen = await open(195, 33)
+  try {
+    // `/c` leaves one filter holding both kinds: the price sources, which the
+    // menu lists with no venue connected, and `/clear`, which is nobody's brand.
+    await screen.press('/c')
+    const marked = screen.visible().find((row) => row.includes('/coingecko'))
+    const plain = screen.visible().find((row) => row.includes('/clear'))
+    if (!marked || !plain) dump(screen)
+    expect(marked).toMatch(/● CoinGecko/)
+    expect(plain).not.toMatch(/●/)
+    expect(plain?.indexOf('/clear')).toBe(marked?.indexOf('/coingecko'))
+    // The mark sits in the blank the unmarked row leaves before its summary.
+    expect(plain?.indexOf('Clear the screen')).toBe(marked?.indexOf('CoinGecko'))
+  } finally {
+    screen.stop()
+  }
+})

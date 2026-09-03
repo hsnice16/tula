@@ -171,6 +171,7 @@ src/
     SlashMenu.tsx       # filtered menu, grouped; fixed height, below the input
     Palette.tsx         # ctrl+k: the same surface flattened and ranked, floated over the screen
     theme.ts            # the palette; no colour literal belongs anywhere else
+    brand.ts            # the venues' and price sources' own colours, sampled from their artwork
     TextInput.tsx       # presentational input line; no key handling
     keys.ts             # paste vs. keystroke; what a trailing newline means
     wrap.ts             # rows, not lines — what truncation counts
@@ -285,7 +286,16 @@ Two rules, and they are the reason the architecture exists:
   discovery step, and the menu doubles as the venue overview.
 - **Colour comes from `src/ui/theme.ts`.** Dulled gold, because it is the unit
   everything here is measured against; a saturated yellow reads as a warning, and
-  that meaning is held in reserve. Red stays semantic, never decorative.
+  that meaning is held in reserve. Red stays semantic, never decorative. The one
+  palette outside it is `src/ui/brand.ts`: those colours are other people's, and
+  restyling them to match ours is what would make them stop identifying anyone.
+- **A third party is named with its mark.** Every venue and price source carries
+  a `●` in its own colour in the `/` menu, ctrl+k and the connect screen. The
+  gutter is at the head of the summary, not of the row: the names are the column
+  being read down, so a mark in front of them would indent the ones that have it.
+  It is the one thing an unselected row may light up — a mark is identity, not
+  emphasis. A venue added without an entry in `src/ui/brand.ts` renders a hole
+  beside the rest, which `src/ui/brand.test.ts` fails on.
 - **Help belongs at the step that needs it.** Connectors declare `help` links to
   official pages; they are rendered in the connect flow, not collected in a docs dump.
 - **All key handling lives in `app.tsx`.** The slash menu and the line editor
