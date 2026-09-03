@@ -1,7 +1,7 @@
 import { render } from 'ink'
 import type { Session } from '../cli/session.js'
 import type { Connector } from '../connectors/types.js'
-import { App, bannerText } from './app.js'
+import { App } from './app.js'
 import { guardResize } from './resize.js'
 
 export async function runApp(
@@ -10,7 +10,6 @@ export async function runApp(
   initialApiKey: string | undefined,
   initialVenues: string[],
 ): Promise<void> {
-  console.log(`${bannerText()}\n`)
   // Before `render`, so it runs ahead of the erase Ink does for itself.
   guardResize(process.stdout)
   const instance = render(

@@ -1,7 +1,12 @@
 import { Box, Static, Text, useApp, useInput, useStdout } from 'ink'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Agent, hasAmbientCredentials } from '../agent/agent.js'
-import { belongsToVenue } from '../cli/commands.js'
+import { Agent, envApiKey, envApiKeyName, hasAmbientCredentials } from '../agent/agent.js'
+import {
+  belongsToVenue,
+  credentialName,
+  credentialSource,
+  type CredentialSource,
+} from '../cli/commands.js'
 import { riskEngineFor } from '../cli/engine-adapter.js'
 import {
   buildPalette,
@@ -20,7 +25,7 @@ import { dispatchCommand } from '../cli/shell.js'
 import type { Connector } from '../connectors/types.js'
 import { TulaError } from '../core/errors.js'
 import * as secrets from '../secrets/store.js'
-import { APP_VERSION } from '../version.js'
+import { APP_DESCRIPTION, APP_VERSION } from '../version.js'
 import { ConnectFlow } from './ConnectFlow.js'
 import { connectable, type Connectable, type ConnectorCredentials } from '../connectors/types.js'
 import {
@@ -32,7 +37,7 @@ import {
 } from '../prices/providers.js'
 import { freshness, holdings } from '../core/format.js'
 import { typed } from './keys.js'
-import { Onboarding } from './Onboarding.js'
+import { Credentials, type CredentialsMode, type CredentialsResult } from './Credentials.js'
 import { FRAME_ROWS, Palette } from './Palette.js'
 import { clearForRedraw } from './resize.js'
 import { SlashMenu, type MenuItem } from './SlashMenu.js'
@@ -40,7 +45,7 @@ import { InputLine } from './TextInput.js'
 import { theme } from './theme.js'
 import { wrapLines } from './wrap.js'
 
-type EntryKind = 'prompt' | 'output' | 'answer' | 'error' | 'notice'
+type EntryKind = 'prompt' | 'output' | 'answer' | 'error' | 'notice' | 'banner'
 
 interface Entry {
   id: number
@@ -56,6 +61,10 @@ const SPINNER = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', 
  * scrolls away before it can be read alongside what it returned.
  */
 const PREVIEW_ROWS = 12
+
+/** "A, B and C". Joining every pair with "and" read as a chant at three venues. */
+const sentenceList = (items: string[]): string =>
+  items.length < 2 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`
 
 /** Short enough to feel live under a drag, long enough to coalesce its burst. */
 const REDRAW_SETTLE_MS = 50
@@ -99,6 +108,17 @@ function loadLabel(step: LoadStep): string {
 }
 
 function Line({ kind, text, dim }: { kind: EntryKind; text: string; dim: boolean }) {
+  if (kind === 'banner') {
+    const [name = '', ...rest] = text.split('\n')
+    return (
+      <>
+        <Text bold color={theme.accent} dimColor={dim}>{name}</Text>
+        {rest.map((line, at) => (
+          <Text key={`${at}:${line}`} dimColor>{line}</Text>
+        ))}
+      </>
+    )
+  }
   if (kind === 'prompt') return <Text color={theme.accent} dimColor={dim}>{text}</Text>
   if (kind === 'error') return <Text color={theme.danger} dimColor={dim}>{text}</Text>
   if (kind === 'notice') return <Text color={theme.notice} dimColor={dim}>{text}</Text>
@@ -220,6 +240,12 @@ type Menu = { items: MenuItem[]; prefix: string; heading?: string } & (
   total: number
 }
 
+interface CredentialsScreen {
+  mode: CredentialsMode
+  /** Read when the screen opens: only the store knows disk from environment. */
+  source: CredentialSource
+}
+
 interface Props {
   session: Session
   connectors: Map<string, Connector>
@@ -257,7 +283,15 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
       ? new Agent(riskEngineFor(session), initialApiKey ? { apiKey: initialApiKey } : {})
       : null,
   )
-  const [onboarding, setOnboarding] = useState(initialApiKey === undefined)
+  // An ambient profile is a credential, so it settles this screen exactly as it
+  // settles the agent above. Gating on the key string alone asked a user who was
+  // already signed in to sign in again on every start, while the status line
+  // beside it reported the agent live.
+  const [credentials, setCredentials] = useState<CredentialsScreen | null>(() =>
+    initialApiKey === undefined && !hasAmbientCredentials()
+      ? { mode: 'first-run', source: 'none' }
+      : null,
+  )
   const [connecting, setConnecting] = useState<Connectable | null>(null)
   // Set only while a price source is being keyed, so onDone knows to activate it.
   const [pendingPrice, setPendingPrice] = useState<string | null>(null)
@@ -265,6 +299,24 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
   const [connected, setConnected] = useState<string[]>(initialVenues)
 
   const [entries, setEntries] = useState<Entry[]>([])
+  /**
+   * Written into the transcript rather than drawn in the frame: it is this
+   * session's opening record, so it scrolls away as the transcript grows
+   * instead of sitting pinned above it. Kept out of `entries` so that clearing
+   * them, or asking whether any exist, is unaffected by it being there.
+   */
+  const banner = useMemo<Entry>(
+    () => ({
+      id: -1,
+      kind: 'banner',
+      text: [
+        `tula ${APP_VERSION}`,
+        APP_DESCRIPTION,
+        ...(initialVenues.length > 0 ? [`Connected: ${initialVenues.join(', ')}`] : []),
+      ].join('\n'),
+    }),
+    [initialVenues],
+  )
   const [input, setInput] = useState('')
   const [cursor, setCursor] = useState(0)
   const [busy, setBusy] = useState(false)
@@ -287,9 +339,69 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
     setEntries((prev) => [...prev, { id: nextId.current++, kind, text }])
   }, [])
 
+  /**
+   * <Static> writes each entry to the terminal once, so emptying the transcript
+   * leaves every row of it exactly where it was: the command read as one that
+   * did nothing, and added a row saying so. The screen is what the user means,
+   * so it goes too, and the redraw that follows puts back the banner alone.
+   */
   const clearScreen = useCallback(() => {
+    if (stdout) clearForRedraw(stdout)
     setEntries([])
-  }, [])
+    setGeneration((at) => at + 1)
+  }, [stdout])
+
+  /**
+   * Writes what the screen chose, then re-reads the credential the same way
+   * `src/index.ts` does and rebuilds the agent from that. Re-reading is the
+   * point: a saved key is not necessarily the key a question goes out with, and
+   * saying "signed in" over a credential that something else outranks is the
+   * kind of confident wrong answer this tool must not give about itself.
+   */
+  const applyCredentials = useCallback(
+    async (result: CredentialsResult) => {
+      try {
+        if (result.kind === 'key') await secrets.putProviderKey(result.apiKey)
+        if (result.kind === 'signed-out') await secrets.removeProviderKey()
+      } catch (err) {
+        return push('error', err instanceof TulaError ? err.message : String(err))
+      }
+
+      const source = await credentialSource()
+      const key = envApiKey() ?? (await secrets.getProviderKey())
+      setAgent(
+        source === 'none' ? null : new Agent(riskEngineFor(session), key ? { apiKey: key } : {}),
+      )
+
+      if (result.kind === 'key') {
+        return push(
+          'notice',
+          source === 'env'
+            ? `Key saved, but ${envApiKeyName()} is set in your shell and wins over it.\n` +
+              'Unset that variable to use the key you just saved.'
+            : 'Key saved. Ask anything, or type / to connect a venue.',
+        )
+      }
+      if (result.kind === 'signed-out') {
+        return push(
+          'notice',
+          source === 'none'
+            ? 'Signed out. Plain English is off; every command still works.'
+            : `Key forgotten. Plain English now uses ${credentialName(source)}.`,
+        )
+      }
+      if (source === 'none') {
+        return push('error', 'Nothing signed in. Try again, or paste an API key.')
+      }
+      push(
+        'notice',
+        source === 'ambient'
+          ? 'Signed in. tula saved nothing — the Anthropic CLI holds the token.'
+          : `Signed in, but ${credentialName(source)} wins over it — that is what questions use.`,
+      )
+    },
+    [session, push],
+  )
 
   // A spinner says something is running; only the count says for how long, which
   // is the question a wait long enough to look like a hang actually raises.
@@ -497,7 +609,8 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
           if (result.kind === 'ui') {
             if (result.action === 'exit') return exit()
             if (result.action === 'clear') return clearScreen()
-            if (result.action === 'login') return setOnboarding(true)
+            if (result.action === 'login')
+              return setCredentials({ mode: 'manage', source: await credentialSource() })
           } else {
             push('output', result.output)
             if (parsed.args[0] === 'disconnect') await refreshConnected()
@@ -570,13 +683,13 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
   const openedWith = useRef(false)
 
   useEffect(() => {
-    if (onboarding || connecting || openedWith.current) return
+    if (credentials || connecting || openedWith.current) return
     // Connected but empty still deserves an answer: a venue that failed is the
     // most important thing to say on open, and it returns no positions.
     if (connected.length === 0) return
     openedWith.current = true
     void showState()
-  }, [onboarding, connecting, connected, showState])
+  }, [credentials, connecting, connected, showState])
 
   const completeFromMenu = useCallback(() => {
     if (!menu) return
@@ -757,74 +870,65 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
       setMenuDismissed(false)
       setMenuIndex(0)
     },
-    { isActive: !onboarding && !connecting },
+    { isActive: !credentials && !connecting },
   )
 
-  if (onboarding) {
-    return (
-      <Onboarding
-        onDone={(apiKey) => {
-          setOnboarding(false)
-          if (!apiKey) {
-            // Null is either "continue without" or a browser sign-in that
-            // completed out of process and left a profile behind.
-            if (!agent && hasAmbientCredentials()) {
-              setAgent(new Agent(riskEngineFor(session), {}))
-              push('notice', 'Signed in. tula stored nothing — the Anthropic CLI holds the token.')
-            }
-            return
+  /**
+   * Drawn inside the tree, not returned in place of it. Replacing the whole
+   * App unmounts <Static>, and remounting it writes the entire transcript a
+   * second time under the copy already on screen — the ghost the width redraw
+   * exists to avoid, for a panel that only ever meant to cover the frame.
+   */
+  const panel = credentials ? (
+    <Credentials
+      mode={credentials.mode}
+      source={credentials.source}
+      onDone={(result) => {
+        setCredentials(null)
+        if (result.kind !== 'cancelled') void applyCredentials(result)
+      }}
+    />
+  ) : connecting ? (
+    <ConnectFlow
+      target={connecting}
+      {...(pendingPrice
+        ? {
+            // A price source is not a venue: storing it under its own id would
+            // make `listVenues` offer it as one, and Session would try to fetch
+            // positions from a price feed.
+            save: (creds: ConnectorCredentials) =>
+              secrets.putPriceSource(pendingPrice, creds['apiKey']),
+            doneMessage: (name: string) =>
+              `Pricing from ${name}. Switching sources later forgets this key.`,
           }
-          void secrets.putProviderKey(apiKey).catch(() => undefined)
-          setAgent(new Agent(riskEngineFor(session), { apiKey }))
-          push('notice', 'Key saved. Ask anything, or type / to connect a venue.')
-        }}
-      />
-    )
-  }
-
-  if (connecting) {
-    return (
-      <ConnectFlow
-        target={connecting}
-        {...(pendingPrice
-          ? {
-              // A price source is not a venue: storing it under its own id would
-              // make `listVenues` offer it as one, and Session would try to fetch
-              // positions from a price feed.
-              save: (creds: ConnectorCredentials) =>
-                secrets.putPriceSource(pendingPrice, creds['apiKey']),
-              doneMessage: (name: string) =>
-                `Pricing from ${name}. Switching sources later forgets this key.`,
-            }
-          : {})}
-        onDone={async (outcome) => {
-          const provider = pendingPrice
-          // Claimed before the first await. Storing a venue makes `connected`
-          // non-empty, which re-arms the open-with-state effect; that effect
-          // would run /exposure against the pre-connect cache and report an
-          // empty book at the exact moment the user has one.
-          openedWith.current = true
-          setConnecting(null)
-          setPendingPrice(null)
-          push(outcome.ok ? 'notice' : 'output', outcome.message)
-          if (!outcome.ok) return
-          if (provider) {
-            const stored = await secrets.getPriceSource()
-            const { oracle } = buildOracle(
-              provider,
-              stored?.apiKey ? { apiKey: stored.apiKey } : undefined,
-            )
-            setActivePrice(provider)
-            await session.useOracle(oracle)
-          } else {
-            await refreshConnected()
-            await session.refresh()
-          }
-          await showState()
-        }}
-      />
-    )
-  }
+        : {})}
+      onDone={async (outcome) => {
+        const provider = pendingPrice
+        // Claimed before the first await. Storing a venue makes `connected`
+        // non-empty, which re-arms the open-with-state effect; that effect
+        // would run /exposure against the pre-connect cache and report an
+        // empty book at the exact moment the user has one.
+        openedWith.current = true
+        setConnecting(null)
+        setPendingPrice(null)
+        push(outcome.ok ? 'notice' : 'output', outcome.message)
+        if (!outcome.ok) return
+        if (provider) {
+          const stored = await secrets.getPriceSource()
+          const { oracle } = buildOracle(
+            provider,
+            stored?.apiKey ? { apiKey: stored.apiKey } : undefined,
+          )
+          setActivePrice(provider)
+          await session.useOracle(oracle)
+        } else {
+          await refreshConnected()
+          await session.refresh()
+        }
+        await showState()
+      }}
+    />
+  ) : null
 
   const nothingConnected = connected.length === 0
   // Address-only venues are the safest first thing to connect, so name them.
@@ -873,7 +977,7 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
 
   return (
     <Box flexDirection="column" paddingRight={1}>
-      <Static key={generation} items={entries}>
+      <Static key={generation} items={[banner, ...entries]}>
         {(entry) => (
           <TranscriptEntry
             key={entry.id}
@@ -885,86 +989,83 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
         )}
       </Static>
 
-      {palette ? (
-        <Palette
-          query={palette.query}
-          matches={paletteMatches}
-          selected={palette.index}
-          columns={frameWidth}
-          rows={rows}
-          behind={
-            <>
-              {transcriptTail(entries, backdropRows, bodyWidth, expanded).map(
-                ({ entry, trimTop }) => (
-                  <TranscriptEntry
-                    key={entry.id}
-                    entry={entry}
-                    frameWidth={frameWidth}
-                    bodyWidth={bodyWidth}
-                    expanded={expanded}
-                    dim
-                    trimTop={trimTop}
-                  />
-                ),
-              )}
-              {/* Only ever the shortfall when the whole transcript is shorter
-                  than the screen, which is where the real one leaves it too. */}
-              <Box flexGrow={1} />
-              {renderInputBox(true)}
-              {statusBox}
-            </>
-          }
-        />
-      ) : (
-        <>
-          {nothingConnected && entries.length === 0 && (
-            <Box marginBottom={1} paddingLeft={1} flexDirection="column">
-              <Text color={theme.notice}>
-                No venue connected yet, so there is nothing to measure.
-              </Text>
-              <Text dimColor>{`Type / and pick one — ${[...connectors.keys()].join(', ')}.`}</Text>
-              <Text dimColor>
-                {addressOnly.length > 0
-                  ? `${addressOnly.join(' and ')} need only a public address — no key, nothing to leak.`
-                  : 'Exchange keys must be read-only; tula verifies that before storing one.'}
-              </Text>
-            </Box>
-          )}
+      {panel ??
+        (palette ? (
+          <Palette
+            query={palette.query}
+            matches={paletteMatches}
+            selected={palette.index}
+            columns={frameWidth}
+            rows={rows}
+            behind={
+              <>
+                {transcriptTail(entries, backdropRows, bodyWidth, expanded).map(
+                  ({ entry, trimTop }) => (
+                    <TranscriptEntry
+                      key={entry.id}
+                      entry={entry}
+                      frameWidth={frameWidth}
+                      bodyWidth={bodyWidth}
+                      expanded={expanded}
+                      dim
+                      trimTop={trimTop}
+                    />
+                  ),
+                )}
+                {/* Only ever the shortfall when the whole transcript is shorter
+                    than the screen, which is where the real one leaves it too. */}
+                <Box flexGrow={1} />
+                {renderInputBox(true)}
+                {statusBox}
+              </>
+            }
+          />
+        ) : (
+          <>
+            {nothingConnected && entries.length === 0 && (
+              <Box marginBottom={1} paddingLeft={1} flexDirection="column">
+                <Text color={theme.notice}>
+                  No venue connected yet, so there is nothing to measure.
+                </Text>
+                <Text dimColor>{`Type / and pick one — ${[...connectors.keys()].join(', ')}.`}</Text>
+                <Text dimColor>
+                  {addressOnly.length > 0
+                    ? `${sentenceList(addressOnly)} ${addressOnly.length === 1 ? 'needs' : 'need'} only a public address — no key, nothing to leak.`
+                    : 'Exchange keys must be read-only; tula verifies that before storing one.'}
+                </Text>
+              </Box>
+            )}
 
-          {streaming && (
-            <Box marginBottom={1} paddingLeft={3}>
-              <Text>{streaming}</Text>
-            </Box>
-          )}
+            {streaming && (
+              <Box marginBottom={1} paddingLeft={3}>
+                <Text>{streaming}</Text>
+              </Box>
+            )}
 
-          {busy && !streaming && (
-            <Box marginBottom={1} paddingLeft={3}>
-              <Text color={theme.accent} wrap="truncate">
-                {`${SPINNER[frame % SPINNER.length]} ${activity || 'working'}`}
-                {elapsed > 0 ? `  ·  ${elapsed}s` : ''}
-              </Text>
-            </Box>
-          )}
+            {busy && !streaming && (
+              <Box marginBottom={1} paddingLeft={3}>
+                <Text color={theme.accent} wrap="truncate">
+                  {`${SPINNER[frame % SPINNER.length]} ${activity || 'working'}`}
+                  {elapsed > 0 ? `  ·  ${elapsed}s` : ''}
+                </Text>
+              </Box>
+            )}
 
-          {renderInputBox(false)}
+            {renderInputBox(false)}
 
-          {menu && (
-            <SlashMenu
-              items={menu.items}
-              selected={menuIndex}
-              prefix={menu.prefix}
-              limit={menuRows}
-              {...(menu.level === 'venue' ? { heading: menu.heading } : {})}
-            />
-          )}
+            {menu && (
+              <SlashMenu
+                items={menu.items}
+                selected={menuIndex}
+                prefix={menu.prefix}
+                limit={menuRows}
+                {...(menu.level === 'venue' ? { heading: menu.heading } : {})}
+              />
+            )}
 
-          {statusBox}
-        </>
-      )}
+            {statusBox}
+          </>
+        ))}
     </Box>
   )
-}
-
-export function bannerText(): string {
-  return `tula ${APP_VERSION}`
 }

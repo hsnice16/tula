@@ -1,9 +1,13 @@
 import { EventEmitter } from 'node:events'
+import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { Terminal } from '@xterm/headless'
 import { expect, test } from 'bun:test'
 import { render } from 'ink'
 import { createElement } from 'react'
 import { Session } from '../cli/session.js'
+import { APP_VERSION } from '../version.js'
 import type { PriceOracle } from '../core/prices.js'
 import { App } from './app.js'
 import { guardResize } from './resize.js'
@@ -75,7 +79,12 @@ function stdinStub() {
   return stdin
 }
 
-async function open(columns: number, rows: number): Promise<Screen> {
+interface Options {
+  /** `undefined` is what a real first run passes; '' is a session that has one. */
+  initialApiKey?: string | undefined
+}
+
+async function open(columns: number, rows: number, options: Options = {}): Promise<Screen> {
   const term = new Terminal({ cols: columns, rows, allowProposedApi: true })
   // Everything Ink writes goes to the emulator before anything is asserted, so
   // a pending write can never be mistaken for a frame that was never drawn.
@@ -96,8 +105,8 @@ async function open(columns: number, rows: number): Promise<Screen> {
     createElement(App, {
       session: new Session(new Map(), oracle),
       connectors: new Map(),
-      // Not `undefined`: that is what puts the first run into onboarding.
-      initialApiKey: '',
+      // Not `undefined` unless a test says so: that is what a first run passes.
+      initialApiKey: 'initialApiKey' in options ? options.initialApiKey : '',
       initialVenues: [],
     }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -657,6 +666,117 @@ test('toggling ctrl+o does not leave a copy of the transcript per press', async 
     expect(written()).toBe(1)
     for (let at = 0; at < 6; at++) await screen.press('\x0f')
     expect(written()).toBe(1)
+    expectOneInputBox(screen)
+  } finally {
+    screen.stop()
+  }
+})
+
+/**
+ * The credential screens read two directories: the Anthropic CLI's profile
+ * store and tula's own. Both are pointed at temporary ones so the assertion is
+ * about a state the test built, and so a run never reads — or writes — the
+ * credentials of whoever is running it.
+ */
+async function credentialEnv({ profile }: { profile: boolean }) {
+  const anthropic = await mkdtemp(join(tmpdir(), 'tula-ant-'))
+  const store = await mkdtemp(join(tmpdir(), 'tula-store-'))
+  await chmod(store, 0o700)
+  if (profile) {
+    await mkdir(join(anthropic, 'credentials'), { recursive: true })
+    await writeFile(join(anthropic, 'credentials', 'default.json'), '{}')
+  }
+  const saved = { ...process.env }
+  process.env['ANTHROPIC_CONFIG_DIR'] = anthropic
+  process.env['TULA_CONFIG_DIR'] = store
+  delete process.env['ANTHROPIC_API_KEY']
+  delete process.env['ANTHROPIC_AUTH_TOKEN']
+  return async () => {
+    process.env = { ...saved }
+    await rm(anthropic, { recursive: true, force: true })
+    await rm(store, { recursive: true, force: true })
+  }
+}
+
+test('a browser sign-in is not asked for again on the next start', async () => {
+  const restore = await credentialEnv({ profile: true })
+  const screen = await open(100, 33, { initialApiKey: undefined })
+  try {
+    // The profile is the credential. Asking for one anyway is what the status
+    // line beside it contradicts, and what a signed-in user saw every start.
+    expect(screen.visible().join('\n')).not.toContain('Sign in with your Anthropic account')
+    expectOneFrame(screen)
+  } finally {
+    screen.stop()
+    await restore()
+  }
+})
+
+test('with no credential anywhere, the first run still asks for one', async () => {
+  const restore = await credentialEnv({ profile: false })
+  const screen = await open(100, 33, { initialApiKey: undefined })
+  try {
+    expect(screen.visible().join('\n')).toContain('Sign in with your Anthropic account')
+  } finally {
+    screen.stop()
+    await restore()
+  }
+})
+
+test('/login names the credential in use rather than starting over', async () => {
+  const restore = await credentialEnv({ profile: true })
+  const screen = await open(100, 33)
+  try {
+    await screen.press('/login\r')
+    const shown = screen.visible().join('\n')
+    expect(shown).toContain('signed in with your Anthropic account')
+    // The first-run screen re-announced the product and told a user with venues
+    // connected to go connect one.
+    expect(shown).not.toContain('Continue without one')
+    expect(shown).not.toContain('connect a venue')
+
+    // Leaving puts the shell back with its transcript written once. A panel
+    // that returns in place of the whole App unmounts <Static>, and the way
+    // back writes every entry again under the copy already on screen.
+    await screen.press('\x1b')
+    expect(screen.visible().join('\n')).toContain('/login')
+    expectOneInputBox(screen)
+  } finally {
+    screen.stop()
+    await restore()
+  }
+})
+
+const BANNER = `tula ${APP_VERSION}`
+
+test('the session opens with a banner, written once', async () => {
+  const screen = await open(100, 33)
+  try {
+    expect(screen.visible().filter((row) => row.trim() === BANNER)).toHaveLength(1)
+    // It is a transcript entry, so it scrolls away with the rest rather than
+    // being redrawn — and a redraw that reissued it would stack a second copy.
+    await screen.press('/help\r')
+    await screen.press('/help\r')
+    expect(screen.rows().filter((row) => row.trim() === BANNER)).toHaveLength(1)
+    expectOneFrame(screen)
+  } finally {
+    screen.stop()
+  }
+})
+
+test('/clear takes the transcript off the screen, not just out of the state', async () => {
+  const screen = await open(100, 33)
+  try {
+    await screen.press('/help\r')
+    expect(screen.visible().join('\n')).toContain('/breaks')
+
+    // <Static> wrote every row to the terminal once. Emptying the transcript
+    // leaves all of them exactly where they were, and adds the row that asked.
+    await screen.press('/clear\r')
+    const shown = screen.visible().join('\n')
+    expect(shown).not.toContain('/breaks')
+    expect(shown).not.toContain('/clear')
+    expect(shown).toContain(BANNER)
     expectOneInputBox(screen)
   } finally {
     screen.stop()

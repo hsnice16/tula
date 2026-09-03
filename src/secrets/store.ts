@@ -140,6 +140,10 @@ export async function putProviderKey(apiKey: string): Promise<void> {
   await put(PROVIDER_KEY, { anthropicApiKey: apiKey })
 }
 
+export async function removeProviderKey(): Promise<void> {
+  await remove(PROVIDER_KEY)
+}
+
 /**
  * The chosen price source and, if it needs one, its key. One entry, not one per
  * provider: only one oracle runs per process, and a key for a source that is not

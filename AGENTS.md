@@ -166,7 +166,7 @@ src/
     engine-adapter.ts   # Session -> RiskEngine; the only bridge to the agent
   ui/
     app.tsx             # Ink surface: owns ALL key handling, output, status line
-    Onboarding.tsx      # first-run API key flow
+    Credentials.tsx     # sign-in: asked once at first run, and again from /login
     ConnectFlow.tsx     # in-app venue connect; masks secret fields
     SlashMenu.tsx       # filtered menu, grouped; fixed height, below the input
     Palette.tsx         # ctrl+k: the same surface flattened and ranked, floated over the screen

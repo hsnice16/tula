@@ -46,6 +46,16 @@ describe('the store', () => {
     expect(await secrets.getProviderKey()).toBe('sk-test')
   })
 
+  test('signing out takes the key back out of the file', async () => {
+    await secrets.put('kraken', { apiKey: 'k', apiSecret: 's' })
+    await secrets.putProviderKey('sk-test')
+    await secrets.removeProviderKey()
+    expect(await secrets.getProviderKey()).toBeUndefined()
+    // The venue it sat beside is untouched: /login is not a way to lose them.
+    expect(await secrets.listVenues()).toEqual(['kraken'])
+    expect(await readFile(path(), 'utf8')).not.toContain('sk-test')
+  })
+
   test('a readable-by-others file is refused, not read', async () => {
     await secrets.put('kraken', { apiKey: 'k', apiSecret: 's' })
     await chmod(path(), 0o644)

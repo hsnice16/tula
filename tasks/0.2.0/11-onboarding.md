@@ -13,7 +13,10 @@ Ask for the Anthropic key before the first question, not as an error after one.
 - It is stored in `~/.config/tula/credentials.json` at mode 600, under a reserved
   key that `listVenues()` never returns.
 - `ANTHROPIC_API_KEY` in the environment takes precedence over the stored key.
-- `/login` re-runs the flow to set or replace it.
+- A browser sign-in counts as a credential, so someone already signed in is not
+  asked again on the next start.
+- `/login` names the credential in use and offers to replace it, or to sign out
+  of a key tula saved.
 - Choosing to continue without one leaves every command working.
 
 ## Notes

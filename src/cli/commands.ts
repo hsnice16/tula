@@ -1,5 +1,5 @@
 import Decimal from 'decimal.js'
-import { envApiKey, hasAmbientCredentials } from '../agent/agent.js'
+import { envApiKey, envApiKeyName, hasAmbientCredentials } from '../agent/agent.js'
 import type { Connector } from '../connectors/types.js'
 import type { VenueKind } from '../core/position.js'
 import type { PriceProvider } from '../prices/providers.js'
@@ -355,6 +355,42 @@ export function venueDocs(connector: Connector): CommandResult {
   }
 }
 
+/** Which credential the agent would use, and therefore what /login can change. */
+export type CredentialSource = 'env' | 'stored' | 'ambient' | 'none'
+
+/**
+ * Resolved in the order `src/index.ts` resolves it, so every screen that names
+ * the credential names the one a question would actually go out with.
+ */
+export async function credentialSource(): Promise<CredentialSource> {
+  if (envApiKey()) return 'env'
+  if (await secrets.getProviderKey()) return 'stored'
+  return hasAmbientCredentials() ? 'ambient' : 'none'
+}
+
+/**
+ * The state as a status value: /about's row and the /login screen's heading.
+ * The way out is not in it — /login is not advice to someone already on it.
+ */
+export function credentialSummary(source: CredentialSource): string {
+  if (source === 'env') return `on · using ${credentialName(source)}`
+  if (source === 'stored') return 'on · using an API key tula saved'
+  if (source === 'ambient') return 'on · signed in with your Anthropic account, no key saved'
+  return 'off · no key, and not signed in'
+}
+
+/**
+ * The same credential named mid-sentence, where the status wording reads as an
+ * interruption. Kept apart from the summary above rather than shared: one is a
+ * value in a column, the other is a clause, and neither survives the other's job.
+ */
+export function credentialName(source: CredentialSource): string {
+  if (source === 'env') return `${envApiKeyName() ?? 'a key'} from your shell`
+  if (source === 'stored') return 'the API key tula saved'
+  if (source === 'ambient') return 'your Anthropic account sign-in'
+  return 'nothing'
+}
+
 /**
  * The trust surface on one screen. Someone deciding whether to point this at
  * their entire net worth should not have to read the README to learn what it
@@ -363,15 +399,15 @@ export function venueDocs(connector: Connector): CommandResult {
 export async function about(connectors: Map<string, Connector>): Promise<CommandResult> {
   const stored = await secrets.listVenues()
   const connected = stored.filter((id) => connectors.has(id))
-  const agentKey = envApiKey() ?? (await secrets.getProviderKey())
-  const plainEnglish = agentKey
-    ? 'enabled, by API key'
-    : hasAmbientCredentials()
-      ? 'enabled, by an ant auth login profile — no key stored here'
-      : 'unavailable — /login, or sign in with: ant auth login'
 
+  const source = await credentialSource()
   const rows: [string, string][] = [
-    ['Plain English', plainEnglish],
+    [
+      'Plain English',
+      source === 'none'
+        ? `${credentialSummary(source)} — /login, or: ant auth login`
+        : credentialSummary(source),
+    ],
     ['Venues in build', [...connectors.keys()].join(', ')],
     ['Connected', `${connected.length} of ${connectors.size}`],
     ['Credentials', `${secrets.locationHint()}, mode 600`],

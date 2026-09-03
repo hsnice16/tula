@@ -1,4 +1,4 @@
-import { readdirSync } from 'node:fs'
+import { readdirSync, statSync } from 'node:fs'
 import { homedir, platform } from 'node:os'
 import { join } from 'node:path'
 import Anthropic from '@anthropic-ai/sdk'
@@ -40,13 +40,22 @@ export interface AgentEvents {
 }
 
 /**
- * `||`, not `??`: a variable that is set but empty is not a credential. The SDK
- * itself still lets an empty ANTHROPIC_API_KEY win its precedence slot and
- * authenticates with it, so an empty export breaks requests no matter what tula
- * decides — but tula must not report "you have a key" on the strength of one.
+ * Truthiness, not presence: a variable that is set but empty is not a
+ * credential. The SDK itself still lets an empty ANTHROPIC_API_KEY win its
+ * precedence slot and authenticates with it, so an empty export breaks requests
+ * no matter what tula decides — but tula must not report "you have a key" on
+ * the strength of one. The name is returned as well as the value because a
+ * screen offering to change the credential has to say which one to unset.
  */
+export function envApiKeyName(): 'ANTHROPIC_API_KEY' | 'ANTHROPIC_AUTH_TOKEN' | undefined {
+  if (process.env['ANTHROPIC_API_KEY']) return 'ANTHROPIC_API_KEY'
+  if (process.env['ANTHROPIC_AUTH_TOKEN']) return 'ANTHROPIC_AUTH_TOKEN'
+  return undefined
+}
+
 export function envApiKey(): string | undefined {
-  return process.env['ANTHROPIC_API_KEY'] || process.env['ANTHROPIC_AUTH_TOKEN'] || undefined
+  const name = envApiKeyName()
+  return name ? process.env[name] : undefined
 }
 
 function configDir(): string {
@@ -64,14 +73,28 @@ function configDir(): string {
  * an already-signed-in user they have no credentials — the same "unknown is not
  * absent" mistake this codebase refuses everywhere else.
  *
- * The profile is never read here. tula only checks that one exists, so no token
- * of any kind passes through this process.
+ * The profile is never opened. Its name and timestamp are all this file reads,
+ * so no token of any kind passes through this process.
  */
 export function hasAmbientCredentials(): boolean {
+  return ambientFingerprint() !== ''
+}
+
+/**
+ * Names and modification times, never contents. A sign-in that lands while tula
+ * waits can be one that replaced a profile already there, and existence alone
+ * cannot see that — the screen would report success before the browser opened.
+ */
+export function ambientFingerprint(): string {
+  const dir = join(configDir(), 'credentials')
   try {
-    return readdirSync(join(configDir(), 'credentials')).some((f) => f.endsWith('.json'))
+    return readdirSync(dir)
+      .filter((f) => f.endsWith('.json'))
+      .sort()
+      .map((f) => `${f}:${statSync(join(dir, f)).mtimeMs}`)
+      .join(' ')
   } catch {
-    return false
+    return ''
   }
 }
 

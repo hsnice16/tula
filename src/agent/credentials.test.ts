@@ -2,7 +2,14 @@ import { afterEach, describe, expect, test } from 'bun:test'
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { envApiKey, hasAmbientCredentials } from './agent.js'
+import { ambientFingerprint, envApiKey, envApiKeyName, hasAmbientCredentials } from './agent.js'
+
+/**
+ * What this layer can see: the environment, and the profile directory the
+ * Anthropic CLI writes. Which of those wins over a stored key is the store's
+ * side of the same question, and is tested in `src/cli/credentials.test.ts` —
+ * the agent layer may not import the store, and `guard.sh` enforces that.
+ */
 
 const saved = { ...process.env }
 afterEach(() => {
@@ -42,5 +49,31 @@ describe('hasAmbientCredentials', () => {
   test('a missing config directory is not an error', () => {
     process.env['ANTHROPIC_CONFIG_DIR'] = join(tmpdir(), 'tula-does-not-exist')
     expect(hasAmbientCredentials()).toBe(false)
+  })
+})
+
+describe('envApiKeyName', () => {
+  test('names the variable actually providing the key', () => {
+    process.env['ANTHROPIC_API_KEY'] = ''
+    process.env['ANTHROPIC_AUTH_TOKEN'] = 'token'
+    expect(envApiKeyName()).toBe('ANTHROPIC_AUTH_TOKEN')
+  })
+})
+
+describe('ambientFingerprint', () => {
+  test('a profile replaced by a second sign-in reads as a change', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'tula-ant-'))
+    await mkdir(join(dir, 'credentials'), { recursive: true })
+    const profile = join(dir, 'credentials', 'default.json')
+    await writeFile(profile, '{}')
+    process.env['ANTHROPIC_CONFIG_DIR'] = dir
+
+    const before = ambientFingerprint()
+    await new Promise((done) => setTimeout(done, 10))
+    await writeFile(profile, '{"replaced":true}')
+
+    // Existence alone cannot see this, and the sign-in screen would report
+    // success the moment it opened the browser.
+    expect(ambientFingerprint()).not.toBe(before)
   })
 })

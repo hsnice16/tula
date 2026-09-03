@@ -100,7 +100,7 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
   { name: 'clear', group: 'session', summary: 'Clear the screen', ui: true },
   { name: 'exit', group: 'session', summary: 'Leave tula', ui: true },
   { name: 'help', group: 'session', summary: 'Show this list', ui: true },
-  { name: 'login', group: 'session', summary: 'Set or replace your Anthropic API key', ui: true },
+  { name: 'login', group: 'session', summary: 'See or change how you sign in to Anthropic', ui: true },
   { name: 'refresh', group: 'session', summary: 'Refetch from every venue now' },
 
   // Runnable, out of the menu. `/venues` is what the menu already shows, and
