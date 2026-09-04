@@ -1021,15 +1021,26 @@ test('an answer that stops for a tool still says it is working', async () => {
 
 const BANNER = `tula ${APP_VERSION}`
 
+/** The mark sits in its own column beside the banner, so the name is not alone on its row. */
+const bannerRow = (row: string) => row.trimEnd().endsWith(BANNER)
+
 test('the session opens with a banner, written once', async () => {
   const screen = await open(100, 33)
   try {
-    expect(screen.visible().filter((row) => row.trim() === BANNER)).toHaveLength(1)
+    expect(screen.visible().filter(bannerRow)).toHaveLength(1)
+    // The mark is beside the name, not above it, and the description clears the
+    // column it occupies — a wrap that started under it would read as an indent.
+    const rows = screen.visible()
+    const at = rows.findIndex(bannerRow)
+    expect(rows[at]).toMatch(/▄▄▄ +tula/)
+    expect(rows[at + 1]).toMatch(/^ +▄▟ {3}▙▄ +Your true exposure/)
+    expect(rows[at + 2]?.trim()).toBe('▄▄▄▄▄▄▄')
+    expect(rows[at]?.indexOf('tula')).toBe(rows[at + 1]?.indexOf('Your') ?? -1)
     // It is a transcript entry, so it scrolls away with the rest rather than
     // being redrawn — and a redraw that reissued it would stack a second copy.
     await screen.press('/help\r')
     await screen.press('/help\r')
-    expect(screen.rows().filter((row) => row.trim() === BANNER)).toHaveLength(1)
+    expect(screen.rows().filter(bannerRow)).toHaveLength(1)
     expectOneFrame(screen)
   } finally {
     screen.stop()

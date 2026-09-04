@@ -1,6 +1,7 @@
 'use client'
 
 import { type ReactNode, useEffect, useState } from 'react'
+import { Logo } from '@/components/Logo'
 import { Frame } from '@/components/Terminal'
 import { VERSION } from '@/lib/site'
 
@@ -169,13 +170,24 @@ const Cursor = ({ dim }: { dim: boolean }) => <span className={dim ? '' : 'bg-di
  * under the menu like everything else above it.
  */
 export const Banner = () => (
-  <>
-    <span className="block font-bold" style={{ color: TUI.accent }}>{`tula ${VERSION}`}</span>
-    <span className="block text-dim">
-      Your true exposure, what breaks first, and more, across every venue at once.
+  <span className="flex gap-[2ch]">
+    {/* Drawn, not written: a cell is a block glyph's own box, so the binary's
+        three rows tile there and come apart in a line box, the way the
+        palette's scrollbar below does. Sized to the columns and rows it takes
+        in the terminal. */}
+    <Logo
+      className="w-[7ch] flex-none self-start"
+      style={{ height: rows(3), color: TUI.accent }}
+      preserveAspectRatio="xMidYMin meet"
+    />
+    <span className="min-w-0">
+      <span className="block font-bold" style={{ color: TUI.accent }}>{`tula ${VERSION}`}</span>
+      <span className="block text-dim">
+        Your true exposure, what breaks first, and more, across every venue at once.
+      </span>
+      <span className="block text-dim">Connected: wallet, hyperliquid, aave, kraken</span>
     </span>
-    <span className="block text-dim">Connected: wallet, hyperliquid, aave, kraken</span>
-  </>
+  </span>
 )
 
 /**

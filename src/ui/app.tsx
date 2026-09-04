@@ -116,18 +116,31 @@ function loadLabel(step: LoadStep): string {
     : `pricing ${step.assets} asset${step.assets === 1 ? '' : 's'}`
 }
 
+/**
+ * The same figure `site/app/icon.svg` draws, in the units a terminal has:
+ * strokes rather than letters for the reason that file gives, and seven columns
+ * because a cell is twice as tall as it is wide — three rows of nine would be
+ * the same mark lying on its side.
+ */
+const MARK = ['  ▄▄▄  ', '▄▟   ▙▄', '▄▄▄▄▄▄▄'] as const
+const MARK_WIDTH = 7
+const MARK_GUTTER = 2
+
+const bannerTextWidth = (width: number) => Math.max(20, width - MARK_WIDTH - MARK_GUTTER)
+
+/**
+ * Wrapped here rather than by Ink, because the block's height has to be known
+ * before it is drawn: `entryRows` measures the same banner to decide how much
+ * of it the screen behind the palette has room for.
+ */
+function bannerRows(text: string, width: number): { text: string; head: boolean }[] {
+  const columns = bannerTextWidth(width)
+  return text
+    .split('\n')
+    .flatMap((line, at) => wrapLines(line, columns).map((row) => ({ text: row, head: at === 0 })))
+}
+
 function Line({ kind, text, dim }: { kind: EntryKind; text: string; dim: boolean }) {
-  if (kind === 'banner') {
-    const [name = '', ...rest] = text.split('\n')
-    return (
-      <>
-        <Text bold color={theme.accent} dimColor={dim}>{name}</Text>
-        {rest.map((line, at) => (
-          <Text key={`${at}:${line}`} dimColor>{line}</Text>
-        ))}
-      </>
-    )
-  }
   if (kind === 'prompt') return <Text color={theme.accent} dimColor={dim}>{text}</Text>
   if (kind === 'error') return <Text color={theme.danger} dimColor={dim}>{text}</Text>
   if (kind === 'notice') return <Text color={theme.notice} dimColor={dim}>{text}</Text>
@@ -183,6 +196,37 @@ function TranscriptEntry({
   /** Leading rows the top of the screen has already cut off. */
   trimTop?: number
 }) {
+  // Two columns, so the description wraps against its own width rather than
+  // under the mark. Both are cut from the top by the same count: they start on
+  // the same row, so that is where a screen scrolled past them loses them.
+  if (entry.kind === 'banner') {
+    const rows = bannerRows(entry.text, bodyWidth)
+    return (
+      <Box marginBottom={1} paddingLeft={OUTPUT_INDENT}>
+        <Box flexDirection="column" marginRight={MARK_GUTTER} width={MARK_WIDTH}>
+          {MARK.slice(trimTop).map((row, at) => (
+            <Text key={`${at}:${row}`} color={theme.accent} dimColor={dim}>
+              {row}
+            </Text>
+          ))}
+        </Box>
+        <Box flexDirection="column" width={bannerTextWidth(bodyWidth)}>
+          {rows.slice(trimTop).map(({ text, head }, at) =>
+            head ? (
+              <Text key={`${at}:${text}`} bold color={theme.accent} dimColor={dim}>
+                {text}
+              </Text>
+            ) : (
+              <Text key={`${at}:${text}`} dimColor>
+                {text}
+              </Text>
+            ),
+          )}
+        </Box>
+      </Box>
+    )
+  }
+
   // The line you asked for is a block, so a long transcript reads as a sequence
   // of questions rather than an undifferentiated wall.
   if (entry.kind === 'prompt') {
@@ -209,6 +253,10 @@ function TranscriptEntry({
 /** What `TranscriptEntry` will occupy, so the copy can be cut to the rows it has. */
 function entryRows(entry: Entry, width: number, expanded: boolean): number {
   if (entry.kind === 'prompt') return 2
+  // The banner is not in `entries`, so nothing measures it today. It is here
+  // because `preview` is the wrong ruler for a two-column block, and a height
+  // that disagrees with what was drawn clips the backdrop by the difference.
+  if (entry.kind === 'banner') return Math.max(MARK.length, bannerRows(entry.text, width).length) + 1
   const { rows, hidden } = preview(entry.text, width, expanded)
   return rows + (hidden > 0 ? 1 : 0) + 1
 }

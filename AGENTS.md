@@ -294,6 +294,13 @@ Two rules, and they are the reason the architecture exists:
   that meaning is held in reserve. Red stays semantic, never decorative. The one
   palette outside it is `src/ui/brand.ts`: those colours are other people's, and
   restyling them to match ours is what would make them stop identifying anyone.
+- **The mark is the balance the name means**, and one geometry: `site/app/icon.svg`
+  draws it, `site/components/Logo.tsx` repeats it for the header and for the
+  banner inside the site's picture of the frame, and `src/ui/app.tsx` spells the
+  same figure in half-blocks beside the banner the binary prints. The site draws
+  it rather than writing it even inside that frame — a cell is a block glyph's
+  own box, so three rows tile in a terminal and come apart in a line box, which
+  is why the palette's scrollbar there is a rule too.
 - **A third party is named with its mark.** Every venue and price source carries
   a `●` in its own colour in the `/` menu, ctrl+k and the connect screen. The
   gutter is at the head of the summary, not of the row: the names are the column

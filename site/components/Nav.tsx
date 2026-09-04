@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation'
 import { useLayoutEffect, useRef, useState } from 'react'
 import { Ext } from '@/components/Ext'
 import { Link } from '@/components/Link'
+import { Logo } from '@/components/Logo'
 import { NAV, REPO } from '@/lib/site'
 
 /** `trailingSlash` puts a slash on every route; the hrefs in NAV carry none. */
@@ -78,8 +79,9 @@ export function Nav() {
       <div className="wrap flex min-h-14 flex-wrap items-center gap-x-6 gap-y-2 py-3 max-phone:justify-center">
         <Link
           href="/"
-          className="font-mono text-base font-bold text-accent transition-colors duration-200 max-phone:w-full max-phone:text-center"
+          className="flex items-center gap-2 font-mono text-base font-bold text-accent transition-colors duration-200 max-phone:w-full max-phone:justify-center"
         >
+          <Logo className="h-[1.5em] w-[1.5em]" />
           tula
         </Link>
         <nav
