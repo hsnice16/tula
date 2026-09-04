@@ -310,11 +310,19 @@ Two rules, and they are the reason the architecture exists:
   menu. The one exception is a command with arguments left to supply: those
   cannot be guessed, so Enter puts it on the line with the cursor where the
   first one goes.
-- **A wait says what it is waiting on.** `Session` reports each venue as it reads
-  it and the spinner counts the seconds off. Behind a fetch that is a 15s
-  deadline per venue, a bare "working" is indistinguishable from a hang — and
-  the session is the only layer that knows which venue it is on, because a
-  command reaches `ensureLoaded` several layers below the UI.
+- **A wait says what it is waiting on, for the whole of the wait.** `Session`
+  reports each venue as it reads it and the spinner counts the seconds off.
+  Behind a fetch that is a 15s deadline per venue, a bare "working" is
+  indistinguishable from a hang — and the session is the only layer that knows
+  which venue it is on, because a command reaches `ensureLoaded` several layers
+  below the UI. The row stays up under a part-written answer for the same
+  reason: an answer that stops to read a tool spends most of its time with
+  prose already on screen, and taking the row away at the first token left the
+  tool round and the request after it running under a screen that had stopped
+  moving. `AgentEvents.onTurn` is what puts a label back on it — after a batch,
+  the tool named there has already finished — and it is also the only seam the
+  deltas carry, so it is where one turn's prose is ended before the next
+  begins.
 - **Comments say why.** A comment that restates the code is a second copy that drifts.
 - **The model's failures are ours to translate.** `explain()` in `src/agent/agent.ts`
   turns an API error into a sentence with a next step. A raw `overloaded_error`
@@ -501,15 +509,18 @@ bun run build              # -> site/out, static
   only direction a terminal loses a row in, and the alternative grows the page.
   The frame's banner prints the version, so `site/lib/site.ts` restates
   `APP_VERSION` and `guard.sh` fails when the two disagree. `Ask.tsx` runs the same
-  frame through a question: the spinner row is overwritten as it works and then
-  replaced by the answer, so a still frame is the one picture of tula answering
-  that cannot contain it. That row is `activity` in `src/ui/app.tsx`, not the
-  status line under it, which goes on saying what is loaded throughout. It
-  shows `thinking` and one tool label and no more —
-  the model asks for its tools in a single turn and `src/agent/agent.ts` runs
-  that batch synchronously, so every label but the last is overwritten before
-  Ink paints. It rests on the answer rather than on the work, because that is
-  the state a reader who has turned motion off is left with.
+  frame through a question: the row is overwritten as the work moves on and
+  goes when the work does, so a still frame is the one picture of tula
+  answering that cannot contain it. That row is `activity` in `src/ui/app.tsx`,
+  not the status line under it, which goes on saying what is loaded throughout.
+  It draws the two states before any prose has arrived — `thinking`, and one
+  tool label, because the model asks for its tools in a single turn and
+  `src/agent/agent.ts` runs that batch synchronously, so every label but the
+  last is overwritten before Ink paints. The binary holds the row under a
+  part-written answer as well, and a frame that stopped short of the answer to
+  draw that would be showing less, not more. It rests on the answer rather than
+  on the work, because that is the state a reader who has turned motion off is
+  left with.
   `Note.tsx` leans its card toward the pointer.
   `Copy.tsx` puts a command on the clipboard and holds the answer for a
   moment; it is handed the text rather than reading it back out of the

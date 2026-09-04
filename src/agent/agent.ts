@@ -37,6 +37,14 @@ Style: this is a terminal, not a chat window. Answer in a few short sentences. N
 export interface AgentEvents {
   onText: (delta: string) => void
   onTool: (name: string) => void
+  /**
+   * A turn is about to wait on the model. It fires on every turn, not only the
+   * first: after a tool batch the label that was on screen names work that has
+   * already finished, and leaving it there is how a wait that is still running
+   * comes to look like one that hung. It also marks where one turn's prose ends
+   * and the next begins, which is otherwise a seam the deltas do not carry.
+   */
+  onTurn: () => void
 }
 
 /**
@@ -181,6 +189,7 @@ export class Agent {
   }
 
   private async streamTurn(events: AgentEvents): Promise<Anthropic.Message> {
+    events.onTurn()
     const stream = this.client.messages.stream({
       model: MODEL,
       max_tokens: 8000,

@@ -2,10 +2,13 @@ import { EventEmitter } from 'node:events'
 import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type Anthropic from '@anthropic-ai/sdk'
 import { Terminal } from '@xterm/headless'
 import { afterAll, beforeAll, expect, test } from 'bun:test'
 import { render } from 'ink'
 import { createElement } from 'react'
+import { Agent } from '../agent/agent.js'
+import { fixtureEngine } from '../agent/fixture.js'
 import { Session } from '../cli/session.js'
 import { APP_VERSION } from '../version.js'
 import type { PriceOracle } from '../core/prices.js'
@@ -99,6 +102,7 @@ function stdinStub() {
 interface Options {
   /** `undefined` is what a real first run passes; '' is a session that has one. */
   initialApiKey?: string | undefined
+  agent?: Agent
 }
 
 async function open(columns: number, rows: number, options: Options = {}): Promise<Screen> {
@@ -132,6 +136,7 @@ async function open(columns: number, rows: number, options: Options = {}): Promi
       // Not `undefined` unless a test says so: that is what a first run passes.
       initialApiKey: 'initialApiKey' in options ? options.initialApiKey : '',
       initialVenues: [],
+      ...(options.agent ? { agent: options.agent } : {}),
     }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     {
@@ -926,6 +931,91 @@ test('/login names the credential in use rather than starting over', async () =>
   } finally {
     screen.stop()
     await restore()
+  }
+})
+
+const PREAMBLE = "I'll pull the netted position."
+const ANSWER = '8.5 ETH, as of noon.'
+
+/**
+ * A model that says something, stops to read a tool, and is then held before it
+ * can answer. Everything about that pause is invisible from this side — the
+ * request is out, the prose is already on screen — so a model still working and
+ * one that has hung look identical, and `release` is the only way the frame
+ * between them stands still long enough to be asserted on.
+ */
+function pausingAgent() {
+  let release = () => {}
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const turns = [
+    {
+      stop_reason: 'tool_use',
+      content: [
+        { type: 'text', text: PREAMBLE },
+        { type: 'tool_use', id: 'tu_1', name: 'get_net_exposure', input: { asset: 'ETH' } },
+      ],
+    },
+    { stop_reason: 'end_turn', content: [{ type: 'text', text: ANSWER }] },
+  ] as unknown as Anthropic.Message[]
+  let at = 0
+  const client = {
+    messages: {
+      stream() {
+        const msg = turns[at++]
+        if (!msg) throw new Error('stub ran out of turns')
+        // The first request answers; every one after it waits, because a tool
+        // round is what puts the answer's own request behind a pause.
+        const said = (at > 1 ? gate : Promise.resolve()).then(() => msg)
+        return {
+          on(event: string, cb: (t: string) => void) {
+            if (event === 'text') {
+              void said.then((m) => {
+                for (const b of m.content) if (b.type === 'text') cb(b.text)
+              })
+            }
+            return this
+          },
+          finalMessage: () => said,
+        }
+      },
+    },
+  }
+  return {
+    agent: new Agent(fixtureEngine, { client: client as unknown as Anthropic }),
+    release: () => release(),
+  }
+}
+
+const SPINNING = /[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/
+
+test('an answer that stops for a tool still says it is working', async () => {
+  const { agent, release } = pausingAgent()
+  const screen = await open(100, 33, { agent })
+  try {
+    await screen.press('what is my eth exposure\r')
+
+    // The defect: the row went out with the first token, so the tool round and
+    // the request after it ran under a screen that had stopped moving.
+    const held = screen.visible()
+    const preamble = held.findIndex((row) => row.includes(PREAMBLE))
+    expect(preamble).toBeGreaterThan(-1)
+    const working = held.slice(preamble).find((row) => SPINNING.test(row))
+    if (!working) dump(screen)
+    expect(working).toMatch(/(thinking|netting your exposure)/)
+
+    release()
+    // Nothing typed: settling is what a press does either side of the keys.
+    await screen.press('')
+    // One paragraph each, and a blank line between. The deltas carry no seam, so
+    // the two turns had been running into each other mid-sentence.
+    expect(screen.visible().join('\n')).toContain(`${PREAMBLE}\n\n   ${ANSWER}`)
+    // And the row goes when the work does, rather than spinning under a finished
+    // answer — which would be the same lie the other way around.
+    expect(screen.visible().some((row) => SPINNING.test(row))).toBe(false)
+  } finally {
+    screen.stop()
   }
 })
 

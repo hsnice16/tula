@@ -103,6 +103,12 @@ const TOOL_LABELS: Readonly<Record<string, string>> = {
   get_venue_status: 'checking every venue',
 }
 
+/**
+ * The same voice, for the phase the tool labels do not cover: words arriving on
+ * screen. It is what tells a part-written answer from a finished one.
+ */
+const RESPONDING = 'answering'
+
 /** A load's step, in the voice the tool labels above are written in. */
 function loadLabel(step: LoadStep): string {
   return step.kind === 'venue'
@@ -254,9 +260,15 @@ interface Props {
   connectors: Map<string, Connector>
   initialApiKey: string | undefined
   initialVenues: string[]
+  /**
+   * Injected in tests; never in the product, which builds one from whatever
+   * credential it found. A screen with an answer half-written on it is a frame
+   * only a model in mid-turn produces, and the real one cannot be held there.
+   */
+  agent?: Agent
 }
 
-export function App({ session, connectors, initialApiKey, initialVenues }: Props) {
+export function App({ session, connectors, initialApiKey, initialVenues, agent: given }: Props) {
   const { exit } = useApp()
   const { stdout } = useStdout()
   // Static children sit outside the layout flow, so a percentage width has
@@ -279,12 +291,14 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
   // block would really take, and Ink wraps it at the width the indent leaves.
   const bodyWidth = Math.max(20, frameWidth - OUTPUT_INDENT)
 
-  const [agent, setAgent] = useState<Agent | null>(() =>
-    // An `ant auth login` profile is a credential too: gating on a key string
-    // alone hides the agent from a user who is already signed in.
-    initialApiKey || hasAmbientCredentials()
-      ? new Agent(riskEngineFor(session), initialApiKey ? { apiKey: initialApiKey } : {})
-      : null,
+  const [agent, setAgent] = useState<Agent | null>(
+    () =>
+      given ??
+      // An `ant auth login` profile is a credential too: gating on a key string
+      // alone hides the agent from a user who is already signed in.
+      (initialApiKey || hasAmbientCredentials()
+        ? new Agent(riskEngineFor(session), initialApiKey ? { apiKey: initialApiKey } : {})
+        : null),
   )
   // An ambient profile is a credential, so it settles this screen exactly as it
   // settles the agent above. Gating on the key string alone asked a user who was
@@ -626,16 +640,26 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
           // the first load answers "nothing is connected" about a connected
           // venue — the one wrong answer this tool must never give.
           await session.ensureLoaded()
-          // After the load, not before: while it runs it names the venue it is on.
-          setActivity('thinking')
           let answer = ''
           let repeats = 0
           let lastTool = ''
+          // A turn boundary is where the model stopped to use a tool, and the
+          // deltas do not carry it. Concatenating across it ran the sentence it
+          // left off on straight into the answer that came back.
+          let seam = false
           await agent.ask(trimmed, {
+            onTurn: () => {
+              seam = answer !== ''
+              setActivity('thinking')
+            },
             onText: (delta) => {
+              if (seam) {
+                answer += '\n\n'
+                seam = false
+              }
               answer += delta
               setStreaming(answer)
-              setActivity('')
+              setActivity(RESPONDING)
             },
             onTool: (name) => {
               repeats = name === lastTool ? repeats + 1 : 0
@@ -1208,7 +1232,11 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
               </Box>
             )}
 
-            {busy && !streaming && (
+            {/* Through every phase, not only the ones with nothing above it. An
+                answer that stops to read a tool goes on working with prose
+                already on screen, and a row that left with the first token took
+                the only sign of that with it. */}
+            {busy && (
               <Box marginBottom={1} paddingLeft={3}>
                 <Text color={theme.accent} wrap="truncate">
                   {`${SPINNER[frame % SPINNER.length]} ${activity || 'working'}`}

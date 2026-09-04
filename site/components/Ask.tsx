@@ -19,11 +19,13 @@ const ROW = '1.3rem'
 const SPINNER = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 
 /**
- * The two states the status line is certain to pass through, in the words
- * src/ui/app.tsx gives them, with the count it would be showing by then. The
- * transcript keeps neither: the line is overwritten and then replaced by the
- * answer, so the work is visible only while it happens, which is the whole
- * reason this frame moves at all.
+ * Two of the states the status line passes through, in the words src/ui/app.tsx
+ * gives them, with the count it would be showing by then. The transcript keeps
+ * neither: the row is overwritten as the work moves on and goes when the work
+ * does, so it is visible only while it happens, which is the whole reason this
+ * frame moves at all. These two are the ones before any prose has arrived — the
+ * binary holds the row under a part-written answer as well, and a frame that
+ * stopped short of the answer to show it would be showing less, not more.
  *
  * Not one label per tool. The model asks for its tools in a single turn — which
  * src/agent/agent.ts encourages, by returning every result in one message — and

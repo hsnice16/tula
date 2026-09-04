@@ -46,10 +46,17 @@ function stubClient(responses: (Anthropic.Message | null)[]) {
 function collect() {
   const text: string[] = []
   const tools: string[] = []
+  /** How much prose had arrived when each turn began — the seam the UI breaks on. */
+  const turns: number[] = []
   return {
-    events: { onText: (d: string) => text.push(d), onTool: (n: string) => tools.push(n) },
+    events: {
+      onText: (d: string) => text.push(d),
+      onTool: (n: string) => tools.push(n),
+      onTurn: () => turns.push(text.length),
+    },
     text,
     tools,
+    turns,
   }
 }
 
@@ -77,6 +84,21 @@ describe('Agent', () => {
     expect(toolResultTurn.content[0].type).toBe('tool_result')
     // The model must receive the computed number, not compute one.
     expect(toolResultTurn.content[0].content).toContain('"net_quantity":"8.5"')
+  })
+
+  test('marks each turn, so a wait after a tool has a label of its own', async () => {
+    const { client } = stubClient([
+      message('tool_use', [
+        { type: 'text', text: "I'll pull the netted position." },
+        { type: 'tool_use', id: 'tu_1', name: 'get_net_exposure', input: { asset: 'ETH' } },
+      ]),
+      text('8.5 ETH, as of noon.'),
+    ])
+    const sink = collect()
+    await new Agent(fixtureEngine, { client }).ask('eth?', sink.events)
+    // One per request, and the second fires with the preamble already on
+    // screen: that is the seam the answer has to start a paragraph after.
+    expect(sink.turns).toEqual([0, 1])
   })
 
   test('returns every tool result in a single user message', async () => {
