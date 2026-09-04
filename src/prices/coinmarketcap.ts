@@ -85,7 +85,7 @@ function failure(status: number): TulaError {
   if (status === 429) {
     return new TulaError(
       'CoinMarketCap rate limit reached. Prices are unavailable; quantities are still correct.\n' +
-        '  The free plan allows a limited number of calls per month.',
+        '  Every plan caps calls per month; the free one caps them soonest.',
     )
   }
   return new TulaError(`CoinMarketCap returned HTTP ${status}. Prices are unavailable; quantities are still correct.`)

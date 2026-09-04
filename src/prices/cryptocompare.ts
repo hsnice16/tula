@@ -51,7 +51,7 @@ export class CryptoCompareOracle implements PriceOracle {
         throw new TulaError(
           `CryptoCompare: ${body.Message ?? 'request rejected'}\n` +
             '  Replace the key with:  /cryptocompare connect\n' +
-            '  Keys are at:           https://www.cryptocompare.com/cryptopian/api-keys',
+            '  Keys are at:           https://developers.coindesk.com/settings/api-keys',
         )
       }
 

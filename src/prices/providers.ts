@@ -42,7 +42,7 @@ export const PRICE_PROVIDERS: readonly PriceProvider[] = [
   {
     id: 'coinmarketcap',
     name: 'CoinMarketCap',
-    summary: 'Widest coverage; needs a free API key',
+    summary: 'Widest coverage; a free API key is enough',
     keyless: false,
     fields: KEY_FIELD('API key', 'From pro.coinmarketcap.com — a data key, it cannot trade'),
     help: [
@@ -54,7 +54,7 @@ export const PRICE_PROVIDERS: readonly PriceProvider[] = [
   {
     id: 'cryptocompare',
     name: 'CryptoCompare',
-    summary: 'Exchange-aggregated spot; needs a free API key',
+    summary: 'Exchange-aggregated spot; a free API key is enough',
     keyless: false,
     fields: KEY_FIELD('API key', 'From developers.coindesk.com — a data key, it cannot trade'),
     help: [

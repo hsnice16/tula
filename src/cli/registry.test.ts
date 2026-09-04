@@ -7,7 +7,7 @@ const VENUES: VenueEntry[] = [
 ]
 const PRICES: PriceEntry[] = [
   { id: 'coingecko', detail: 'CoinGecko — pricing everything', active: true, keyless: true },
-  { id: 'coinmarketcap', detail: 'Widest coverage; needs a free API key', active: false, keyless: false },
+  { id: 'coinmarketcap', detail: 'Widest coverage; a free API key is enough', active: false, keyless: false },
 ]
 
 const paths = (query: string) =>

@@ -8,9 +8,10 @@ const MARKETS = 'https://api.coingecko.com/api/v3/coins/markets'
 const PER_PAGE = 250
 /**
  * Two pages is the top 500 by market cap. Four would price a long tail of small
- * perp listings, but it trips CoinGecko's free-tier rate limit, and losing every
- * price is worse than leaving a few unpriced. Raise it with TULA_PRICE_PAGES
- * if you have a paid key.
+ * perp listings, but it trips CoinGecko's rate limit, and losing every price is
+ * worse than leaving a few unpriced. TULA_PRICE_PAGES trades the one against the
+ * other. It is not a paid-plan switch: nothing here sends a key, so no plan
+ * raises the ceiling — a paid CoinGecko key needs its own host and header.
  */
 const DEFAULT_PAGES = Number(process.env['TULA_PRICE_PAGES'] ?? '2')
 

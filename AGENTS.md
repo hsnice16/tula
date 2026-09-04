@@ -78,8 +78,9 @@ bun run src/index.ts            # / -> wallet -> connect -> paste any 0x address
 `TULA_CONFIG_DIR` redirects the credential store. Always set it in scratch runs
 so nothing touches a real `~/.config/tula`. `TULA_ETH_RPC` overrides the
 Ethereum RPC; `TULA_TOKEN_LIST` overrides the Token Lists URL wallet balances
-are read against; `TULA_PRICE_PAGES` widens price coverage beyond the top 500 if
-you have a paid CoinGecko key.
+are read against; `TULA_PRICE_PAGES` widens price coverage beyond the top 500 at
+the cost of tripping CoinGecko's rate limit, which loses every price rather than
+a few. No CoinGecko key is sent, so no plan raises that ceiling.
 
 ## Definition of done
 
