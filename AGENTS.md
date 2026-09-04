@@ -494,7 +494,12 @@ bun run build              # -> site/out, static
   CSS cannot read.** `Session.tsx` draws the front page's frame and works `/`,
   ctrl+k and ctrl+o on a loop because a transcript cannot show a keystroke —
   every state it passes through is one the binary draws, in the binary's own
-  palette (`src/ui/theme.ts`, not the site tokens). `Ask.tsx` runs the same
+  palette (`src/ui/theme.ts`, not the site tokens) and down to the counts under
+  each list. Opening the menu takes its rows out of the transcript rather than
+  adding them under it, and the transcript is clipped from the top: that is the
+  only direction a terminal loses a row in, and the alternative grows the page.
+  The frame's banner prints the version, so `site/lib/site.ts` restates
+  `APP_VERSION` and `guard.sh` fails when the two disagree. `Ask.tsx` runs the same
   frame through a question: the spinner row is overwritten as it works and then
   replaced by the answer, so a still frame is the one picture of tula answering
   that cannot contain it. That row is `activity` in `src/ui/app.tsx`, not the
@@ -595,6 +600,16 @@ bun run build              # -> site/out, static
   for character, and it states the netted figure and the liquidation distance
   the engine computes. A link pasted into a chat is the whole of the site for
   most people, and nobody scrolls past a picture to a correction.
+- **The rows the frame's two lists draw are pinned by the same file.** `/` and
+  ctrl+k can only be published as a picture, so `Session.tsx` holds their rows
+  as literal tables — a second copy of the command surface, which drifts. The
+  test rebuilds them from `src/cli/registry.ts` against the same book, checks
+  each table's order, and checks the counts the lists owe the reader — what the
+  menu left below, and what the palette did — against how many rows the page is
+  left drawing, so neither can be edited without the other.
+  It also holds the venue marks to `src/ui/brand.ts` in both directions: a hue
+  that has drifted names a neighbouring brand, and a colour no row is left
+  drawing is one nobody would notice going wrong.
 - **The overview names no model vendor.** "Connect a model", not the one the
   binary happens to send to today. A second provider then costs no copy edit,
   and the page never has to carry a "more coming soon" — a hedge on the page

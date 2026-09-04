@@ -5,6 +5,14 @@ export const SITE = 'https://hsnice16.github.io/tula'
 export const NAME = 'tula'
 
 /**
+ * What the hero's frame prints in its banner, restated here because the site is
+ * a separate package and cannot import `src/version.ts`. `guard.sh` fails when
+ * the two disagree and `release-cut.sh` bumps this with them: a frame offered
+ * as the tool's own output cannot print a release that was never cut.
+ */
+export const VERSION = '0.1.0'
+
+/**
  * GA4, for the site alone. Held here rather than read from `process.env`
  * because the Pages workflow sets no environment: an id that arrived that way
  * would build to nothing in CI and deploy a page with no tag at all, and

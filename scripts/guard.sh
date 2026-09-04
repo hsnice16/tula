@@ -68,6 +68,12 @@ if [ "$pkg_version" != "$app_version" ]; then
   report "package.json is $pkg_version and src/version.ts is $app_version"
 fi
 
+# A third: the site's hero draws the banner the binary prints, version and all,
+# and it is a separate package that cannot import src/version.ts. Left behind on
+# a bump it publishes a release nobody can install as the tool's own output.
+grep -q "export const VERSION = '$app_version'" site/lib/site.ts ||
+  report "site/lib/site.ts does not state APP_VERSION from src/version.ts ($app_version)"
+
 # Three files print a `gh attestation verify` command with a release filename in
 # it. A reader copies that line verbatim, so a stale version there sends them to
 # an archive that does not exist and reports as a failed verification — which is

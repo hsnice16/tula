@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Prepares a release and stops before the tag. Bumps every file that states the
-# version — the two that declare it and the three that print a verify command
+# version — the three that declare it and the three that print a verify command
 # naming the archive — closes the changelog's Unreleased section into a dated
 # one, and runs the whole gate, so the one irreversible step, pushing the tag,
 # is taken by hand against a tree that has already been checked.
@@ -84,6 +84,8 @@ rewrite src/version.ts sed \
   "s/^export const APP_VERSION = '.*'\$/export const APP_VERSION = '$VERSION'/"
 rewrite package.json sed \
   "s/^  \"version\": \".*\",\$/  \"version\": \"$VERSION\",/"
+rewrite site/lib/site.ts sed \
+  "s/^export const VERSION = '.*'\$/export const VERSION = '$VERSION'/"
 
 # A sed that matched nothing is silent, and the failure would surface as a tag
 # disagreeing with the binary halfway through a release.
@@ -91,6 +93,8 @@ rewrite package.json sed \
   die "src/version.ts did not take the bump; its APP_VERSION line has changed shape"
 [ "$(grep -m1 '"version"' package.json | sed 's/.*"version": *"\([^"]*\)".*/\1/')" = "$VERSION" ] ||
   die "package.json did not take the bump; its version line has changed shape"
+[ "$(grep -m1 'VERSION' site/lib/site.ts | sed "s/.*'\([^']*\)'.*/\1/")" = "$VERSION" ] ||
+  die "site/lib/site.ts did not take the bump; its VERSION line has changed shape"
 
 # Three files print a `gh attestation verify` line naming a release archive, and
 # the install page also prints the URL that archive is downloaded from. A reader

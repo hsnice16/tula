@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { Ask } from '@/components/Ask'
 import { Link } from '@/components/Link'
 import { Note } from '@/components/Note'
-import { Held, Prompt, Session } from '@/components/Session'
+import { Banner, Held, Prompt, Session } from '@/components/Session'
 import aaveMark from '@/public/venues/aave.png'
 import hyperliquidMark from '@/public/venues/hyperliquid.png'
 import krakenMark from '@/public/venues/kraken.png'
@@ -89,6 +89,7 @@ export default function Page() {
           </div>
 
           <Session status="4 venues  ·  11 positions  ·  09:14:02 (4s ago)  ·  commands only">
+            <Banner />
             <Prompt>❯ /exposure</Prompt>
             {`ASSET   NET    NOTIONAL  VENUES                   AS OF
 ─────  ────  ──────────  ───────────────────────  ─────────────────

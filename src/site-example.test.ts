@@ -1,10 +1,42 @@
 import { describe, expect, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import Decimal from 'decimal.js'
+import {
+  buildCommands,
+  buildPalette,
+  GROUP_LABELS,
+  matchPalette,
+  priceEntries,
+  type VenueEntry,
+} from './cli/registry.js'
+import { aaveConnector } from './connectors/aave.js'
+import { binanceConnector } from './connectors/binance.js'
+import { circleConnector } from './connectors/circle.js'
+import { coinbaseConnector } from './connectors/coinbase.js'
+import { hyperliquidConnector } from './connectors/hyperliquid.js'
+import { krakenConnector } from './connectors/kraken.js'
+import { stripeConnector } from './connectors/stripe.js'
+import { walletConnector } from './connectors/wallet.js'
 import { netExposure, portfolioValue } from './core/exposure.js'
-import { pct, quantity, usd } from './core/format.js'
+import { holdings, pct, quantity, usd } from './core/format.js'
 import type { Position, PositionKind } from './core/position.js'
 import { scenario, whatBreaksFirst } from './core/risk.js'
+import { DEFAULT_PROVIDER } from './prices/providers.js'
+import { brandColor } from './ui/brand.js'
+import { displayRows } from './ui/Palette.js'
+import { menuDisplay } from './ui/SlashMenu.js'
+
+/** Every venue src/index.ts ships, which is every venue the `/` menu lists. */
+const CONNECTORS = [
+  walletConnector,
+  hyperliquidConnector,
+  aaveConnector,
+  krakenConnector,
+  coinbaseConnector,
+  binanceConnector,
+  stripeConnector,
+  circleConnector,
+]
 
 /**
  * The front page publishes tula's output as its argument for the product, and
@@ -217,5 +249,157 @@ describe('the preview card', () => {
     const aave = whatBreaksFirst(BOOK, PRICES).find((r) => r.position.venue === 'aave')
     expect(card).toContain(quantity(eth!.delta))
     expect(card).toContain(pct(aave!.move!))
+  })
+})
+
+
+/**
+ * The frame beside that transcript draws two of the tool's lists as literal
+ * rows: the `/` menu and the ctrl+k palette are the whole of the interface a
+ * transcript cannot show, so a picture of them is the only way to publish it.
+ * That makes the page a second copy of the command surface, and a second copy
+ * drifts — a renamed command, a reworded summary or one venue more leaves it
+ * quoting a tool nobody can run. So the rows are rebuilt here from the registry.
+ */
+const FRAME = 'site/components/Session.tsx'
+const frame = readFileSync(FRAME, 'utf8')
+
+/** One of the frame's row tables, read alone: they quote each other's rows. */
+const rowsOf = (name: string, until: string) =>
+  frame.slice(frame.indexOf(`const ${name}`), frame.indexOf(`const ${until}`))
+
+/**
+ * The venues the published book is held at, and the rest of the build beside
+ * them — the menu lists every venue whether or not it is connected, because
+ * picking one from there is the whole of connecting it.
+ */
+const VENUES: VenueEntry[] = CONNECTORS.map((connector) => {
+  const { id, kind, name } = connector.venue
+  const mine = BOOK.filter((p) => p.venue === id)
+  return mine.length > 0
+    ? { id, connected: true, detail: holdings(kind, mine) }
+    : { id, connected: false, detail: `${name} — not connected` }
+})
+
+const SOURCES = priceEntries(DEFAULT_PROVIDER)
+
+const label = (name: string, args?: string) => `/${name} ${args ?? ''}`.trimEnd()
+
+/** Rows a table draws, which is what the counts under both lists are measured against. */
+const drawnIn = (table: string) => table.match(/^ {2}\[/gm)?.length ?? 0
+
+/**
+ * Every row a table quotes, in the order it quotes them. A summary is matched
+ * on its own text rather than the whole row: the freshness beside a connected
+ * venue is written by the clock, not the registry, and the page has quoted one
+ * moment of it since it was first drawn.
+ */
+function quotes(table: string, rows: readonly (readonly [string, string])[]) {
+  let from = 0
+  for (const [name, summary] of rows) {
+    const at = table.indexOf(summary, from)
+    expect({ row: `${name} ${summary}`, drawn: at !== -1 }).toEqual({
+      row: `${name} ${summary}`,
+      drawn: true,
+    })
+    if (name !== '') expect(table).toContain(`'${name}'`)
+    from = at + 1
+  }
+}
+
+describe('the frame quotes the command surface it claims to', () => {
+  test('it lists the venues this build ships', () => {
+    // The build's own list, as index.ts holds it. Imported connectors alone
+    // would let the two disagree, and the menu is a claim about that list.
+    const shipped = readFileSync('src/index.ts', 'utf8')
+    const block = shipped.slice(shipped.indexOf('const CONNECTORS'), shipped.indexOf('function fail'))
+    for (const connector of CONNECTORS) {
+      expect(block).toContain(`${connector.venue.id}Connector`)
+    }
+    expect([...block.matchAll(/^ {4}(\w+)Connector,$/gm)]).toHaveLength(CONNECTORS.length)
+  })
+
+  test('the marks beside its rows are those venues own colours', () => {
+    // src/ui/brand.ts restated, because the site is a separate package. A hue
+    // that has drifted is a mark identifying a neighbouring brand, which is a
+    // worse answer than no mark at all — and one nothing draws is a colour
+    // nobody will notice has gone wrong.
+    const drawn = new Set(
+      [...frame.matchAll(/^ {2}\['\/(\w+)/gm)].flatMap((m) => (m[1] ? [m[1]] : [])),
+    )
+    const held = new Map(
+      [...rowsOf('BRAND', 'brandOf').matchAll(/^ {2}(\w+): '(#[0-9a-f]{6})',$/gm)].map((m) => [
+        m[1],
+        m[2],
+      ]),
+    )
+    expect([...held.keys()].sort()).toEqual([...drawn].filter(brandColor).sort())
+    for (const [id, tone] of held) expect({ id, tone }).toEqual({ id, tone: brandColor(id ?? '') })
+  })
+
+  test('the `/` menu is the head of the list buildCommands composes', () => {
+    const display = menuDisplay(
+      buildCommands(VENUES, SOURCES).map((c) => ({
+        name: c.name,
+        ...(c.args ? { args: c.args } : {}),
+        summary: c.summary,
+        ...(c.group ? { group: GROUP_LABELS[c.group] } : {}),
+      })),
+    )
+    // The page windows the list the way a terminal short of rows windows it, and
+    // then owes the reader the count of what it left below. Both halves are read
+    // off the page rather than derived from each other, or the count is a claim
+    // checked against itself.
+    const table = rowsOf('MENU', 'MENU_REST')
+    const drawn = drawnIn(table)
+    quotes(
+      table,
+      display
+        .slice(0, drawn)
+        .map((row) =>
+          row.kind === 'heading'
+            ? (['', row.text] as const)
+            : ([label(row.item.name, row.item.args), row.item.summary] as const),
+        ),
+    )
+    expect(Number(/const MENU_REST = (\d+)/.exec(frame)?.[1])).toBe(display.length - drawn)
+  })
+
+  test('the palette browses the surface buildPalette flattens', () => {
+    const entries = buildPalette(VENUES, SOURCES)
+    const browsing = displayRows(matchPalette('', entries), '')
+    const table = rowsOf('BROWSE', 'BROWSE_BELOW')
+    const drawn = drawnIn(table)
+    quotes(
+      table,
+      browsing
+        .slice(0, drawn)
+        .flatMap((item) =>
+          item.kind === 'row'
+            ? [[label(item.entry.path, item.entry.args), item.entry.summary] as const]
+            : item.kind === 'heading'
+              ? [['', item.text] as const]
+              : [],
+        ),
+    )
+    // What the dialog says is below it is counted in matches, not in rows: the
+    // headings and the blanks between sections are rows nothing is left of. The
+    // scrollbar is the other way round, and the frame sizes its thumb off this.
+    const rest = browsing.slice(drawn).filter((item) => item.kind === 'row').length
+    expect(Number(/const BROWSE_BELOW = (\d+)/.exec(frame)?.[1])).toBe(rest)
+    expect(Number(/const BROWSE_ROWS = (\d+)/.exec(frame)?.[1])).toBe(browsing.length)
+  })
+
+  test('and ranks it the way matchPalette ranks it', () => {
+    // The half the `/` menu only reaches two steps at a time: four venues answer
+    // to this query, and none of them had to be named to get there.
+    const query = /const SEARCH_QUERY = '(\w+)'/.exec(frame)?.[1] ?? ''
+    expect(query).not.toBe('')
+    quotes(
+      rowsOf('SEARCH', 'SEARCH_QUERY'),
+      matchPalette(query, buildPalette(VENUES, SOURCES)).map(
+        (e) => [label(e.path, e.args), e.summary] as const,
+      ),
+    )
   })
 })
