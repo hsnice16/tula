@@ -32,6 +32,29 @@ jobs:
       - name: every release target still cross-compiles
         run: bash scripts/release-build.sh dist/release
 
+  # The site is the published origin of install.sh and of every claim a reader
+  # sees before installing anything, and pages.yml only runs after a merge — so
+  # a pull request that broke the build used to surface as a failed deploy.
+  site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.2.16
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - run: bun install --frozen-lockfile
+        working-directory: site
+      - run: bun run lint
+        working-directory: site
+      # Built the way pages.yml builds it, installer included: the copy is what
+      # `curl | sh` fetches, and only the build proves the page still renders.
+      - run: cp install.sh site/public/install.sh
+      - run: bun run build
+        working-directory: site
+
   no-execution-paths:
     runs-on: ubuntu-latest
     steps:

@@ -75,7 +75,7 @@ class $CLASS < Formula
     assert_match version.to_s, shell_output("#{bin}/tula --version")
     # Read-only is the product, so the test asserts the refusal, not just that
     # the binary starts: a build that grew a way to move money must not ship.
-    assert_match "cannot place an order", shell_output("#{bin}/tula about")
+    assert_match "places no order", shell_output("#{bin}/tula about")
   end
 end
 FORMULA

@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Prepares a release and stops before the tag. Bumps the two files that both
-# have to state the version, closes the changelog's Unreleased section into a
-# dated one, and runs the whole gate — so the one irreversible step, pushing the
-# tag, is taken by hand against a tree that has already been checked.
+# Prepares a release and stops before the tag. Bumps every file that states the
+# version — the two that declare it and the three that print a verify command
+# naming the archive — closes the changelog's Unreleased section into a dated
+# one, and runs the whole gate, so the one irreversible step, pushing the tag,
+# is taken by hand against a tree that has already been checked.
 #
 #   bash scripts/release-cut.sh <version>     # 0.2.0, or 0.2.0-rc.1
 set -euo pipefail
@@ -23,7 +24,13 @@ printf '%s' "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$' |
   die "$VERSION is not a version release.yml can read (0.2.0, or 0.2.0-rc.1)"
 
 current=$(grep -m1 'APP_VERSION' src/version.ts | sed "s/.*'\([^']*\)'.*/\1/")
-[ "$VERSION" != "$current" ] || die "src/version.ts already says $VERSION"
+# Not a refusal when they already match. The first release is cut from a tree
+# that has carried its own version since before there was anything to cut, so
+# refusing here left the one release nobody could run this on — and its
+# changelog would have shipped with the section still open. Whether $VERSION is
+# already out is settled by the tag and by the changelog, both checked below.
+[ "$VERSION" != "$current" ] ||
+  echo "release-cut: src/version.ts already says $VERSION; cutting the changelog only." >&2
 
 # A release commit holds the release edits and nothing else, so that the tag
 # names a tree somebody can read in one diff.
@@ -85,6 +92,25 @@ rewrite package.json sed \
 [ "$(grep -m1 '"version"' package.json | sed 's/.*"version": *"\([^"]*\)".*/\1/')" = "$VERSION" ] ||
   die "package.json did not take the bump; its version line has changed shape"
 
+# Three files print a `gh attestation verify` line naming a release archive, and
+# the install page also prints the URL that archive is downloaded from. A reader
+# copies those verbatim, so leaving them behind publishes a command that 404s or
+# reports a failed verification. guard.sh refuses the tree either way, which
+# meant every cut used to fail its own gate and hand back an edit to undo.
+for f in SECURITY.md README.md site/app/install/page.tsx; do
+  rewrite "$f" sed \
+    -e "s|tula-v$current-|tula-v$VERSION-|g" \
+    -e "s|/releases/download/v$current/|/releases/download/v$VERSION/|g"
+  # Asserted as "names the new version", not "no longer names the old": on the
+  # first release those are the same string, and the negative form failed on a
+  # file that was already right.
+  grep -q "tula-v$VERSION-" "$f" ||
+    die "$f names no release archive; its verify block has changed shape"
+  [ "$VERSION" = "$current" ] ||
+    ! grep -q "tula-v$current-\|/releases/download/v$current/" "$f" ||
+    die "$f still names v$current; its verify block has changed shape"
+done
+
 cut_changelog() {
   awk -v version="$VERSION" -v date="$DATE" -v repo="$REPO_URL" -v link="$link" '
     /^## \[Unreleased\]$/ && !cut { print; print ""; print "## [" version "] - " date; cut = 1; next }
@@ -110,7 +136,7 @@ cat <<NEXT
 release-cut: v$VERSION is prepared and the gate is green. Nothing is published —
 pushing the tag is what publishes.
 
-  git add CHANGELOG.md package.json src/version.ts
+  git add -u
   git commit -m "tula v$VERSION"
   git push origin $branch
 

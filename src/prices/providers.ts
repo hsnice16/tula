@@ -56,10 +56,15 @@ export const PRICE_PROVIDERS: readonly PriceProvider[] = [
     name: 'CryptoCompare',
     summary: 'Exchange-aggregated spot; needs a free API key',
     keyless: false,
-    fields: KEY_FIELD('API key', 'From cryptocompare.com — a data key, it cannot trade'),
+    fields: KEY_FIELD('API key', 'From developers.coindesk.com — a data key, it cannot trade'),
     help: [
-      { label: 'Create an API key', url: 'https://www.cryptocompare.com/cryptopian/api-keys' },
-      { label: 'API documentation', url: 'https://min-api.cryptocompare.com/documentation' },
+      // CoinDesk hosts these now. The old documentation URL is worse than dead:
+      // it answers 401 with a JSON error, which reads as a rejected key.
+      { label: 'Create an API key', url: 'https://developers.coindesk.com/settings/api-keys' },
+      {
+        label: 'API documentation',
+        url: 'https://developers.coindesk.com/documentation/legacy/Price/MultipleSymbolsPriceEndpoint',
+      },
     ],
     create: (creds) => new CryptoCompareOracle(requireKey(creds, 'CryptoCompare')),
   },

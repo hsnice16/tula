@@ -147,9 +147,18 @@ describe('scenario', () => {
       prices,
       [{ asset: 'ETH', pct: d('-0.25') }],
     )
-    expect(result.before.total.toString()).toBe('8000')
-    expect(result.after.total.toString()).toBe('6000')
-    expect(result.change.toString()).toBe('-2000')
+    expect(result.before.total?.toString()).toBe('8000')
+    expect(result.after.total?.toString()).toBe('6000')
+    expect(result.change?.toString()).toBe('-2000')
+  })
+
+  test('an unpriced book reports no change, rather than a change of zero', () => {
+    const result = scenario([pos({ asset: 'ETH', quantity: '2' })], new Map(), [
+      { asset: 'ETH', pct: d('-0.25') },
+    ])
+    expect(result.before.total).toBeNull()
+    expect(result.after.total).toBeNull()
+    expect(result.change).toBeNull()
   })
 
   test('a fall liquidates the collateral but not the short', () => {

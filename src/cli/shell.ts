@@ -79,13 +79,27 @@ async function dispatchVenue(
   }
 }
 
+/**
+ * Where to go when a source will not answer. This named the default whatever
+ * had happened, so a failed switch to CoinGecko told the reader to re-run the
+ * command that had just failed, and failing away from CoinPaprika sent them
+ * somewhere they had never been.
+ */
+export function wayBack(previous: string, failed: string): string {
+  if (previous !== failed) return `Go back with:  /${previous} use`
+  const others = PRICE_PROVIDERS.filter((p) => p.id !== failed && p.keyless)
+  if (others.length === 0) return 'Every keyless source is unavailable; try again with /refresh.'
+  return `Try another source:  ${others.map((p) => `/${p.id} use`).join('  ')}`
+}
+
 async function dispatchPrice(
   session: Session,
   provider: PriceProvider,
   args: string[],
 ): Promise<DispatchResult> {
   const stored = await secrets.getPriceSource()
-  const active = (stored?.provider ?? DEFAULT_PROVIDER) === provider.id
+  const previous = stored?.provider ?? DEFAULT_PROVIDER
+  const active = previous === provider.id
   // Only one source is stored at a time, so a key can only exist for the active
   // one. A key kept for a source nobody is using earns nothing and can leak.
   const key = active ? stored?.apiKey : undefined
@@ -112,7 +126,7 @@ async function dispatchPrice(
         incomplete: true,
         output:
           `Switched to ${provider.name}, but it did not answer:\n  ${loaded.priceError}\n` +
-          `  Quantities are still correct. Go back with:  /${DEFAULT_PROVIDER} use`,
+          `  Quantities are still correct. ${wayBack(previous, provider.id)}`,
       }
     }
     const priced = loaded.prices.size

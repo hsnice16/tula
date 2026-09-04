@@ -16,7 +16,7 @@ import {
   type VenueEntry,
 } from './registry.js'
 import { Session, reason, symbol, type LoadStep } from './session.js'
-import { dispatchCommand } from './shell.js'
+import { dispatchCommand, wayBack } from './shell.js'
 
 const PRICES: Record<string, number> = { ETH: 4000, USD: 1, USDC: 1, DOT: 5 }
 
@@ -486,5 +486,24 @@ describe('symbol', () => {
 
   test('line breaks and bidi overrides cannot ride in on a symbol', () => {
     expect(symbol('ET\nH\u202e ')).toBe('ETH')
+  })
+})
+
+describe('wayBack', () => {
+  test('sends you to the source you were on, not to the default', () => {
+    expect(wayBack('coinpaprika', 'cryptocompare')).toBe('Go back with:  /coinpaprika use')
+  })
+
+  // It named the default unconditionally, so failing a switch to the default
+  // told the reader to run the command that had just failed.
+  test('never offers the source that just failed', () => {
+    const advice = wayBack('coingecko', 'coingecko')
+    expect(advice).not.toContain('/coingecko use')
+    expect(advice).toContain('/coinpaprika use')
+  })
+
+  test('offers only sources that need no key, since a key is what is missing', () => {
+    const advice = wayBack('coingecko', 'coingecko')
+    for (const keyed of ['coinmarketcap', 'cryptocompare']) expect(advice).not.toContain(keyed)
   })
 })

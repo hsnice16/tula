@@ -80,7 +80,7 @@ export interface Scenario {
   shocks: Shock[]
   before: PortfolioValue
   after: PortfolioValue
-  change: Decimal
+  change: Decimal | null
   exposures: NetExposure[]
   liquidated: Position[]
 }
@@ -95,7 +95,7 @@ export function scenario(positions: Position[], prices: PriceMap, shocks: Shock[
     shocks,
     before,
     after,
-    change: after.total.minus(before.total),
+    change: before.total === null || after.total === null ? null : after.total.minus(before.total),
     exposures,
     liquidated: positions
       .map((p) => liquidationRisk(p, prices))

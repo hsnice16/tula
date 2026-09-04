@@ -3,7 +3,7 @@ import { envApiKey, envApiKeyName, hasAmbientCredentials } from '../agent/agent.
 import type { Connector } from '../connectors/types.js'
 import type { VenueKind } from '../core/position.js'
 import type { PriceProvider } from '../prices/providers.js'
-import { portfolioValue } from '../core/exposure.js'
+import { portfolioValue, type PortfolioValue } from '../core/exposure.js'
 import { healthFactorUnder, scenario, whatBreaksFirst, type Shock } from '../core/risk.js'
 import { freshness, holdings, pct, quantity, usd } from '../core/format.js'
 import { renderTable } from '../ui/table.js'
@@ -35,6 +35,24 @@ function incompleteNote(session: Session): string {
   }
   if (priceError) lines.push(`\nPrices unavailable: ${priceError}`)
   return lines.join('\n')
+}
+
+/**
+ * Naming every one floods the screen on a large book — 43 symbols on one line
+ * when a price source is down — so the count leads and the largest few follow.
+ * Shared because `exposure` and `shock` describe the same gap, and the one that
+ * grew its own copy is the one that flooded.
+ */
+function unpricedNote({ total, unpriced }: PortfolioValue): string[] {
+  if (unpriced.length === 0) return []
+  const shown = unpriced.slice(0, 6).join(', ')
+  const rest = unpriced.length - 6
+  return [
+    total === null
+      ? `No price for any of ${unpriced.length} asset(s), so there is no total:`
+      : `${unpriced.length} asset(s) had no price and are excluded from the total:`,
+    `  ${shown}${rest > 0 ? `, and ${rest} more` : ''}`,
+  ]
 }
 
 /**
@@ -101,17 +119,7 @@ export async function exposure(session: Session): Promise<CommandResult> {
   )
 
   const value = portfolioValue(exposures)
-  const lines = [table, '', `Net value  ${usd(value.total)}`]
-  if (value.unpriced.length > 0) {
-    // Naming every one floods the screen on a large book; the count is the part
-    // that matters, and the largest few are the ones worth chasing.
-    const shown = value.unpriced.slice(0, 6).join(', ')
-    const rest = value.unpriced.length - 6
-    lines.push(
-      `${value.unpriced.length} asset(s) had no price and are excluded from the total:`,
-      `  ${shown}${rest > 0 ? `, and ${rest} more` : ''}`,
-    )
-  }
+  const lines = [table, '', `Net value  ${usd(value.total)}`, ...unpricedNote(value)]
   return { output: lines.join('\n') + note, incomplete: note !== '' }
 }
 
@@ -181,9 +189,7 @@ export async function shock(session: Session, args: string[]): Promise<CommandRe
     `  Change   ${usd(result.change)}`,
   ]
 
-  if (result.before.unpriced.length > 0) {
-    lines.push(`  Unpriced and excluded: ${result.before.unpriced.join(', ')}`)
-  }
+  lines.push(...unpricedNote(result.before).map((l) => `  ${l}`))
 
   const shockedHealth = all.flatMap((p) => {
     const hf = p.liquidation?.healthFactor

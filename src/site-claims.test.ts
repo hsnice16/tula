@@ -107,6 +107,23 @@ describe('the install page keeps its two channels apart', () => {
   })
 })
 
+/**
+ * The formula's `test do` block runs on someone else's machine, at `brew test`
+ * and on every tap audit, and it is the one claim in this repository no local
+ * gate executes. It had already drifted: it asserted "cannot place an order"
+ * long after `/about` was reworded to "places no order for the moment", so the
+ * Homebrew channel would have failed its own test on release day.
+ */
+describe('the Homebrew formula tests a string the binary prints', () => {
+  test('every assert_match over `tula about` appears in the about copy', () => {
+    const formula = read('scripts/homebrew-formula.sh')
+    const asserted = [...formula.matchAll(/assert_match "([^"]+)", shell_output\("#\{bin\}\/tula about"\)/g)]
+    expect(asserted.length).toBeGreaterThan(0)
+    const about = flat('src/cli/commands.ts')
+    for (const match of asserted) expect(about).toContain(match[1] ?? '')
+  })
+})
+
 describe('the security page names enforcement that exists', () => {
   const page = read('site/app/security/page.tsx')
   const guard = read('scripts/guard.sh')

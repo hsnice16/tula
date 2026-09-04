@@ -2,6 +2,7 @@ const ETX = '\u0003'
 const DEL = '\u007f'
 const BACKSPACE = '\u0008'
 
+import type { ConnectorCredentials, CredentialField } from '../connectors/types.js'
 import { TulaError } from '../core/errors.js'
 
 let piped: string[] | null = null
@@ -78,4 +79,37 @@ export async function ask(
 ): Promise<string> {
   if (!process.stdin.isTTY) return nextPipedLine(opts.command)
   return fromTty(label, opts.hidden)
+}
+
+/**
+ * One prompt per field the connectable declares, which is the same list the
+ * in-app flow walks. A hardcoded key/secret pair here asked the three
+ * address-only venues for an API key they do not have — so none of them could
+ * be connected from the command line at all — and typed a single-field
+ * restricted key in the clear because the pair's first prompt was not secret.
+ */
+export async function askFields(
+  fields: readonly CredentialField[],
+  opts: {
+    command: string
+    log?: (line: string) => void
+    /** Overridden only by the tests: `ask` reads the real stdin once per
+     *  process, which no test can hand a second answer to. */
+    prompt?: typeof ask
+  },
+): Promise<ConnectorCredentials> {
+  const write = opts.log ?? ((line: string) => console.log(line))
+  const prompt = opts.prompt ?? ask
+  const width = Math.max(...fields.map((f) => f.label.length))
+  const creds: Record<string, string> = {}
+  for (const field of fields) {
+    if (field.hint) write(`  (${field.hint})`)
+    const value = await prompt(`  ${field.label.padEnd(width)}: `, {
+      hidden: field.secret,
+      command: opts.command,
+    })
+    if (!value) throw new TulaError(`${field.label} is required.`)
+    creds[field.name] = value
+  }
+  return creds
 }

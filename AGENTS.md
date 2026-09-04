@@ -159,7 +159,7 @@ src/
     cryptocompare.ts    # keyed; answers 200 with an error envelope, so check it
     coinpaprika.ts      # keyless; explicit market-cap rank settles contested tickers
   cli/
-    prompt.ts           # no-echo secret entry; TTY and piped paths
+    prompt.ts           # no-echo secret entry, one prompt per declared field; TTY and piped
     session.ts          # one fetch per shell session; refresh is explicit; reports each step
     commands.ts         # one implementation per command, shared by shell and one-shot
     registry.ts         # THE command surface: menu, help, dispatch, one-shot CLI
@@ -688,7 +688,7 @@ release's own section verbatim, prose included, and text written while nothing
 was tagged reads wrong the moment something is.
 
 ```bash
-bun run release:cut 0.2.0   # bumps both version files, dates the changelog, runs the gate
+bun run release:cut 0.2.0   # bumps every file stating the version, dates the changelog, runs the gate
 ```
 
 Then commit, push, wait for CI on that commit, and push the tag — the script

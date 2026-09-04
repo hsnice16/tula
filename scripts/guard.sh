@@ -81,6 +81,13 @@ for f in SECURITY.md README.md site/app/install/page.tsx; do
       *) report "$f names $named; this release is tula-v$pkg_version" ;;
     esac
   done
+
+  # The tag in the URL is a second copy of the version, and bumping only the
+  # filename leaves a download that 404s under a verify line that looks right.
+  for tag in $(grep -oE '/releases/download/v[A-Za-z0-9._-]+/' "$f" | sort -u); do
+    [ "$tag" = "/releases/download/v$pkg_version/" ] ||
+      report "$f downloads from $tag; this release is v$pkg_version"
+  done
 done
 
 # The release notes point at this file, so its newest version section is what a

@@ -11,9 +11,9 @@ CI and build plumbing, refactors, and doc-only edits — stays in commit message
 
 ## [Unreleased]
 
-Nothing is tagged yet, so everything below ships in the first release: real
-venues on a published install path, the query shell and the answer it exists to
-give — one net exposure per asset across venues, and what breaks first.
+The first release: real venues on a published install path, the query shell, and
+the answer it exists to give — one net exposure per asset across venues, and
+what breaks first.
 
 ### Added
 
@@ -58,7 +58,7 @@ give — one net exposure per asset across venues, and what breaks first.
 - **`/exposure` runs when the session opens**, and again after a venue connects, echoed rather than run invisibly so what is on screen is traceable to something the user could have typed.
 - Tool activity is named in the user's terms: `reading your positions`, not `get_positions`, collapsing to one line with a count when a tool repeats. The status line ticks, because it claims an age.
 - Hyperliquid's thousand-scaled perps (`kPEPE`, `kBONK`) unwind to the underlying, dividing the liquidation price by the same factor the size is multiplied by. Left alone they would neither price nor net.
-- The unpriced list is summarised rather than enumerated: a count and the largest few, not 170 symbols across ten lines.
+- The unpriced list is summarised rather than enumerated: a count and the largest few, not 170 symbols across ten lines. A book nothing could be priced from has no total rather than a total of `$0.00` — summing no prices gives zero, and a zero beside a live book reads as an empty account rather than as a price source that did not answer. An account genuinely holding nothing still says `$0.00`.
 - **Renamed to tula** — taken from Sanskrit, the balance; the same object Latin calls *Libra*. Binary, config directory, `TULA_*` variables and npm scope all follow. Nothing was published under the old name.
 - Every dependency pinned to an exact version, with `bun.lock` committed. A caret range is a standing promise that code nobody has read yet is safe to run in a process holding exchange keys.
 - Upgraded to **Ink 7 and React 19**, which requires Node >= 22. All key handling moved into `app.tsx`: the slash menu and the line editor compete for the same arrow keys and Enter, and two input hooks cannot agree on who won.

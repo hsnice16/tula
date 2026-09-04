@@ -44,7 +44,14 @@ export function netExposure(positions: Position[], prices: PriceMap = new Map())
 }
 
 export interface PortfolioValue {
-  total: Decimal
+  /**
+   * Null when the book holds something but nothing in it could be priced.
+   * Summing no prices gives zero, and `$0.00` beside a live book reads as an
+   * empty account rather than as a price source that did not answer — the one
+   * thing the security page promises a missing price never becomes. An empty
+   * book is genuinely worth zero and still says so.
+   */
+  total: Decimal | null
   /** Assets excluded from `total` for want of a price. A total that quietly
    *  omits them understates exposure, so callers must show this. */
   unpriced: AssetId[]
@@ -52,12 +59,16 @@ export interface PortfolioValue {
 
 export function portfolioValue(exposures: NetExposure[]): PortfolioValue {
   let total = ZERO
+  let priced = 0
   const unpriced: AssetId[] = []
   for (const e of exposures) {
     if (e.notional === null) unpriced.push(e.asset)
-    else total = total.plus(e.notional)
+    else {
+      total = total.plus(e.notional)
+      priced++
+    }
   }
-  return { total, unpriced }
+  return { total: priced === 0 && unpriced.length > 0 ? null : total, unpriced }
 }
 
 /** Oldest input across the whole view. Null when there is nothing to report. */

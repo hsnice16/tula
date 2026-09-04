@@ -1,4 +1,4 @@
-import { ask } from './cli/prompt.js'
+import { askFields } from './cli/prompt.js'
 import { Session } from './cli/session.js'
 import { dispatchCommand, parseCommand } from './cli/shell.js'
 import { aaveConnector } from './connectors/aave.js'
@@ -48,15 +48,19 @@ async function connect(venueId: string | undefined): Promise<void> {
   if (!connector) fail(`Unknown venue "${venueId}". Available: ${known}`)
 
   console.log(`Connecting ${connector.venue.name}.`)
-  console.log('Use a read-only key: query permissions only, no trading, no withdrawals.')
+  // Three venues read a public address and hold no credential at all, so this
+  // advice does not merely not apply there — it describes a key they will never
+  // be asked for.
+  if (connector.fields.some((f) => f.secret)) {
+    console.log('Use a read-only key: query permissions only, no trading, no withdrawals.')
+  }
   console.log('tula never asks for a seed phrase or private key.\n')
 
-  const invocation = `tula connect ${venueId}`
-  const apiKey = await ask('  API key:    ', { hidden: false, command: invocation })
-  const apiSecret = await ask('  API secret: ', { hidden: true, command: invocation })
-  if (!apiKey || !apiSecret) fail('Both values are required.')
+  for (const link of connector.help) console.log(`  ${link.label}  ${link.url}`)
+  if (connector.help.length > 0) console.log()
 
-  const creds = { apiKey, apiSecret }
+  const creds = await askFields(connector.fields, { command: `tula connect ${venueId}` })
+
   process.stdout.write('\nVerifying key scope... ')
 
   let scope
@@ -98,7 +102,7 @@ function usage(): string {
     `tula ${APP_VERSION} — ${APP_DESCRIPTION}`,
     '',
     '  tula                    open the shell — ask questions or use /commands',
-    '  tula connect <venue>    connect a venue with a read-only key',
+    '  tula connect <venue>    connect a venue — a public address, or a read-only key',
     '  tula <command> [args]   run one command and exit (exposure, breaks, shock, ...)',
     '  tula help               every command',
     '  tula --version',

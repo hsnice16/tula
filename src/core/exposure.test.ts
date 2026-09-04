@@ -83,8 +83,20 @@ describe('portfolioValue', () => {
       new Map([['ETH', new Decimal(4000)]]),
     )
     const value = portfolioValue(exposures)
-    expect(value.total.toString()).toBe('8000')
+    expect(value.total?.toString()).toBe('8000')
     expect(value.unpriced).toEqual(['XYZ'])
+  })
+
+  test('a book nobody could price has no total, rather than a total of zero', () => {
+    const exposures = netExposure([pos('a', 'XYZ', '100'), pos('a', 'ABC', '5')], new Map())
+    const value = portfolioValue(exposures)
+    expect(value.total).toBeNull()
+    expect(value.unpriced).toEqual(['ABC', 'XYZ'])
+  })
+
+  // An account holding nothing is worth zero, and saying so is not a guess.
+  test('an empty book still totals zero', () => {
+    expect(portfolioValue([]).total?.toString()).toBe('0')
   })
 
   test('a short reduces the total', () => {
@@ -92,7 +104,7 @@ describe('portfolioValue', () => {
       [pos('a', 'ETH', '2'), pos('b', 'ETH', '-3', 'perp')],
       new Map([['ETH', new Decimal(4000)]]),
     )
-    expect(portfolioValue(exposures).total.toString()).toBe('-4000')
+    expect(portfolioValue(exposures).total?.toString()).toBe('-4000')
   })
 })
 
