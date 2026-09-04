@@ -3,7 +3,7 @@ import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Terminal } from '@xterm/headless'
-import { expect, test } from 'bun:test'
+import { afterAll, beforeAll, expect, test } from 'bun:test'
 import { render } from 'ink'
 import { createElement } from 'react'
 import { Session } from '../cli/session.js'
@@ -26,6 +26,21 @@ import { guardResize } from './resize.js'
  * hypothesis it is testing agrees with the hypothesis.
  */
 
+/**
+ * Every test in this file drives the real app, and a command it runs writes
+ * where the real one would — a click on a price source in the menu switched the
+ * developer's own stored source, from a test. Only the sign-in test used to
+ * isolate itself; the store is out of reach for all of them now.
+ */
+let sandbox = ''
+beforeAll(async () => {
+  sandbox = await mkdtemp(join(tmpdir(), 'tula-ui-'))
+  process.env['TULA_CONFIG_DIR'] = sandbox
+})
+afterAll(async () => {
+  await rm(sandbox, { recursive: true, force: true })
+})
+
 const oracle: PriceOracle = {
   source: 'none',
   quote: async () => null,
@@ -39,6 +54,8 @@ interface Screen {
   rows(): string[]
   /** Only the rows a user is looking at. */
   visible(): string[]
+  /** What the emulator made of the mouse-tracking requests it was sent. */
+  mouseMode(): string
   stop(): void
 }
 
@@ -98,6 +115,13 @@ async function open(columns: number, rows: number, options: Options = {}): Promi
 
   const stdout = stdoutStub(columns, rows, write)
   const stdin = stdinStub()
+  // A terminal answers some of what is written to it — where its cursor is,
+  // which is the only way the app can place an inline block on the screen. The
+  // answer comes back on stdin, so the loop has to be closed here or the test
+  // is running against a terminal that never replies to anything.
+  term.onData((answer) => {
+    stdin.type(answer)
+  })
   // What runApp does, in the order it does it: the extra erase has to be queued
   // ahead of Ink's own, and a harness that skips it is not testing what ships.
   guardResize(stdout as unknown as NodeJS.WriteStream)
@@ -155,6 +179,7 @@ async function open(columns: number, rows: number, options: Options = {}): Promi
       }
       return out
     },
+    mouseMode: () => term.modes.mouseTrackingMode,
     resize: async (nextColumns: number, nextRows: number, waitMs = 250) => {
       term.resize(nextColumns, nextRows)
       stdout.columns = nextColumns
@@ -421,6 +446,163 @@ test('the backdrop behind the palette reaches the input box', async () => {
     screen.stop()
   }
 })
+
+/**
+ * The count read "N more below" off the whole match list rather than off the
+ * window, so it never moved as you arrowed down and still promised more at the
+ * last row — which reads as a list that does not scroll.
+ */
+test('the palette count runs out at the bottom of the list', async () => {
+  const screen = await open(120, 30)
+  try {
+    await screen.press('\x0b')
+    const footer = () => screen.visible().find((row) => row.includes('esc closes')) ?? ''
+    const opened = footer().match(/(\d+) more below/)?.[1]
+    expect(opened).toBeDefined()
+
+    for (let at = 0; at < 12; at++) await screen.press('\x1b[B')
+    expect(footer().match(/(\d+) more below/)?.[1]).not.toBe(opened)
+
+    // Past the end: the selection clamps to the last entry, so the window is
+    // sitting on the bottom of the list however many more of these land.
+    for (let at = 0; at < 80; at++) await screen.press('\x1b[B')
+    expect(footer()).not.toContain('more below')
+  } finally {
+    screen.stop()
+  }
+}, 120_000)
+
+/**
+ * Tracking has to be off everywhere else: with it on, the terminal stops
+ * handing the mouse to itself, and the transcript is the part people drag over
+ * to copy a number out of.
+ */
+test('the wheel scrolls the palette, and the terminal gets the mouse back', async () => {
+  const screen = await open(120, 30)
+  try {
+    expect(screen.mouseMode()).toBe('none')
+    await screen.press('\x0b')
+    expect(screen.mouseMode()).toBe('any')
+
+    // One notch, one row. Moving the cursor and letting the window follow it
+    // spent the first several notches inside the rows already on screen, which
+    // is a list that does not answer the wheel until it suddenly does.
+    const heading = () => screen.visible().some((row) => row.includes('your book'))
+    expect(heading()).toBe(true)
+    await screen.press('\x1b[<65;40;10M')
+    expect(heading()).toBe(false)
+
+    // And the bar says where in the list that left us.
+    const thumb = () => screen.visible().filter((row) => row.includes('┃')).length
+    expect(thumb()).toBeGreaterThan(0)
+    for (let at = 0; at < 40; at++) await screen.press('\x1b[<65;40;10M')
+    expect(screen.visible().some((row) => row.includes('/refresh'))).toBe(true)
+
+    await screen.press('\x1b')
+    expect(screen.mouseMode()).toBe('none')
+
+    // A terminal left in mouse mode by something else still reports, and the
+    // report is punctuation: unswallowed it lands on the line being typed.
+    await screen.press('\x1b[<65;40;10M')
+    expect(screen.visible().some((row) => row.includes('65;40'))).toBe(false)
+    expectOneInputBox(screen)
+  } finally {
+    screen.stop()
+  }
+}, 120_000)
+
+/**
+ * A dialog that can only be driven from the keyboard is half a dialog. The
+ * pointer has to reach it the way it reaches any other: the row under it lights
+ * up, a click runs that row, and a click on the screen outside is the way out.
+ */
+test('the palette answers the pointer', async () => {
+  const screen = await open(120, 30)
+  try {
+    await screen.press('\x0b')
+    const rowOf = (text: string) => screen.visible().findIndex((row) => row.includes(text))
+    const footer = () => screen.visible().find((row) => row.includes('enter ')) ?? ''
+    // /shock is the one entry that cannot be run outright, so the footer says
+    // which of the two things enter would do — and that names the selection.
+    expect(footer()).toContain('enter runs it')
+
+    // 35 is movement with no button held. Terminal coordinates are 1-based.
+    const shock = rowOf('/shock')
+    await screen.press(`\x1b[<35;30;${shock + 1}M`)
+    expect(footer()).toContain('still has to be typed')
+    await screen.press(`\x1b[<35;30;${rowOf('/breaks') + 1}M`)
+    expect(footer()).toContain('enter runs it')
+
+    // 0 is the left button going down, and the row under it is the one that runs.
+    await screen.press(`\x1b[<0;30;${rowOf('/exposure') + 1}M`)
+    expect(screen.visible().some((row) => row.includes('❯ /exposure'))).toBe(true)
+    expect(screen.mouseMode()).toBe('none')
+
+    // And a click on the screen the dialog is floating over closes it, running
+    // nothing — which is what every other dialog does.
+    await screen.press('\x0b')
+    await screen.press('\x1b[<0;2;2M')
+    expect(screen.visible().some((row) => row.includes('esc'))).toBe(false)
+    expectOneInputBox(screen)
+  } finally {
+    screen.stop()
+  }
+}, 120_000)
+
+/**
+ * The `/` menu is part of the frame rather than floating over it, so where it
+ * lands depends on where the transcript left the cursor — at the bottom of the
+ * screen once the session has filled it, part-way down before that. 45 rows on
+ * a fresh session is the second case, and a click that assumed the first would
+ * land on a different command than the one under the pointer.
+ */
+test('the / menu answers the pointer, wherever the frame ended up', async () => {
+  const screen = await open(120, 45)
+  try {
+    await screen.press('/')
+    const markedRow = () => screen.visible().findIndex((row) => /❯\s+\/\w/.test(row))
+    const rowOf = (text: string) => screen.visible().findIndex((row) => row.includes(text))
+    expect(screen.visible()[markedRow()]).toContain('/breaks')
+
+    // 35 is movement with no button held. Terminal coordinates are 1-based.
+    const target = rowOf('/coinpaprika')
+    await screen.press(`\x1b[<35;10;${target + 1}M`)
+    expect(markedRow()).toBe(target)
+    expect(screen.visible()[markedRow()]).toContain('/coinpaprika')
+
+    // 0 is the left button going down, and the row under it is the one that
+    // runs. A reading command: nothing in this file may run one that writes.
+    const exposure = rowOf('/exposure')
+    await screen.press(`\x1b[<0;10;${exposure + 1}M`)
+    expect(screen.visible().some((row) => row.includes('❯ /exposure'))).toBe(true)
+    expect(rowOf('/cryptocompare')).toBe(-1)
+    expect(screen.mouseMode()).toBe('none')
+    expectOneInputBox(screen)
+  } finally {
+    screen.stop()
+  }
+}, 120_000)
+
+test('the wheel scrolls the / menu, and a click away puts it down', async () => {
+  // Short enough that the menu cannot draw every command it has.
+  const screen = await open(120, 22)
+  try {
+    await screen.press('/')
+    const showing = (text: string) => screen.visible().some((row) => row.includes(text))
+    expect([showing('/breaks'), showing('/refresh')]).toEqual([true, false])
+
+    for (let at = 0; at < 6; at++) await screen.press('\x1b[<65;10;10M')
+    expect([showing('/breaks'), showing('/refresh')]).toEqual([false, true])
+
+    // Away from the block, which is how any autocomplete is put down. The line
+    // it was opened from is untouched.
+    await screen.press('\x1b[<0;2;1M')
+    expect(showing('/refresh')).toBe(false)
+    expect(screen.visible().some((row) => /❯\s+\/$/.test(row.trimEnd()))).toBe(true)
+  } finally {
+    screen.stop()
+  }
+}, 120_000)
 
 test('narrowing with a panel open, then closing it', async () => {
   const screen = await open(195, 33)

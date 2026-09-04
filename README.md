@@ -178,7 +178,7 @@ useful thing you can send.
 | | |
 |---|---|
 | Net exposure, scenarios, liquidation distance | working |
-| Interactive shell — slash commands, ctrl+k to search them, ctrl+o for long output, plain English | working |
+| Interactive shell — slash commands, ctrl+k to search them, ctrl+o for long output, plain English | working; both command lists take the mouse as well as the keyboard |
 | Prices — CoinGecko, CoinPaprika, CoinMarketCap, CryptoCompare | working; one active at a time, `/<source> use` switches |
 | Kraken margin and open orders | not yet |
 | Aave on Arbitrum / Base | not yet — Ethereum only |

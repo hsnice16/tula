@@ -44,19 +44,33 @@ export const VENUE_SUBCOMMANDS: readonly VenueSubcommand[] = [
   { name: 'disconnect', summary: 'Forget this venue’s credentials', needsConnection: true },
 ]
 
-/** Everything you can do to a price source, reached as `/<source> <sub>`. */
-export const PRICE_SUBCOMMANDS: readonly VenueSubcommand[] = [
-  { name: 'use', summary: 'Price every figure from this source', needsConnection: false },
-  { name: 'connect', summary: 'Add or replace this source’s API key', needsConnection: false },
-  { name: 'status', summary: 'Whether this is the active source, and what it needs', needsConnection: false },
-  { name: 'docs', summary: 'Official links for this source', needsConnection: false },
-  { name: 'disconnect', summary: 'Forget this source’s key and fall back to CoinGecko', needsConnection: true },
+export interface PriceSubcommand extends VenueSubcommand {
+  /** A keyless source has nothing to paste and nothing to forget. */
+  needsKey: boolean
+}
+
+/**
+ * Everything you can do to a price source, reached as `/<source> <sub>`. Only
+ * the active source has a key stored, so `needsConnection` here is that.
+ */
+export const PRICE_SUBCOMMANDS: readonly PriceSubcommand[] = [
+  { name: 'use', summary: 'Price every figure from this source', needsConnection: false, needsKey: false },
+  { name: 'connect', summary: 'Add or replace this source’s API key', needsConnection: false, needsKey: true },
+  { name: 'status', summary: 'Whether this is the active source, and what it needs', needsConnection: false, needsKey: false },
+  { name: 'docs', summary: 'Official links for this source', needsConnection: false, needsKey: false },
+  { name: 'disconnect', summary: 'Forget this source’s key and fall back to CoinGecko', needsConnection: true, needsKey: true },
 ]
 
-export function matchPriceSubcommands(fragment: string, connected: boolean): VenueSubcommand[] {
+export function matchPriceSubcommands(
+  fragment: string,
+  price: { active: boolean; keyless: boolean },
+): PriceSubcommand[] {
   const needle = fragment.toLowerCase()
   return PRICE_SUBCOMMANDS.filter(
-    (c) => (connected || !c.needsConnection) && c.name.startsWith(needle),
+    (c) =>
+      (price.active || !c.needsConnection) &&
+      (!price.keyless || !c.needsKey) &&
+      c.name.startsWith(needle),
   )
 }
 
@@ -77,6 +91,17 @@ export interface PriceEntry {
   /** "active", "not connected", or why it cannot be used. */
   detail: string
   active: boolean
+  keyless: boolean
+}
+
+/** The price sources as the menu and the help text show them. */
+export function priceEntries(activeId: string): PriceEntry[] {
+  return PRICE_PROVIDERS.map((p) => ({
+    id: p.id,
+    active: p.id === activeId,
+    keyless: p.keyless,
+    detail: p.id === activeId ? `${p.name} — pricing everything` : p.summary,
+  }))
 }
 
 export interface VenueEntry {
@@ -248,35 +273,36 @@ export function buildPalette(
   venues: VenueEntry[] = [],
   prices: PriceEntry[] = [],
 ): PaletteEntry[] {
-  const entries: PaletteEntry[] = buildCommands(venues, prices).map((c) => ({
-    path: c.name,
-    ...(c.args ? { args: c.args } : {}),
-    summary: c.summary,
-    group: GROUP_LABELS[c.group ?? 'session'],
-    // A bare venue or price source runs its default sub, so it needs no typing.
-    runnable: c.args === undefined,
-  }))
-
-  for (const venue of venues) {
-    for (const sub of matchVenueSubcommands('', venue.connected)) {
-      entries.push({
-        path: `${venue.id} ${sub.name}`,
+  // Each subcommand sits under the venue or source it hangs off, rather than in
+  // a run of its own after every top-level command. Sections have to stay
+  // contiguous: the palette opens a heading wherever the group changes, so a
+  // group reached twice is drawn as two identical headings.
+  const entries: PaletteEntry[] = buildCommands(venues, prices).flatMap((c) => {
+    const group = GROUP_LABELS[c.group ?? 'session']
+    const venue = c.venue ? venues.find((v) => v.id === c.name) : undefined
+    const price = c.price ? prices.find((p) => p.id === c.name) : undefined
+    const subs = venue
+      ? matchVenueSubcommands('', venue.connected)
+      : price
+        ? matchPriceSubcommands('', price)
+        : []
+    return [
+      {
+        path: c.name,
+        ...(c.args ? { args: c.args } : {}),
+        summary: c.summary,
+        group,
+        // A bare venue or price source runs its default sub, so it needs no typing.
+        runnable: c.args === undefined,
+      },
+      ...subs.map((sub) => ({
+        path: `${c.name} ${sub.name}`,
         summary: sub.summary,
-        group: GROUP_LABELS.venues,
+        group,
         runnable: true,
-      })
-    }
-  }
-  for (const price of prices) {
-    for (const sub of matchPriceSubcommands('', price.active)) {
-      entries.push({
-        path: `${price.id} ${sub.name}`,
-        summary: sub.summary,
-        group: GROUP_LABELS.prices,
-        runnable: true,
-      })
-    }
-  }
+      })),
+    ]
+  })
   for (const c of SLASH_COMMANDS.filter((c) => c.hidden)) {
     entries.push({
       path: c.name,

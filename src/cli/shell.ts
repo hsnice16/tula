@@ -13,6 +13,7 @@ import {
   helpText,
   nearestCommand,
   parseCommand,
+  priceEntries,
   PRICE_SUBCOMMANDS,
   VENUE_SUBCOMMANDS,
   type ParsedCommand,
@@ -232,12 +233,10 @@ export async function dispatchCommand(
     case 'help': {
       const stored = await secrets.getPriceSource()
       const activeId = stored?.provider ?? DEFAULT_PROVIDER
-      const prices = PRICE_PROVIDERS.map((p) => ({
-        id: p.id,
-        active: p.id === activeId,
-        detail: p.id === activeId ? `${p.name} — pricing everything` : p.summary,
-      }))
-      return { kind: 'output', output: helpText([...connectors.keys()], venues, prices) }
+      return {
+        kind: 'output',
+        output: helpText([...connectors.keys()], venues, priceEntries(activeId)),
+      }
     }
 
     case 'forget': {

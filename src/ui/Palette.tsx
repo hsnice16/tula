@@ -2,12 +2,15 @@ import { Box, Text, type BoxProps } from 'ink'
 import type { ReactNode } from 'react'
 import type { PaletteEntry } from '../cli/registry.js'
 import { BRAND_MARK, brandColor } from './brand.js'
+import { windowStart } from './scroll.js'
 import { theme } from './theme.js'
 
 interface Props {
   query: string
   matches: PaletteEntry[]
   selected: number
+  /** First display row on screen. The app owns it: the wheel moves it directly. */
+  offset: number
   columns: number
   rows: number
   /**
@@ -19,7 +22,7 @@ interface Props {
   behind: ReactNode
 }
 
-type DisplayItem =
+export type DisplayItem =
   | { kind: 'gap' }
   | { kind: 'heading'; text: string }
   | { kind: 'row'; entry: PaletteEntry; at: number }
@@ -37,28 +40,20 @@ const DIALOG_COLUMNS = 90
 export const FRAME_ROWS = 4
 
 /**
- * Search across the whole command surface at once. Grouped while browsing and
- * flat once you type, because ranking interleaves the sections and a heading
- * over one row is noise. The `/` menu stays the other way round — grouped and
- * alphabetical, the only order predictable before you have learned the list.
- *
- * Presentational only: the app owns every key.
+ * Constant, not fitted to the matches: a dialog that resizes as you type walks
+ * its own search line out from under the cursor.
  */
-export function Palette({ query, matches, selected, columns, rows, behind }: Props) {
-  const label = (entry: PaletteEntry) => `/${entry.path} ${entry.args ?? ''}`.trimEnd()
-  // Measured across every match, not the visible window: padding to whatever
-  // happens to be on screen moves the summary column sideways as you scroll.
-  const width = matches.length > 0 ? Math.max(...matches.map((e) => label(e).length)) : 0
-  // Constant, not fitted to the matches: a dialog that resizes as you type
-  // walks its own search line out from under the cursor.
-  const limit = Math.max(3, Math.min(rows - CHROME_ROWS - FRAME_ROWS, WINDOW_ROWS))
+export function windowRows(rows: number): number {
+  return Math.max(3, Math.min(rows - CHROME_ROWS - FRAME_ROWS, WINDOW_ROWS))
+}
 
-  const dialogColumns = Math.max(24, Math.min(DIALOG_COLUMNS, columns - 8))
-  const dialogRows = limit + CHROME_ROWS
-  const top = Math.max(0, Math.floor((rows - FRAME_ROWS - dialogRows) / 2))
-  const left = Math.max(0, Math.floor((columns - dialogColumns) / 2))
-  const inner = dialogColumns - 6
-
+/**
+ * The rows to draw, headings and blanks included. Scrolling counts in these
+ * rather than in matches, so a wheel notch moves the list by exactly what the
+ * eye sees move — and the app has to measure the same list the dialog draws,
+ * which is why this is not inlined into the render.
+ */
+export function displayRows(matches: PaletteEntry[], query: string): DisplayItem[] {
   const items: DisplayItem[] = []
   matches.forEach((entry, at) => {
     if (query.trim() === '' && entry.group !== matches[at - 1]?.group) {
@@ -69,14 +64,79 @@ export function Palette({ query, matches, selected, columns, rows, behind }: Pro
     }
     items.push({ kind: 'row', entry, at })
   })
+  return items
+}
 
-  // The window follows the selection, so arrowing past the last visible row
-  // scrolls rather than running the cursor off a list that never moves.
-  const cursorAt = items.findIndex((i) => i.kind === 'row' && i.at === selected)
-  const start = Math.max(0, Math.min(cursorAt - limit + 1, items.length - limit))
+/** Rows above the list inside the dialog: border, padding, the header and the search line. */
+const LIST_TOP = 6
+
+export interface Geometry {
+  /** Frame rows and columns, both 0-based, of the dialog's top-left corner. */
+  top: number
+  left: number
+  width: number
+  height: number
+  /** First row of the list, and the columns it and the scrollbar occupy. */
+  listTop: number
+  listLeft: number
+  listWidth: number
+  barColumn: number
+  limit: number
+}
+
+/**
+ * Where the dialog lands, for the pointer to be tested against. The render
+ * below is the other reader of this: a click has to hit the row the eye says it
+ * is on, so both sides measure from the same numbers rather than each deriving
+ * their own.
+ */
+export function paletteGeometry(columns: number, rows: number): Geometry {
+  const limit = windowRows(rows)
+  const width = Math.max(24, Math.min(DIALOG_COLUMNS, columns - 8))
+  const height = limit + CHROME_ROWS
+  const top = Math.max(0, Math.floor((rows - FRAME_ROWS - height) / 2))
+  const left = Math.max(0, Math.floor((columns - width) / 2))
+  // Two columns held back for the scrollbar and the gap before it, whether or
+  // not there is a thumb to draw: a gutter that appears with the eleventh match
+  // would shift every row on screen sideways.
+  const listWidth = width - 8
+  const listLeft = left + 3
+  return {
+    top,
+    left,
+    width,
+    height,
+    limit,
+    listTop: top + LIST_TOP,
+    listLeft,
+    listWidth,
+    barColumn: listLeft + listWidth + 1,
+  }
+}
+
+/**
+ * Search across the whole command surface at once. Grouped while browsing and
+ * flat once you type, because ranking interleaves the sections and a heading
+ * over one row is noise. The `/` menu stays the other way round — grouped and
+ * alphabetical, the only order predictable before you have learned the list.
+ *
+ * Presentational only: the app owns every key.
+ */
+export function Palette({ query, matches, selected, offset, columns, rows, behind }: Props) {
+  const label = (entry: PaletteEntry) => `/${entry.path} ${entry.args ?? ''}`.trimEnd()
+  // Measured across every match, not the visible window: padding to whatever
+  // happens to be on screen moves the summary column sideways as you scroll.
+  const width = matches.length > 0 ? Math.max(...matches.map((e) => label(e).length)) : 0
+  const { top, left, width: dialogColumns, listWidth: inner, limit } = paletteGeometry(columns, rows)
+
+  const items = displayRows(matches, query)
+  const start = windowStart(items, limit, offset)
   const shown = items.slice(start, start + limit)
   const chosen = matches[selected]
-  const rest = matches.length - shown.filter((i) => i.kind === 'row').length
+  // Rows past the bottom of the window, not rows off screen: counted the second
+  // way it never reaches zero at the end of the list, so it reads as a list that
+  // has more below and will not go there.
+  const below = items.slice(start + limit).filter((i) => i.kind === 'row').length
 
   return (
     /*
@@ -123,37 +183,45 @@ export function Palette({ query, matches, selected, columns, rows, behind }: Pro
           <Text inverse> </Text>
         </Box>
 
-        {shown.map((item, index) => {
-          if (item.kind === 'gap') return <Text key={`g${start + index}`}> </Text>
-          if (item.kind === 'heading') {
-            return (
-              <Text key={`h${start + index}`} color={theme.notice}>
-                {item.text}
-              </Text>
-            )
-          }
-          const style =
-            item.at === selected ? { bold: true, color: theme.onAccent } : { dimColor: true }
-          // The selected row is a gold bar, and a brand colour laid on it is
-          // unreadable at best and a different brand at worst. Identity gives
-          // way to legibility for the one row that has the cursor on it.
-          const brand = brandColor(item.entry.path)
-          const mark = brand && (item.at === selected ? theme.onAccent : brand)
-          return (
-            <Row key={item.entry.path} selected={item.at === selected} width={inner}>
-              <Text wrap="truncate">
-                <Text {...style}>{` ${label(item.entry).padEnd(width)}  `}</Text>
-                {mark ? <Text color={mark}>{BRAND_MARK}</Text> : <Text> </Text>}
-                <Text {...style}>{` ${item.entry.summary}`}</Text>
-              </Text>
-            </Row>
-          )
-        })}
+        <Box flexDirection="row">
+          <Box flexDirection="column" flexGrow={1}>
+            {shown.map((item, index) => {
+              if (item.kind === 'gap') return <Text key={`g${start + index}`}> </Text>
+              if (item.kind === 'heading') {
+                return (
+                  <Text key={`h${start + index}`} color={theme.notice}>
+                    {item.text}
+                  </Text>
+                )
+              }
+              const style =
+                item.at === selected ? { bold: true, color: theme.onAccent } : { dimColor: true }
+              // The selected row is a gold bar, and a brand colour laid on it is
+              // unreadable at best and a different brand at worst. Identity gives
+              // way to legibility for the one row that has the cursor on it.
+              const brand = brandColor(item.entry.path)
+              const mark = brand && (item.at === selected ? theme.onAccent : brand)
+              return (
+                <Row key={item.entry.path} selected={item.at === selected} width={inner}>
+                  <Text wrap="truncate">
+                    <Text {...style}>{` ${label(item.entry).padEnd(width)}  `}</Text>
+                    {mark ? <Text color={mark}>{BRAND_MARK}</Text> : <Text> </Text>}
+                    <Text {...style}>{` ${item.entry.summary}`}</Text>
+                  </Text>
+                </Row>
+              )
+            })}
 
-        {/* The dialog keeps its height whatever the filter leaves. */}
-        {Array.from({ length: Math.max(0, limit - shown.length) }, (_, i) => (
-          <Text key={`pad${i}`}> </Text>
-        ))}
+            {/* The dialog keeps its height whatever the filter leaves. */}
+            {Array.from({ length: Math.max(0, limit - shown.length) }, (_, i) => (
+              <Text key={`pad${i}`}> </Text>
+            ))}
+          </Box>
+
+          <Box marginLeft={1}>
+            <Scrollbar height={limit} total={items.length} at={start} />
+          </Box>
+        </Box>
 
         <Box marginTop={1}>
           {matches.length === 0 ? (
@@ -162,7 +230,7 @@ export function Palette({ query, matches, selected, columns, rows, behind }: Pro
             </Text>
           ) : (
             <Text dimColor wrap="truncate">
-              {rest > 0 ? `${rest} more below · ` : ''}
+              {below > 0 ? `${below} more below · ` : ''}
               {chosen?.runnable
                 ? 'enter runs it · tab puts it on the line · esc closes'
                 : `enter puts it on the line — ${chosen?.args ?? ''} still has to be typed · esc closes`}
@@ -170,6 +238,29 @@ export function Palette({ query, matches, selected, columns, rows, behind }: Pro
           )}
         </Box>
       </Box>
+    </Box>
+  )
+}
+
+/**
+ * Where you are in the list, which the wheel needs and the arrow keys never did:
+ * scrolling with no cursor to follow leaves nothing else to say how far down the
+ * list this is, or how much of it is on screen.
+ */
+function Scrollbar({ height, total, at }: { height: number; total: number; at: number }) {
+  const thumb = total <= height ? height : Math.max(1, Math.round((height * height) / total))
+  const travel = height - thumb
+  const from = travel <= 0 ? 0 : Math.round((at / (total - height)) * travel)
+  return (
+    <Box flexDirection="column">
+      {Array.from({ length: height }, (_, row) => {
+        const lit = total > height && row >= from && row < from + thumb
+        return (
+          <Text key={row} color={lit ? theme.accent : theme.accentSoft} dimColor={!lit}>
+            {lit ? '┃' : '│'}
+          </Text>
+        )
+      })}
     </Box>
   )
 }

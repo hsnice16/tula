@@ -5,7 +5,10 @@ const VENUES: VenueEntry[] = [
   { id: 'kraken', detail: '12 balances · 3s ago', connected: true },
   { id: 'aave', detail: 'Aave v3 — not connected', connected: false },
 ]
-const PRICES: PriceEntry[] = [{ id: 'coingecko', detail: 'CoinGecko — pricing everything', active: true }]
+const PRICES: PriceEntry[] = [
+  { id: 'coingecko', detail: 'CoinGecko — pricing everything', active: true, keyless: true },
+  { id: 'coinmarketcap', detail: 'Widest coverage; needs a free API key', active: false, keyless: false },
+]
 
 const paths = (query: string) =>
   matchPalette(query, buildPalette(VENUES, PRICES)).map((e) => e.path)
@@ -24,6 +27,23 @@ describe('buildPalette', () => {
     const shock = buildPalette(VENUES, PRICES).find((e) => e.path === 'shock')
     expect(shock?.runnable).toBe(false)
     expect(buildPalette(VENUES, PRICES).find((e) => e.path === 'exposure')?.runnable).toBe(true)
+  })
+
+  test('a keyless source is not offered a key to paste or forget', () => {
+    expect(paths('')).not.toContain('coingecko connect')
+    expect(paths('')).not.toContain('coingecko disconnect')
+    expect(paths('')).toContain('coinmarketcap connect')
+  })
+
+  /**
+   * The palette opens a heading wherever the group changes, so a group reached
+   * in two runs was drawn as two identical headings — once for the venues and
+   * again, further down, for everything reachable under them.
+   */
+  test('every section is one contiguous run', () => {
+    const groups = buildPalette(VENUES, PRICES).map((e) => e.group)
+    const runs = groups.filter((g, at) => g !== groups[at - 1])
+    expect(runs).toEqual([...new Set(runs)])
   })
 
   test('a hidden command stays hidden until something is typed', () => {

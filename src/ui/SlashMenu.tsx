@@ -1,5 +1,6 @@
 import { Box, Text } from 'ink'
 import { BRAND_MARK, brandColor } from './brand.js'
+import { windowStart } from './scroll.js'
 import { theme } from './theme.js'
 
 export interface MenuItem {
@@ -18,17 +19,19 @@ interface Props {
   heading?: string
   /** Rows the block always occupies, filtered or not. */
   limit: number
+  /** First drawn row on screen. The app owns it: the wheel moves it directly. */
+  offset: number
 }
 
-type DisplayItem = { kind: 'heading'; text: string } | { kind: 'row'; item: MenuItem; at: number }
+export type DisplayItem =
+  | { kind: 'heading'; text: string }
+  | { kind: 'row'; item: MenuItem; at: number }
 
-export function SlashMenu({ items, selected, prefix, heading, limit }: Props) {
-  const labelOf = (item: MenuItem) => `${prefix}${item.name} ${item.args ?? ''}`.trimEnd()
-  const width = items.length > 0 ? Math.max(...items.map((i) => labelOf(i).length)) : 0
-  // Inside a venue the rows are `connect`, `positions`… and only the heading
-  // names the third party, so that is where its mark goes.
-  const headingMark = brandColor(prefix.replace(/^\//, ''))
-
+/**
+ * The rows to draw, headings included. The app measures the same list to work
+ * out what the pointer is over, so this cannot be inlined into the render.
+ */
+export function menuDisplay(items: MenuItem[]): DisplayItem[] {
   const display: DisplayItem[] = []
   items.forEach((item, at) => {
     if (item.group !== undefined && item.group !== items[at - 1]?.group) {
@@ -36,9 +39,18 @@ export function SlashMenu({ items, selected, prefix, heading, limit }: Props) {
     }
     display.push({ kind: 'row', item, at })
   })
+  return display
+}
 
-  const cursorAt = display.findIndex((d) => d.kind === 'row' && d.at === selected)
-  const start = Math.max(0, Math.min(cursorAt - limit + 1, display.length - limit))
+export function SlashMenu({ items, selected, prefix, heading, limit, offset }: Props) {
+  const labelOf = (item: MenuItem) => `${prefix}${item.name} ${item.args ?? ''}`.trimEnd()
+  const width = items.length > 0 ? Math.max(...items.map((i) => labelOf(i).length)) : 0
+  // Inside a venue the rows are `connect`, `positions`… and only the heading
+  // names the third party, so that is where its mark goes.
+  const headingMark = brandColor(prefix.replace(/^\//, ''))
+
+  const display = menuDisplay(items)
+  const start = windowStart(display, limit, offset)
   const shown = display.slice(start, start + limit)
   const rest = display.length - shown.length
 

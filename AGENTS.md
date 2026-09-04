@@ -175,6 +175,9 @@ src/
     brand.ts            # the venues' and price sources' own colours, sampled from their artwork
     TextInput.tsx       # presentational input line; no key handling
     keys.ts             # paste vs. keystroke; what a trailing newline means
+    mouse.ts            # wheel and pointer reports; why tracking is on only while a list is up
+    anchor.ts           # asks the terminal where its cursor is, to place the inline menu on screen
+    scroll.ts           # windowing a list longer than its rows; shared by the menu and the palette
     wrap.ts             # rows, not lines — what truncation counts
     run.tsx             # render + waitUntilExit
     resize.ts           # redraws the screen on a width change; Ink's erase miscounts rewrapped rows

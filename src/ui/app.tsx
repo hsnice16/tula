@@ -16,6 +16,7 @@ import {
   matchPriceSubcommands,
   matchVenueSubcommands,
   parseCommand,
+  priceEntries,
   type PaletteEntry,
   type PriceEntry,
   type VenueEntry,
@@ -32,15 +33,17 @@ import {
   asConnectable,
   buildOracle,
   DEFAULT_PROVIDER,
-  PRICE_PROVIDERS,
   priceProvider,
 } from '../prices/providers.js'
 import { freshness, holdings } from '../core/format.js'
 import { typed } from './keys.js'
+import { askCursor, cursorRow } from './anchor.js'
+import { mouseReport, trackMouse, type MouseReport } from './mouse.js'
 import { Credentials, type CredentialsMode, type CredentialsResult } from './Credentials.js'
-import { FRAME_ROWS, Palette } from './Palette.js'
+import { displayRows, FRAME_ROWS, Palette, paletteGeometry, windowRows } from './Palette.js'
+import { offsetShowing, selectionIn, windowStart } from './scroll.js'
 import { clearForRedraw } from './resize.js'
-import { SlashMenu, type MenuItem } from './SlashMenu.js'
+import { menuDisplay, SlashMenu, type MenuItem } from './SlashMenu.js'
 import { InputLine } from './TextInput.js'
 import { theme } from './theme.js'
 import { wrapLines } from './wrap.js'
@@ -325,8 +328,18 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
   const [frame, setFrame] = useState(0)
   const [elapsed, setElapsed] = useState(0)
   const [menuIndex, setMenuIndex] = useState(0)
+  const [menuOffset, setMenuOffset] = useState(0)
+  /**
+   * The row the terminal says its cursor is on, which is the only fixed point
+   * between the pointer's absolute rows and a frame drawn wherever the
+   * transcript left off. Null until the terminal answers, or for good on one
+   * that never does — the menu still takes the keyboard and the wheel.
+   */
+  const [anchor, setAnchor] = useState<number | null>(null)
   const [menuDismissed, setMenuDismissed] = useState(false)
-  const [palette, setPalette] = useState<{ query: string; index: number } | null>(null)
+  const [palette, setPalette] = useState<{ query: string; index: number; offset: number } | null>(
+    null,
+  )
   // Whole-transcript rather than per-entry, and it outlives the entry it was
   // turned on for: after reading "18 more lines" you usually want the answer
   // above it whole too, and the next one as well.
@@ -482,15 +495,7 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
     void secrets.getPriceSource().then((stored) => setActivePrice(stored?.provider ?? DEFAULT_PROVIDER))
   }, [])
 
-  const priceEntries: PriceEntry[] = useMemo(
-    () =>
-      PRICE_PROVIDERS.map((p) => ({
-        id: p.id,
-        active: p.id === activePrice,
-        detail: p.id === activePrice ? `${p.name} — pricing everything` : p.summary,
-      })),
-    [activePrice],
-  )
+  const prices: PriceEntry[] = useMemo(() => priceEntries(activePrice), [activePrice])
 
   const menu: Menu | null = useMemo(() => {
     if (!input.startsWith('/') || busy || menuDismissed) return null
@@ -498,14 +503,14 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
     const space = rest.indexOf(' ')
 
     if (space === -1) {
-      const items: MenuItem[] = matchCommands(rest, venueEntries, priceEntries).map((c) => ({
+      const items: MenuItem[] = matchCommands(rest, venueEntries, prices).map((c) => ({
         name: c.name,
         summary: c.summary,
         ...(c.args ? { args: c.args } : {}),
         ...(c.group ? { group: GROUP_LABELS[c.group] } : {}),
       }))
       if (items.length === 0) return null
-      const all = matchCommands('', venueEntries, priceEntries)
+      const all = matchCommands('', venueEntries, prices)
       // Every row, plus the heading each group prints above its first.
       const total = all.length + new Set(all.map((c) => c.group)).size
       return { level: 'top', items, prefix: '/', total }
@@ -515,9 +520,9 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
     const tail = rest.slice(space + 1)
     if (tail.includes(' ')) return null
 
-    const price = priceEntries.find((p) => p.id === head)
+    const price = prices.find((p) => p.id === head)
     if (price) {
-      const subs: MenuItem[] = matchPriceSubcommands(tail, price.active).map((c) => ({
+      const subs: MenuItem[] = matchPriceSubcommands(tail, price).map((c) => ({
         name: c.name,
         summary: c.summary,
       }))
@@ -528,7 +533,7 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
         items: subs,
         prefix: `/${head} `,
         heading: head,
-        total: matchPriceSubcommands('', price.active).length,
+        total: matchPriceSubcommands('', price).length,
       }
     }
 
@@ -547,13 +552,14 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
       heading: connectors.get(head)?.venue.name ?? head,
       total: matchVenueSubcommands('', entry?.connected ?? false).length,
     }
-  }, [input, busy, menuDismissed, venueEntries, priceEntries, connectors])
+  }, [input, busy, menuDismissed, venueEntries, prices, connectors])
 
   const setLine = useCallback((value: string, at = value.length) => {
     setInput(value)
     setCursor(at)
     setMenuDismissed(false)
     setMenuIndex(0)
+    setMenuOffset(0)
   }, [])
 
   const refreshConnected = useCallback(async () => {
@@ -691,12 +697,15 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
     void showState()
   }, [credentials, connecting, connected, showState])
 
-  const completeFromMenu = useCallback(() => {
-    if (!menu) return
-    const chosen = menu.items[menuIndex]
-    if (!chosen) return
-    setLine(`${menu.prefix}${chosen.name} `)
-  }, [menu, menuIndex, setLine])
+  const completeFromMenu = useCallback(
+    (at = menuIndex) => {
+      if (!menu) return
+      const chosen = menu.items[at]
+      if (!chosen) return
+      setLine(`${menu.prefix}${chosen.name} `)
+    },
+    [menu, menuIndex, setLine],
+  )
 
   /**
    * Completing on Enter as well as tab cost every command a second press — the
@@ -704,13 +713,16 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
    * having been missed. Arguments cannot be guessed, so a command declaring them
    * still lands on the line with the cursor where the first one goes, as in ctrl+k.
    */
-  const runFromMenu = useCallback(() => {
-    if (!menu) return
-    const chosen = menu.items[menuIndex]
-    if (!chosen) return
-    if (chosen.args) return completeFromMenu()
-    void submit(`${menu.prefix}${chosen.name}`)
-  }, [menu, menuIndex, completeFromMenu, submit])
+  const runFromMenu = useCallback(
+    (at = menuIndex) => {
+      if (!menu) return
+      const chosen = menu.items[at]
+      if (!chosen) return
+      if (chosen.args) return completeFromMenu(at)
+      void submit(`${menu.prefix}${chosen.name}`)
+    },
+    [menu, menuIndex, completeFromMenu, submit],
+  )
 
   const recallHistory = useCallback(
     (direction: -1 | 1) => {
@@ -738,13 +750,20 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
   )
 
   const paletteItems = useMemo(
-    () => buildPalette(venueEntries, priceEntries),
-    [venueEntries, priceEntries],
+    () => buildPalette(venueEntries, prices),
+    [venueEntries, prices],
   )
   const paletteMatches = useMemo(
     () => (palette ? matchPalette(palette.query, paletteItems) : []),
     [palette, paletteItems],
   )
+  // The rows the dialog will draw, measured here too: scrolling counts in those
+  // rather than in matches, and the two have to agree on where the window is.
+  const paletteRows = useMemo(
+    () => (palette ? displayRows(paletteMatches, palette.query) : []),
+    [palette, paletteMatches],
+  )
+  const paletteLimit = windowRows(viewport.rows)
 
   // Fixed, so filtering never resizes the block under the input line, but no
   // taller than the menu can fill or than the frame can afford: the input box,
@@ -775,7 +794,7 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
    */
   const openPalette = useCallback(() => {
     if (stdout) clearForRedraw(stdout)
-    setPalette({ query: input.replace(/^\//, ''), index: 0 })
+    setPalette({ query: input.replace(/^\//, ''), index: 0, offset: 0 })
   }, [stdout, input])
 
   const runFromPalette = useCallback(
@@ -789,8 +808,146 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
     [setLine, submit],
   )
 
+  /**
+   * The dialog answers the pointer the way a dialog is expected to: the row
+   * under it lights up, a click on that row runs it, the bar takes a click
+   * anywhere along its length, and a click on the screen outside is the way out.
+   */
+  const menuDisplayRows = useMemo(() => (menu ? menuDisplay(menu.items) : []), [menu])
+
+  /**
+   * Where the menu block sits on screen, once the terminal has said where its
+   * cursor is. Everything below the list is fixed height — the "more" line, the
+   * status line, and the row the cursor itself is parked on — so the list is a
+   * constant distance up from it, wherever the frame ended up.
+   */
+  const menuBand = useMemo(() => {
+    if (anchor === null || !menu) return null
+    const last = anchor - 3 - (expanded ? 1 : 0)
+    return { first: last - menuRows + 1, last }
+  }, [anchor, menu, expanded, menuRows])
+
+  /**
+   * The same three things the dialog does, against a block that is part of the
+   * frame rather than floating over it: the row under the pointer lights up, a
+   * click runs it, and a click anywhere else puts the menu away. The wheel is
+   * the exception — it needs no anchor, so it works on a terminal that never
+   * answered where the cursor is.
+   */
+  const onMenuMouse = useCallback(
+    (report: MouseReport): void => {
+      if (!menu) return
+      if (report.kind === 'wheel') {
+        const furthest = Math.max(0, menuDisplayRows.length - menuRows)
+        const offset = Math.max(0, Math.min(menuOffset + report.step, furthest))
+        setMenuOffset(offset)
+        setMenuIndex((i) => selectionIn(menuDisplayRows, menuRows, offset, i))
+        return
+      }
+      if (report.kind === 'release' || !menuBand) return
+
+      const row = report.row - 1
+      if (row < menuBand.first || row > menuBand.last) {
+        // Clicking away from an autocomplete is how one is dismissed; the line
+        // itself is untouched, so it can be brought back by typing.
+        if (report.kind === 'press') setMenuDismissed(true)
+        return
+      }
+      const start = windowStart(menuDisplayRows, menuRows, menuOffset)
+      const item = menuDisplayRows[start + (row - menuBand.first)]
+      if (item?.kind !== 'row') return
+      if (report.kind === 'press') return runFromMenu(item.at)
+      if (item.at !== menuIndex) setMenuIndex(item.at)
+    },
+    [menu, menuBand, menuDisplayRows, menuRows, menuOffset, menuIndex, runFromMenu],
+  )
+
+  const onPaletteMouse = useCallback(
+    (report: MouseReport): void => {
+      if (!palette) return
+      const box = paletteGeometry(viewport.columns, viewport.rows)
+      const furthest = Math.max(0, paletteRows.length - box.limit)
+      const scrollTo = (offset: number) =>
+        setPalette((p) =>
+          p
+            ? { ...p, offset, index: selectionIn(paletteRows, box.limit, offset, p.index) }
+            : null,
+        )
+
+      if (report.kind === 'wheel') {
+        // The list moves, not the cursor: a window that follows the selection
+        // spends the first notches inside the rows already on screen, which
+        // reads as a wheel the list is ignoring.
+        return scrollTo(Math.max(0, Math.min(palette.offset + report.step, furthest)))
+      }
+      if (report.kind === 'release') return
+
+      const row = report.row - 1
+      const column = report.column - 1
+      const inside =
+        row >= box.top &&
+        row < box.top + box.height &&
+        column >= box.left &&
+        column < box.left + box.width
+      if (!inside) {
+        if (report.kind === 'press') setPalette(null)
+        return
+      }
+
+      // Anywhere along the bar, not only on the thumb: the thumb is a row or two
+      // tall on a list this long, and nothing that small is a target.
+      if (column === box.barColumn && report.kind !== 'move') {
+        const along = Math.max(0, Math.min(row - box.listTop, box.limit - 1))
+        return scrollTo(box.limit > 1 ? Math.round((along / (box.limit - 1)) * furthest) : 0)
+      }
+
+      const onList =
+        row >= box.listTop &&
+        row < box.listTop + box.limit &&
+        column >= box.listLeft &&
+        column < box.listLeft + box.listWidth
+      if (!onList) return
+      const start = windowStart(paletteRows, box.limit, palette.offset)
+      const item = paletteRows[start + (row - box.listTop)]
+      if (item?.kind !== 'row') return
+      if (report.kind === 'press') return runFromPalette(item.entry, false)
+      // Hovering, and only where that is a change: a report arrives for every
+      // cell the pointer crosses, and a render for each one is the stutter.
+      if (item.at !== palette.index) setPalette((p) => (p ? { ...p, index: item.at } : null))
+    },
+    [palette, paletteRows, viewport, runFromPalette],
+  )
+
+  // Only while one of the two lists is up, and undone on the way out: see
+  // mouse.ts for what it costs the rest of the screen.
+  const menuOpen = menu !== null
+  const paletteOpen = palette !== null
+  useEffect(() => {
+    if (!(paletteOpen || menuOpen) || !stdout) return
+    return trackMouse(stdout)
+  }, [paletteOpen, menuOpen, stdout])
+
+  /**
+   * Asked again on every keystroke the menu is open for, rather than once when
+   * it opens: a line long enough to wrap makes the input box a row taller and
+   * moves everything under it. Nothing is written to the transcript meanwhile —
+   * the menu is closed while a command is in flight — so the answer cannot go
+   * stale between being asked for and arriving.
+   */
+  useEffect(() => {
+    if (!menuOpen || !stdout) return setAnchor(null)
+    askCursor(stdout)
+  }, [menuOpen, stdout, input, viewport])
+
   useInput(
     (ch, key) => {
+      // Before everything, including the busy gate: a report that reaches the
+      // bottom of this handler is typed in as the punctuation it looks like.
+      const report = mouseReport(ch)
+      if (report) return palette ? onPaletteMouse(report) : onMenuMouse(report)
+      const answered = cursorRow(ch)
+      if (answered !== null) return setAnchor(answered)
+
       if (key.ctrl && ch === 'c') {
         if (palette) return setPalette(null)
         if (input.length > 0) return setLine('')
@@ -818,29 +975,36 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
       if (palette) {
         const chosen = paletteMatches[palette.index]
         if (key.escape) return setPalette(null)
-        if (key.upArrow) {
-          return setPalette((p) => (p ? { ...p, index: Math.max(0, p.index - 1) } : null))
-        }
-        if (key.downArrow) {
+        if (key.upArrow || key.downArrow) {
           const last = paletteMatches.length - 1
-          return setPalette((p) => (p ? { ...p, index: Math.min(last, p.index + 1) } : null))
+          const step = key.upArrow ? -1 : 1
+          return setPalette((p) => {
+            if (!p) return null
+            const index = Math.max(0, Math.min(last, p.index + step))
+            return { ...p, index, offset: offsetShowing(paletteRows, paletteLimit, p.offset, index) }
+          })
         }
         if (key.return || key.tab) {
           if (chosen) runFromPalette(chosen, key.tab)
           return
         }
         if (key.backspace || key.delete) {
-          return setPalette((p) => (p ? { query: p.query.slice(0, -1), index: 0 } : null))
+          return setPalette((p) => (p ? { query: p.query.slice(0, -1), index: 0, offset: 0 } : null))
         }
         if (key.ctrl || key.meta || !ch) return
         const { text } = typed(ch)
         if (!text) return
-        return setPalette((p) => (p ? { query: p.query + text, index: 0 } : null))
+        return setPalette((p) => (p ? { query: p.query + text, index: 0, offset: 0 } : null))
       }
 
       if (menu) {
-        if (key.upArrow) return setMenuIndex((i) => Math.max(0, i - 1))
-        if (key.downArrow) return setMenuIndex((i) => Math.min(menu.items.length - 1, i + 1))
+        if (key.upArrow || key.downArrow) {
+          const last = menu.items.length - 1
+          const step = key.upArrow ? -1 : 1
+          const index = Math.max(0, Math.min(last, menuIndex + step))
+          setMenuIndex(index)
+          return setMenuOffset((o) => offsetShowing(menuDisplayRows, menuRows, o, index))
+        }
         if (key.tab) return completeFromMenu()
         if (key.return) return runFromMenu()
         if (key.escape) return setMenuDismissed(true)
@@ -869,6 +1033,7 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
       setCursor(cursor + text.length)
       setMenuDismissed(false)
       setMenuIndex(0)
+      setMenuOffset(0)
     },
     { isActive: !credentials && !connecting },
   )
@@ -995,6 +1160,7 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
             query={palette.query}
             matches={paletteMatches}
             selected={palette.index}
+            offset={palette.offset}
             columns={frameWidth}
             rows={rows}
             behind={
@@ -1059,6 +1225,7 @@ export function App({ session, connectors, initialApiKey, initialVenues }: Props
                 selected={menuIndex}
                 prefix={menu.prefix}
                 limit={menuRows}
+                offset={menuOffset}
                 {...(menu.level === 'venue' ? { heading: menu.heading } : {})}
               />
             )}
