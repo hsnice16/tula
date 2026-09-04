@@ -83,6 +83,15 @@ for f in SECURITY.md README.md site/app/install/page.tsx; do
   done
 done
 
+# The release notes point at this file, so its newest version section is what a
+# reader is sent to. A bump that did not move the changelog sends them to the
+# release before it. Only the newest section is checked; below it is history,
+# and before the first release there is none, which is not a failure.
+top=$(grep -m1 -oE '^## \[[0-9][^]]*\]' CHANGELOG.md | tr -d '#[] ' || true)
+if [ -n "$top" ] && [ "$top" != "$pkg_version" ]; then
+  report "CHANGELOG.md's newest section is $top; this release is $pkg_version"
+fi
+
 # One fact, one place. release.yml reads the hyphen; the binary must not be told
 # separately, or a stable release ships a binary that calls itself pre-release.
 grep -q "IS_PRE_RELEASE = APP_VERSION.includes('-')" src/version.ts ||

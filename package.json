@@ -1,5 +1,5 @@
 {
-  "name": "@tula/cli",
+  "name": "@hsnice16/tula",
   "version": "0.1.0",
   "description": "Your true exposure, what breaks first, and more, across every venue at once.",
   "license": "MIT",
@@ -19,7 +19,8 @@
     "guard": "bash scripts/guard.sh && bash scripts/guard-test.sh",
     "prepare-hooks": "git config core.hooksPath .githooks",
     "test:install": "bash scripts/install-test.sh",
-    "release:build": "bash scripts/release-build.sh"
+    "release:build": "bash scripts/release-build.sh",
+    "release:cut": "bash scripts/release-cut.sh"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.122.0",

@@ -50,7 +50,7 @@ over the same vocabulary. Every command still works without a model key.
 ${INSTALL_COMMAND}
 \`\`\`
 
-Also \`brew install hsnice16/tap/tula\` and \`npm install -g @tula/cli\` — the same
+Also \`brew install hsnice16/tap/tula\` and \`npm install -g @hsnice16/tula\` — the same
 binary. macOS and Linux, 64-bit Intel and ARM; Windows through WSL. Every release
 carries a published checksum, which the installer always checks and refuses on,
 and a sigstore-backed build attestation, which it checks wherever the GitHub CLI

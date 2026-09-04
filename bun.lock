@@ -2,7 +2,7 @@
   "lockfileVersion": 1,
   "workspaces": {
     "": {
-      "name": "@vernier/cli",
+      "name": "@hsnice16/tula",
       "dependencies": {
         "@anthropic-ai/sdk": "0.122.0",
         "decimal.js": "10.6.0",

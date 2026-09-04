@@ -117,7 +117,7 @@ curl --proto '=https' --tlsv1.2 -LsSf https://hsnice16.github.io/tula/install.sh
 ```
 
 ```bash
-brew install hsnice16/tap/tula     # or: npm install -g @tula/cli
+brew install hsnice16/tap/tula     # or: npm install -g @hsnice16/tula
 ```
 
 macOS and Linux, on 64-bit Intel and ARM. Alpine and other musl systems are not

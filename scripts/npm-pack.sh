@@ -35,7 +35,7 @@ for entry in "${TARGETS[@]}"; do
   rest=${entry#*:}
   os=${rest%%:*}
   cpu=${rest##*:}
-  pkg="$STAGING/cli-$name"
+  pkg="$STAGING/tula-$name"
   mkdir -p "$pkg/bin"
 
   tar -xzf "$RELEASE/tula-v$VERSION-$name.tar.gz" -C "$pkg/bin" tula
@@ -47,7 +47,7 @@ for entry in "${TARGETS[@]}"; do
   # does not match, and an optional failure is not an install failure.
   cat >"$pkg/package.json" <<JSON
 {
-  "name": "@tula/cli-$name",
+  "name": "@hsnice16/tula-$name",
   "version": "$VERSION",
   "description": "$DESCRIPTION (prebuilt $name binary)",
   "license": "MIT",
@@ -62,19 +62,19 @@ done
 
 # ------------------------------------------------------------------ wrapper ---
 
-WRAPPER="$STAGING/cli"
+WRAPPER="$STAGING/tula"
 mkdir -p "$WRAPPER/bin" "$WRAPPER/scripts"
 cp LICENSE README.md "$WRAPPER/"
 
 OPTIONAL=$(
   for entry in "${TARGETS[@]}"; do
-    printf '    "@tula/cli-%s": "%s",\n' "${entry%%:*}" "$VERSION"
+    printf '    "@hsnice16/tula-%s": "%s",\n' "${entry%%:*}" "$VERSION"
   done | sed '$ s/,$//'
 )
 
 cat >"$WRAPPER/package.json" <<JSON
 {
-  "name": "@tula/cli",
+  "name": "@hsnice16/tula",
   "version": "$VERSION",
   "description": "$DESCRIPTION",
   "license": "MIT",
@@ -98,7 +98,7 @@ JSON
 cat >"$WRAPPER/bin/tula" <<PLACEHOLDER
 #!/bin/sh
 echo "tula did not finish installing: the native binary was never copied here." >&2
-echo "  Reinstall with:  npm install -g @tula/cli" >&2
+echo "  Reinstall with:  npm install -g @hsnice16/tula" >&2
 echo "  Or install directly:  curl --proto '=https' --tlsv1.2 -LsSf $SITE_URL/install.sh | sh" >&2
 exit 1
 PLACEHOLDER
@@ -124,7 +124,7 @@ const here = dirname(fileURLToPath(import.meta.url))
 const target = `${process.platform}-${process.arch}`
 
 try {
-  const source = require.resolve(`@tula/cli-${target}/bin/tula`)
+  const source = require.resolve(`@hsnice16/tula-${target}/bin/tula`)
   const launcher = join(here, '..', 'bin', 'tula')
   copyFileSync(source, launcher)
   chmodSync(launcher, 0o755)

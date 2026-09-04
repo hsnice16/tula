@@ -90,7 +90,7 @@ describe('the install page keeps its two channels apart', () => {
   const page = flat('site/app/install/page.tsx')
 
   test('npm is named as the channel whose tarball carries no attestation', () => {
-    expect(page).toContain('npm install -g @tula/cli')
+    expect(page).toContain('npm install -g @hsnice16/tula')
     expect(page).toContain('npm repackages it, so its tarball carries no attestation')
   })
 

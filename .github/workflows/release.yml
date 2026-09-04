@@ -150,8 +150,8 @@ jobs:
 
             touch -t 197001010000 "$work/tula" "$work/LICENSE"
             tar --uid 0 --gid 0 --uname "" --gname "" \
-              -czf "dist/release/tula-v$VERSION-darwin-$arch.tar.gz" \
-              -C "$work" tula LICENSE
+              -cf - -C "$work" tula LICENSE |
+              gzip -n >"dist/release/tula-v$VERSION-darwin-$arch.tar.gz"
           done
 
           security delete-keychain "$keychain"
@@ -263,10 +263,10 @@ jobs:
           tag=$([ "$PRERELEASE" = true ] && echo next || echo latest)
           # Platform packages first: the wrapper's optionalDependencies name
           # them, and a wrapper published ahead of them installs a placeholder.
-          for pkg in dist/npm/cli-*; do
+          for pkg in dist/npm/tula-*; do
             npm publish "$pkg" --access public --provenance --tag "$tag"
           done
-          npm publish dist/npm/cli --access public --provenance --tag "$tag"
+          npm publish dist/npm/tula --access public --provenance --tag "$tag"
 
   homebrew:
     needs: release

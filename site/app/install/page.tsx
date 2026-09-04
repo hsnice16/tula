@@ -128,7 +128,7 @@ export default function Page() {
             reader a paste that installs tula twice. */}
         <div className="grid gap-4 sm:grid-cols-2">
           <Terminal title="homebrew">{'brew install hsnice16/tap/tula'}</Terminal>
-          <Terminal title="npm">{'npm install -g @tula/cli'}</Terminal>
+          <Terminal title="npm">{'npm install -g @hsnice16/tula'}</Terminal>
         </div>
       </div>
 

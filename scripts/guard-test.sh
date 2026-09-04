@@ -11,26 +11,34 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT" || exit 1
 
 PROBE=src/connectors/guard-probe.ts
-trap 'rm -f "$PROBE"' EXIT INT TERM
+# One check's subject is CHANGELOG.md itself, which cannot be planted under a
+# scratch name, so it is edited in place and restored — on an interrupt too.
+CHANGELOG_SAVED=$(mktemp)
+cp CHANGELOG.md "$CHANGELOG_SAVED"
+trap 'rm -f "$PROBE"; cp "$CHANGELOG_SAVED" CHANGELOG.md; rm -f "$CHANGELOG_SAVED"' EXIT INT TERM
 
 fail=0
-expect() {
+# Captured first, then matched: under `pipefail` the guard's own non-zero exit
+# would sink the pipeline even where grep found the line.
+#
+# Matched by message, not exit status: an untracked probe also trips the
+# AGENTS.md check, which would let a dead regex pass for the wrong reason.
+reports() {
   want=$1
-  body=$2
-  printf '%s\n' "$body" > "$PROBE"
-  # Captured first, then matched: under `pipefail` the guard's own non-zero
-  # exit would sink the pipeline even where grep found the line.
-  #
-  # Matched by message, not exit status: an untracked probe also trips the
-  # AGENTS.md check, which would let a dead regex pass for the wrong reason.
+  what=$2
   out=$(bash scripts/guard.sh 2>&1)
   if printf '%s\n' "$out" | grep -qF "GUARD FAILED: $want"; then
-    echo "  ok: $body"
+    echo "  ok: $what"
   else
-    echo "  MISSED: $body"
+    echo "  MISSED: $what"
     echo "        expected: $want"
     fail=1
   fi
+}
+
+expect() {
+  printf '%s\n' "$2" > "$PROBE"
+  reports "$1" "$2"
   rm -f "$PROBE"
 }
 
@@ -60,6 +68,12 @@ expect "$KEYS" "export const privateKey = ''"
 expect "$KEYS" "const seedPhrase = ''"
 expect "$KEYS" "const m = 'mnemonic'"
 expect "$KEYS" "import { createPrivateKey } from 'node:crypto'"
+
+echo "guard-test: a version bumped without its changelog section"
+awk '{print} /^## \[Unreleased\]$/ && !done {print ""; print "## [0.0.0-probe] - 1970-01-01"; done=1}' \
+  "$CHANGELOG_SAVED" > CHANGELOG.md
+reports "CHANGELOG.md's newest section is 0.0.0-probe" "a section naming another release"
+cp "$CHANGELOG_SAVED" CHANGELOG.md
 
 # The real tree has to stay clean, or the probes above prove nothing: every
 # venue's help links and field hints mention exactly these words in prose.

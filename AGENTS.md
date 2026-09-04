@@ -117,9 +117,10 @@ install.sh              # the published installer; served from the site, tested 
 scripts/
   guard.sh              # the SECURITY.md promises, enforced
   guard-test.sh         # plants a write path in src/ and expects guard.sh to name it
+  release-cut.sh        # bumps the version, dates the changelog, stops before the tag
   release-build.sh      # cross-compiles the four published targets
   install-test.sh       # runs install.sh against a fake release, under a curl shim
-  npm-pack.sh           # stages @tula/cli and its per-platform packages
+  npm-pack.sh           # stages @hsnice16/tula and its per-platform packages
   homebrew-formula.sh   # renders a formula from a built release
 src/
   index.ts              # command dispatch; catches TulaError for clean exits
@@ -641,10 +642,58 @@ before pasting keys tied to their net worth.
 - **Never document an install path that does not work yet.** A published command
   that fetches nothing is an impersonation surface, not a convenience.
 
-Setup a release needs once, outside this repo: an `hsnice16/homebrew-tap`
-repository with `HOMEBREW_TAP_TOKEN`, an `NPM_TOKEN`, the `PUBLISH_NPM` and
-`PUBLISH_HOMEBREW` variables set to `true`, GitHub Pages enabled for the
-repository, and optionally the `APPLE_*` signing secrets.
+### Before the first release
+
+None of this lives in the repository, and each missing piece fails a different
+channel at a different moment. The tap and the npm scope fail *after* the GitHub
+release is already public, while the site is telling people to use them.
+
+| What | Why it blocks | Check |
+|---|---|---|
+| `hsnice16/homebrew-tap` exists, public | the job pushes to it; users clone it anonymously | `gh repo view hsnice16/homebrew-tap` |
+| The npm token is `hsnice16`'s | the packages publish under that account's own scope | `npm whoami` |
+| `HOMEBREW_TAP_TOKEN`, `NPM_TOKEN` | pushing the formula, publishing | `gh secret list` |
+| `PUBLISH_HOMEBREW`, `PUBLISH_NPM` = `true` | both jobs are skipped without them | `gh variable list` |
+| GitHub Pages enabled | the site serves `install.sh` | `gh api repos/hsnice16/tula/pages` |
+| `APPLE_*` secrets | optional; without them macOS ships unsigned | `gh secret list` |
+
+Set each variable last, after its token exists: `true` without the token turns a
+skipped job into a failed one, and it fails after the GitHub release is public.
+
+The tap starts empty: the job creates `Formula/` and the first commit on `main`
+itself, so seeding it by hand is not a step.
+
+Packages publish under `@hsnice16` because `@tula` belongs to another account,
+as does the unscoped `tula`. Neither `npm org ls` nor `npm access list packages`
+would have told you: the first prints an empty table for a scope you are not in,
+and the second resolves the name as an account, so it succeeds for anybody's.
+The scope list on npm's token page is the answer — it offers only what you can
+publish to.
+
+npm publishes from a token, so account 2FA never gates CI. `auth-only` is
+therefore free — `npm profile enable-2fa auth-only` — and worth having: without
+it a password is enough to publish `@hsnice16/tula`, which is the one entrance this
+project's supply-chain argument would not cover.
+
+`gh` is also what verifies an attestation, so a maintainer who cannot run
+`gh attestation verify` cannot check the first release the way the install page
+tells everyone else to.
+
+### Cutting one
+
+`scripts/release-cut.sh` does every edit a release needs and stops before the
+tag, because the tag is the irreversible step and the only one worth taking by
+hand. Read the `[Unreleased]` section first: whatever stands there becomes the
+release's own section verbatim, prose included, and text written while nothing
+was tagged reads wrong the moment something is.
+
+```bash
+bun run release:cut 0.2.0   # bumps both version files, dates the changelog, runs the gate
+```
+
+Then commit, push, wait for CI on that commit, and push the tag — the script
+prints all four commands with the version filled in. A `workflow_dispatch` run
+with `publish` off first costs nothing and exercises everything but publishing.
 
 ## Pre-commit checks
 

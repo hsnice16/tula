@@ -23,8 +23,10 @@ mkdir -p "$OUT"
 
 # Reproducible archives: two builds of the same commit must produce the same
 # checksum, or a checksum that changed for no reason teaches people to ignore
-# checksums. macOS ships bsdtar, which spells ownership differently and has no
-# --mtime at all, so the timestamp is set on the staged files instead.
+# checksums. `gzip -n` is why this is not `-czf` — the gzip header stamps the
+# time otherwise, and that alone changes the checksum of an identical tree.
+# macOS ships bsdtar, which spells ownership differently and has no --mtime at
+# all, so the timestamp is set on the staged files instead.
 if tar --version 2>/dev/null | grep -qi gnu; then
   TAR_FLAGS=(--owner=0 --group=0 --numeric-owner)
 else
@@ -45,8 +47,8 @@ for entry in "${TARGETS[@]}"; do
   # Members are named explicitly rather than by recursing the directory, so
   # their order in the archive is fixed without needing GNU's --sort.
   touch -t 197001010000 "$stage/tula" "$stage/LICENSE"
-  tar "${TAR_FLAGS[@]}" -czf "$OUT/tula-v$VERSION-$name.tar.gz" \
-    -C "$stage" tula LICENSE
+  tar "${TAR_FLAGS[@]}" -cf - -C "$stage" tula LICENSE |
+    gzip -n >"$OUT/tula-v$VERSION-$name.tar.gz"
 done
 
 rm -rf "$OUT/stage"
