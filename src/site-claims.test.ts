@@ -66,6 +66,13 @@ const RETRACTED = [
   // retracted claim wearing different words.
   'and refuses rather than warns',
   'the installer verifies it and refuses on failure',
+  // The whole "tula: command not found" answer, addressed to the one channel
+  // that had not caused it: brew and npm run no install script and write no
+  // profile, and the reader of either was told their shell was merely stale.
+  'the install script has just written a line to a profile',
+  // Five lines follow the PATH note — the usage pair and the read-only notice —
+  // so the reader sent to the last line found the security URL, not their fix.
+  'its last line says which of the two you got',
 ] as const
 
 describe('the caveat travels with the claim', () => {
@@ -152,6 +159,42 @@ describe('the install page keeps its channels apart', () => {
   test('the page says so, and channel.ts is what makes it true', () => {
     expect(page).toContain('it does not install one at all')
     expect(flat('src/update/channel.ts')).toContain('if (!running.startsWith(tree + sep)) return null')
+  })
+
+  /**
+   * The confirm section is below the tabs, so it answers for whichever channel
+   * the reader took — and each of the three fails to be on PATH for a reason of
+   * its own. Every fix it names is held to the file that makes it true, because
+   * the wrong one sends somebody to edit a profile no channel of theirs wrote.
+   */
+  test('the not-found answer covers all three channels', () => {
+    // Only a versioned formula is keg_only, which is why brew needs the link
+    // step at all — and why the plain install needs no answer here.
+    expect(page).toContain('is <Code>keg_only</Code>')
+    expect(flat('scripts/homebrew-formula.sh')).toContain(
+      '*@*) PATH_RULE=" keg_only :versioned_formula" ;;',
+    )
+
+    // npm puts a launcher on PATH because the package declares one.
+    expect(page).toContain('npm prefix -g')
+    expect(JSON.parse(read('package.json')).bin).toHaveProperty('tula')
+
+    // A shell the installer does not edit falls through to the same note as
+    // TULA_NO_MODIFY_PATH, which is why the page names three outcomes, not four.
+    const installer = flat('install.sh')
+    expect(installer).toContain("*) printf '' ;;")
+
+    // The page quotes the notes verbatim so the reader can scan for one, which
+    // only works while these are the three the installer can print.
+    for (const note of ['added to', 'already in', 'add it yourself']) {
+      expect(installer).toContain(`PATH_NOTE="${note}`)
+      expect(page).toContain(`<Code>${note}</Code>`)
+    }
+
+    // "Near the end", never "the last line": the report goes on after it.
+    expect(installer.indexOf('[ -n "$PATH_NOTE" ]')).toBeLessThan(
+      installer.indexOf('tula --help every command'),
+    )
   })
 
   /**

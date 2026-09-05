@@ -32,6 +32,38 @@ const CHECKS = [
   ],
 ] as const
 
+/**
+ * "Not found" is one message with three different causes, and the section sits
+ * below the tabs where a reader of any channel lands on it. It used to answer
+ * for the install script alone — which is not the channel that leaves a binary
+ * unreachable on purpose. Homebrew is: a pinned formula is `keg_only`.
+ */
+const PATH_FIXES: [string, ReactNode][] = [
+  [
+    'Install script',
+    <>
+      Near the end it printed one of three. <Code>added to</Code> or <Code>already in</Code> means
+      the PATH line is in a profile already, and this shell started before it — open a new one.{' '}
+      <Code>add it yourself</Code> means it changed nothing, and the <Code>export</Code> line beside
+      it is yours to add.
+    </>,
+  ],
+  [
+    'Homebrew',
+    <>
+      A pinned <Code>tula@&lt;version&gt;</Code> is <Code>keg_only</Code>, so it is installed and
+      deliberately not on your PATH until you <Code>brew link</Code> it.
+    </>,
+  ],
+  [
+    'npm',
+    <>
+      Its launcher goes to npm&rsquo;s global bin directory, which has to be on your PATH.{' '}
+      <Code>npm prefix -g</Code> names the folder that <Code>bin</Code> sits in.
+    </>,
+  ],
+]
+
 const FLAGS = [
   ["--proto '=https'", 'Only HTTPS, on redirects too'],
   ['--tlsv1.2', 'Nothing older than TLS 1.2'],
@@ -289,9 +321,21 @@ export default function Page() {
       <div className="mb-step-3 max-w-[46rem]">
         <Command label="confirm">{'tula --version'}</Command>
         <p className="mt-4 text-dim">
-          It prints the version. If your shell says it cannot find tula, the install script has just
-          written a line to a profile this shell read before the line was there. Open a new one.
+          It prints the version. If your shell says it cannot find tula, it is on disk and your PATH
+          does not reach it — which line fixes that is the one thing the three channels do not
+          share.
         </p>
+        {/* Rows rather than the three columns the checks above take: the answers
+            are uneven, and side by side the longest sets the height of the two
+            beside it. */}
+        <dl className="mt-5 grid gap-x-7 gap-y-3 text-[0.9rem] sm:grid-cols-[auto_1fr]">
+          {PATH_FIXES.map(([channel, fix]) => (
+            <div key={channel} className="contents">
+              <dt className="font-semibold text-ink">{channel}</dt>
+              <dd className="text-dim">{fix}</dd>
+            </div>
+          ))}
+        </dl>
       </div>
 
       <p className="label mb-8">Every install is checked</p>
