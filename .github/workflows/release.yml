@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: 'Publish for real. Off = dry run: build, sign, verify, attest, publish nothing.'
+        description: 'Publish for real. Off = dry run: build, sign and verify only, publishing nothing.'
         type: boolean
         default: false
       promote_stable:
@@ -169,7 +169,16 @@ jobs:
       # Signed by GitHub's workflow identity through sigstore: keyless, so there
       # is no signing key for this project to generate, publish, rotate or lose.
       # The subjects are the archives, which is what install.sh verifies.
+      #
+      # Gated with the publish steps, not run alongside them. An attestation is
+      # a public transparency-log entry, and `install.sh` accepts any archive
+      # carrying one for this repository — so attesting on a dry run mints proof
+      # that a build from an arbitrary branch was built by hsnice16/tula, which
+      # is indistinguishable from a released one at the only place anybody
+      # checks. The cost is that a dry run no longer exercises this step; the
+      # first real tag does, before any channel points at it.
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        if: steps.version.outputs.publish == 'true'
         with:
           subject-path: 'dist/release/*.tar.gz'
 
@@ -294,6 +303,12 @@ jobs:
           # Every release moves the rolling channel.
           bash scripts/homebrew-formula.sh dist/release tula-latest \
             >tap/Formula/tula-latest.rb
+
+          # And leaves a pinned name behind it. A formula holds one version, so
+          # this file is the only way back to this build once the channels have
+          # moved past it — the tap keeps them all, the way ~/.tula/versions does.
+          bash scripts/homebrew-formula.sh dist/release "tula@$VERSION" \
+            >"tap/Formula/tula@$VERSION.rb"
 
           # Stable lags deliberately: a plain tag promotes, a pre-release never
           # does, and a build discovered to be wrong is skipped by promoting the

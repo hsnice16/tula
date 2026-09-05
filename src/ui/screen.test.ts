@@ -39,8 +39,13 @@ let sandbox = ''
 beforeAll(async () => {
   sandbox = await mkdtemp(join(tmpdir(), 'tula-ui-'))
   process.env['TULA_CONFIG_DIR'] = sandbox
+  // The app looks for a newer release on mount. These tests are about what the
+  // terminal draws, and a live request to GitHub inside them is a suite that
+  // fails on a plane and reaches a third party to assert on a grid of cells.
+  process.env['TULA_NO_UPDATE_CHECK'] = '1'
 })
 afterAll(async () => {
+  delete process.env['TULA_NO_UPDATE_CHECK']
   await rm(sandbox, { recursive: true, force: true })
 })
 

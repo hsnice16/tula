@@ -47,3 +47,19 @@ export function Terminal({ title, children }: { title: string; children: string 
     </Frame>
   )
 }
+
+/**
+ * One line you would paste, in a plain box. The third size, between `Code` in a
+ * sentence and `Terminal`: window chrome says "this is the tool talking", and
+ * around a single `rm` it is furniture standing where the command should be.
+ */
+export function Command({ label, children }: { label: string; children: string }) {
+  return (
+    <div className="flex items-center gap-4 rounded-[5px] border border-rule bg-panel py-3 pl-4 pr-3">
+      <code className="min-w-0 flex-1 overflow-x-auto whitespace-pre font-mono text-[0.8rem] text-ink">
+        {children}
+      </code>
+      <Copy text={children} label={label} />
+    </div>
+  )
+}

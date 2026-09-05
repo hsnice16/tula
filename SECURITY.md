@@ -101,8 +101,19 @@ Everything tula contacts, and nothing else:
   among them, by construction. Every command works without a model and sends
   nothing to Anthropic; if you never ask a question, tula never talks to it.
 
-No telemetry, no crash reporting, no update check. The installer contacts GitHub;
-the binary never does.
+- **GitHub, to see whether there is a newer release.** Once a day at most, and
+  only in the interactive shell. It is a GET of the public
+  `/releases/latest` page, carrying nothing about you — not your version, not an
+  identifier, no query string — so what GitHub sees is what it sees from anyone
+  opening that page. `TULA_NO_UPDATE_CHECK=1` stops it. Nothing is ever
+  installed by that check: it prints a line, and `/update install` is a separate
+  thing you type. Typing it fetches the release archive and `checksums.txt` from
+  the same repository, and nothing else. That is the only other request, and
+  only when you ask for it.
+
+No telemetry and no crash reporting. The update check is the only request the
+binary makes that is not about your positions, and it is the only one that
+reports nothing.
 
 ## Verifying a release
 
@@ -115,9 +126,10 @@ gh attestation verify tula-v0.1.0-darwin-arm64.tar.gz --repo hsnice16/tula
 ```
 
 The subject is the archive, not the binary inside it, so verify the `.tar.gz`
-rather than an installed `tula`. Homebrew downloads that same archive; npm
-repackages the binary into its own tarball, which carries no attestation of its
-own — use the install script or Homebrew where provenance has to be proven.
+rather than an installed `tula`. Homebrew downloads that same archive. npm
+repackages the binary into a tarball of its own, which this attestation does not
+cover: that channel is published with `npm publish --provenance` and is checked
+with `npm audit signatures` instead.
 
 The installer runs this automatically when the GitHub CLI is present and signed
 in, and refuses to install on failure. Without either, it still verifies the

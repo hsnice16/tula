@@ -86,6 +86,20 @@ describe('the store', () => {
     expect(secrets.listVenues()).rejects.toThrow(/anyone on this machine can write/)
   })
 
+  // The refusal used to arrive only on a read. `load()` returns early when the
+  // file does not exist, so the very first connect on a machine whose config
+  // directory was already loose wrote the key into it and reported success —
+  // and the store then locked the owner out of a secret already sitting there
+  // for anyone to replace. The first write is the one that has to refuse.
+  test('a config directory anyone can write to is refused before the first write', async () => {
+    await chmod(dir, 0o777)
+    expect(secrets.put('kraken', { apiKey: 'k', apiSecret: 's' })).rejects.toThrow(
+      /anyone on this machine can write/,
+    )
+    await chmod(dir, 0o700)
+    expect(await readdir(dir)).toEqual([])
+  })
+
   // 755 leaves nothing to read and nothing to substitute, and is what a
   // hand-made ~/.config/tula usually ends up as. Refusing it would be noise.
   test('a merely readable config directory is allowed', async () => {

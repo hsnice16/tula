@@ -30,6 +30,7 @@ Never point a scratch run at your real credential store:
 
 ```bash
 export TULA_CONFIG_DIR=/tmp/tula-try
+export TULA_INSTALL_DIR=/tmp/tula-try-install  # /update install writes here, not ~/.tula
 ```
 
 Wallet, Hyperliquid and Aave read from a public address, so you can exercise the

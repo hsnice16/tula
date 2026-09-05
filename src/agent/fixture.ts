@@ -41,7 +41,6 @@ export const fixtureEngine: RiskEngine = {
   exposures: () => netExposure(FIXTURE_POSITIONS, PRICES),
   breaks: () => whatBreaksFirst(FIXTURE_POSITIONS, PRICES),
   scenario: (shocks: Shock[]) => scenario(FIXTURE_POSITIONS, PRICES, shocks),
-  priceOf: (asset: string) => PRICES.get(asset),
   venues: () => [
     { venue: 'cex', positions: 2, asOf: FIXTURE_TIME, status: 'ok' },
     { venue: 'perp', positions: 1, asOf: FIXTURE_TIME, status: 'ok' },

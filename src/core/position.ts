@@ -26,7 +26,6 @@ export interface LiquidationParams {
   price?: Decimal
   /** Aave convention: below 1 the position is liquidatable. */
   healthFactor?: Decimal
-  marginRatio?: Decimal
   leverage?: Decimal
 }
 

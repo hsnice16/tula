@@ -1,6 +1,6 @@
 # 09 · Prompt injection defence
 
-**Status**: planned
+**Status**: in_progress
 
 ## Goal
 
@@ -14,8 +14,8 @@ adding a third source means bounding it and listing it in `SECURITY.md`.
 
 Already in place:
 
-- Both are capped and stripped of control characters where all seven connectors
-  arrive, in `src/cli/session.ts`, and covered by hostile-input tests there and
+- Both are capped and stripped of control characters where every connector
+  arrives, in `src/cli/session.ts`, and covered by hostile-input tests there and
   in `src/connectors/evm.test.ts`.
 - No tool takes a URL or a call target at all, so exfiltration through a crafted
   one is impossible by construction rather than by instruction.

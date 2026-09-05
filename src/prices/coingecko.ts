@@ -21,8 +21,7 @@ const UNITY = new Set(['USD', 'USDD'])
 /**
  * Symbols are not unique: several coins share one ticker. The list is fetched in
  * market-cap order and the first match wins, so a ticker resolves to the largest
- * coin using it — the one a trader means. In the top 500 exactly six tickers are
- * contested, and in every case the intended coin is the larger.
+ * coin using it — the one a trader means.
  *
  * These overrides exist for the assets where a wrong price would be most costly,
  * so they never depend on that ordering holding.

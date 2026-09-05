@@ -14,7 +14,12 @@ import { TulaError } from './errors.js'
  */
 export const REQUEST_TIMEOUT_MS = 15_000
 
-const host = (url: string): string => {
+/**
+ * Errors are printed and sent to the model, and a URL somebody set themselves
+ * carries their key in the path — Alchemy and Infura both put it there. The
+ * host names the thing that failed without carrying the credential to reach it.
+ */
+export const host = (url: string): string => {
   try {
     return new URL(url).host
   } catch {
@@ -22,13 +27,25 @@ const host = (url: string): string => {
   }
 }
 
-const tooSlow = (url: string): TulaError =>
+const tooSlow = (url: string, timeoutMs: number = REQUEST_TIMEOUT_MS): TulaError =>
   new TulaError(
-    `${host(url)} did not answer within ${REQUEST_TIMEOUT_MS / 1000}s.\n` +
+    `${host(url)} did not answer within ${timeoutMs / 1000}s.\n` +
       '  It may be rate-limiting you, or down. Try /refresh in a moment.',
   )
 
-export async function request(url: string, init: RequestInit = {}): Promise<Response> {
+/**
+ * A release archive is tens of megabytes, and 15s of it is an ordinary slow
+ * connection rather than a venue that has stopped answering. Kept here beside
+ * the poll deadline so the two are read together and neither is a bare number
+ * at its call site.
+ */
+export const DOWNLOAD_TIMEOUT_MS = 300_000
+
+export async function request(
+  url: string,
+  init: RequestInit = {},
+  timeoutMs: number = REQUEST_TIMEOUT_MS,
+): Promise<Response> {
   // Raced against a timer rather than left to the signal alone. `AbortSignal`
   // bounds the wait for a *response*, not the wait for a connection: measured
   // against a black-holed address, a 3s signal took 75s to fire because the OS
@@ -37,12 +54,12 @@ export async function request(url: string, init: RequestInit = {}): Promise<Resp
   // still goes along to release the socket once the connection does resolve.
   let timer: ReturnType<typeof setTimeout> | undefined
   const deadline = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(tooSlow(url)), REQUEST_TIMEOUT_MS)
+    timer = setTimeout(() => reject(tooSlow(url, timeoutMs)), timeoutMs)
   })
 
   try {
     return await Promise.race([
-      fetch(url, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) }),
+      fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) }),
       deadline,
     ])
   } catch (err) {
@@ -50,7 +67,7 @@ export async function request(url: string, init: RequestInit = {}): Promise<Resp
     // operation was aborted`, which says nothing about which venue stopped
     // answering, or that waiting longer would not have helped.
     if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
-      throw tooSlow(url)
+      throw tooSlow(url, timeoutMs)
     }
     throw err
   } finally {

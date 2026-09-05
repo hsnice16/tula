@@ -11,7 +11,7 @@ import {
   words,
 } from './evm.js'
 import type { Connector, ConnectorCredentials, KeyScope } from './types.js'
-import { request } from '../core/http.js'
+import { host, request } from '../core/http.js'
 
 export const WALLET: Venue = { id: 'wallet', kind: 'wallet', name: 'Wallet (Ethereum)' }
 
@@ -72,7 +72,7 @@ async function loadTokens(): Promise<TokenEntry[]> {
   const res = await request(TOKEN_LIST, { headers: { 'User-Agent': 'tula' } })
   if (!res.ok) {
     throw new TulaError(
-      `The token list at ${TOKEN_LIST} returned HTTP ${res.status}.\n` +
+      `The token list at ${host(TOKEN_LIST)} returned HTTP ${res.status}.\n` +
         '  Wallet balances need it to know which ERC-20s to ask about.\n' +
         '  Set TULA_TOKEN_LIST to another Token Lists URL, or retry with /refresh.',
     )

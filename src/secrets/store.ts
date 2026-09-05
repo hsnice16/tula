@@ -1,9 +1,9 @@
 import type { Stats } from 'node:fs'
 import { chmod, lstat, mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises'
-import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { ConnectorCredentials } from '../connectors/types.js'
 import { TulaError } from '../core/errors.js'
+import { configDir } from '../core/paths.js'
 
 /**
  * Nothing in this module may be reachable from the agent tool layer. Connectors
@@ -19,9 +19,6 @@ import { TulaError } from '../core/errors.js'
 
 const REQUIRED_MODE = 0o600
 
-// Resolved per call, not at import: tests and scratch runs redirect the store
-// with TULA_CONFIG_DIR, and a module-load constant would freeze the real path.
-const configDir = (): string => process.env['TULA_CONFIG_DIR'] ?? join(homedir(), '.config', 'tula')
 const credentialsPath = (): string => join(configDir(), 'credentials.json')
 
 type Store = Record<string, ConnectorCredentials>
@@ -81,13 +78,25 @@ async function load(): Promise<Store> {
   const mode = info.mode & 0o777
   if (mode !== REQUIRED_MODE) throw new PermissionsTooOpenError(path, mode)
 
-  // A file only you can read, in a directory anyone can write to, is a file
-  // anyone can replace. Write is the permission that matters — 755 leaves the
-  // contents unreadable and nothing to substitute, so it is not refused.
-  const dirMode = (await stat(configDir())).mode & 0o777
-  if (dirMode & 0o022) throw new DirectoryTooOpenError(configDir(), dirMode)
+  await refuseOpenDirectory()
 
   return JSON.parse(await readFile(path, 'utf8')) as Store
+}
+
+/**
+ * A file only you can read, in a directory anyone can write to, is a file
+ * anyone can replace. Write is the permission that matters — 755 leaves the
+ * contents unreadable and nothing to substitute, so it is not refused.
+ *
+ * Checked before a write as well as before a read. `load()` returns early on
+ * ENOENT, so the first `connect` on a machine whose config directory was
+ * already loose used to save the key into it and report success — the refusal
+ * arrived on the next read, with the credential already on disk.
+ */
+async function refuseOpenDirectory(): Promise<void> {
+  const dir = configDir()
+  const dirMode = (await stat(dir)).mode & 0o777
+  if (dirMode & 0o022) throw new DirectoryTooOpenError(dir, dirMode)
 }
 
 /**
@@ -98,6 +107,7 @@ async function load(): Promise<Store> {
 async function save(store: Store): Promise<void> {
   const path = credentialsPath()
   await mkdir(configDir(), { recursive: true, mode: 0o700 })
+  await refuseOpenDirectory()
   const temp = `${path}.${process.pid}.tmp`
   // writeFile's mode applies only when it creates the file; chmod covers the
   // case where a previous run left one behind.

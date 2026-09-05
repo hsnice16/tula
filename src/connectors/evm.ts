@@ -1,5 +1,5 @@
 import { TulaError } from '../core/errors.js'
-import { request } from '../core/http.js'
+import { host, request } from '../core/http.js'
 
 export const ADDRESS = /^0x[0-9a-fA-F]{40}$/
 
@@ -84,7 +84,7 @@ export async function ethCallBatch(
       headers: { 'Content-Type': 'application/json', 'User-Agent': 'tula' },
       body: JSON.stringify(body),
     })
-    if (!res.ok) throw new TulaError(`RPC ${rpcUrl} returned HTTP ${res.status}.`)
+    if (!res.ok) throw new TulaError(`The Ethereum node at ${host(rpcUrl)} returned HTTP ${res.status}.`)
 
     const parsed = (await res.json()) as RpcResponse[] | RpcResponse
     const rows = Array.isArray(parsed) ? parsed : [parsed]
@@ -110,8 +110,8 @@ export async function ethGetBalance(rpcUrl: string, address: string): Promise<bi
     headers: { 'Content-Type': 'application/json', 'User-Agent': 'tula' },
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getBalance', params: [address, 'latest'] }),
   })
-  if (!res.ok) throw new TulaError(`RPC ${rpcUrl} returned HTTP ${res.status}.`)
+  if (!res.ok) throw new TulaError(`The Ethereum node at ${host(rpcUrl)} returned HTTP ${res.status}.`)
   const parsed = (await res.json()) as { result?: string; error?: { message: string } }
-  if (parsed.error) throw new TulaError(`RPC ${rpcUrl}: ${parsed.error.message}`)
+  if (parsed.error) throw new TulaError(`The Ethereum node at ${host(rpcUrl)} refused the call: ${parsed.error.message}`)
   return parsed.result ? BigInt(parsed.result) : 0n
 }

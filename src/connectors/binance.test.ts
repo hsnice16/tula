@@ -98,8 +98,51 @@ describe('binance positions', () => {
   })
 
   test('a spot-only key is not reported as a broken venue', async () => {
-    stub({ '/api/v3/account': SPOT })
+    // -2015 is what Binance answers a key that may not read futures.
+    globalThis.fetch = (async (url: string) => {
+      const spot = String(url).includes('/api/v3/account')
+      return new Response(
+        JSON.stringify(spot ? SPOT : { code: -2015, msg: 'Invalid API-key, IP, or permissions' }),
+        { status: spot ? 200 : 401 },
+      )
+    }) as unknown as typeof fetch
     const positions = await binanceConnector.fetchPositions(CREDS)
     expect(positions).toHaveLength(1)
+  })
+
+  // The catch above this exists for the permission-less key, and used to take
+  // everything: a futures leg that timed out or answered 5xx loaded the account
+  // as spot-only with no failure to report, which is a book with open perps in
+  // it answering "nothing can be liquidated".
+  test('a futures leg that fails for any other reason is not silently dropped', async () => {
+    globalThis.fetch = (async (url: string) => {
+      if (String(url).includes('/api/v3/account')) {
+        return new Response(JSON.stringify(SPOT), { status: 200 })
+      }
+      throw new TypeError('fetch failed')
+    }) as unknown as typeof fetch
+    expect(binanceConnector.fetchPositions(CREDS)).rejects.toThrow(/fetch failed/)
+  })
+
+  // Both shapes a bad gateway takes: an HTML page, which is not JSON at all, and
+  // a JSON envelope carrying no Binance code. Neither is a permission answer.
+  test('a 5xx error page from the futures host is not read as a spot-only account', async () => {
+    globalThis.fetch = (async (url: string) => {
+      const spot = String(url).includes('/api/v3/account')
+      return new Response(spot ? JSON.stringify(SPOT) : '<html>bad gateway</html>', {
+        status: spot ? 200 : 502,
+      })
+    }) as unknown as typeof fetch
+    expect(binanceConnector.fetchPositions(CREDS)).rejects.toThrow(/HTTP 502/)
+  })
+
+  test('a 5xx with a JSON body from the futures host is not read as spot-only', async () => {
+    globalThis.fetch = (async (url: string) => {
+      const spot = String(url).includes('/api/v3/account')
+      return new Response(JSON.stringify(spot ? SPOT : { msg: 'Service unavailable' }), {
+        status: spot ? 200 : 503,
+      })
+    }) as unknown as typeof fetch
+    expect(binanceConnector.fetchPositions(CREDS)).rejects.toThrow(/Service unavailable/)
   })
 })

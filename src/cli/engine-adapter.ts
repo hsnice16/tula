@@ -12,7 +12,6 @@ export function riskEngineFor(session: Session): RiskEngine {
     exposures: () => session.exposures(),
     breaks: () => whatBreaksFirst(session.current.positions, session.current.prices),
     scenario: (shocks: Shock[]) => scenario(session.current.positions, session.current.prices, shocks),
-    priceOf: (asset: string) => session.current.prices.get(asset),
 
     venues: (): VenueStatus[] => {
       const { positions, failures } = session.current

@@ -10,7 +10,21 @@ const FUTURES = 'https://fapi.binance.com'
 
 export const BINANCE: Venue = { id: 'binance', kind: 'cex', name: 'Binance' }
 
-export class BinanceApiError extends TulaError {}
+export class BinanceApiError extends TulaError {
+  /** Binance's own code, where it sent one. Absent for a non-JSON error page. */
+  readonly code: number | undefined
+  constructor(message: string, code?: number) {
+    super(message)
+    this.code = code
+  }
+}
+
+/**
+ * The codes Binance answers a key that is not allowed to read futures with.
+ * Only these are treated as "spot-only account": anything else is a venue that
+ * failed, and a venue that failed has to be named rather than netted to zero.
+ */
+const NO_PERMISSION = new Set([-2015, -2014, -1002])
 
 /** Query-string HMAC, unlike Kraken's payload digest. */
 export function sign(query: string, secret: string): string {
@@ -37,9 +51,18 @@ async function signedGet<T>(
     headers: { 'X-MBX-APIKEY': key, 'User-Agent': 'tula' },
   })
 
-  const body = (await res.json()) as { code?: number; msg?: string } & T
+  // Parsed defensively: a gateway between here and Binance answers 5xx with an
+  // HTML page, and reading that as JSON threw a SyntaxError past every handler
+  // that knows what a Binance failure looks like.
+  let body: ({ code?: number; msg?: string } & T) | null = null
+  try {
+    body = (await res.json()) as { code?: number; msg?: string } & T
+  } catch {
+    body = null
+  }
+  if (body === null) throw new BinanceApiError(`Binance: HTTP ${res.status}`)
   if (!res.ok || typeof body.code === 'number') {
-    throw new BinanceApiError(`Binance: ${body.msg ?? `HTTP ${res.status}`}`)
+    throw new BinanceApiError(`Binance: ${body.msg ?? `HTTP ${res.status}`}`, body.code)
   }
   return body
 }
@@ -111,11 +134,15 @@ export const binanceConnector: Connector = {
 
     // A key without futures permission cannot read futures either, and that is
     // not a failure — it is a spot-only account, so the absence is not reported
-    // as a broken venue.
+    // as a broken venue. Only that, and only when Binance said so by code: the
+    // catch used to take everything, so a timeout or a 5xx loaded the account
+    // with spot balances and no INCOMPLETE — a book with open perps in it
+    // answering "nothing can be liquidated".
     let futures: FuturesPosition[] = []
     try {
       futures = await signedGet<FuturesPosition[]>(FUTURES, '/fapi/v2/positionRisk', creds)
-    } catch {
+    } catch (err) {
+      if (!(err instanceof BinanceApiError) || !NO_PERMISSION.has(err.code ?? 0)) throw err
       futures = []
     }
 

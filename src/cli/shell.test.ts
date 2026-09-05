@@ -196,6 +196,67 @@ describe('dispatchCommand', () => {
     expect(connected.output).toContain('/refresh')
   })
 
+  // Both used to compute over the empty book and answer from it: /breaks said
+  // nothing could be liquidated, /shock priced a $0.00 book and said nothing
+  // liquidated at that level. Reassurance about a book nobody read is the one
+  // wrong answer this tool must never give.
+  test('breaks and shock refuse to answer for a book with no venue in it', async () => {
+    const nothing = new Session(CONNECTORS, oracle)
+    process.env['TULA_CONFIG_DIR'] = await mkdtemp(join(tmpdir(), 'tula-test-'))
+    for (const line of ['/breaks', '/shock ETH -20']) {
+      const result = await dispatchCommand(nothing, CONNECTORS, parseCommand(line)!)
+      if (result.kind !== 'output') throw new Error('expected output')
+      expect(result.output).toContain('No venue is connected')
+      expect(result.output).not.toContain('Nothing here can be liquidated')
+      expect(result.output).not.toContain('Nothing liquidates at this level')
+      expect(result.output).not.toContain('$0.00')
+    }
+  })
+
+  // A venue that is connected and holds only spot is the case the old message
+  // was written for, and it still has to say it.
+  test('breaks still says so when a connected book has nothing to liquidate', async () => {
+    session = await freshSession('emptyvenue')
+    await secrets.put('spotonly', { apiKey: 'k' })
+    const spotOnly: Connector = {
+      ...testConnector,
+      venue: { id: 'spotonly', kind: 'cex', name: 'Spot Only' },
+      async fetchPositions(): Promise<Position[]> {
+        return [testPosition('spotonly', 'spot', 'ETH', '2')]
+      },
+    }
+    const connectors = new Map<string, Connector>([['spotonly', spotOnly]])
+    const only = new Session(connectors, oracle)
+    const result = await dispatchCommand(only, connectors, parseCommand('/breaks')!)
+    if (result.kind !== 'output') throw new Error('expected output')
+    expect(result.output).toContain('Nothing here can be liquidated')
+  })
+
+  // The per-venue commands used to drop the failure the top-level ones carry:
+  // a lending venue nobody could reach answered "Nothing at aave can be
+  // liquidated" and exited 0, which is a script's definition of safe.
+  test('a venue that failed is never reported as having nothing to liquidate', async () => {
+    const brokenConnector: Connector = {
+      ...testConnector,
+      venue: { id: 'brokenvenue', kind: 'lending', name: 'Broken Venue' },
+      async fetchPositions(): Promise<Position[]> {
+        throw new Error('the node refused the call')
+      },
+    }
+    const connectors = new Map<string, Connector>([['brokenvenue', brokenConnector]])
+    process.env['TULA_CONFIG_DIR'] = await mkdtemp(join(tmpdir(), 'tula-test-'))
+    await secrets.put('brokenvenue', { apiKey: 'k' })
+    const broken = new Session(connectors, oracle)
+
+    for (const line of ['/brokenvenue breaks', '/brokenvenue positions']) {
+      const entries: VenueEntry[] = [{ id: 'brokenvenue', connected: true, detail: 'FAILED' }]
+      const result = await dispatchCommand(broken, connectors, parseCommand(line)!, entries)
+      if (result.kind !== 'output') throw new Error('expected output')
+      expect(result.output).toContain('INCOMPLETE')
+      expect(result.incomplete).toBe(true)
+    }
+  })
+
   test('about states what tula cannot do, not only what it does', async () => {
     const result = await run('/about')
     if (result.kind !== 'output') throw new Error('expected output')
@@ -409,6 +470,21 @@ describe('menus', () => {
   test('venue subcommands hide what needs a connection', () => {
     expect(matchVenueSubcommands('', false).map((c) => c.name)).toEqual(['connect', 'docs'])
     expect(matchVenueSubcommands('', true).map((c) => c.name)).toContain('positions')
+  })
+
+  // A tool that asks a wallet for a key is the shape of a phishing page, and
+  // this row is where somebody meets that question first.
+  test('an address-only venue is never offered a key in the menu', () => {
+    const keyed = matchVenueSubcommands('', true, false)
+    const address = matchVenueSubcommands('', true, true)
+    expect(keyed.find((c) => c.name === 'connect')?.summary).toContain('read-only key')
+    expect(address.find((c) => c.name === 'connect')?.summary).toContain('public address')
+    expect(address.find((c) => c.name === 'connect')?.summary).not.toContain('key')
+    expect(address.find((c) => c.name === 'disconnect')?.summary).not.toContain('credential')
+    // Everything that is not about a credential reads the same either way.
+    expect(address.find((c) => c.name === 'breaks')?.summary).toBe(
+      keyed.find((c) => c.name === 'breaks')?.summary,
+    )
   })
 
   test('a bare venue name defaults to connect, then to status', () => {

@@ -1,5 +1,6 @@
 import type { Connector } from '../connectors/types.js'
 import * as secrets from '../secrets/store.js'
+import { update } from '../update/command.js'
 import * as commands from './commands.js'
 import {
   buildOracle,
@@ -29,7 +30,7 @@ export type DispatchResult =
   | { kind: 'connect'; venue: string }
   | { kind: 'connect-price'; provider: string }
 
-export { parseCommand, type ParsedCommand }
+export { parseCommand }
 
 async function dispatchVenue(
   session: Session,
@@ -229,6 +230,11 @@ export async function dispatchCommand(
 
     case 'about':
       return { kind: 'output', ...(await commands.about(connectors)) }
+
+    case 'update': {
+      const { output, failed } = await update(args)
+      return failed ? { kind: 'output', output, usageError: true } : { kind: 'output', output }
+    }
 
     case 'help': {
       const stored = await secrets.getPriceSource()

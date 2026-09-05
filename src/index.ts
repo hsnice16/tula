@@ -161,7 +161,12 @@ async function main(): Promise<void> {
   }
   // Without the stored venues, every `/<venue> <sub>` reports "not connected".
   const storedVenues = await secrets.listVenues()
-  const venueEntries = storedVenues.map((id) => ({ id, connected: true, detail: '' }))
+  const venueEntries = storedVenues.map((id) => ({
+    id,
+    connected: true,
+    addressOnly: !CONNECTORS.get(id)?.fields.some((f) => f.secret),
+    detail: '',
+  }))
   const result = await dispatchCommand(session, CONNECTORS, { ...parsed, args }, venueEntries)
   if (result.kind === 'connect') {
     await connect(result.venue)

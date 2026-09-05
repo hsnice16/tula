@@ -17,8 +17,6 @@ export interface SlashCommand {
   args?: string
   summary: string
   group?: CommandGroup
-  /** Handled by the UI rather than the query layer. */
-  ui?: boolean
   /** Runnable, but kept out of the menu. */
   hidden?: boolean
   /** A connected venue rather than a fixed command. */
@@ -74,11 +72,30 @@ export function matchPriceSubcommands(
   )
 }
 
-export function matchVenueSubcommands(fragment: string, connected: boolean): VenueSubcommand[] {
+/**
+ * A venue read from a public address holds no credential, so offering it
+ * "add or replace this venue's read-only key" is
+ * the sentence `src/index.ts` already suppresses at the prompt itself — and the
+ * one a reader is least able to shrug off, since a tool that asks a wallet for
+ * a key is the shape of a phishing page.
+ */
+const ADDRESS_ONLY_SUMMARY: Readonly<Record<string, string>> = {
+  connect: 'Add or replace this venue’s public address',
+  disconnect: 'Forget this venue’s address',
+}
+
+export function matchVenueSubcommands(
+  fragment: string,
+  connected: boolean,
+  addressOnly = false,
+): VenueSubcommand[] {
   const needle = fragment.toLowerCase()
   return VENUE_SUBCOMMANDS.filter(
     (c) => (connected || !c.needsConnection) && c.name.startsWith(needle),
-  )
+  ).map((c) => {
+    const summary = addressOnly ? ADDRESS_ONLY_SUMMARY[c.name] : undefined
+    return summary ? { ...c, summary } : c
+  })
 }
 
 /** The sub to run when the user names a venue and nothing else. */
@@ -109,6 +126,8 @@ export interface VenueEntry {
   /** Position count and freshness, the failure, or "not connected". */
   detail: string
   connected: boolean
+  /** Read from a public address, so nothing about it is a key. */
+  addressOnly?: boolean
 }
 
 /**
@@ -122,16 +141,17 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
   { name: 'shock', group: 'risk', args: '<asset> <percent>', summary: 'Reprice everything and see what survives' },
 
   { name: 'about', group: 'session', summary: 'What tula is, what it will not do, and where your keys live' },
-  { name: 'clear', group: 'session', summary: 'Clear the screen', ui: true },
-  { name: 'exit', group: 'session', summary: 'Leave tula', ui: true },
-  { name: 'help', group: 'session', summary: 'Show this list', ui: true },
-  { name: 'login', group: 'session', summary: 'See or change how you sign in to Anthropic', ui: true },
+  { name: 'clear', group: 'session', summary: 'Clear the screen' },
+  { name: 'exit', group: 'session', summary: 'Leave tula' },
+  { name: 'help', group: 'session', summary: 'Show this list' },
+  { name: 'login', group: 'session', summary: 'See or change how you sign in to Anthropic' },
   { name: 'refresh', group: 'session', summary: 'Refetch from every venue now' },
+  { name: 'update', group: 'session', args: '[install]', summary: 'Check for a newer release, and switch to it' },
 
   // Runnable, out of the menu. `/venues` is what the menu already shows, and
   // `/forget` is the recovery path session.ts names when a stored venue is not
   // in this build — an error that points at a command it must still be able to run.
-  { name: 'connect', args: '<venue>', summary: 'Connect a venue with a read-only key', hidden: true },
+  { name: 'connect', args: '<venue>', summary: 'Connect a venue — a public address, or a read-only key', hidden: true },
   { name: 'venues', summary: 'Connected venues, freshness, failures', hidden: true },
   { name: 'forget', args: '<venue>', summary: 'Remove a stored venue', hidden: true },
 ]
@@ -282,7 +302,7 @@ export function buildPalette(
     const venue = c.venue ? venues.find((v) => v.id === c.name) : undefined
     const price = c.price ? prices.find((p) => p.id === c.name) : undefined
     const subs = venue
-      ? matchVenueSubcommands('', venue.connected)
+      ? matchVenueSubcommands('', venue.connected, venue.addressOnly ?? false)
       : price
         ? matchPriceSubcommands('', price)
         : []

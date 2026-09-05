@@ -72,7 +72,7 @@ const MENU: readonly Row[] = [
 ]
 
 /** What the menu has below its window, which is what the binary counts there. */
-const MENU_REST = 14
+const MENU_REST = 15
 
 /**
  * The palette while nothing is typed: the same commands, plus every
@@ -95,10 +95,10 @@ const BROWSE: readonly Row[] = [
 ]
 
 /** Matches below the window, counted in matches rather than rows, as the dialog does. */
-const BROWSE_BELOW = 59
+const BROWSE_BELOW = 60
 
 /** Rows the whole browse list draws as — the headings and the blanks included. */
-const BROWSE_ROWS = 75
+const BROWSE_ROWS = 76
 
 /**
  * The same palette once `brea` is typed: ranked and flat, headings dropped. Four

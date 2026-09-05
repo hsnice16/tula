@@ -150,5 +150,6 @@ Then, once CI is green on that commit:
   git push origin v$VERSION
 
 A dry run first costs nothing: run the Release workflow from the Actions tab
-with publish off. It builds, signs, attests and uploads, and publishes nothing.
+with publish off. It builds, signs and verifies, and publishes nothing at all —
+the attestation is minted only for a real release.
 NEXT

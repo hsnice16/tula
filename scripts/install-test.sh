@@ -254,6 +254,16 @@ case "$out" in
   *"TULA_VERSION=0."*) bad "suggests pinning a version that does not exist either" "$out" ;;
 esac
 
+# `latest` is a word here, not a version number to download. See AGENTS.md.
+H="$WORK/h-latest"
+mkdir -p "$H"
+out=$(run "$H" env TULA_VERSION=latest)
+if [ -x "$H/.tula/versions/9.9.9/tula" ]; then
+  ok "TULA_VERSION=latest resolves the newest release rather than downloading it"
+else
+  bad "TULA_VERSION=latest resolves the newest release rather than downloading it" "$out"
+fi
+
 H="$WORK/h9"
 mkdir -p "$H"
 out=$(run "$H" env TULA_VERSION=0.0.1)
@@ -261,6 +271,18 @@ if [ ! -e "$H/.tula/bin/tula" ] && case "$out" in *"No build of 0.0.1"*) true ;;
   ok "names the problem when a version has no build"
 else
   bad "names the problem when a version has no build" "$out"
+fi
+
+# curl resolves dot-segments in a path, so a version carrying `../` walks the
+# download base out of this repository. checksums.txt comes from that same base,
+# so the archive would be checked against the list that shipped with it.
+H="$WORK/h9b"
+mkdir -p "$H"
+out=$(run "$H" env TULA_VERSION='../../../attacker/evil/releases/download/v9.9.9')
+if [ ! -e "$H/.tula/bin/tula" ] && case "$out" in *"is not a version number"*) true ;; *) false ;; esac; then
+  ok "refuses a version that would walk the download onto another repository"
+else
+  bad "refuses a version that would walk the download onto another repository" "$out"
 fi
 
 # PATH advice is the difference between "installed" and "works".
@@ -271,6 +293,22 @@ if grep -qs 'tula/bin' "$H/.zshrc" && case "$out" in *".zshrc"*) true ;; *) fals
   ok "puts the launcher on PATH and says which file it edited"
 else
   bad "puts the launcher on PATH and says which file it edited" "$out"
+fi
+
+# The second run must recognise its own line. It used to look for the default
+# spelling of the path rather than the one it wrote, so an install directory
+# somewhere else appended another block on every run, forever.
+H="$WORK/h10b"
+mkdir -p "$H"
+env -i -u ZDOTDIR PATH="$BIN" HOME="$H" TULA_INSTALL_DIR="$H/opt/t" \
+  env SHELL=/bin/zsh sh "$ROOT/install.sh" >/dev/null 2>&1
+out=$(env -i -u ZDOTDIR PATH="$BIN" HOME="$H" TULA_INSTALL_DIR="$H/opt/t" \
+  env SHELL=/bin/zsh sh "$ROOT/install.sh" 2>&1)
+blocks=$(grep -c '^# tula$' "$H/.zshrc" 2>/dev/null || echo 0)
+if [ "$blocks" = 1 ] && case "$out" in *"already in .zshrc"*) true ;; *) false ;; esac; then
+  ok "installing twice leaves one PATH line, wherever the install directory is"
+else
+  bad "installing twice leaves one PATH line, wherever the install directory is" "wrote $blocks blocks; $out"
 fi
 
 # Nothing above may have touched a profile outside the sandbox. This test edits

@@ -62,7 +62,7 @@ const NOTES = [
   ],
   [
     'Network egress',
-    'The venues you connect, a public Ethereum RPC, the price source, the token list. Anthropic only when you ask a question, and only the numbers already worked out \u2014 never a key. The binary sends nothing about how you use it. This site is measured with Google Analytics; the binary is not.',
+    'The venues you connect, a public Ethereum RPC, the price source, the token list. Anthropic only when you ask a question, and only the numbers already worked out \u2014 never a key. Once a day it also asks GitHub whether there is a newer release, carrying nothing about you and installing nothing. Beyond that the binary sends nothing about how you use it. This site is measured with Google Analytics; the binary is not.',
   ],
 ] as const
 

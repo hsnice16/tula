@@ -127,6 +127,12 @@ export async function breaks(session: Session): Promise<CommandResult> {
   const { positions: all, prices } = await session.ensureLoaded()
   const risks = whatBreaksFirst(all, prices)
   const note = incompleteNote(session)
+  // An empty book and a book with nothing leveraged in it are opposite answers.
+  // "Nothing here can be liquidated" over no positions at all is the reassuring
+  // version of a wrong number: it reads as a book that was read and found safe.
+  if (all.length === 0) {
+    return { output: (await emptyBook()) + note, incomplete: note !== '' }
+  }
   if (risks.length === 0) {
     return {
       output:
@@ -177,8 +183,14 @@ export async function shock(session: Session, args: string[]): Promise<CommandRe
   }
 
   const { positions: all, prices } = await session.ensureLoaded()
-  const result = scenario(all, prices, shocks)
   const note = incompleteNote(session)
+  // Repricing nothing produces $0.00 before, $0.00 after and "nothing
+  // liquidates" — three true figures that together answer a question about a
+  // book this session never had.
+  if (all.length === 0) {
+    return { output: (await emptyBook()) + note, incomplete: note !== '' }
+  }
+  const result = scenario(all, prices, shocks)
 
   const heading = shocks.map((s) => `${s.asset} ${pct(s.pct, 0)}`).join(', ')
   const lines = [
@@ -262,6 +274,7 @@ export async function positionsAt(
   kind: VenueKind = 'cex',
 ): Promise<CommandResult> {
   const { positions: all } = await session.ensureLoaded()
+  const note = incompleteNote(session)
   const mine = all.filter((p) => belongsToVenue(p.venue, venueId))
   if (mine.length === 0) {
     return {
@@ -269,7 +282,8 @@ export async function positionsAt(
         `${venueId} returned ${kind === 'wallet' ? 'no tokens' : 'nothing'}.\n` +
         '  Either the account is empty, or it is not the one you meant to connect.\n' +
         `  /${venueId} status shows what tula is reading; /${venueId} connect replaces it.` +
-        incompleteNote(session),
+        note,
+      incomplete: note !== '',
     }
   }
   const now = new Date()
@@ -281,20 +295,32 @@ export async function positionsAt(
           .sort((a, b) => a.asset.localeCompare(b.asset) || a.kind.localeCompare(b.kind))
           .map((p) => [p.kind, p.asset, quantity(p.quantity), freshness(p.asOf, now)]),
         ['left', 'left', 'right', 'left'],
-      ) + incompleteNote(session),
+      ) + note,
+    incomplete: note !== '',
   }
 }
 
 export async function breaksAt(session: Session, venueId: string): Promise<CommandResult> {
   const { positions: all, prices } = await session.ensureLoaded()
+  // A venue that failed to load contributes no rows, and no rows are what
+  // "nothing can be liquidated" is made of. Said about a lending venue nobody
+  // could reach, it is the reassuring shape of a wrong answer — so the failure
+  // travels with it here as it does everywhere else, exit code included.
+  const note = incompleteNote(session)
   const risks = whatBreaksFirst(
     all.filter((p) => belongsToVenue(p.venue, venueId)),
     prices,
   )
-  if (risks.length === 0) return { output: `Nothing at ${venueId} can be liquidated.` }
+  if (risks.length === 0) {
+    return {
+      output: `Nothing at ${venueId} can be liquidated.${note}`,
+      incomplete: note !== '',
+    }
+  }
 
   const now = new Date()
   return {
+    incomplete: note !== '',
     output: renderTable(
       ['ASSET', 'KIND', 'MOVE TO LIQ', 'TRIGGER', 'AS OF'],
       risks.map((r) => {
@@ -314,7 +340,7 @@ export async function breaksAt(session: Session, venueId: string): Promise<Comma
         ]
       }),
       ['left', 'left', 'right', 'left', 'left'],
-    ),
+    ) + note,
   }
 }
 
@@ -335,9 +361,17 @@ export async function venueStatus(
     lines.push(`  FAILED — ${failure.split(': ').slice(1).join(': ')}`)
     lines.push('  Numbers elsewhere in tula do not include this venue.')
   } else {
-    const stalest = mine.reduce((min, p) => (p.asOf < min ? p.asOf : min), now)
-    lines.push(`  ${holdings(connector.venue.kind, mine)}, oldest ${freshness(stalest, now)}`)
-    lines.push('  Key scope was verified read-only when you connected.')
+    // reduce() over no rows answers with its seed, so an empty venue used to
+    // report the current time as the age of data it does not have.
+    const stalest = mine.reduce<Date | null>((min, p) => (min && min < p.asOf ? min : p.asOf), null)
+    const held = holdings(connector.venue.kind, mine)
+    lines.push(stalest ? `  ${held}, oldest ${freshness(stalest, now)}` : `  ${held}`)
+    // Only a venue that asked for a key can have had one checked.
+    lines.push(
+      connector.fields.some((f) => f.secret)
+        ? '  This key was checked as read-only when you connected.'
+        : '  A public address only — tula holds no key for this venue.',
+    )
   }
 
   if (connector.help.length > 0) {
@@ -431,7 +465,7 @@ export async function about(connectors: Map<string, Connector>): Promise<Command
       'fails is named rather than quietly dropped.',
       '',
       'It cannot move funds off a venue, and places no order for the moment —',
-      'trading will come later. The build fails if an endpoint for either appears.',
+      'placing trades will come later. The build fails if either endpoint appears.',
       'It never asks for a seed phrase. The model narrates these numbers; it never',
       'computes them and never sees a credential.',
       '',

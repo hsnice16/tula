@@ -1,4 +1,3 @@
-import type Decimal from 'decimal.js'
 import type { NetExposure, Position } from '../core/position.js'
 import type { LiquidationRisk, Scenario, Shock } from '../core/risk.js'
 
@@ -20,6 +19,5 @@ export interface RiskEngine {
   breaks(): LiquidationRisk[]
   scenario(shocks: Shock[]): Scenario
   venues(): VenueStatus[]
-  priceOf(asset: string): Decimal | undefined
   freshness(): { oldest: Date | null; loadedAt: Date; failures: string[]; priceError: string | null }
 }

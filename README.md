@@ -98,14 +98,19 @@ proves that check still catches one.
   an instruction; a read-only tool can still be talked into lying to you about a
   health factor.
 
-Network egress is limited to the venues you connect, the price oracle, and — only
-when you ask a question in plain English — Anthropic, which receives the computed
-figures and never a credential. Drive tula with commands and it never talks to a
-model at all.
+Network egress is the venues you connect, the price source you chose, a public
+Ethereum node and token list for the on-chain venues, GitHub once a day to see
+whether there is a newer release — and, only when you ask a question in plain
+English, Anthropic, which receives the computed figures and never a credential.
+Drive tula with commands and it never talks to a model at all.
+[SECURITY.md](./SECURITY.md) lists each one and what it sees.
 
 - **The install path is checked, not trusted.** Every release carries a
-  sigstore-backed build attestation; the installer verifies it and refuses on
-  failure. There is no signing key for this project to lose.
+  sigstore-backed build attestation. Where the GitHub CLI is present and signed
+  in, the installer checks it and stops if that fails; where it is not, it
+  verifies the checksum and says plainly that provenance was not proven.
+  `TULA_REQUIRE_ATTESTATION=1` makes the unproven case a refusal. There is no
+  signing key for this project to lose.
 
 Report a vulnerability: [SECURITY.md](./SECURITY.md). The canonical page to check
 before trusting a binary is the [security model](https://hsnice16.github.io/tula/security/).
@@ -122,9 +127,9 @@ brew install hsnice16/tap/tula     # or: npm install -g @hsnice16/tula
 
 macOS and Linux, on 64-bit Intel and ARM. Alpine and other musl systems are not
 supported, and there is no native Windows build — install inside WSL. The
-installer checks the download against its published checksum **and** against a
-sigstore-backed attestation proving this repository's release workflow built it,
-and refuses rather than warns. Check one by hand:
+installer always checks the download against its published checksum, and checks
+the sigstore-backed attestation proving this repository's release workflow built
+it wherever the GitHub CLI can — saying so either way. Check one by hand:
 
 ```bash
 gh attestation verify tula-v0.1.0-darwin-arm64.tar.gz --repo hsnice16/tula
@@ -180,6 +185,7 @@ useful thing you can send.
 | Net exposure, scenarios, liquidation distance | working |
 | Interactive shell — slash commands, ctrl+k to search them, ctrl+o for long output, plain English | working; both command lists take the mouse as well as the keyboard |
 | Prices — CoinGecko, CoinPaprika, CoinMarketCap, CryptoCompare | working; one active at a time, `/<source> use` switches |
+| Staying current — `/update` checks once a day and says so in a line | working; nothing is installed until you type `/update install` |
 | Kraken margin and open orders | not yet |
 | Aave on Arbitrum / Base | not yet — Ethereum only |
 | Execution | not in v1 — see [ROADMAP.md](./ROADMAP.md) |

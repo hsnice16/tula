@@ -9,7 +9,8 @@
 #   curl --proto '=https' --tlsv1.2 -LsSf https://hsnice16.github.io/tula/install.sh | sh
 #
 # Environment:
-#   TULA_VERSION              install this exact version instead of the latest
+#   TULA_VERSION              install this exact version, or `latest`, instead of
+#                             whichever is newest
 #   TULA_INSTALL_DIR          root of the install tree (default ~/.tula)
 #   TULA_REQUIRE_ATTESTATION  refuse to install at all unless provenance is proven
 #   TULA_NO_MODIFY_PATH       do not touch any shell profile
@@ -48,6 +49,19 @@ need curl
 need tar
 need uname
 need mkdir
+# Everything below can be reached before the install finishes. A missing one
+# used to fail inside a check rather than at the top: no grep made the lookup
+# come back empty, which this script reports as an archive missing from
+# checksums.txt — a missing tool read to the user as a supply-chain attack.
+need grep
+need sed
+need cut
+need mktemp
+need chmod
+need ln
+need rm
+need basename
+need dirname
 
 # ---------------------------------------------------------------- platform ---
 
@@ -165,9 +179,33 @@ verify_attestation() {
 
 # ----------------------------------------------------------------- install ---
 
+# `latest` resolves rather than downloads. It is already the default here, but it
+# is the word npm's dist-tag and Homebrew's `tula-latest` formula taught people
+# to type, and as a literal it reached the download as a version and failed
+# as "No build of latest for <target>" — a working release reading as a broken
+# one. Like GitHub's own /releases/latest and npm's `latest` tag, it means the
+# newest release that is not a pre-release.
 VERSION=${TULA_VERSION:-}
-[ -n "$VERSION" ] || VERSION=$(latest_version)
+case $VERSION in
+  '' | latest) VERSION=$(latest_version) ;;
+esac
 VERSION=${VERSION#v}
+# The origin is hardcoded so nothing can redirect the download, and this is what
+# keeps that true: curl resolves dot-segments in a path, so an unchecked version
+# containing `../` walks $BASE out of this repository and onto another one —
+# checksums.txt included, which is then the attacker's own list agreeing with the
+# attacker's own archive. `src/update/check.ts` refuses the same thing on the
+# other path, with a stricter pattern than these two globs.
+case $VERSION in
+  *[!0-9A-Za-z.+-]* | '' | -* | .* )
+    die "TULA_VERSION=$VERSION is not a version number." \
+      "Releases: https://github.com/$REPO/releases" ;;
+esac
+case $VERSION in
+  *..* )
+    die "TULA_VERSION=$VERSION is not a version number." \
+      "Releases: https://github.com/$REPO/releases" ;;
+esac
 TARGET=$(detect_target)
 ARCHIVE="tula-v$VERSION-$TARGET.tar.gz"
 BASE="https://github.com/$REPO/releases/download/v$VERSION"
@@ -236,7 +274,10 @@ if ! on_path; then
   profile=$(profile_for_shell)
   if [ -n "${TULA_NO_MODIFY_PATH:-}" ] || [ -z "$profile" ]; then
     PATH_NOTE="add it yourself:  export PATH=\"$BIN_DIR:\$PATH\""
-  elif grep -qs 'tula/bin' "$profile" 2>/dev/null; then
+  # The directory that is actually being added, not the default spelling of it:
+  # under TULA_INSTALL_DIR the line carries another path entirely, and a fixed
+  # substring never matched it, so every run appended another copy.
+  elif grep -qsF "$BIN_DIR" "$profile" 2>/dev/null; then
     PATH_NOTE="already in $(basename "$profile") — open a new shell"
   else
     mkdir -p "$(dirname "$profile")"
@@ -265,7 +306,7 @@ if [ -n "$UNVERIFIED" ]; then
   say "Checksum verified. Provenance was not: $UNVERIFIED_WHY,"
   say "so nothing here proved $REPO built this binary. To check that yourself,"
   say "verify the archive — the attestation is over that, not the binary inside:"
-  note "curl -fLO $BASE/$ARCHIVE"
+  note "curl --proto '=https' --tlsv1.2 -fLO $BASE/$ARCHIVE"
   note "gh attestation verify \"$ARCHIVE\" --repo $REPO"
 fi
 
@@ -275,6 +316,6 @@ say ""
 say "  tula          open the shell"
 say "  tula --help   every command"
 say ""
-say "It is read-only: it cannot place an order or move funds, and it never asks"
-say "for a seed phrase. What it does with your keys: $SITE/security/"
+say "It is read-only for the moment — placing trades will come later. It cannot"
+say "move funds, and never asks for a seed phrase. Your keys: $SITE/security/"
 say ""

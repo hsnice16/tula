@@ -20,10 +20,14 @@ Per-version tasks in [`tasks/`](./tasks). Shipped work in [CHANGELOG.md](./CHANG
 | **9** | Hardening, and the release that stops being a pre-release | Read-only, non-custodial, complete |
 | **10** | Execution — trade diff, policy file, session keys | Guardrails enforced by a contract, not by app config |
 
-1–6 are in the tree. The risk engine (6) landed alongside breadth and
-distribution rather than after them, and that reordering is why this table
-stopped naming versions: it used to, and a plan that moves makes a published
-number wrong. 7 onward is not built.
+1–6 are substantially in the tree, and the `**Status**:` lines under
+[`tasks/`](./tasks) are the record of what is not — the aggregator API and
+chain coverage beyond Ethereum are the open pieces of 4, encumbrance of 6 and
+injection defence of 2. The risk engine (6)
+landed alongside breadth and distribution rather than after them, and that
+reordering is why this table stopped naming versions: it used to, and a plan that
+moves makes a published number wrong. Of 7 onward, only the docs site (part of 9)
+has shipped.
 
 ## Versions
 
@@ -55,6 +59,14 @@ under. Those names are history, not a promise about where the work ships.
   narrates what comes back, never touching a venue API or the secret store.
 - **Not dependent on a model.** Every view has a command behind it. Without a key
   you lose plain English and nothing else.
+
+## What does not change
+
+**No compromise on user experience and security.** Every milestone below is held
+to it, execution included — the guardrails in 10 are the same promise as the
+read-only refusals in 1, made about a larger surface. `AGENTS.md` states the rule
+and the conventions that carry it. A version ships when both are true of it, and
+the plan moves rather than the standard.
 
 ## Deliberately deferred
 

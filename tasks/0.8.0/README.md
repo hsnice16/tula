@@ -11,3 +11,4 @@ matching Foundry and Kraken CLI - the direct comparables.
 - [03 · Homebrew formula](03-homebrew.md) — done
 - [04 · npm platform packages](04-npm-platform-packages.md) — done
 - [05 · Release workflow](05-release-workflow.md) — done
+- [06 · Release check and self-update](06-self-update.md) — done

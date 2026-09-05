@@ -15,6 +15,23 @@ protocols at once.
 See `README.md` for the product narrative, `ROADMAP.md` for the milestones and
 the versioning rules, and `tasks/` for the work breakdown.
 
+## The standing rule
+
+**No compromise on user experience and security.**
+
+Neither is a phase of the work and neither is ever traded for the other or for
+scope. Everything below is a way of spelling this out for a particular surface,
+and where a rule below does not cover the case in front of you, this is what to
+decide from: the reader is somebody with money at risk, reading at 2am, and both
+a wrong number and a confusing sentence cost them the same thing. A feature that
+is not ready ships later; it does not ship with a rough edge and a note.
+
+Concretely, and each of these is a defect that has actually been fixed here:
+a command that answers `$0.00` about a book it never read, an error that names a
+problem and no way out, a menu row offering a key to a venue that takes an
+address, a claim on the site the code stopped honouring, a credential written
+into a directory anyone can replace it in. None of those failed a type check.
+
 ## Versioning
 
 [SemVer](https://semver.org), and the version describes a **release**, never a
@@ -75,12 +92,23 @@ export TULA_CONFIG_DIR=/tmp/tula-try
 bun run src/index.ts            # / -> wallet -> connect -> paste any 0x address
 ```
 
-`TULA_CONFIG_DIR` redirects the credential store. Always set it in scratch runs
-so nothing touches a real `~/.config/tula`. `TULA_ETH_RPC` overrides the
-Ethereum RPC; `TULA_TOKEN_LIST` overrides the Token Lists URL wallet balances
-are read against; `TULA_PRICE_PAGES` widens price coverage beyond the top 500 at
-the cost of tripping CoinGecko's rate limit, which loses every price rather than
-a few. No CoinGecko key is sent, so no plan raises that ceiling.
+The two a scratch run must set, because without them it writes where a real one
+would:
+
+- `TULA_CONFIG_DIR` — the credential store. Set it or you are editing your own.
+- `TULA_INSTALL_DIR` — the install tree `/update install` unpacks into and
+  points the launcher at. Without it, a scratch run that reaches that command
+  replaces the binary on your PATH.
+
+The rest change what a run reads:
+
+- `TULA_ETH_RPC` — the Ethereum node. `TULA_TOKEN_LIST` — the Token Lists URL
+  wallet balances are read against.
+- `TULA_NO_UPDATE_CHECK=1` — stops the release lookup, which is what keeps a
+  test suite off the network.
+- `TULA_PRICE_PAGES` — widens price coverage beyond the top 500, at the cost of
+  tripping CoinGecko's rate limit, which loses every price rather than a few. No
+  CoinGecko key is sent, so no plan raises that ceiling.
 
 ## Definition of done
 
@@ -134,6 +162,7 @@ src/
     http.ts             # request() — the only way out to the network, deadline included
     format.ts           # quantity, freshness, usd, pct — the only renderer of a figure
     errors.ts           # TulaError — user-actionable vs. bug
+    paths.ts            # configDir, installDir — resolved per call, not at import
   connectors/
     types.ts            # Connector, KeyScope (tri-state), isOverScoped, unverified
     kraken.ts           # HMAC over the payload digest; scope partly unprovable
@@ -147,6 +176,13 @@ src/
     evm.ts              # ABI encode/decode and batched eth_call
   secrets/
     store.ts            # credential store; never imported by src/agent/**
+  update/
+    version.ts          # SemVer compare — the only thing between a user and a downgrade
+    channel.ts          # is this binary one install.sh put here, and so ours to move
+    check.ts            # the release lookup; the one outbound call not about a venue
+    state.ts            # last check, last version announced — its own file, not credentials.json
+    apply.ts            # download, verify, unpack, flip the link — or install nothing
+    command.ts          # /update and /update install
   agent/
     engine.ts           # RiskEngine — the ONLY thing the agent layer may see
     tools.ts            # tool definitions + executor; figures leave here rendered
@@ -234,6 +270,22 @@ Two rules, and they are the reason the architecture exists:
   The deadline is a raced timer, not `AbortSignal` alone: the signal bounds the
   wait for a response, not for a connection, so against an unreachable host it
   fires only after the OS connect timeout.
+- **An update is never installed unasked.** `pendingUpdate()` prints a line and
+  stops; `applyUpdate()` runs only from `/update install`, a second word somebody
+  had to mean to type. The checks are `install.sh`'s, in its order, because this
+  is the second way onto the same disk and two paths that disagree about what
+  they accept means the stricter one is decoration. It refuses a checksum
+  mismatch, an unlisted archive, and any version not newer than the running one —
+  `/releases/latest` skips pre-releases, so a pre-release build asking is offered
+  a downgrade, and nothing else would catch it. Under Homebrew or npm it declines
+  to move at all: a binary that swapped itself leaves the package manager naming
+  a version that is not running, which is a wrong number about a tool whose whole
+  job is not showing wrong numbers.
+- **The version check carries nothing about the caller.** No identifier, no
+  version, no query string — a GET of a public release page, resolved off the
+  redirect for the reason `install.sh` avoids the API. Its state lives in
+  `state.json`, never `credentials.json`: writing a timestamp must not mean
+  importing the module that reads venue keys.
 - **Signed quantities.** Debt and shorts are negative so netting is a plain sum.
 - **Ordering is presentation.** Connectors return what the venue gave them; the
   command layer sorts. A new connector must not change how the table reads.
@@ -310,8 +362,11 @@ Two rules, and they are the reason the architecture exists:
   beside the rest, which `src/ui/brand.test.ts` fails on.
 - **Help belongs at the step that needs it.** Connectors declare `help` links to
   official pages; they are rendered in the connect flow, not collected in a docs dump.
-- **All key handling lives in `app.tsx`.** The slash menu and the line editor
-  compete for the same arrow keys and Enter; two input hooks cannot agree on who won.
+- **All key handling in the shell lives in `app.tsx`.** The slash menu and the
+  line editor compete for the same arrow keys and Enter; two input hooks cannot
+  agree on who won. The two modal panels — `ConnectFlow` and `Credentials` — own
+  their own `useInput`, and `app.tsx` disables its own for as long as one is up:
+  a modal is the one case where there is no competition to arbitrate.
 - **Enter runs, tab completes** — in the `/` menu and in ctrl+k alike. Completing
   on both is what cost every command a second Enter, the first spent closing a
   menu. The one exception is a command with arguments left to supply: those
@@ -377,8 +432,8 @@ venue in it.
    documented — checked.
 4. **Bound every string somebody else writes.** Two reach the screen and the
    model: an asset symbol and a venue's error text. Both are capped and
-   flattened to one line in `src/cli/session.ts`, where all seven connectors
-   arrive. They are data, never instructions. No memo, NFT metadata or protocol
+   flattened to one line in `src/cli/session.ts`, where every connector
+   arrives. They are data, never instructions. No memo, NFT metadata or protocol
    description is read — a third source has to be bounded there and listed in
    `SECURITY.md` in the same commit.
 
@@ -396,7 +451,9 @@ endpoint — including "validate only" variants. The absence is the product.
    set to when the data was received.
 5. Normalize the venue's asset names to canonical symbols; unit-test the odd ones.
 6. Register it in `CONNECTORS` in `src/index.ts`; the menu picks it up automatically.
-7. Do not sort — the command layer does that.
+7. Give it a colour in `src/ui/brand.ts`. A venue without one renders a hole
+   beside the rest, and `src/ui/brand.test.ts` fails on it.
+8. Do not sort — the command layer does that.
 
 ## Working from tasks/
 
@@ -497,16 +554,22 @@ bun run build              # -> site/out, static
   both ends; wrapped, `ml-auto` leaves each half on the edge it was pushed to and
   they read as two halves that missed each other. `globals.css` says why the
   breakpoint sits where it does.
-- **One command per terminal frame on the install page.** Every frame carries
-  a copy button, so two alternatives sharing one is a paste that installs
-  tula twice — which is why Homebrew and npm are separate frames, and why
-  update, go back and remove are three. Sequential steps may share one.
+- **One command per copyable block on the install page.** Every block carries a
+  copy button, so two alternatives sharing one is a paste that installs tula
+  twice — which is why Homebrew and npm are separate blocks, and why update, go
+  back and remove are three. Sequential steps may share one.
+
+  There are three sizes, and the choice is about what the box claims. `Code` is
+  a fragment inside a sentence. `Terminal` wears window chrome, which says the
+  tool is talking. `Command` (in `Terminal.tsx`) is the plain box between them,
+  for a line you would paste and nothing more — chrome around a bare `rm` is
+  furniture standing where the command should be.
 - **A table that would scroll sideways stacks instead.** The install page's
   "what it runs on" rows carry the note that answers the question, and a
   sideways-scrolling table puts it off a phone with nothing to say it is there.
   Horizontal scroll is right for the terminal frames, which are a picture of a
   fixed-width grid, and wrong for anything a reader has to read.
-- **Six client component files, and each one earns it by needing something
+- **Seven client component files, and each one earns it by needing something
   CSS cannot read.** `Session.tsx` draws the front page's frame and works `/`,
   ctrl+k and ctrl+o on a loop because a transcript cannot show a keystroke —
   every state it passes through is one the binary draws, in the binary's own
@@ -534,8 +597,12 @@ bun run build              # -> site/out, static
   block, and its live region sits outside the button, because a button's
   children are presentational and a region nested in one is not reliably
   announced.
-  `Nav.tsx` measures where the active item sits so one underline can travel
-  between them. `Scroll.tsx` scrolls the next page to the top, and sits out a
+  `Nav.tsx` and `Channels.tsx` measure where the active item sits so one
+  underline can travel between them; `lib/marker.ts` is that measurement, held
+  in one place because two copies of it drift apart by a pixel and read as a
+  bug in whichever one you are looking at. `Channels.tsx` is the install page's
+  three channels: the panels are hidden rather than unmounted, so the static
+  export ships all three and a reader who cannot run JavaScript still has them. `Scroll.tsx` scrolls the next page to the top, and sits out a
   back or forward, where the reader is returning to a place they already had;
   it also holds the back-to-top button, which rides above the footer rather
   than over it — the moment somebody most wants that button is the moment they
@@ -658,6 +725,14 @@ before pasting keys tied to their net worth.
   check cannot protect it — without the gate a manual run would cut a real
   release from whatever was on the branch. A pre-release tag (`v0.4.0-rc.1`)
   exercises the real channels without touching the stable ones.
+
+  **Attestation is gated with the publish steps, not run beside them.** It had
+  been unconditional, on the reasoning that a dry run should exercise every
+  step. But an attestation is a public transparency-log entry, and `install.sh`
+  accepts any archive carrying one for this repository — so a dry run from any
+  branch minted proof that arbitrary code was built by `hsnice16/tula`, which is
+  indistinguishable from a release at the only place anybody checks. That is why
+  a dry run now publishes nothing at all, and why the input says so.
 - **One tag produces every artifact.** `.github/workflows/release.yml` checks the
   tag against `src/version.ts`, runs `bun run check`, cross-compiles
   darwin/linux × arm64/x64 with Bun, signs the macOS binaries when Apple
@@ -672,6 +747,28 @@ before pasting keys tied to their net worth.
   that redirects the download is exactly the injection the script exists to
   prevent, which is why `install-test.sh` fakes the network with a `curl` shim on
   PATH instead of adding an override.
+- **`latest` means the same thing wherever somebody types it.** npm has the tag,
+  the pinned formulae taught the spelling, and `install.sh` accepts it as a word
+  rather than reaching the download as a version number and failing as "No build
+  of latest for <target>" — a working release reading as a broken one. It
+  resolves what GitHub's own `/releases/latest` and npm's `latest` tag both mean:
+  the newest release that is not a pre-release. Homebrew spells it `tula` and
+  `tula-latest`, because `@` there means a pinned version and `tula@latest` would
+  be a contradiction that installed `keg_only` and reached nobody's PATH.
+- **A version is reachable after the channels move past it, on every channel.**
+  The installer takes `TULA_VERSION` and keeps each build under
+  `~/.tula/versions`; npm keeps every version it has published. Homebrew keeps
+  none by itself — a formula holds exactly one version, so the release job
+  writes `Formula/tula@<version>.rb` beside the two channel formulae and the tap
+  accumulates them. Going back is the direction that matters when a build is
+  showing somebody a wrong number, and it is not worth having on two channels
+  out of three. The pinned formulae are `keg_only`: they cannot name each other
+  in a `conflicts_with` because none of the later files exist when one is
+  rendered, and an old build belongs on PATH only when somebody links it on
+  purpose. `homebrew-formula.sh` mirrors Homebrew's own `Formulary.class_s`
+  rather than the two names we happen to ship — `tula@0.1.0` must declare
+  `TulaAT010`, and a class name that disagrees with its file name fails the
+  whole tap for every user at once.
 - **Artifact names are a contract** between `release-build.sh`, the formula, the
   npm packages and the installer. `guard.sh` fails the build when they drift,
   because the symptom is a release nobody can install and it only appears after
@@ -696,6 +793,19 @@ release is already public, while the site is telling people to use them.
 
 Set each variable last, after its token exists: `true` without the token turns a
 skipped job into a failed one, and it fails after the GitHub release is public.
+
+The site is already deployed and already names all three channels, so the table
+above is not a checklist for later — every row that is not true when the tag is
+pushed is a published command that fetches nothing for as long as it takes to
+notice. Each can be checked without `gh` and without being signed in, which is
+also how a reader would find out before you do:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' https://api.github.com/repos/hsnice16/homebrew-tap
+curl -s https://api.github.com/repos/hsnice16/homebrew-tap/commits            # [] until the first push
+curl -s -o /dev/null -w '%{http_code}\n' https://registry.npmjs.org/@hsnice16%2Ftula
+curl -s -o /dev/null -w '%{http_code}\n' https://api.github.com/repos/hsnice16/tula/releases/latest
+```
 
 The tap starts empty: the job creates `Formula/` and the first commit on `main`
 itself, so seeding it by hand is not a step.
@@ -730,7 +840,8 @@ bun run release:cut 0.2.0   # bumps every file stating the version, dates the ch
 
 Then commit, push, wait for CI on that commit, and push the tag — the script
 prints all four commands with the version filled in. A `workflow_dispatch` run
-with `publish` off first costs nothing and exercises everything but publishing.
+with `publish` off first costs nothing and exercises everything but publishing
+and the attestation that goes with it.
 
 ## Pre-commit checks
 

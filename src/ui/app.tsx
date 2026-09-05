@@ -23,6 +23,7 @@ import {
 } from '../cli/registry.js'
 import type { LoadStep, Session } from '../cli/session.js'
 import { dispatchCommand } from '../cli/shell.js'
+import { pendingUpdate } from '../update/check.js'
 import type { Connector } from '../connectors/types.js'
 import { TulaError } from '../core/errors.js'
 import * as secrets from '../secrets/store.js'
@@ -491,6 +492,26 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
     return () => clearInterval(timer)
   }, [busy])
 
+  /**
+   * One line, once a day at most, and only about a version not mentioned before.
+   * It is a `notice` in the transcript rather than anything pinned: somebody who
+   * opened tula to read a liquidation price is not to be interrupted by tula.
+   *
+   * Nothing is awaited on the way in. A slow or unreachable GitHub delays this
+   * line and nothing else, and a failed check is silence — see `pendingUpdate`.
+   */
+  useEffect(() => {
+    let live = true
+    void pendingUpdate().then((found) => {
+      if (live && found) {
+        push('notice', `tula ${found.version} is out — you have ${APP_VERSION}.  /update`)
+      }
+    })
+    return () => {
+      live = false
+    }
+  }, [push])
+
   // The session names each venue as it reads it. Nothing else can: a command
   // calls `ensureLoaded` several layers down, long after the UI let go of it.
   useEffect(() => {
@@ -536,19 +557,31 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
     const now = new Date()
     return [...connectors.values()].map((connector) => {
       const id = connector.venue.id
+      const addressOnly = !connector.fields.some((f) => f.secret)
       if (!connected.includes(id)) {
-        return { id, connected: false, detail: `${connector.venue.name} — not connected` }
+        return { id, connected: false, addressOnly, detail: `${connector.venue.name} — not connected` }
       }
       const failure = failures.find((f) => f.startsWith(`${id}:`))
       if (failure) {
-        return { id, connected: true, detail: `FAILED — ${failure.split(': ').slice(1).join(': ')}` }
+        return {
+          id,
+          connected: true,
+          addressOnly,
+          detail: `FAILED — ${failure.split(': ').slice(1).join(': ')}`,
+        }
       }
       const mine = positions.filter((p) => belongsToVenue(p.venue, id))
-      const stalest = mine.reduce((min, p) => (p.asOf < min ? p.asOf : min), now)
+      // reduce() over no rows answers with its seed, so a venue connected and
+      // holding nothing drew the current time as the age of data it does not
+      // have — in the menu AGENTS.md calls the venue overview. Same fix as
+      // `venueStatus` in src/cli/commands.ts.
+      const stalest = mine.reduce<Date | null>((min, p) => (min && min < p.asOf ? min : p.asOf), null)
+      const held = holdings(connector.venue.kind, mine)
       return {
         id,
         connected: true,
-        detail: `${holdings(connector.venue.kind, mine)} · ${freshness(stalest, now)}`,
+        addressOnly,
+        detail: stalest ? `${held} · ${freshness(stalest, now)}` : held,
       }
     })
   }, [session, connectors, connected, entries.length])
@@ -601,7 +634,11 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
 
     if (!connectors.has(head)) return null
     const entry = venueEntries.find((v) => v.id === head)
-    const items: MenuItem[] = matchVenueSubcommands(tail, entry?.connected ?? false).map((c) => ({
+    const items: MenuItem[] = matchVenueSubcommands(
+      tail,
+      entry?.connected ?? false,
+      entry?.addressOnly ?? false,
+    ).map((c) => ({
       name: c.name,
       summary: c.summary,
     }))
@@ -641,7 +678,10 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
     const { positions, failures } = session.current
     const venues = new Set(positions.map((p) => p.venue)).size
     const stalest = session.stalest()
-    const parts = [`${venues} venue${venues === 1 ? '' : 's'}`, `${positions.length} positions`]
+    const parts = [
+      `${venues} venue${venues === 1 ? '' : 's'}`,
+      `${positions.length} position${positions.length === 1 ? '' : 's'}`,
+    ]
     if (stalest) parts.push(freshness(stalest))
     if (failures.length > 0) parts.push(`${failures.length} failed`)
     parts.push(agent ? 'opus 5' : 'commands only')
@@ -681,7 +721,13 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
               return setCredentials({ mode: 'manage', source: await credentialSource() })
           } else {
             push('output', result.output)
-            if (parsed.args[0] === 'disconnect') await refreshConnected()
+            // Both commands that take credentials off disk, not just the one
+            // spelled as a subcommand: /forget left the menu drawing a venue as
+            // connected, and /<venue> status answering from the connected branch,
+            // for the rest of the session.
+            if (parsed.args[0] === 'disconnect' || parsed.name === 'forget') {
+              await refreshConnected()
+            }
           }
         } else if (agent) {
           // The engine reads whatever the session last fetched. Asking before

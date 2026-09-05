@@ -28,8 +28,8 @@ const EMPTY: LoadResult = {
 /**
  * Two strings on this screen are written by somebody else: a venue's error text
  * and an asset symbol. Both are drawn in the tables *and* returned to the model
- * as tool results, so both are bounded here — the one place all seven
- * connectors arrive, rather than seven chances to forget.
+ * as tool results, so both are bounded here — the one place every connector
+ * arrives, rather than one chance per connector to forget.
  *
  * `SECURITY.md` lists exactly these two. A third has to be added there in the
  * same commit.
@@ -117,7 +117,7 @@ export class Session {
         }
         const creds = await secrets.get(venueId)
         if (!creds) {
-          failures.push(`${venueId}: credentials missing`)
+          failures.push(`${venueId}: nothing stored for it — reconnect with /${venueId} connect`)
           continue
         }
         this.onProgress?.({ kind: 'venue', venue: venueId })
