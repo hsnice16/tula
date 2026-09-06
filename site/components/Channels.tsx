@@ -90,7 +90,7 @@ export function Channels({ channels }: { channels: Channel[] }) {
             // Until the travelling underline has been measured — the static
             // HTML, before hydration — the selected tab draws its own, so a cold
             // load is never a strip with nothing marked on it.
-            className={`-mb-px cursor-pointer whitespace-nowrap border-b py-3 font-mono text-[0.74rem] uppercase tracking-[0.09em] transition-colors duration-200 ${
+            className={`-mb-px cursor-pointer border-b py-3 text-left font-mono text-[0.74rem] uppercase tracking-[0.09em] transition-colors duration-200 ${
               i === at
                 ? `text-accent ${mark ? 'border-transparent' : 'border-accent'}`
                 : 'border-transparent text-dim hover:text-ink'
@@ -98,7 +98,7 @@ export function Channels({ channels }: { channels: Channel[] }) {
             onClick={() => show(i)}
           >
             {name}
-            {note && <span className="ml-1.5 text-faint">{note}</span>}
+            {note && <span className="ml-1.5 text-dim">{note}</span>}
           </button>
         ))}
       </div>

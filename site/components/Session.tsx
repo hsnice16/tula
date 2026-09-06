@@ -126,8 +126,12 @@ const MENU_ROWS = MENU.length + 1
  * Rows the transcript fills with nothing open. The menu is taken out of this
  * rather than added under it, so opening one scrolls the session up a terminal's
  * worth instead of growing the page — which is the only thing a terminal can do.
+ *
+ * It counts the banner, so it moved with it: the working-directory line made
+ * that block four rows rather than three, and the body being anchored to the
+ * bottom meant the row it lost off the top was the one naming the tool.
  */
-const BODY_ROWS = 27
+const BODY_ROWS = 28
 
 interface Beat {
   /** What is on the input line. */

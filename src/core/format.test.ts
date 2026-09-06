@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import Decimal from 'decimal.js'
 import type { Position, PositionKind } from './position.js'
-import { holdings } from './format.js'
+import { downloaded, holdings } from './format.js'
 
 const at = (kind: PositionKind): Position => ({
   id: `x-${kind}`,
@@ -33,5 +33,21 @@ describe('holdings', () => {
 
   test('an empty venue pluralises correctly', () => {
     expect(holdings('wallet', [])).toBe('0 tokens')
+  })
+})
+
+describe('downloaded', () => {
+  test('a percentage and both sizes, so the number can be checked against itself', () => {
+    expect(downloaded(10_400_000, 20_800_000)).toBe('downloading 50% · 10.4 of 20.8 MB')
+  })
+
+  // Floor, not round: 99.6% must not read as done while bytes are still coming.
+  test('never reads 100% before the last byte', () => {
+    expect(downloaded(20_799_999, 20_800_000)).toContain('99%')
+    expect(downloaded(20_800_000, 20_800_000)).toContain('100%')
+  })
+
+  test('bytes alone when the server sent no length', () => {
+    expect(downloaded(1_500_000, null)).toBe('downloading 1.5 MB')
   })
 })

@@ -1,16 +1,16 @@
 ---
 name: pre-commit
-description: The checks that run before every commit in this repo — secret leaks, comment and doc quality, code standard, production readiness, dead code, and whether the tree is in sync with itself. Use whenever the user says to run the pre-commit tasks or checks, or asks for a review before committing or pushing.
+description: The checks that run before every commit in this repo — secret leaks, comment and doc quality, code standard, production readiness, dead code, whether the tree is in sync with itself, the site's SEO, whether the site works on a phone, and whether the artifacts a release would ship actually run. Use whenever the user says to run the pre-commit tasks or checks, or asks for a review before committing or pushing.
 ---
 
 # Pre-commit tasks
 
-Seven checks, all six of the review ones scoped to **the whole codebase**, not
+Ten checks, all nine of the review ones scoped to **the whole codebase**, not
 just the diff. The repository is public and the binary reads exchange API keys,
 so the cost of shipping something wrong is not a follow-up commit.
 
 Run the mechanical gate first — a failure there makes the rest moot — then the
-six review checks. Report per check, and say plainly which found nothing.
+nine review checks. Report per check, and say plainly which found nothing.
 
 ## 0. The mechanical gate
 
@@ -77,6 +77,53 @@ and `CHANGELOG.md` — and the CHANGELOG is consumer-facing, so plumbing and
 refactors stay out of it. Versions, `.nvmrc`, `package.json` engines and the
 workflows say the same thing. `tasks/` status lines match reality — the
 repository is public and they are read where they are written.
+
+## 7. The site is found, and read right when it is
+
+The site is the whole of what somebody sees before deciding whether to run a
+script that fetches a binary. Judge it as a page a stranger arrives at cold.
+
+Every route: one `h1`, headings that descend without skipping, a title and a
+description that read as a sentence rather than a keyword list, a canonical
+URL, and an OpenGraph and Twitter card that resolve to a real image of the
+right type. `sitemap.xml`, `robots.txt` and `llms.txt` name every route the
+site publishes and nothing it does not. Structured data validates and
+describes what the page actually is. Every image carries alt text, or is
+marked decorative on purpose. `lang` is set. Nothing important is rendered
+only by client JavaScript — the export is static, so a crawler that runs none
+must still get the page.
+
+## 8. The site works on a phone
+
+Not "fits on one". Test at 390×844 and at 320px, the narrowest phone still in
+use, and check with the real rendered page rather than by reading CSS.
+
+No horizontal scroll on the document — a page that pans sideways has a
+layout bug, and the terminal frames that scroll on purpose must do it inside
+their own box. Tap targets at least 44×44 with space between them. Text that
+stays legible without zooming, and that still reflows at 200% zoom. Contrast
+that passes AA against the background it is actually drawn on. Focus visible
+for anything reachable by keyboard. No hover-only affordance, because a
+finger has no hover.
+
+## 9. The artifacts a release would ship
+
+A suite that passes against a fake is not a release. Build what the tag would
+build, and run it.
+
+`bun run build`, then the binary itself: `--version`, `-v`, `--help`, `about`,
+and a one-shot command. `scripts/release-build.sh` — all four targets have to
+cross-compile, because a missing one is a release nobody on that machine can
+install. The Homebrew formula's `assert_match` strings against what the binary
+actually prints, since that block runs on somebody else's machine and no local
+gate executes it. `scripts/npm-pack.sh`, then `npm pack` the wrapper and one
+platform package and install both into a scratch prefix: the postinstall has to
+replace the placeholder with a native binary that runs.
+
+And any path whose test fakes the network gets exercised once over a real
+socket. A stubbed `fetch` returns a whole body at once, so it never streams,
+never carries a `Content-Length`, and cannot show that a progress callback fires
+more than twice — which is the half of that code a user sees.
 
 ## Reporting
 

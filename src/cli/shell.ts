@@ -1,6 +1,7 @@
 import type { Connector } from '../connectors/types.js'
 import * as secrets from '../secrets/store.js'
 import { update } from '../update/command.js'
+import type { DownloadProgress } from '../update/apply.js'
 import * as commands from './commands.js'
 import {
   buildOracle,
@@ -195,6 +196,8 @@ export async function dispatchCommand(
   connectors: Map<string, Connector>,
   parsed: ParsedCommand,
   venues: VenueEntry[] = [],
+  /** Named so `/update install` can say how far the download has got. */
+  onProgress?: DownloadProgress,
 ): Promise<DispatchResult> {
   const { name, args } = parsed
 
@@ -240,7 +243,7 @@ export async function dispatchCommand(
       return { kind: 'output', ...(await commands.about(connectors)) }
 
     case 'update': {
-      const { output, failed } = await update(args)
+      const { output, failed } = await update(args, onProgress)
       return failed ? { kind: 'output', output, usageError: true } : { kind: 'output', output }
     }
 

@@ -6,6 +6,7 @@ import { JsonLd } from '@/components/JsonLd'
 import { Nav } from '@/components/Nav'
 import { BackToTop, ScrollToTop } from '@/components/Scroll'
 import {
+  APPLE_ICON,
   AUTHOR,
   DESCRIPTION,
   GOOGLE_SITE_VERIFICATION,
@@ -31,6 +32,12 @@ export const metadata: Metadata = {
   creator: AUTHOR.name,
   authors: [{ name: AUTHOR.name, url: AUTHOR.url }],
   alternates: { canonical: '/' },
+  // `icon` is restated beside `apple` because naming one replaces the set Next
+  // would have inferred from `app/icon.svg`.
+  icons: {
+    icon: '/icon.svg',
+    apple: { url: APPLE_ICON.url, sizes: `${APPLE_ICON.size}x${APPLE_ICON.size}` },
+  },
   verification: { google: GOOGLE_SITE_VERIFICATION },
   openGraph: { ...OG, type: 'website', url: '/', title: TITLE, description: DESCRIPTION },
   twitter: { ...TWITTER, title: TITLE, description: DESCRIPTION },

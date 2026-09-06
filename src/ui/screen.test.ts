@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type Anthropic from '@anthropic-ai/sdk'
 import { Terminal } from '@xterm/headless'
+import { homeRelative } from '../core/paths.js'
 import { afterAll, beforeAll, expect, test } from 'bun:test'
 import { render } from 'ink'
 import { createElement } from 'react'
@@ -1044,11 +1045,16 @@ test('the session opens with a banner, written once', async () => {
     expect(rows[at + 1]).toMatch(/^ +▄▟ {3}▙▄ +Your true exposure/)
     // The mark's last row now shares its line with the working directory, which
     // is the third banner line and the one that made this block as tall as the
-    // mark rather than one row shorter than it.
-    expect(rows[at + 2]).toMatch(/^ *▄▄▄▄▄▄▄ +[~/]/)
+    // mark rather than one row shorter than it. Asserted against `homeRelative`
+    // rather than a shape: a checkout deep enough to be elided starts the line
+    // with `…` instead of `~` or `/`, which made this pass or fail on where the
+    // repository happened to be cloned.
+    expect(rows[at + 2]).toContain('▄▄▄▄▄▄▄')
+    expect(rows[at + 2]?.trimEnd().endsWith(homeRelative(process.cwd()))).toBe(true)
     expect(rows[at]?.indexOf('tula')).toBe(rows[at + 1]?.indexOf('Your') ?? -1)
+    // The directory column lines up with the description above it.
     expect(rows[at + 1]?.indexOf('Your')).toBe(
-      rows[at + 2]?.search(/[~/]\S*$/) ?? -1,
+      rows[at + 2]?.indexOf(homeRelative(process.cwd())) ?? -1,
     )
     // It is a transcript entry, so it scrolls away with the rest rather than
     // being redrawn — and a redraw that reissued it would stack a second copy.

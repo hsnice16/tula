@@ -21,7 +21,7 @@ export function Frame({
         <i className="block size-2.5 flex-none rounded-full bg-[#46403c]" />
         <i className="block size-2.5 flex-none rounded-full bg-rule" />
         <i className="block size-2.5 flex-none rounded-full bg-rule" />
-        <span className="ml-2 font-mono text-[0.68rem] uppercase tracking-[0.12em] text-faint">
+        <span className="ml-2 font-mono text-[0.68rem] uppercase tracking-[0.12em] text-dim">
           {title}
         </span>
         {aside}

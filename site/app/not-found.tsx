@@ -8,6 +8,10 @@ export const metadata: Metadata = {
   // Next tags this route noindex itself, but the layout's `index, follow` is
   // emitted beside it — restated here so the two tags on the page agree.
   robots: { index: false, follow: true },
+  // The layout canonicalises to `/`, which every real page overrides and this
+  // one inherited: a 404 that names the front page as its canonical asks a
+  // crawler that ignores the noindex to fold every mistyped path into it.
+  alternates: { canonical: null },
 }
 
 /**
