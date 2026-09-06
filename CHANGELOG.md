@@ -11,6 +11,8 @@ CI and build plumbing, refactors, and doc-only edits — stays in commit message
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-06
+
 The first release: real venues on a published install path, the query shell, and
 the answer it exists to give — one net exposure per asset across venues, and
 what breaks first.
@@ -159,4 +161,5 @@ what breaks first.
 - `KeyScope` is tri-state. Kraken exposes no endpoint reporting a key's permissions, and every endpoint gated on trade permission mutates an order, so `canTrade` is `unknown` rather than guessed at. Withdraw scope is provable, and is proven.
 - Kraken margin and open orders are not read yet, so on a margin account this is not a complete Kraken picture.
 
-[Unreleased]: https://github.com/hsnice16/tula/commits/main
+[Unreleased]: https://github.com/hsnice16/tula/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/hsnice16/tula/releases/tag/v0.1.0
