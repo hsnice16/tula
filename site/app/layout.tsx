@@ -21,9 +21,8 @@ import './globals.css'
 const TITLE = 'tula — your true exposure, and what breaks first'
 
 export const metadata: Metadata = {
-  // Absolute, and it carries the `/tula` path: every canonical, OG image and
-  // sitemap URL is resolved against it, and a metadataBase without the base
-  // path publishes links to an origin that serves somebody else's account page.
+  // Absolute: every canonical, OG image and sitemap URL is resolved against it,
+  // and a relative one publishes links to wherever the page was fetched from.
   metadataBase: new URL(SITE),
   title: { default: TITLE, template: `%s · ${NAME}` },
   description: DESCRIPTION,

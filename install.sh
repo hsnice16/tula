@@ -1,12 +1,12 @@
 #!/bin/sh
-# tula installer — https://hsnice16.github.io/tula
+# tula installer — https://usetu.la
 #
 # The install path is part of the security product. Someone running this is
 # about to paste keys tied to their net worth into the binary it fetches, so
 # every step that could hand them a different binary is checked, and the script
 # refuses rather than warns.
 #
-#   curl --proto '=https' --tlsv1.2 -LsSf https://hsnice16.github.io/tula/install.sh | sh
+#   curl --proto '=https' --tlsv1.2 -LsSf https://usetu.la/install.sh | sh
 #
 # Environment:
 #   TULA_VERSION              install this exact version, or `latest`, instead of
@@ -17,7 +17,7 @@
 set -eu
 
 REPO="hsnice16/tula"
-SITE="https://hsnice16.github.io/tula"
+SITE="https://usetu.la"
 INSTALL_DIR="${TULA_INSTALL_DIR:-$HOME/.tula}"
 BIN_DIR="$INSTALL_DIR/bin"
 BROWSE="https://github.com/$REPO/releases"

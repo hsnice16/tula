@@ -113,12 +113,12 @@ Drive tula with commands and it never talks to a model at all.
   signing key for this project to lose.
 
 Report a vulnerability: [SECURITY.md](./SECURITY.md). The canonical page to check
-before trusting a binary is the [security model](https://hsnice16.github.io/tula/security/).
+before trusting a binary is the [security model](https://usetu.la/security/).
 
 ## Install
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://hsnice16.github.io/tula/install.sh | sh
+curl --proto '=https' --tlsv1.2 -LsSf https://usetu.la/install.sh | sh
 ```
 
 ```bash

@@ -33,8 +33,8 @@ jobs:
         run: bash scripts/release-build.sh dist/release
 
   # The site is the published origin of install.sh and of every claim a reader
-  # sees before installing anything, and pages.yml only runs after a merge — so
-  # a pull request that broke the build used to surface as a failed deploy.
+  # sees before installing anything. Vercel builds it too, but a preview that
+  # fails is a link nobody opens; this fails the pull request itself.
   site:
     runs-on: ubuntu-latest
     steps:
@@ -49,7 +49,7 @@ jobs:
         working-directory: site
       - run: bun run lint
         working-directory: site
-      # Built the way pages.yml builds it, installer included: the copy is what
+      # Built the way Vercel builds it, installer included: the copy is what
       # `curl | sh` fetches, and only the build proves the page still renders.
       - run: cp install.sh site/public/install.sh
       - run: bun run build

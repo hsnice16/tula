@@ -18,6 +18,6 @@ export const REPO_URL = 'https://github.com/hsnice16/tula'
  * separate package — and `scripts/guard.sh` fails the build when they disagree.
  * Change it here, run `bun run guard`, and it names anything left behind.
  */
-export const SITE_URL = 'https://hsnice16.github.io/tula'
+export const SITE_URL = 'https://usetu.la'
 
 export const APP_DESCRIPTION = 'Your true exposure, what breaks first, and more, across every venue at once.'
