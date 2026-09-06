@@ -291,15 +291,30 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           PRERELEASE: ${{ needs.release.outputs.prerelease }}
+          VERSION: ${{ needs.release.outputs.version }}
         run: |
           set -euo pipefail
           tag=$([ "$PRERELEASE" = true ] && echo next || echo latest)
+          # Already-published versions are skipped rather than retried. npm
+          # refuses to publish over one, and under `set -e` that aborts the whole
+          # job — so a run that failed part-way through, as v0.1.0's did on a
+          # token that could not bypass 2FA, could not simply be re-run. It died
+          # on the first package that had landed, leaving the rest unpublished
+          # and the install page naming a channel that 404s.
+          publish() {
+            name=$(node -p "require('./$1/package.json').name")
+            if npm view "$name@$VERSION" version >/dev/null 2>&1; then
+              echo "::notice::$name@$VERSION is already published; skipping"
+              return 0
+            fi
+            npm publish "$1" --access public --provenance --tag "$2"
+          }
           # Platform packages first: the wrapper's optionalDependencies name
           # them, and a wrapper published ahead of them installs a placeholder.
           for pkg in dist/npm/tula-*; do
-            npm publish "$pkg" --access public --provenance --tag "$tag"
+            publish "$pkg" "$tag"
           done
-          npm publish dist/npm/tula --access public --provenance --tag "$tag"
+          publish dist/npm/tula "$tag"
 
   homebrew:
     needs: release

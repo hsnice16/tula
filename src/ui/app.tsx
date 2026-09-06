@@ -27,6 +27,7 @@ import { pendingUpdate } from '../update/check.js'
 import type { Connector } from '../connectors/types.js'
 import { TulaError } from '../core/errors.js'
 import * as secrets from '../secrets/store.js'
+import { homeRelative } from '../core/paths.js'
 import { APP_DESCRIPTION, APP_VERSION, REPO_URL } from '../version.js'
 import { ConnectFlow } from './ConnectFlow.js'
 import { connectable, type Connectable, type ConnectorCredentials } from '../connectors/types.js'
@@ -391,8 +392,14 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
       id: -1,
       kind: 'banner',
       text: [
-        `tula ${APP_VERSION}`,
+        // `v` because that is how the tag, the release and every `git` and `npm`
+        // line about this build spell it; the bare number was the odd one out.
+        `tula v${APP_VERSION}`,
         APP_DESCRIPTION,
+        // Where the shell was opened. tula reads nothing from it — the book is
+        // the same in any directory — but it is what tells two terminals apart
+        // at a glance, and every other tool in one prints it.
+        homeRelative(process.cwd()),
         ...(initialVenues.length > 0 ? [`Connected: ${initialVenues.join(', ')}`] : []),
       ].join('\n'),
     }),

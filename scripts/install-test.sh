@@ -23,6 +23,13 @@ bad() {
   fail=$((fail + 1))
 }
 
+# Whether this machine already had tula before the suite started. The leak check
+# at the bottom used to ask only whether ~/.tula existed, which is true on every
+# machine that dogfoods the tool — so the suite failed for anyone who had run the
+# published install line, and passed on CI only because CI never had.
+TREE_BEFORE=0
+[ -e "$HOME/.tula" ] && TREE_BEFORE=1
+
 # A release exactly as the workflow lays one out: two archives and a checksums
 # file listing both.
 RELEASE="$WORK/release"
@@ -311,6 +318,53 @@ else
   bad "installing twice leaves one PATH line, wherever the install directory is" "wrote $blocks blocks; $out"
 fi
 
+# A version already on disk is the commonest second run there is — the install
+# line pasted again to fix PATH — and it used to fetch and re-verify the whole
+# archive to arrive at the file it already had. Proving it downloads nothing
+# means taking the archives away: a run that still succeeds cannot have fetched
+# one.
+H="$WORK/h11"
+mkdir -p "$H"
+run "$H" >/dev/null 2>&1
+HOLD="$WORK/hold"
+mkdir -p "$HOLD"
+mv "$RELEASE"/*.tar.gz "$HOLD/"
+out=$(run "$H")
+if [ -x "$H/.tula/versions/9.9.9/tula" ] &&
+  case "$out" in *"already installed"*) true ;; *) false ;; esac; then
+  ok "a version already on disk is not downloaded again"
+else
+  bad "a version already on disk is not downloaded again" "$out"
+fi
+
+# And the escape hatch has to really reach the network, or it is a flag that
+# says it re-checked and did not. With the archives still gone it has nothing to
+# fetch, so it must fail where the run above passed.
+out=$(run "$H" TULA_FORCE=1)
+case "$out" in
+  *"No build of 9.9.9"*) ok "TULA_FORCE=1 fetches again rather than trusting the disk" ;;
+  *) bad "TULA_FORCE=1 fetches again rather than trusting the disk" "$out" ;;
+esac
+mv "$HOLD"/*.tar.gz "$RELEASE/"
+
+# A version directory is not proof of an install. Anyone able to write under the
+# install tree can put one there before tula has ever been installed, and the
+# fast path would otherwise adopt whatever binary it found and link it unread —
+# where a first install used to overwrite it. The launcher being a symlink
+# already is what says this script built the tree.
+H="$WORK/h12"
+mkdir -p "$H/.tula/versions/9.9.9"
+printf '#!/bin/sh\necho planted\n' >"$H/.tula/versions/9.9.9/tula"
+chmod 755 "$H/.tula/versions/9.9.9/tula"
+out=$(run "$H")
+if case "$out" in *"already installed"*) false ;; *) true ;; esac &&
+  ! grep -q planted "$H/.tula/versions/9.9.9/tula"; then
+  ok "a planted version directory is downloaded over, not adopted"
+else
+  bad "a planted version directory is downloaded over, not adopted" "$out"
+fi
+
+
 # Nothing above may have touched a profile outside the sandbox. This test edits
 # shell config, so a leak is silent, permanent and in someone's real home.
 leaked=0
@@ -321,8 +375,14 @@ done
 [ "$leaked" -eq 0 ] && ok "writes no shell profile outside the sandbox" ||
   bad "writes no shell profile outside the sandbox"
 
-[ -e "$HOME/.tula" ] && bad "creates no install tree outside the sandbox" ||
-  ok "creates no install tree outside the sandbox"
+# Two ways to tell a leak from the developer's own install: the fixture's version
+# is one no real release carries, and a tree that was not there before the suite
+# ran did not get there by itself.
+leaked_tree=0
+[ -e "$HOME/.tula/versions/9.9.9" ] && leaked_tree=1
+[ "$TREE_BEFORE" = 0 ] && [ -e "$HOME/.tula" ] && leaked_tree=1
+[ "$leaked_tree" -eq 0 ] && ok "creates no install tree outside the sandbox" ||
+  bad "creates no install tree outside the sandbox"
 
 echo
 echo "  $pass passed, $fail failed"

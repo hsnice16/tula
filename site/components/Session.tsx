@@ -179,10 +179,14 @@ export const Banner = () => (
       preserveAspectRatio="xMidYMin meet"
     />
     <span className="min-w-0">
-      <span className="block font-bold" style={{ color: TUI.accent }}>{`tula ${VERSION}`}</span>
+      <span className="block font-bold" style={{ color: TUI.accent }}>{`tula v${VERSION}`}</span>
       <span className="block text-dim">
         Your true exposure, what breaks first, and more, across every venue at once.
       </span>
+      {/* The binary prints the directory the shell was opened in. A frame
+          offered as its output has to carry the line, and the path is the one
+          part of it this picture has to invent. */}
+      <span className="block text-dim">~/trading</span>
       <span className="block text-dim">Connected: wallet, hyperliquid, aave, kraken</span>
     </span>
   </span>

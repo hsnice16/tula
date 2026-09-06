@@ -11,6 +11,15 @@ CI and build plumbing, refactors, and doc-only edits — stays in commit message
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-06
+
+### Changed
+
+- **A version you already have is not downloaded again.** The installer resolved the version and then downloaded and re-verified the whole 21 MB archive regardless of whether that exact build was already on disk — so the install line pasted a second time, which is how most people fix a PATH problem, paid the full download to arrive at the file it already had. It now recognises the version under `~/.tula/versions` and goes straight to relinking and the PATH line — 2.7s to 0.3s on a warm link, and from minutes to under a second on a cold one. `TULA_FORCE=1` fetches and checks again for anyone who wants that. The short cut needs the launcher symlink to be there already, not just a directory: anyone able to write under the install tree could otherwise plant a version directory before tula was ever installed and have the first install adopt it unread, where that install used to download over it.
+- **The download says how far along it is.** `-s` silenced curl's meter for every fetch, including the one that takes minutes, so a single `downloading` line sat unchanged for the whole transfer and read as a hang — 152 seconds of silence, in one capture, between the first line and the next. The download is GitHub's and is not faster; it is now visibly moving. The archive keeps the meter now; the 386-byte checksum file does not. A transfer under 1 KB/s for 30 seconds is ended rather than waited on, which is the difference between a slow link and a dead one.
+- **Paths in the installer's report are written from home.** `~/.tula/bin/tula` rather than the absolute form, which is mostly the reader's own username and the part they would redact before pasting a screenshot into an issue. The `export PATH=` line stays absolute, because a `~` inside those quotes is not a home directory to any shell.
+- **The banner carries a `v` before the version, and the directory you are in.** The `v` is how the tag, the release and every `git` and `npm` line about the build already spell it; the bare number was the odd one out. The directory is written from home too, which keeps the reader's own username off a screenshot. tula reads nothing from it — the book is the same wherever the shell was opened — but it is what tells two terminals apart at a glance. It is stripped of control characters and capped like any other text tula did not write: every byte but `/` and NUL is legal in a directory name, so a cloned repository can carry one named to repaint whatever draws it.
+
 ## [0.1.0] - 2026-09-06
 
 The first release: real venues on a published install path, the query shell, and
@@ -161,5 +170,6 @@ what breaks first.
 - `KeyScope` is tri-state. Kraken exposes no endpoint reporting a key's permissions, and every endpoint gated on trade permission mutates an order, so `canTrade` is `unknown` rather than guessed at. Withdraw scope is provable, and is proven.
 - Kraken margin and open orders are not read yet, so on a margin account this is not a complete Kraken picture.
 
-[Unreleased]: https://github.com/hsnice16/tula/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/hsnice16/tula/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/hsnice16/tula/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/hsnice16/tula/releases/tag/v0.1.0

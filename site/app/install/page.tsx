@@ -159,6 +159,11 @@ const CHANNELS: Channel[] = [
             command again does the same thing, and is the one that still works when tula will not
             start.
           </p>
+          <p className="mb-4 text-dim">
+            It downloads nothing when the newest release is the one you already have — it says so
+            and relinks, which takes about a second. <Code>TULA_FORCE=1</Code> fetches and checks
+            that same version again anyway.
+          </p>
           <Terminal title="update">{INSTALL_COMMAND}</Terminal>
         </Step>
 
@@ -400,7 +405,7 @@ export default function Page() {
         </div>
         <Terminal title="verify">
           {
-            "curl --proto '=https' --tlsv1.2 -fLO https://github.com/hsnice16/tula/releases/download/v0.1.0/tula-v0.1.0-darwin-arm64.tar.gz\ngh attestation verify tula-v0.1.0-darwin-arm64.tar.gz --repo hsnice16/tula --signer-workflow hsnice16/tula/.github/workflows/release.yml"
+            "curl --proto '=https' --tlsv1.2 -fLO https://github.com/hsnice16/tula/releases/download/v0.1.1/tula-v0.1.1-darwin-arm64.tar.gz\ngh attestation verify tula-v0.1.1-darwin-arm64.tar.gz --repo hsnice16/tula --signer-workflow hsnice16/tula/.github/workflows/release.yml"
           }
         </Terminal>
         <p className="mt-4 text-dim">

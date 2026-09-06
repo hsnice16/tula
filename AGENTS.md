@@ -806,6 +806,7 @@ release is already public, while the site is telling people to use them.
 | The Vercel root directory is `site` | `vercel.json`'s headers are read from there and nowhere else | `curl -sI https://usetu.la/` |
 | Vercel includes files outside that root | the build script copies `install.sh` in from there; without it the build fails | `curl -sI https://usetu.la/install.sh` |
 | `APPLE_*` secrets | optional; without them macOS ships unsigned | `gh secret list` |
+| A `release` environment with a required reviewer | `release.yml` names it on all three jobs, and naming it does nothing until it exists — GitHub silently creates an unprotected one on first use, and the run publishes unreviewed | `curl -s -o /dev/null -w '%{http_code}\n' https://api.github.com/repos/hsnice16/tula/environments/release` |
 
 Set each variable last, after its token exists: `true` without the token turns a
 skipped job into a failed one, and it fails after the GitHub release is public.
@@ -833,10 +834,17 @@ and the second resolves the name as an account, so it succeeds for anybody's.
 The scope list on npm's token page is the answer — it offers only what you can
 publish to.
 
-npm publishes from a token, so account 2FA never gates CI. `auth-only` is
-therefore free — `npm profile enable-2fa auth-only` — and worth having: without
-it a password is enough to publish `@hsnice16/tula`, which is the one entrance this
-project's supply-chain argument would not cover.
+The token has to be one that bypasses 2FA, and not every kind does. A classic
+**Publish** token does not: with 2FA on writes it demands an OTP, and the job
+fails `EOTP` after the GitHub release is already public — which is how v0.1.0
+went out with npm empty for half an hour. Use a **granular access token** scoped
+to the `@hsnice16` *scope* with read and write, or a classic **Automation**
+token. Scope, not package: the per-package selector cannot name packages that do
+not exist yet, which is every one of them on a first release.
+
+Do not reach for `npm profile enable-2fa auth-only` instead. It makes a password
+enough to publish `@hsnice16/tula` — the one entrance this project's supply-chain
+argument would not cover — and buys nothing the token type does not already give.
 
 `gh` is also what verifies an attestation, so a maintainer who cannot run
 `gh attestation verify` cannot check the first release the way the install page
