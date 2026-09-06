@@ -32,6 +32,25 @@ describe('CryptoCompare', () => {
     expect(oracle.quote('ETH')).rejects.toThrow(/over your rate limit[\s\S]*cryptocompare connect/)
   })
 
+  // The only price source that puts somebody else's words in an error, so the
+  // only one that can carry an escape sequence. ConnectFlow renders `err.message`
+  // whole on the strength of it having been bounded here.
+  test('the envelope text is capped and flattened before it reaches the screen', async () => {
+    const esc = String.fromCharCode(27)
+    const oracle = new CryptoCompareOracle(
+      'bad',
+      respond({ Response: 'Error', Message: `${esc}[2K\rConnected.\n${'A'.repeat(400)}` }),
+    )
+    const message = await oracle.quote('ETH').then(
+      () => '',
+      (err: Error) => err.message,
+    )
+    expect(message).not.toContain(esc)
+    expect(message.split('\n')[0]?.length).toBeLessThanOrEqual(220)
+    // Capping at the render site instead would have taken this off the end.
+    expect(message).toContain('/cryptocompare connect')
+  })
+
   test('an unknown asset yields no quote rather than a zero', async () => {
     const oracle = new CryptoCompareOracle('k', respond({ ETH: { USD: 2400 } }))
     expect(await oracle.quote('NOTACOIN')).toBeNull()

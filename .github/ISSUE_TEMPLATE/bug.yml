@@ -19,7 +19,7 @@ body:
     attributes:
       label: Version
       description: Output of `tula --version`.
-      placeholder: 0.1.0 (tula)
+      placeholder: tula 0.1.0
     validations:
       required: true
 
