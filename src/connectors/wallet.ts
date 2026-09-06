@@ -3,6 +3,7 @@ import { TulaError } from '../core/errors.js'
 import type { Position, Venue } from '../core/position.js'
 import {
   ADDRESS,
+  addressProblem,
   encodeAddress,
   ethCallBatch,
   ethGetBalance,
@@ -100,10 +101,9 @@ export const walletConnector: Connector = {
 
   /** Provably read-only: there is no credential at all, only a public address. */
   async verifyScope(creds: ConnectorCredentials): Promise<KeyScope> {
-    const address = creds['address']
-    if (!address || !ADDRESS.test(address)) {
-      throw new TulaError('That is not an Ethereum address. It should be 0x followed by 40 hex characters.')
-    }
+    const address = creds['address'] ?? ''
+    const problem = addressProblem(address)
+    if (problem) throw new TulaError(problem)
     await ethGetBalance(rpcUrl(), address)
     return { canRead: true, canTrade: false, canWithdraw: false }
   },

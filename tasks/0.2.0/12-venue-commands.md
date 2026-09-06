@@ -17,6 +17,10 @@ picking one does the right thing.
 - `/<venue> ` opens a submenu of everything scoped to that venue: `connect`,
   `positions`, `breaks`, `status`, `docs`, `disconnect`. Subcommands that need
   credentials are hidden until it is connected.
+- A venue that *is* connected lists those subcommands in the top-level `/` menu
+  too, under its own row, so reaching one is not a second step. An unconnected
+  venue stays a single row: its only subs are `connect`, which the row itself
+  runs, and `docs`.
 - Connecting happens inside the app, with the venue's official links on screen at
   the step where they are needed.
 - Secret fields are never echoed; the key-scope check still refuses anything that

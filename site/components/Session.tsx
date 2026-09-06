@@ -29,9 +29,6 @@ const TUI = {
  */
 const BRAND: Readonly<Record<string, string>> = {
   aave: '#9c8cff',
-  binance: '#f0b90b',
-  circle: '#5fbfff',
-  coinbase: '#0052ff',
   hyperliquid: '#97fce4',
   kraken: '#7132f5',
   wallet: '#627eea',
@@ -53,8 +50,9 @@ type Row = readonly [label: string, summary: string]
 
 /**
  * The top-level `/` menu, grouped and alphabetical inside each group, exactly as
- * buildCommands composes it. Every venue in the build is listed whether or not
- * it is connected, because picking one from here is the whole of connecting it.
+ * menuCommands composes it. Every venue in the build is listed whether or not it
+ * is connected, because picking one from here is the whole of connecting it; a
+ * connected one is opened out, since what you came for is under it.
  */
 const MENU: readonly Row[] = [
   ['', 'your book'],
@@ -64,20 +62,20 @@ const MENU: readonly Row[] = [
   ['/shock <asset> <percent>', 'Reprice everything and see what survives'],
   ['', 'venues'],
   ['/aave', '1 position · 09:14:02 (4s ago)'],
-  ['/binance', 'Binance — not connected'],
-  ['/circle', 'Circle Mint — not connected'],
-  ['/coinbase', 'Coinbase Advanced — not connected'],
-  ['/hyperliquid', '1 position · 09:14:02 (4s ago)'],
-  ['/kraken', '4 balances · 09:14:02 (4s ago)'],
+  ['/aave connect', 'Add or replace this venue’s public address'],
+  ['/aave positions', 'Positions held here'],
+  ['/aave breaks', 'What can be liquidated here'],
+  ['/aave status', 'Freshness and last error — there is no key to scope'],
+  ['/aave docs', 'Official links for this venue'],
 ]
 
 /** What the menu has below its window, which is what the binary counts there. */
-const MENU_REST = 15
+const MENU_REST = 39
 
 /**
  * The palette while nothing is typed: the same commands, plus every
- * `/<venue> <sub>` under the venue it hangs off, which is the half the `/` menu
- * only reaches two steps at a time.
+ * `/<venue> <sub>` under the venue it hangs off — the unconnected venues
+ * included, which is the half the `/` menu only reaches two steps at a time.
  */
 const BROWSE: readonly Row[] = [
   ['', 'your book'],
@@ -88,10 +86,10 @@ const BROWSE: readonly Row[] = [
   ['', ''],
   ['', 'venues'],
   ['/aave', '1 position · 09:14:02 (4s ago)'],
-  ['/aave connect', 'Add or replace this venue’s read-only key'],
+  ['/aave connect', 'Add or replace this venue’s public address'],
   ['/aave positions', 'Positions held here'],
   ['/aave breaks', 'What can be liquidated here'],
-  ['/aave status', 'Freshness, key scope, last error'],
+  ['/aave status', 'Freshness and last error — there is no key to scope'],
 ]
 
 /** Matches below the window, counted in matches rather than rows, as the dialog does. */

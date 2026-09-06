@@ -1,13 +1,10 @@
 import Decimal from 'decimal.js'
 import { TulaError } from '../core/errors.js'
 import type { AssetId } from '../core/position.js'
-import type { PriceOracle, Quote } from '../core/prices.js'
+import { UNITY, usablePrice, type PriceOracle, type Quote } from '../core/prices.js'
 import { request } from '../core/http.js'
 
 const QUOTES = 'https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest'
-
-/** Quoted in USD, so USD is 1 by definition and must never cost a request. */
-const UNITY = new Set(['USD', 'USDD'])
 
 /** A URL carrying every symbol at once eventually exceeds what the API accepts. */
 const CHUNK = 100
@@ -60,10 +57,11 @@ export class CoinMarketCapOracle implements PriceOracle {
       for (const [symbol, rows] of Object.entries(body.data ?? {})) {
         // Ranked, so the first entry is the largest coin using this ticker.
         const price = rows[0]?.quote?.USD?.price
-        if (price === null || price === undefined) continue
+        const usable = usablePrice(price)
+        if (!usable) continue
         const stamped = rows[0]?.quote?.USD?.last_updated
         out.set(symbol.toUpperCase(), {
-          price: new Decimal(price),
+          price: usable,
           // The venue's own clock where it gives one: dating a quote later than
           // it was true would overstate its freshness.
           asOf: stamped ? new Date(stamped) : new Date(),

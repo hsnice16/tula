@@ -1,7 +1,7 @@
 import Decimal from 'decimal.js'
 import { TulaError } from '../core/errors.js'
 import type { AssetId } from '../core/position.js'
-import type { PriceOracle, Quote } from '../core/prices.js'
+import { UNITY, usablePrice, type PriceOracle, type Quote } from '../core/prices.js'
 import { request } from '../core/http.js'
 
 const MARKETS = 'https://api.coingecko.com/api/v3/coins/markets'
@@ -14,9 +14,6 @@ const PER_PAGE = 250
  * raises the ceiling — a paid CoinGecko key needs its own host and header.
  */
 const DEFAULT_PAGES = Number(process.env['TULA_PRICE_PAGES'] ?? '2')
-
-/** Quoted in USD, so USD is 1 by definition and must never cost a request. */
-const UNITY = new Set(['USD', 'USDD'])
 
 /**
  * Symbols are not unique: several coins share one ticker. The list is fetched in
@@ -67,7 +64,7 @@ export class CoinGeckoOracle implements PriceOracle {
       if (!res.ok) {
         throw new TulaError(
           res.status === 429
-            ? 'CoinGecko rate limit reached. Prices are unavailable; every quantity below is still correct.'
+            ? 'CoinGecko rate limit reached. Prices are unavailable; quantities are still correct.'
             : `CoinGecko returned HTTP ${res.status}. Prices are unavailable; quantities are still correct.`,
         )
       }
@@ -75,8 +72,8 @@ export class CoinGeckoOracle implements PriceOracle {
       if (!Array.isArray(rows)) throw new TulaError('CoinGecko returned an unexpected response.')
 
       for (const row of rows) {
-        if (row.current_price === null || row.current_price === undefined) continue
-        const price = new Decimal(row.current_price)
+        const price = usablePrice(row.current_price)
+        if (!price) continue
         byId.set(row.id, price)
         const symbol = row.symbol.toUpperCase()
         // Market-cap order means the first symbol seen is the largest holder of it.

@@ -41,16 +41,23 @@ Highest severity first:
    exactly, because every one of them is drawn on screen *and* returned to the
    model as a tool result:
 
-   - An asset symbol — as each venue's own listing spells it, or as an Aave
-     reserve contract returns it over whichever Ethereum RPC is configured.
-     Every one is capped at 32 characters and stripped of control characters as
-     it enters, in `src/cli/session.ts`; `src/connectors/evm.ts` caps its own
-     decode as well, so a lying ABI length prefix is never allocated.
-   - The text of a venue's error, when one fails. Capped at 200 characters and
-     flattened to a single line, in the same file, so it cannot pose as a
-     second message.
+   - An asset symbol — as each venue's own listing spells it, as the configured
+     token list names it, or as an Aave reserve contract returns it over
+     whichever Ethereum RPC is configured. Every one is capped at 32 characters
+     and stripped of control characters as it enters, in `src/cli/session.ts`;
+     `src/connectors/evm.ts` caps its own decode as well, so a lying ABI length
+     prefix is never allocated.
+   - The text of an error from a venue or a price source, when one fails.
+     Capped at 200 characters and flattened to a single line by `remote()` in
+     `src/core/errors.ts`, at the connector that received it — the only place
+     that can tell tula's own words from somebody else's — so it cannot pose as
+     a second message or as the line above it.
 
    No memo, NFT metadata or protocol description is read at all.
+
+   Two further remote strings reach the screen but never the model, and are
+   bounded by shape rather than by length: a release tag, which must match a
+   version number, and a published checksum, which must be 64 hex characters.
 6. **A wrong risk number presented as correct**: a liquidation distance, health
    factor or net exposure that is silently incorrect, or a stale figure rendered
    as live. This is a security issue here, not just a bug — people size positions
@@ -95,21 +102,25 @@ Everything tula contacts, and nothing else:
   `https://tokens.uniswap.org` — and each sees the address you are reading.
   `TULA_ETH_RPC` and `TULA_TOKEN_LIST` point them elsewhere, including at your
   own node.
-- **Anthropic, and only when you ask a question in plain English.** Answering one
+- **Anthropic — `https://api.anthropic.com`, and only when you ask a question in
+  plain English.** The host is stated in the binary rather than taken from the
+  environment, so nothing outside tula can redirect it. Answering one
   means sending the computed figures — assets, quantities, notional values,
   liquidation distances, venue names — as tool results. Credentials are never
   among them, by construction. Every command works without a model and sends
   nothing to Anthropic; if you never ask a question, tula never talks to it.
 
-- **GitHub, to see whether there is a newer release.** Once a day at most, and
-  only in the interactive shell. It is a GET of the public
-  `/releases/latest` page, carrying nothing about you — not your version, not an
-  identifier, no query string — so what GitHub sees is what it sees from anyone
-  opening that page. `TULA_NO_UPDATE_CHECK=1` stops it. Nothing is ever
-  installed by that check: it prints a line, and `/update install` is a separate
-  thing you type. Typing it fetches the release archive and `checksums.txt` from
-  the same repository, and nothing else. That is the only other request, and
-  only when you ask for it.
+- **GitHub, to see whether there is a newer release.** The check that runs on
+  its own does so once a day at most and only in the interactive shell;
+  `TULA_NO_UPDATE_CHECK=1` stops it. Asking directly — `/update`, or
+  `tula update` — checks there and then, because you asked. Either way it is a
+  GET of the public `/releases/latest` page, carrying nothing about you — not
+  your version, not an identifier, no query string — so what GitHub sees is what
+  it sees from anyone opening that page. Nothing is ever installed by a check:
+  it prints a line, and `/update install` is a separate thing you type. Typing
+  it fetches the release archive and `checksums.txt` from that repository,
+  following GitHub's redirect to the storage host it serves assets from. Those
+  are the only other requests, and only when you ask for them.
 
 No telemetry and no crash reporting. The update check is the only request the
 binary makes that is not about your positions, and it is the only one that
@@ -122,14 +133,18 @@ keyless, so there is no signing key for this project to generate, publish, rotat
 or lose.
 
 ```bash
-gh attestation verify tula-v0.1.0-darwin-arm64.tar.gz --repo hsnice16/tula
+gh attestation verify tula-v0.1.0-darwin-arm64.tar.gz --repo hsnice16/tula \
+  --signer-workflow hsnice16/tula/.github/workflows/release.yml
 ```
 
-The subject is the archive, not the binary inside it, so verify the `.tar.gz`
-rather than an installed `tula`. Homebrew downloads that same archive. npm
-repackages the binary into a tarball of its own, which this attestation does not
-cover: that channel is published with `npm publish --provenance` and is checked
-with `npm audit signatures` instead.
+`--signer-workflow` is not optional: `--repo` alone accepts an attestation from
+any workflow in the repository, and every workflow that can mint one is a
+workflow somebody could propose a change to. The subject is the archive, not the
+binary inside it, so verify the `.tar.gz` rather than an installed `tula`.
+Homebrew downloads that same archive. npm repackages the binary into a tarball
+of its own, which this attestation does not cover: that channel is published
+with `npm publish --provenance` and is checked with `npm audit signatures`
+instead.
 
 The installer runs this automatically when the GitHub CLI is present and signed
 in, and refuses to install on failure. Without either, it still verifies the

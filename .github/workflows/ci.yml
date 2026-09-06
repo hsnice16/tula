@@ -61,3 +61,33 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: bash scripts/guard.sh
       - run: bash scripts/guard-test.sh
+
+  # The commit hook is opt-in per clone and `--no-verify` skips it, so until now
+  # nothing looked at a contributor's branch at all. Staging the whole tree
+  # rather than a diff makes this the stronger check of the two: it fails on a
+  # credential already sitting in the files, not only on one being added.
+  no-credentials:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: bash scripts/scan-test.sh
+      - name: no credential anywhere in the tree
+        run: |
+          set -euo pipefail
+          # The history is discarded first, and that is the whole trick: the hook
+          # reads `git diff --cached`, so against a checkout whose index already
+          # matches HEAD it stages nothing and passes having read no file at all.
+          # Re-initialised, every tracked file is an addition and the scan sees
+          # the tree entire.
+          rm -rf .git
+          git init -q
+          git config user.email ci@example.invalid
+          git config user.name ci
+          git add -A
+          test "$(git diff --cached --name-only | wc -l)" -gt 0 || {
+            echo "staged nothing; the scan below would pass without reading a file" >&2
+            exit 1
+          }
+          bash .githooks/scan-staged

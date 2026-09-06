@@ -46,7 +46,7 @@ const NOTES = [
   ],
   [
     'Unknown is a value',
-    'Kraken cannot tell what a key is allowed to do without placing an order, so tula says unknown rather than safe. A missing price means no value shown, never a zero. A key that can trade is turned away today as well; the one that will never be let through is withdraw.',
+    'Kraken proves a key cannot withdraw, but every endpoint that would prove it cannot trade also places an order — so tula says unknown rather than safe. A missing price means no value shown, never a zero. A key that can trade is turned away today as well; the one that will never be let through is withdraw.',
   ],
   [
     'The model never computes',

@@ -1,5 +1,5 @@
 import Decimal from 'decimal.js'
-import { TulaError } from '../core/errors.js'
+import { remote, TulaError } from '../core/errors.js'
 import type { Position, Venue } from '../core/position.js'
 import type { Connector, ConnectorCredentials, KeyScope } from './types.js'
 import { request } from '../core/http.js'
@@ -45,7 +45,7 @@ async function get<T>(path: string, apiKey: string): Promise<T> {
   })
   const body = (await res.json()) as T & { error?: { message?: string } }
   if (!res.ok) {
-    throw new TulaError(`Stripe: ${body.error?.message ?? `HTTP ${res.status}`}`)
+    throw new TulaError(`Stripe: ${body.error?.message ? remote(body.error.message) : `HTTP ${res.status}`}`)
   }
   return body
 }
@@ -70,6 +70,8 @@ export const stripeConnector: Connector = {
     { label: 'Your API keys', url: 'https://dashboard.stripe.com/apikeys' },
     { label: 'How balances work', url: 'https://docs.stripe.com/api/balance' },
   ],
+
+  unprovable: ['trade', 'withdraw'],
 
   /**
    * Stripe does not report what a restricted key may do, so trade and withdraw

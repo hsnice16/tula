@@ -1,6 +1,6 @@
 import { createHash, createHmac } from 'node:crypto'
 import Decimal from 'decimal.js'
-import { TulaError } from '../core/errors.js'
+import { remote, TulaError } from '../core/errors.js'
 import type { Position, PositionKind, Venue } from '../core/position.js'
 import type { Connector, ConnectorCredentials, KeyScope } from './types.js'
 import { request } from '../core/http.js'
@@ -15,7 +15,7 @@ export class KrakenAuthError extends TulaError {}
 export class KrakenApiError extends TulaError {
   constructor(readonly errors: string[]) {
     // No venue prefix: every caller already says which venue it was asking.
-    super(errors.join(', '))
+    super(remote(errors.join(', ')))
   }
 }
 
@@ -60,7 +60,9 @@ async function call<T>(
 ): Promise<CallOutcome<T>> {
   const key = creds['apiKey']
   const secret = creds['apiSecret']
-  if (!key || !secret) throw new KrakenAuthError('Kraken credentials must have apiKey and apiSecret.')
+  if (!key || !secret) {
+    throw new KrakenAuthError('The stored Kraken credentials are incomplete.\n  Reconnect with /kraken connect.')
+  }
 
   const body = new URLSearchParams({ nonce: nextNonce(), ...params })
   const res = await request(BASE + path, {
@@ -124,6 +126,10 @@ export const krakenConnector: Connector = {
     { label: 'What each permission does', url: 'https://docs.kraken.com/exchange/guides/rest/api-keys' },
     { label: 'API key security', url: 'https://support.kraken.com/articles/api-key-security' },
   ],
+
+  // Trade permission only: every endpoint that would prove it also places an
+  // order. Withdraw is proven, by an endpoint that reads without moving funds.
+  unprovable: ['trade'],
 
   async verifyScope(creds: ConnectorCredentials): Promise<KeyScope> {
     const balance = await call<Record<string, string>>(BALANCE, creds)

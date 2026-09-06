@@ -10,7 +10,7 @@ import { krakenConnector } from './connectors/kraken.js'
 import { stripeConnector } from './connectors/stripe.js'
 import { walletConnector } from './connectors/wallet.js'
 import { isOverScoped, unverified, type Connector } from './connectors/types.js'
-import { TulaError } from './core/errors.js'
+import { remote, TulaError } from './core/errors.js'
 import { buildOracle } from './prices/providers.js'
 import { runApp } from './ui/run.js'
 import { envApiKey } from './agent/agent.js'
@@ -68,7 +68,7 @@ async function connect(venueId: string | undefined): Promise<void> {
     scope = await connector.verifyScope(creds)
   } catch (err) {
     console.log('failed.')
-    fail(err instanceof Error ? err.message : String(err))
+    fail(err instanceof Error ? err.message : remote(String(err)))
   }
   console.log('done.\n')
 

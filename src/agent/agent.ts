@@ -10,6 +10,16 @@ const MODEL = 'claude-opus-5'
 const MAX_TURNS = 8
 
 /**
+ * Stated rather than left to the SDK, which reads `ANTHROPIC_BASE_URL` from the
+ * environment. SECURITY.md names every host tula talks to and promises a
+ * credential goes nowhere but the venue it belongs to; a line in a shell
+ * profile — from a dotfiles repo, a devcontainer, a package's install script —
+ * must not be able to redirect the whole book and the key to a fourth party
+ * while the screen still says Anthropic.
+ */
+const API_BASE_URL = 'https://api.anthropic.com'
+
+/**
  * The SDK's default is 2. A terminal question is cheap to retry and expensive
  * to lose: the user typed it, the spinner is already on screen, and an
  * `overloaded_error` means "later", not "no". Five attempts is the difference
@@ -129,8 +139,19 @@ export class Agent {
           '  Every command works without either. Type / to see them.',
       )
     }
+    // A pasted key is always an API key; only the environment can supply a
+    // bearer token, and the SDK sends the two under different headers. Passing
+    // one as the other spends the user's credential on a guaranteed 401, and
+    // `explain()` then tells them to replace a key that was never wrong.
+    const credential =
+      apiKey && !options.apiKey && envApiKeyName() === 'ANTHROPIC_AUTH_TOKEN'
+        ? { authToken: apiKey }
+        : apiKey
+          ? { apiKey }
+          : {}
     this.client =
-      options.client ?? new Anthropic({ maxRetries: MAX_RETRIES, ...(apiKey ? { apiKey } : {}) })
+      options.client ??
+      new Anthropic({ baseURL: API_BASE_URL, maxRetries: MAX_RETRIES, ...credential })
   }
 
   reset(): void {

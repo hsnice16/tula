@@ -31,7 +31,9 @@ async function fetchBytes(url: string): Promise<Buffer> {
   // TimeoutError, past `request`'s own catch, which wraps the header race and
   // not the body read. `/update install` ended in a stack trace on any
   // connection that could not pull tens of megabytes inside 15s.
-  const response = await request(url, {}, DOWNLOAD_TIMEOUT_MS)
+  // A release asset is served by a redirect to object storage, and this request
+  // carries no credential. What lands is still checksummed before it is used.
+  const response = await request(url, { redirect: 'follow' }, DOWNLOAD_TIMEOUT_MS)
   if (!response.ok) {
     throw new TulaError(
       `Could not download the update: ${host(url)} returned ${response.status}.\n` +
@@ -75,9 +77,14 @@ export async function applyUpdate(version: string, into: NativeInstall): Promise
       .find((line) => line.trim().endsWith(` ${archive}`))
       ?.trim()
       .split(/\s+/)[0]
-    if (!expected) {
+    // Shape-checked before it is printed. `expected` is bytes from a downloaded
+    // file, `split(/\s+/)` does not split on ESC, and this message is drawn on
+    // the terminal in the one case the checksum exists for — so an archive that
+    // failed verification could otherwise repaint the line saying so. A sha256
+    // is 64 hex characters; anything else is not a checksum to begin with.
+    if (!expected || !/^[a-f0-9]{64}$/i.test(expected)) {
       throw new TulaError(
-        `${archive} is not listed in checksums.txt. Nothing was installed.\n` +
+        `${archive} is not listed in checksums.txt with a valid checksum. Nothing was installed.\n` +
           `  Do not use this download. Report it: ${REPO_URL}/security`,
       )
     }

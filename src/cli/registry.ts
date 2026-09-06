@@ -82,6 +82,7 @@ export function matchPriceSubcommands(
 const ADDRESS_ONLY_SUMMARY: Readonly<Record<string, string>> = {
   connect: 'Add or replace this venue’s public address',
   disconnect: 'Forget this venue’s address',
+  status: 'Freshness and last error — there is no key to scope',
 }
 
 export function matchVenueSubcommands(
@@ -206,6 +207,31 @@ export function buildCommands(
   )
 }
 
+/**
+ * The menu list: the commands, with a connected venue's subcommands opened out
+ * under it, in the order and wording ctrl+k already shows them. An unconnected
+ * venue stays one row — the two subs it has are `connect`, which its own row
+ * runs, and `docs`, and eight venues opened out for those is the list nobody
+ * can read down.
+ */
+export function menuCommands(
+  venues: VenueEntry[] = [],
+  prices: PriceEntry[] = [],
+): SlashCommand[] {
+  return buildCommands(venues, prices).flatMap((c) => {
+    const venue = c.venue ? venues.find((v) => v.id === c.name) : undefined
+    if (!venue?.connected) return [c]
+    return [
+      c,
+      ...matchVenueSubcommands('', true, venue.addressOnly ?? false).map((sub) => ({
+        name: `${c.name} ${sub.name}`,
+        summary: sub.summary,
+        ...(c.group ? { group: c.group } : {}),
+      })),
+    ]
+  })
+}
+
 /** Commands whose first characters match, for the menu and for completion. */
 export function matchCommands(
   fragment: string,
@@ -213,7 +239,7 @@ export function matchCommands(
   prices: PriceEntry[] = [],
 ): SlashCommand[] {
   const needle = fragment.toLowerCase()
-  return buildCommands(venues, prices).filter((c) => c.name.toLowerCase().startsWith(needle))
+  return menuCommands(venues, prices).filter((c) => c.name.toLowerCase().startsWith(needle))
 }
 
 /** Levenshtein, capped: only used to suggest one near miss. */

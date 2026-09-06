@@ -221,10 +221,18 @@ export async function dispatchCommand(
 
     case 'refresh': {
       const loaded = await session.refresh()
-      const venueCount = new Set(loaded.positions.map((p) => p.venue)).size
+      // Counted from what is connected, not from what returned rows: a venue
+      // that failed and a venue holding nothing both contribute no position,
+      // and reading the count off `positions` reported neither — while
+      // sub-account labels like `kraken-margin` counted twice.
+      const venueCount = (await secrets.listVenues()).length
+      const note = commands.incompleteNote(session)
       return {
         kind: 'output',
-        output: `Refreshed ${venueCount} venue(s), ${loaded.positions.length} position(s).`,
+        // This is the command somebody runs to recover from a failure, so it is
+        // the last one that may report success while a venue is still missing.
+        output: `Refreshed ${venueCount} venue(s), ${loaded.positions.length} position(s).${note}`,
+        incomplete: loaded.failures.length > 0,
       }
     }
 

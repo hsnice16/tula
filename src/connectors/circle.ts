@@ -1,5 +1,5 @@
 import Decimal from 'decimal.js'
-import { TulaError } from '../core/errors.js'
+import { remote, TulaError } from '../core/errors.js'
 import type { Position, Venue } from '../core/position.js'
 import type { Connector, ConnectorCredentials, KeyScope } from './types.js'
 import { request } from '../core/http.js'
@@ -26,7 +26,7 @@ async function get<T>(path: string, apiKey: string): Promise<T> {
     headers: { Authorization: `Bearer ${apiKey}`, 'User-Agent': 'tula' },
   })
   const body = (await res.json()) as T & { message?: string }
-  if (!res.ok) throw new TulaError(`Circle: ${body.message ?? `HTTP ${res.status}`}`)
+  if (!res.ok) throw new TulaError(`Circle: ${body.message ? remote(body.message) : `HTTP ${res.status}`}`)
   return body
 }
 
@@ -53,6 +53,8 @@ export const circleConnector: Connector = {
     },
     { label: 'Wallet policy and approvals', url: 'https://help.circle.com/s/article/Circle-Account-wallet-policy-permissions-and-approvals-setup' },
   ],
+
+  unprovable: ['trade', 'withdraw'],
 
   /**
    * Circle supports Restricted Keys but exposes no way to read what one may do,

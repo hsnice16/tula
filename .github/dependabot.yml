@@ -17,11 +17,13 @@ updates:
       prefix: ci
 
   # The binary's tree. Every entry here runs in a process that reads exchange
-  # keys, so these are read before they are merged, never batched blindly.
+  # keys, so these are read before they are merged, never batched blindly — and
+  # weekly rather than monthly, because four runtime dependencies cost nothing
+  # to review and a month is a long time to sit on a published advisory.
   - package-ecosystem: bun
     directory: /
     schedule:
-      interval: monthly
+      interval: weekly
     commit-message:
       prefix: deps
 

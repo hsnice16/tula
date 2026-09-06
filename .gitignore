@@ -18,3 +18,10 @@ site/tsconfig.tsbuildinfo
 
 # Copied from the repository root at site build time.
 site/public/install.sh
+
+# Agent tooling writes machine-local settings here, and the skill beside them is
+# tracked — so the directory is half-tracked and `git add -A` would take this.
+.claude/settings.local.json
+
+# macOS writes one into any directory the Finder opens.
+.DS_Store

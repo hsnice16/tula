@@ -31,7 +31,9 @@ export interface Available {
  */
 async function latestRelease(): Promise<string | null> {
   try {
-    const response = await request(`${REPO_URL}/releases/latest`)
+    // The redirect *is* the answer here, and this request carries no
+    // credential, so following one gives an attacker nothing to collect.
+    const response = await request(`${REPO_URL}/releases/latest`, { redirect: 'follow' })
     // A repository with nothing published redirects to the release list, which
     // has no tag in it and is correctly no answer.
     const tag = /\/tag\/v?([^/]+)\/?$/.exec(response.url)?.[1]

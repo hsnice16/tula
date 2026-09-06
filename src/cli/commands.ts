@@ -20,20 +20,25 @@ export interface CommandResult {
   usageError?: boolean
 }
 
-function incompleteNote(session: Session): string {
+export function incompleteNote(session: Session): string {
   const { failures, priceError } = session.current
   const lines: string[] = []
   if (failures.length > 0) {
     lines.push(`\nINCOMPLETE — ${failures.length} venue(s) failed. This is not your full exposure.`)
-    for (const f of failures) lines.push(`  ${f}`)
-    // Some failures already name their own remedy; a second, generic suggestion
-    // that does not apply is worse than none.
-    if (!failures.some((f) => f.includes('/'))) {
-      const first = failures[0]?.split(':')[0]
-      lines.push(`  Run /${first ?? '<venue>'} status to see why, or /refresh to try again.`)
+    // Per failure, not once for the list. A failure already naming a remedy
+    // needs no second one, but the test used to be whether *any* of them did —
+    // and a slash appears in a venue's own URL, so one venue quoting a link
+    // took the way out away from every other venue that had failed beside it.
+    for (const f of failures) {
+      lines.push(`  ${f}`)
+      if (f.includes('/')) continue
+      const venue = f.split(':')[0]
+      lines.push(`    Run /${venue ?? '<venue>'} status to see why, or /refresh to try again.`)
     }
   }
-  if (priceError) lines.push(`\nPrices unavailable: ${priceError}`)
+  // No label of its own: every price source says "Prices are unavailable" in
+  // the message itself, and prefixing one printed the sentence twice.
+  if (priceError) lines.push(`\n${priceError}`)
   return lines.join('\n')
 }
 
@@ -60,7 +65,7 @@ function unpricedNote({ total, unpriced }: PortfolioValue): string[] {
  * with a connected wallet to go connect a venue is how a working tool reads as
  * a broken one. Which it is depends on the store, not on the row count.
  */
-async function emptyBook(): Promise<string> {
+async function emptyBook(session: Session): Promise<string> {
   const stored = await secrets.listVenues()
   if (stored.length === 0) {
     return (
@@ -69,11 +74,25 @@ async function emptyBook(): Promise<string> {
       '  address — no key, nothing to leak.'
     )
   }
-  const named = stored.join(', ')
+
+  // A venue that failed did not return nothing; it was never read. Counting it
+  // among the empty ones told the reader their account was empty two lines
+  // above an INCOMPLETE block saying it had not been reached — and "the account
+  // is empty, or it is not the one you trade with" is a bad thing to be told
+  // about a book nobody managed to open.
+  const failed = new Set(session.current.failures.map((f) => f.split(':')[0]))
+  const read = stored.filter((id) => !failed.has(id))
+  if (read.length === 0) {
+    return (
+      `Nothing could be read: ${stored.length === 1 ? 'the venue' : 'every venue'} you have connected failed.`
+    )
+  }
+
+  const named = read.join(', ')
   return (
-    `${named} ${stored.length === 1 ? 'is' : 'are'} connected and returned nothing.\n` +
+    `${named} ${read.length === 1 ? 'is' : 'are'} connected and returned nothing.\n` +
     '  Either the account is empty, or it is not the one you trade with.\n' +
-    `  /${stored[0]} status shows what tula is reading; /refresh refetches now.`
+    `  /${read[0]} status shows what tula is reading; /refresh refetches now.`
   )
 }
 
@@ -81,7 +100,7 @@ export async function positions(session: Session): Promise<CommandResult> {
   const { positions: all } = await session.ensureLoaded()
   const note = incompleteNote(session)
   if (all.length === 0) {
-    return { output: (await emptyBook()) + note, incomplete: note !== '' }
+    return { output: (await emptyBook(session)) + note, incomplete: note !== '' }
   }
 
   const now = new Date()
@@ -102,7 +121,7 @@ export async function exposure(session: Session): Promise<CommandResult> {
   const exposures = session.exposures()
   const note = incompleteNote(session)
   if (exposures.length === 0) {
-    return { output: (await emptyBook()) + note, incomplete: note !== '' }
+    return { output: (await emptyBook(session)) + note, incomplete: note !== '' }
   }
 
   const now = new Date()
@@ -119,7 +138,10 @@ export async function exposure(session: Session): Promise<CommandResult> {
   )
 
   const value = portfolioValue(exposures)
-  const lines = [table, '', `Net value  ${usd(value.total)}`, ...unpricedNote(value)]
+  // Notional, not worth: an exposure is `delta × price`, so a perp contributes
+  // the whole position rather than the margin behind it, and a leveraged book
+  // called this "Net value" overstated net worth by its leverage.
+  const lines = [table, '', `Net notional  ${usd(value.total)}`, ...unpricedNote(value)]
   return { output: lines.join('\n') + note, incomplete: note !== '' }
 }
 
@@ -131,7 +153,7 @@ export async function breaks(session: Session): Promise<CommandResult> {
   // "Nothing here can be liquidated" over no positions at all is the reassuring
   // version of a wrong number: it reads as a book that was read and found safe.
   if (all.length === 0) {
-    return { output: (await emptyBook()) + note, incomplete: note !== '' }
+    return { output: (await emptyBook(session)) + note, incomplete: note !== '' }
   }
   if (risks.length === 0) {
     return {
@@ -158,7 +180,7 @@ export async function breaks(session: Session): Promise<CommandResult> {
         p.venue,
         p.asset,
         p.kind,
-        r.move === null ? 'unknown' : pct(r.move),
+        r.liquidatable ? 'liquidatable now' : r.move === null ? 'unknown' : pct(r.move),
         trigger,
         freshness(p.asOf, now),
       ]
@@ -188,7 +210,7 @@ export async function shock(session: Session, args: string[]): Promise<CommandRe
   // liquidates" — three true figures that together answer a question about a
   // book this session never had.
   if (all.length === 0) {
-    return { output: (await emptyBook()) + note, incomplete: note !== '' }
+    return { output: (await emptyBook(session)) + note, incomplete: note !== '' }
   }
   const result = scenario(all, prices, shocks)
 
@@ -334,7 +356,7 @@ export async function breaksAt(session: Session, venueId: string): Promise<Comma
         return [
           p.asset,
           p.kind,
-          r.move === null ? 'unknown' : pct(r.move),
+          r.liquidatable ? 'liquidatable now' : r.move === null ? 'unknown' : pct(r.move),
           trigger,
           freshness(p.asOf, now),
         ]
@@ -366,11 +388,17 @@ export async function venueStatus(
     const stalest = mine.reduce<Date | null>((min, p) => (min && min < p.asOf ? min : p.asOf), null)
     const held = holdings(connector.venue.kind, mine)
     lines.push(stalest ? `  ${held}, oldest ${freshness(stalest, now)}` : `  ${held}`)
-    // Only a venue that asked for a key can have had one checked.
+    // Only a venue that asked for a key can have had one checked, and only
+    // what the venue will report can be said to have been checked. Saying more
+    // here than the connect screen said is the contradiction, not the brevity.
+    const unprovable = connector.unprovable ?? []
     lines.push(
-      connector.fields.some((f) => f.secret)
-        ? '  This key was checked as read-only when you connected.'
-        : '  A public address only — tula holds no key for this venue.',
+      !connector.fields.some((f) => f.secret)
+        ? '  A public address only — tula holds no key for this venue.'
+        : unprovable.length > 0
+          ? `  Its read access was checked. ${connector.venue.name} exposes no way to confirm\n` +
+            `  it cannot ${unprovable.join(' or ')}, so tula could not.`
+          : '  This key was checked as read-only when you connected.',
     )
   }
 

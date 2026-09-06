@@ -13,6 +13,14 @@ export interface LiquidationRisk {
    * venue gave us nothing to compute it from — which is not the same as safe.
    */
   move: Decimal | null
+  /**
+   * Already at or past the trigger, so no move is needed to reach it.
+   *
+   * Carried separately because a zero move cannot say this on its own: it
+   * renders as `+0.0%`, which reads as "a 0% rise would do it" and sorts beside
+   * the safest rows on screen. This is the one row a reader must not miss.
+   */
+  liquidatable: boolean
 }
 
 /**
@@ -26,18 +34,34 @@ export function moveFromHealthFactor(healthFactor: Decimal): Decimal {
 
 export function liquidationRisk(position: Position, prices: PriceMap): LiquidationRisk {
   const params = position.liquidation
-  if (!params) return { position, move: null }
+  if (!params) return { position, move: null, liquidatable: false }
 
   if (params.healthFactor !== undefined) {
-    return { position, move: moveFromHealthFactor(params.healthFactor) }
+    return {
+      position,
+      move: moveFromHealthFactor(params.healthFactor),
+      liquidatable: params.healthFactor.lte(ONE),
+    }
   }
 
   const mark = prices.get(position.asset)
   if (params.price !== undefined && mark !== undefined && !mark.isZero()) {
-    return { position, move: params.price.minus(mark).div(mark) }
+    return {
+      position,
+      move: params.price.minus(mark).div(mark),
+      // Which side of the trigger the mark already sits on, and that depends on
+      // the direction: a long liquidates when the price falls to it, a short
+      // when it rises to it. Left as a plain `false` here, every perp already
+      // past its trigger reported the move as a *rise* of a few percent — the
+      // same misreading the health-factor branch is guarded against, on the
+      // venue class that liquidates most often.
+      liquidatable: position.delta.isNegative()
+        ? mark.gte(params.price)
+        : mark.lte(params.price),
+    }
   }
 
-  return { position, move: null }
+  return { position, move: null, liquidatable: false }
 }
 
 /** Nearest to liquidation first. Unknowns sort last: they cannot be ranked, not "safe". */
@@ -46,6 +70,12 @@ export function whatBreaksFirst(positions: Position[], prices: PriceMap): Liquid
     .map((p) => liquidationRisk(p, prices))
     .filter((r) => r.move !== null || r.position.liquidation !== undefined)
     .sort((a, b) => {
+      // Already past the trigger sorts first, ahead of the distance comparison.
+      // A health factor below 1 clamps its move to zero and would have sorted
+      // there anyway; a perp does not — the further past its liquidation price
+      // it is, the *larger* the move, so the row nearest to being lost was
+      // landing at the bottom of a table whose contract is "nearest first".
+      if (a.liquidatable !== b.liquidatable) return a.liquidatable ? -1 : 1
       if (a.move === null && b.move === null) return 0
       if (a.move === null) return 1
       if (b.move === null) return -1

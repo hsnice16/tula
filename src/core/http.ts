@@ -34,6 +34,43 @@ const tooSlow = (url: string, timeoutMs: number = REQUEST_TIMEOUT_MS): TulaError
   )
 
 /**
+ * Bun says `UnexpectedRedirect fetching "<url>"`; Node throws `fetch failed`
+ * and puts `unexpected redirect` on the cause. Both are matched rather than
+ * either, because the tests run under one runtime and the binary ships the
+ * other, and a miss here would surface as a bare TypeError.
+ */
+const isRedirect = (err: unknown): boolean => {
+  if (!(err instanceof Error)) return false
+  const cause = err.cause
+  const causeText = cause instanceof Error ? cause.message : String(cause ?? '')
+  // Both phrases in full, not the bare word: Node puts the failing hostname in
+  // its cause, so matching `redirect` alone reported a DNS failure against a
+  // host with that string in its name as a possible interception — advice to
+  // distrust the network, given for a typo.
+  return /unexpectedredirect/i.test(err.message.replace(/\s+/g, '')) ||
+    /unexpected redirect/i.test(causeText)
+}
+
+/**
+ * A cross-origin redirect is refused rather than followed because `fetch`
+ * strips `Authorization` across one and nothing else: `X-MBX-APIKEY`,
+ * `API-Key` and `X-CMC_PRO_API_KEY` would all be re-sent to whatever host the
+ * `Location` names. Anything able to shape a venue's response — an intercepting
+ * proxy, a rogue CA, an open redirect at the venue's edge — could then collect
+ * the key by answering `302`. SECURITY.md calls that the highest-severity
+ * failure there is, so it fails loudly instead.
+ *
+ * The runtime's own message is dropped: Bun's carries the whole URL, and a
+ * self-set RPC endpoint holds its key in the path.
+ */
+const redirected = (url: string): TulaError =>
+  new TulaError(
+    `${host(url)} redirected the request, and tula does not follow redirects.\n` +
+      '  Nothing was sent on. This is normal for a captive portal or a proxy\n' +
+      '  that intercepts TLS; on a plain network it is worth treating as suspect.',
+  )
+
+/**
  * A release archive is tens of megabytes, and 15s of it is an ordinary slow
  * connection rather than a venue that has stopped answering. Kept here beside
  * the poll deadline so the two are read together and neither is a bare number
@@ -59,7 +96,9 @@ export async function request(
 
   try {
     return await Promise.race([
-      fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) }),
+      // `redirect` first, so a caller that needs to follow one says so and the
+      // rest cannot acquire the behaviour by omission. Only `src/update` does.
+      fetch(url, { redirect: 'error', ...init, signal: AbortSignal.timeout(timeoutMs) }),
       deadline,
     ])
   } catch (err) {
@@ -69,6 +108,7 @@ export async function request(
     if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
       throw tooSlow(url, timeoutMs)
     }
+    if (isRedirect(err)) throw redirected(url)
     throw err
   } finally {
     clearTimeout(timer)
