@@ -533,12 +533,13 @@ bun run build              # -> site/out, static
   target every external link on the site opens with, and the `rel` that keeps the
   opened page from reaching back through `window.opener`. Between the two rules
   no page should contain a bare anchor at all.
-- `install.sh` lives at the repository root, where CI tests it, and the build
-  command copies it into `public/`. `site/public/install.sh` is generated and
-  gitignored — two copies of a script people pipe into a shell is one copy too
-  many. The copy reaches Vercel only because the project includes source files
-  from outside its root directory; without that the published `curl | sh`
-  fetches a 404.
+- `install.sh` lives at the repository root, where CI tests it, and `site`'s own
+  `build` script copies it into `public/`. `site/public/install.sh` is generated
+  and gitignored — two copies of a script people pipe into a shell is one copy
+  too many. It sits in the build script rather than in Vercel's build command so
+  that CI and the deploy run the same one. It does need the project to include
+  files from outside its root directory — but with that off the build now fails,
+  where before it published a `curl | sh` that fetched a 404.
 - `app/not-found.tsx` is the 404, exported to `out/404.html` — the one file
   served for every path on the domain there is nothing at. It is not in `NAV`,
   which is the list of routes the sitemap and `llms.txt` publish, and a 404 in
@@ -803,7 +804,7 @@ release is already public, while the site is telling people to use them.
 | `PUBLISH_HOMEBREW`, `PUBLISH_NPM` = `true` | both jobs are skipped without them | `gh variable list` |
 | `usetu.la` resolves, HTTPS enforced | the install command is the domain | `curl -sI https://usetu.la/install.sh` |
 | The Vercel root directory is `site` | `vercel.json`'s headers are read from there and nowhere else | `curl -sI https://usetu.la/` |
-| Vercel includes files outside that root | the build copies `install.sh` in from the repository root | `curl -sI https://usetu.la/install.sh` |
+| Vercel includes files outside that root | the build script copies `install.sh` in from there; without it the build fails | `curl -sI https://usetu.la/install.sh` |
 | `APPLE_*` secrets | optional; without them macOS ships unsigned | `gh secret list` |
 
 Set each variable last, after its token exists: `true` without the token turns a

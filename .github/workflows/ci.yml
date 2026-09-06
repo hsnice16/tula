@@ -49,9 +49,9 @@ jobs:
         working-directory: site
       - run: bun run lint
         working-directory: site
-      # Built the way Vercel builds it, installer included: the copy is what
-      # `curl | sh` fetches, and only the build proves the page still renders.
-      - run: cp install.sh site/public/install.sh
+      # The command Vercel runs, installer copy included, so CI cannot pass
+      # against a build the deploy does differently — and only a real build
+      # proves the page still renders.
       - run: bun run build
         working-directory: site
 

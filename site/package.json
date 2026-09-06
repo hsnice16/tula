@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "cp ../install.sh public/install.sh && next build",
     "lint": "biome check .",
     "format": "biome format --write ."
   },
