@@ -171,8 +171,14 @@ verify_attestation() {
   fi
   # A failure here is never advisory. A binary that fails its attestation is one
   # somebody other than this repository's release workflow produced.
-  gh attestation verify "$archive" --repo "$REPO" >/dev/null 2>&1 ||
-    die "$(basename "$archive") failed attestation: it was not built by $REPO." \
+  #
+  # --signer-workflow, not just --repo: any workflow in the repository holding
+  # `attestations: write` can mint a signature, so without it a proposed change
+  # to CI is enough to sign an arbitrary archive. The comment against the attest
+  # step in release.yml is about exactly this line.
+  gh attestation verify "$archive" --repo "$REPO" \
+    --signer-workflow "$REPO/.github/workflows/release.yml" >/dev/null 2>&1 ||
+    die "$(basename "$archive") failed attestation: it was not built by $REPO's release workflow." \
       "Do not use this download. Report it: https://github.com/$REPO/security"
   return 0
 }
@@ -307,7 +313,8 @@ if [ -n "$UNVERIFIED" ]; then
   say "so nothing here proved $REPO built this binary. To check that yourself,"
   say "verify the archive — the attestation is over that, not the binary inside:"
   note "curl --proto '=https' --tlsv1.2 -fLO $BASE/$ARCHIVE"
-  note "gh attestation verify \"$ARCHIVE\" --repo $REPO"
+  note "gh attestation verify \"$ARCHIVE\" --repo $REPO \\"
+  note "  --signer-workflow $REPO/.github/workflows/release.yml"
 fi
 
 [ -n "$PATH_NOTE" ] && { say ""; note "$PATH_NOTE"; }

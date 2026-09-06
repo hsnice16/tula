@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto'
 import Decimal from 'decimal.js'
-import { TulaError } from '../core/errors.js'
+import { remote, TulaError } from '../core/errors.js'
 import type { Position, Venue } from '../core/position.js'
 import type { Connector, ConnectorCredentials, KeyScope } from './types.js'
 import { request } from '../core/http.js'
@@ -39,7 +39,9 @@ async function signedGet<T>(
 ): Promise<T> {
   const key = creds['apiKey']
   const secret = creds['apiSecret']
-  if (!key || !secret) throw new TulaError('Binance credentials must have apiKey and apiSecret.')
+  if (!key || !secret) {
+    throw new TulaError('The stored Binance credentials are incomplete.\n  Reconnect with /binance connect.')
+  }
 
   const query = new URLSearchParams({
     ...params,
@@ -62,7 +64,7 @@ async function signedGet<T>(
   }
   if (body === null) throw new BinanceApiError(`Binance: HTTP ${res.status}`)
   if (!res.ok || typeof body.code === 'number') {
-    throw new BinanceApiError(`Binance: ${body.msg ?? `HTTP ${res.status}`}`, body.code)
+    throw new BinanceApiError(`Binance: ${body.msg ? remote(body.msg) : `HTTP ${res.status}`}`, body.code)
   }
   return body
 }
@@ -138,6 +140,11 @@ export const binanceConnector: Connector = {
     // catch used to take everything, so a timeout or a 5xx loaded the account
     // with spot balances and no INCOMPLETE — a book with open perps in it
     // answering "nothing can be liquidated".
+    // Unreachable with any key tula will store: Binance's futures permission
+    // grants futures *trading*, so `verifyScope` reports canTrade and connect
+    // refuses the key. Kept because the refusal is the thing that could
+    // change — the permission split, or a read-only futures scope — and this
+    // is what would have to be right on the day it does. README says spot.
     let futures: FuturesPosition[] = []
     try {
       futures = await signedGet<FuturesPosition[]>(FUTURES, '/fapi/v2/positionRisk', creds)

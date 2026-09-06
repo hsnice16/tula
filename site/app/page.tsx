@@ -104,7 +104,7 @@ OP      320     $464.00  wallet                   09:14:02 (4s ago)
 UNI      60     $438.00  wallet                   09:14:02 (4s ago)
 
 `}
-            <Held>{'Net value  $34,474.00'}</Held>
+            <Held>{'Net notional  $34,474.00'}</Held>
             <Prompt>❯ /breaks</Prompt>
             {`VENUE        ASSET  KIND        MOVE TO LIQ  TRIGGER             AS OF
 ───────────  ─────  ──────────  ───────────  ──────────────────  ─────────────────

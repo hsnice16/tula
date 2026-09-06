@@ -3,12 +3,11 @@ import { TulaError } from '../core/errors.js'
 import type { Position, Venue } from '../core/position.js'
 import type { Connector, ConnectorCredentials, KeyScope } from './types.js'
 import { request } from '../core/http.js'
+import { addressProblem } from './evm.js'
 
 const INFO = 'https://api.hyperliquid.xyz/info'
 
 export const HYPERLIQUID: Venue = { id: 'hyperliquid', kind: 'perp-dex', name: 'Hyperliquid' }
-
-export const ADDRESS = /^0x[0-9a-fA-F]{40}$/
 
 /**
  * Hyperliquid quotes some low-priced perps in thousands — `kPEPE` is 1000 PEPE.
@@ -51,7 +50,10 @@ async function info<T>(body: Record<string, unknown>): Promise<T> {
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    throw new TulaError(`Hyperliquid returned HTTP ${res.status}.`)
+    throw new TulaError(
+      `Hyperliquid returned HTTP ${res.status}.\n` +
+        '  It may be rate-limiting you, or down. Try /refresh in a moment.',
+    )
   }
   return (await res.json()) as T
 }
@@ -78,10 +80,9 @@ export const hyperliquidConnector: Connector = {
    * Nothing is `unknown` here, unlike an exchange key.
    */
   async verifyScope(creds: ConnectorCredentials): Promise<KeyScope> {
-    const address = creds['address']
-    if (!address || !ADDRESS.test(address)) {
-      throw new TulaError('That is not an Ethereum address. It should be 0x followed by 40 hex characters.')
-    }
+    const address = creds['address'] ?? ''
+    const problem = addressProblem(address)
+    if (problem) throw new TulaError(problem)
     await info<ClearinghouseState>({ type: 'clearinghouseState', user: address.toLowerCase() })
     return { canRead: true, canTrade: false, canWithdraw: false }
   },
@@ -96,7 +97,13 @@ export const hyperliquidConnector: Connector = {
     ])
 
     // The venue timestamps its own snapshot, so freshness is the venue's, not ours.
-    const asOf = perps.time ? new Date(perps.time) : new Date()
+    // The venue's own clock, but never ahead of ours. `freshness` clamps a
+    // negative age to `0s`, so a venue running fast would pin every row at
+    // "0s ago" while the snapshot behind it quietly aged — a stale figure
+    // rendered as live, which is the one thing an age is there to prevent.
+    const received = new Date()
+    const stamped = perps.time ? new Date(perps.time) : received
+    const asOf = stamped > received ? received : stamped
     const positions: Position[] = []
 
     for (const entry of perps.assetPositions ?? []) {

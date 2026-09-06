@@ -284,9 +284,10 @@ describe('the security page names enforcement that exists', () => {
   test('the card names both kinds of outside text, and both are bounded', () => {
     expect(page).toContain('as an Aave reserve contract returns it')
     expect(page).toContain('error text when one fails')
-    const session = read('src/cli/session.ts')
-    expect(session).toContain('MAX_SYMBOL')
-    expect(session).toContain('MAX_REASON')
+    expect(read('src/cli/session.ts')).toContain('MAX_SYMBOL')
+    // The error cap moved to core/errors.ts, so a connector can apply it as the
+    // text enters rather than every render site remembering to.
+    expect(read('src/core/errors.ts')).toContain('MAX_REMOTE')
     expect(read('src/connectors/evm.ts')).toContain('MAX_SYMBOL_BYTES')
   })
 
@@ -302,7 +303,11 @@ describe('the security page names enforcement that exists', () => {
   test('SECURITY.md names the same injection surface as the page', () => {
     const policy = flat('SECURITY.md')
     expect(policy).toContain('as an Aave reserve contract returns it')
-    expect(policy).toContain("The text of a venue's error")
+    // A price source is not a venue — `connectors/types.ts` says so — and its
+    // error reaches the screen and the model by the same path, so the claim
+    // has to name both or it under-describes its own surface.
+    expect(policy).toContain('The text of an error from a venue or a price source')
+    expect(policy).toContain('src/core/errors.ts')
     expect(policy).toContain('src/cli/session.ts')
     expect(policy).toContain('No memo, NFT metadata or protocol description is read at all')
   })

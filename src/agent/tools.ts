@@ -35,7 +35,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: 'what_breaks_first',
     description:
-      'Every position that can be liquidated, ordered nearest first. move_to_liquidation is a signed move in the current price: -35.0% means a 35% fall triggers it, +22.0% a 22% rise. Null means the venue gave no liquidation data, which is not the same as safe.',
+      'Every position that can be liquidated, ordered nearest first. move_to_liquidation is a signed move in the current price: -35.0% means a 35% fall triggers it, +22.0% a 22% rise. "liquidatable now" means it is already at or past its trigger and no move is needed. Null means the venue gave no liquidation data, which is not the same as safe.',
     input_schema: { type: 'object', properties: {} },
   },
   {
@@ -91,6 +91,25 @@ export function executeTool(engine: RiskEngine, name: string, input: unknown): u
   const now = new Date()
   const at = (d: Date): string => freshness(d, now)
 
+  // Every numeric answer carries whether the book behind it was complete.
+  // The CLI has said this since the first release; the model was told only in
+  // a system-prompt rule, with nothing in the data to act on — so a book
+  // missing a venue was narrated as a total, exactly the defect the commands
+  // were fixed for. `get_venue_status` still holds the detail; this is the
+  // flag that makes the model go and read it.
+  const f = engine.freshness()
+  const incomplete =
+    f.failures.length > 0 || f.priceError !== null
+      ? {
+          incomplete: {
+            failed_venues: f.failures,
+            price_error: f.priceError,
+            warning:
+              'These figures leave out the venues listed here. Say so before quoting any total.',
+          },
+        }
+      : {}
+
   switch (name) {
     case 'get_net_exposure': {
       const rows = engine
@@ -106,6 +125,7 @@ export function executeTool(engine: RiskEngine, name: string, input: unknown): u
       return {
         exposures: rows,
         note: 'Figures are final: quote them exactly as written. notional_usd null means no price was available, not zero value.',
+        ...incomplete,
       }
     }
 
@@ -127,7 +147,7 @@ export function executeTool(engine: RiskEngine, name: string, input: unknown): u
             : {}),
           ...(p.liquidation?.price ? { liquidation_price: usd(p.liquidation.price) } : {}),
         }))
-      return { positions: rows, note: 'Figures are final: quote them exactly as written.' }
+      return { positions: rows, note: 'Figures are final: quote them exactly as written.', ...incomplete }
     }
 
     case 'what_breaks_first': {
@@ -135,7 +155,8 @@ export function executeTool(engine: RiskEngine, name: string, input: unknown): u
         venue: r.position.venue,
         asset: r.position.asset,
         kind: r.position.kind,
-        move_to_liquidation: r.move === null ? null : pct(r.move),
+        move_to_liquidation:
+          r.liquidatable ? 'liquidatable now' : r.move === null ? null : pct(r.move),
         ...(r.position.liquidation?.healthFactor
           ? { health_factor: r.position.liquidation.healthFactor.toFixed(2) }
           : {}),
@@ -147,6 +168,7 @@ export function executeTool(engine: RiskEngine, name: string, input: unknown): u
       return {
         risks: rows,
         note: 'Figures are final: quote them exactly as written. move_to_liquidation null means the venue gave no liquidation data, which is not the same as safe.',
+        ...incomplete,
       }
     }
 
@@ -171,6 +193,7 @@ export function executeTool(engine: RiskEngine, name: string, input: unknown): u
         unpriced_and_excluded: result.before.unpriced,
         liquidated: result.liquidated.map((p) => ({ venue: p.venue, kind: p.kind, asset: p.asset })),
         note: 'Figures are final: quote them exactly as written.',
+        ...incomplete,
       }
     }
 

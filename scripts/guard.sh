@@ -133,6 +133,23 @@ if grep -rn '\bfetch(' src --include='*.ts' --include='*.tsx' \
   report "a bare fetch() bypasses the timeout in src/core/http.ts"
 fi
 
+# The SDK reads ANTHROPIC_BASE_URL from the environment, so the host is stated
+# in code or it is whatever a shell profile last set. SECURITY.md names every
+# host tula talks to; without this the file could stop being true silently.
+grep -q "const API_BASE_URL = 'https://api.anthropic.com'" src/agent/agent.ts ||
+  report "src/agent/agent.ts does not pin the Anthropic base URL"
+grep -q 'baseURL: API_BASE_URL' src/agent/agent.ts ||
+  report "the Anthropic client is constructed without the pinned base URL"
+
+# `fetch` strips `Authorization` across a cross-origin redirect and nothing
+# else, so a venue's own key header would be re-sent to whatever the `Location`
+# names. src/core/http.ts refuses redirects for that reason; the two callers
+# that opt back in carry no credential, and any third has to be argued for here.
+if grep -rn "redirect: *'follow'" src --include='*.ts' --include='*.tsx' \
+     --exclude='*.test.ts' | grep -vE '^src/update/(check|apply)\.ts:'; then
+  report "a credential-bearing request opts back into following redirects"
+fi
+
 # src/version.ts declares where tula is published. Three files restate it because
 # they cannot import from there — install.sh is a standalone artifact, the site
 # is a separate package, package.json is not TypeScript — so drift is caught here

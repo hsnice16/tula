@@ -146,6 +146,7 @@ install.sh              # the published installer; served from the site, tested 
 scripts/
   guard.sh              # the SECURITY.md promises, enforced
   guard-test.sh         # plants a write path in src/ and expects guard.sh to name it
+  scan-test.sh          # plants a credential and expects scan-staged to refuse it
   release-cut.sh        # bumps the version, dates the changelog, stops before the tag
   release-build.sh      # cross-compiles the four published targets
   install-test.sh       # runs install.sh against a fake release, under a curl shim
@@ -173,7 +174,8 @@ src/
     wallet.ts           # public address — native ETH and ERC-20s off a token list
     stripe.ts           # restricted key; fiat balances, per-currency minor units
     circle.ts           # restricted key; scope unprovable, so it stays unknown
-    evm.ts              # ABI encode/decode and batched eth_call
+    evm.ts              # ABI encode/decode, batched eth_call, EIP-55 addresses
+    keccak.ts           # keccak-256, for those checksums; no runtime has it
   secrets/
     store.ts            # credential store; never imported by src/agent/**
   update/
@@ -296,9 +298,10 @@ Two rules, and they are the reason the architecture exists:
   `dispatchCommand` — the menu, palette, help text and one-shot CLI all follow.
 - **Browsing and searching want opposite orders.** `/` is grouped and
   alphabetical, because that is the only order somebody can predict before they
-  have learned the list. ctrl+k is flat and ranked, and reaches `/<venue> <sub>`
-  in one step. Neither is the other's fallback, which is why they are two
-  components over one `registry.ts`.
+  have learned the list. ctrl+k is flat and ranked, and reaches every
+  `/<venue> <sub>` — including the venues you have not connected — without your
+  naming the venue at all. Neither is the other's fallback, which is why they
+  are two components over one `registry.ts`.
 - **A key a terminal cannot receive is not a binding.** `cmd` never reaches a
   TTY — the terminal emulator consumes it — so every shortcut here is `ctrl+`.
 - **Nothing under the cursor may move on its own.** The menu sits *below* the
@@ -339,7 +342,10 @@ Two rules, and they are the reason the architecture exists:
   is the defect above with a longer window. Ink throttles its own painting to
   30fps; there is no render storm left for a debounce here to prevent.
 - **Venues are commands too.** Every venue in the build is in the `/` menu with its
-  status inline, and `/<venue> <sub>` scopes an action to it. There is no separate
+  status inline, and `/<venue> <sub>` scopes an action to it. A connected venue
+  lists its subcommands under its own row there, since that is where the user is
+  going; an unconnected one stays a single row, because eight venues opened out
+  for `connect` and `docs` is a list nobody can read down. There is no separate
   discovery step, and the menu doubles as the venue overview.
 - **Colour comes from `src/ui/theme.ts`.** Dulled gold, because it is the unit
   everything here is measured against; a saturated yellow reads as a warning, and

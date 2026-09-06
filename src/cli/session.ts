@@ -1,5 +1,6 @@
 import Decimal from 'decimal.js'
 import type { Connector } from '../connectors/types.js'
+import { remote } from '../core/errors.js'
 import { netExposure, oldest, type PriceMap } from '../core/exposure.js'
 import type { AssetId, Position } from '../core/position.js'
 import type { PriceOracle } from '../core/prices.js'
@@ -28,20 +29,15 @@ const EMPTY: LoadResult = {
 /**
  * Two strings on this screen are written by somebody else: a venue's error text
  * and an asset symbol. Both are drawn in the tables *and* returned to the model
- * as tool results, so both are bounded here — the one place every connector
- * arrives, rather than one chance per connector to forget.
+ * as tool results. The symbol is bounded here, the one place every connector
+ * arrives; the error text is bounded by `remote()` at the connector that
+ * received it, which is the only place that can tell it from tula's own words.
  *
  * `SECURITY.md` lists exactly these two. A third has to be added there in the
  * same commit.
  */
-
-/** Long enough to name the problem, too short to carry an argument. */
-const MAX_REASON = 200
-
 export function reason(err: unknown): string {
-  const text = err instanceof Error ? err.message : String(err)
-  const clean = text.replace(/[\p{Cc}\p{Cf}]+/gu, ' ').trim()
-  return clean.length > MAX_REASON ? `${clean.slice(0, MAX_REASON - 1)}…` : clean
+  return remote(err instanceof Error ? err.message : String(err))
 }
 
 /** A handful of characters in every real listing. */

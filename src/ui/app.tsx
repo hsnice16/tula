@@ -27,7 +27,7 @@ import { pendingUpdate } from '../update/check.js'
 import type { Connector } from '../connectors/types.js'
 import { TulaError } from '../core/errors.js'
 import * as secrets from '../secrets/store.js'
-import { APP_DESCRIPTION, APP_VERSION } from '../version.js'
+import { APP_DESCRIPTION, APP_VERSION, REPO_URL } from '../version.js'
 import { ConnectFlow } from './ConnectFlow.js'
 import { connectable, type Connectable, type ConnectorCredentials } from '../connectors/types.js'
 import {
@@ -39,7 +39,7 @@ import {
 import { freshness, holdings } from '../core/format.js'
 import { typed } from './keys.js'
 import { askCursor, cursorRow } from './anchor.js'
-import { mouseReport, trackMouse, type MouseReport } from './mouse.js'
+import { mouseReports, trackMouse, type MouseReport } from './mouse.js'
 import { Credentials, type CredentialsMode, type CredentialsResult } from './Credentials.js'
 import { displayRows, FRAME_ROWS, Palette, paletteGeometry, windowRows } from './Palette.js'
 import { offsetShowing, selectionIn, windowStart } from './scroll.js'
@@ -111,6 +111,21 @@ const TOOL_LABELS: Readonly<Record<string, string>> = {
 const RESPONDING = 'answering'
 
 /** A load's step, in the voice the tool labels above are written in. */
+/**
+ * What a failure reads as on screen.
+ *
+ * A `TulaError` is a condition the user can act on and says so itself. Anything
+ * else is a bug in tula, and `String(err)` turned it into a bare line —
+ * `TypeError: x is not a function` — with nothing to do about it and nowhere to
+ * send it. `errors.ts` keeps the stack for exactly this case; the least the
+ * screen can do is say whose fault it is and where it goes.
+ */
+function failureText(err: unknown): string {
+  if (err instanceof TulaError) return err.message
+  const message = err instanceof Error ? err.message : String(err)
+  return `${message}\n  This is a bug in tula, not something you did.\n  Please report it: ${REPO_URL}/issues`
+}
+
 function loadLabel(step: LoadStep): string {
   return step.kind === 'venue'
     ? `reading ${step.venue}`
@@ -440,7 +455,7 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
         if (result.kind === 'key') await secrets.putProviderKey(result.apiKey)
         if (result.kind === 'signed-out') await secrets.removeProviderKey()
       } catch (err) {
-        return push('error', err instanceof TulaError ? err.message : String(err))
+        return push('error', failureText(err))
       }
 
       const source = await credentialSource()
@@ -772,7 +787,7 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
         }
       } catch (err) {
         setStreaming('')
-        push('error', err instanceof TulaError ? err.message : String(err))
+        push('error', failureText(err))
       } finally {
         setActivity('')
         setBusy(false)
@@ -795,11 +810,14 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
       const result = await dispatchCommand(session, connectors, parsed, venueEntries)
       if (result.kind === 'output') push('output', result.output)
     } catch (err) {
-      push('error', err instanceof TulaError ? err.message : String(err))
+      push('error', failureText(err))
     } finally {
       setBusy(false)
     }
   }, [session, connectors, venueEntries, push])
+
+  /** The front of a mouse report that arrived without its end. */
+  const mouseCarry = useRef('')
 
   // Claimed by whichever path gets there first — mounting with venues already
   // stored, or a connect that just stored the first one. A ref, not state:
@@ -1061,8 +1079,21 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
     (ch, key) => {
       // Before everything, including the busy gate: a report that reaches the
       // bottom of this handler is typed in as the punctuation it looks like.
-      const report = mouseReport(ch)
-      if (report) return palette ? onPaletteMouse(report) : onMenuMouse(report)
+      // Read as a stream rather than one report per chunk — mode 1003 reports
+      // every movement, and a hand crossing the screen sends them faster than
+      // stdin is drained, so they arrive several at a time and split across
+      // chunk boundaries.
+      const { reports, partial } = mouseReports(mouseCarry.current + ch)
+      mouseCarry.current = partial
+      if (reports.length > 0) {
+        for (const report of reports) {
+          if (palette) onPaletteMouse(report)
+          else onMenuMouse(report)
+        }
+        return
+      }
+      // A chunk that is nothing but the front of a report: wait for the rest.
+      if (partial) return
       const answered = cursorRow(ch)
       if (answered !== null) return setAnchor(answered)
 
@@ -1196,19 +1227,30 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
         setPendingPrice(null)
         push(outcome.ok ? 'notice' : 'output', outcome.message)
         if (!outcome.ok) return
-        if (provider) {
-          const stored = await secrets.getPriceSource()
-          const { oracle } = buildOracle(
-            provider,
-            stored?.apiKey ? { apiKey: stored.apiKey } : undefined,
-          )
-          setActivePrice(provider)
-          await session.useOracle(oracle)
-        } else {
-          await refreshConnected()
-          await session.refresh()
+        // Busy from here, not from `showState`. The venue is actually read by
+        // the refresh below — seconds of it, on a book like this one — and that
+        // used to run with the spinner off, so the screen sat on "Connected"
+        // with nothing moving. By the time `showState` raised it the cache was
+        // warm and it flashed for a frame. One span covers the whole wait, and
+        // `session.onProgress` names the venue being read while it does.
+        setBusy(true)
+        try {
+          if (provider) {
+            const stored = await secrets.getPriceSource()
+            const { oracle } = buildOracle(
+              provider,
+              stored?.apiKey ? { apiKey: stored.apiKey } : undefined,
+            )
+            setActivePrice(provider)
+            await session.useOracle(oracle)
+          } else {
+            await refreshConnected()
+            await session.refresh()
+          }
+          await showState()
+        } finally {
+          setBusy(false)
         }
-        await showState()
       }}
     />
   ) : null

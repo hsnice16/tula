@@ -1,6 +1,6 @@
 import { createPrivateKey, createSign, randomBytes, sign as edSign, type KeyObject } from 'node:crypto'
 import Decimal from 'decimal.js'
-import { TulaError } from '../core/errors.js'
+import { remote, TulaError } from '../core/errors.js'
 import type { Position, Venue } from '../core/position.js'
 import type { Connector, ConnectorCredentials, KeyScope } from './types.js'
 import { request } from '../core/http.js'
@@ -68,11 +68,13 @@ export function loadKey(raw: string): KeyObject {
  * present as "Coinbase rejected your key".
  */
 export function derToJose(der: Buffer, size = 32): Buffer {
-  if (der[0] !== 0x30) throw new TulaError('Unexpected ECDSA signature format.')
+  // Not a TulaError: this is tula's own signing code disagreeing with itself,
+  // which the user can do nothing about and which should keep its stack.
+  if (der[0] !== 0x30) throw new Error('Unexpected ECDSA signature format.')
   // 0x30 <len> 0x02 <rlen> <r> 0x02 <slen> <s>
   let offset = der[1] === 0x81 ? 3 : 2
   const readInt = (): Buffer => {
-    if (der[offset] !== 0x02) throw new TulaError('Unexpected ECDSA signature format.')
+    if (der[offset] !== 0x02) throw new Error('Unexpected ECDSA signature format.')
     const length = der[offset + 1] ?? 0
     // DER keeps a leading zero to stay positive; JOSE has no sign byte.
     const value = der.subarray(offset + 2, offset + 2 + length)
@@ -122,7 +124,7 @@ async function get<T>(path: string, creds: ConnectorCredentials): Promise<T> {
     throw new TulaError(
       res.status === 401
         ? 'Coinbase rejected the key. Check the key name and that the signing key is complete.'
-        : `Coinbase: HTTP ${res.status} ${text.slice(0, 120)}`,
+        : `Coinbase: HTTP ${res.status} ${remote(text)}`,
     )
   }
   return (await res.json()) as T
@@ -140,6 +142,8 @@ interface AccountsResponse {
     available_balance?: { value?: string; currency?: string }
     hold?: { value?: string }
   }>
+  has_next?: boolean
+  cursor?: string
 }
 
 export const coinbaseConnector: Connector = {
@@ -177,11 +181,35 @@ export const coinbaseConnector: Connector = {
   },
 
   async fetchPositions(creds: ConnectorCredentials): Promise<Position[]> {
-    const body = await get<AccountsResponse>('/api/v3/brokerage/accounts?limit=250', creds)
     const asOf = new Date()
     const positions: Position[] = []
 
-    for (const account of body.accounts ?? []) {
+    // Followed to the end rather than stopping at the first page. A truncated
+    // book is a wrong net exposure that reports itself as complete, and an
+    // account holding more currencies than one page is not an exotic case.
+    // Bounded so a cursor that never clears cannot spin here forever.
+    const accounts: NonNullable<AccountsResponse['accounts']> = []
+    let cursor: string | undefined
+    let more = false
+    for (let page = 0; page < 20; page++) {
+      const query = `?limit=250${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`
+      const body = await get<AccountsResponse>(`/api/v3/brokerage/accounts${query}`, creds)
+      accounts.push(...(body.accounts ?? []))
+      more = body.has_next === true && Boolean(body.cursor)
+      if (!more) break
+      cursor = body.cursor
+    }
+    // Stopping quietly at the bound would be the truncation the loop exists to
+    // prevent, reported as a complete account.
+    if (more) {
+      throw new TulaError(
+        'Coinbase has more accounts than tula read in 20 pages.\n' +
+          '  This would under-report your balances, so nothing is shown for it.\n' +
+          '  Please report it: https://github.com/hsnice16/tula/issues',
+      )
+    }
+
+    for (const account of accounts) {
       const asset = account.available_balance?.currency ?? account.currency
       if (!asset) continue
       // Held funds are still yours and still exposed, so they belong in the total.

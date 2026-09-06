@@ -8,6 +8,7 @@ import type { Position, PositionKind } from '../core/position.js'
 import type { PriceOracle, Quote } from '../core/prices.js'
 import * as secrets from '../secrets/store.js'
 import {
+  buildPalette,
   defaultSubcommand,
   matchCommands,
   matchVenueSubcommands,
@@ -257,6 +258,57 @@ describe('dispatchCommand', () => {
     }
   })
 
+  // A failed venue was counted among the ones that "returned nothing", so a
+  // book nobody could open was described as an empty account two lines above
+  // the INCOMPLETE block saying it had not been reached.
+  test('a venue that failed is not described as empty', async () => {
+    const brokenConnector: Connector = {
+      ...testConnector,
+      venue: { id: 'brokenvenue', kind: 'lending', name: 'Broken Venue' },
+      async fetchPositions(): Promise<Position[]> {
+        throw new Error('the node refused the call')
+      },
+    }
+    const connectors = new Map<string, Connector>([['brokenvenue', brokenConnector]])
+    process.env['TULA_CONFIG_DIR'] = await mkdtemp(join(tmpdir(), 'tula-test-'))
+    await secrets.put('brokenvenue', { apiKey: 'k' })
+    const broken = new Session(connectors, oracle)
+
+    const result = await dispatchCommand(broken, connectors, parseCommand('/exposure')!)
+    if (result.kind !== 'output') throw new Error('expected output')
+    expect(result.output).not.toContain('returned nothing')
+    expect(result.output).not.toContain('the account is empty')
+    expect(result.output).toContain('failed')
+    expect(result.incomplete).toBe(true)
+  })
+
+  // One venue quoting a URL used to take the way out away from every other
+  // venue that had failed beside it, because the check was over the whole list.
+  test('every failure carries its own way out', async () => {
+    const fail = (id: string, message: string): Connector => ({
+      ...testConnector,
+      venue: { id, kind: 'lending', name: id },
+      async fetchPositions(): Promise<Position[]> {
+        throw new Error(message)
+      },
+    })
+    const connectors = new Map<string, Connector>([
+      ['withlink', fail('withlink', 'see https://example.invalid/docs')],
+      ['plain', fail('plain', 'the node refused the call')],
+    ])
+    process.env['TULA_CONFIG_DIR'] = await mkdtemp(join(tmpdir(), 'tula-test-'))
+    await secrets.put('withlink', { apiKey: 'k' })
+    await secrets.put('plain', { apiKey: 'k' })
+
+    const both = new Session(connectors, oracle)
+    const result = await dispatchCommand(both, connectors, parseCommand('/exposure')!)
+    if (result.kind !== 'output') throw new Error('expected output')
+    // The one that named no remedy of its own gets one.
+    expect(result.output).toContain('Run /plain status')
+    // The one that did is not given a second.
+    expect(result.output).not.toContain('Run /withlink status')
+  })
+
   test('about states what tula cannot do, not only what it does', async () => {
     const result = await run('/about')
     if (result.kind !== 'output') throw new Error('expected output')
@@ -460,6 +512,47 @@ describe('menus', () => {
     )
     expect(names).toContain('exposure')
     expect(names).toContain('kraken')
+  })
+
+  test('a connected venue brings its subcommands into the top level', () => {
+    const kraken = { id: 'kraken', connected: true, detail: '4 balances' }
+    const names = matchCommands('kraken', [kraken]).map((c) => c.name)
+    expect(names).toEqual([
+      'kraken',
+      'kraken connect',
+      'kraken positions',
+      'kraken breaks',
+      'kraken status',
+      'kraken docs',
+      'kraken disconnect',
+    ])
+  })
+
+  // The subs it would open out are `connect` and `docs`, and the row itself
+  // already runs the first of those.
+  test('an unconnected venue stays one row', () => {
+    const names = matchCommands('kraken', [
+      { id: 'kraken', connected: false, detail: 'not connected' },
+    ]).map((c) => c.name)
+    expect(names).toEqual(['kraken'])
+  })
+
+  test('an address-only venue opens out with the address wording, not the key one', () => {
+    const rows = matchCommands('wallet', [
+      { id: 'wallet', connected: true, addressOnly: true, detail: '4 tokens' },
+    ])
+    expect(rows.slice(1).map((c) => c.summary)).toEqual(
+      matchVenueSubcommands('', true, true).map((c) => c.summary),
+    )
+  })
+
+  // Two lists of the same venue that disagree is the bug this pins.
+  test('the top level and the palette open a connected venue out alike', () => {
+    const venues = [{ id: 'kraken', connected: true, detail: '4 balances' }]
+    const subs = (names: string[]) => names.filter((n) => n.startsWith('kraken '))
+    expect(subs(matchCommands('', venues).map((c) => c.name))).toEqual(
+      subs(buildPalette(venues).map((e) => e.path)),
+    )
   })
 
   test('/venues is runnable but kept out of the menu', () => {

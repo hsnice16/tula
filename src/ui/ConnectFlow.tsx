@@ -1,6 +1,7 @@
 import { Box, Text, useInput } from 'ink'
 import { useCallback, useEffect, useState } from 'react'
 import { isOverScoped, unverified, type Connectable, type ConnectorCredentials } from '../connectors/types.js'
+import { remote } from '../core/errors.js'
 import * as secrets from '../secrets/store.js'
 import { BRAND_MARK, brandColor } from './brand.js'
 import { theme } from './theme.js'
@@ -82,7 +83,10 @@ export function ConnectFlow({ target, onDone, save: store, doneMessage }: Props)
             : `Connected ${target.name}.${note}`,
         })
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err))
+        // Rendered whole, remedy line and all. What a venue wrote inside it was
+        // already bounded by `remote()` as it entered the connector, which is
+        // the only place that can tell tula's own text from somebody else's.
+        setError(err instanceof Error ? err.message : remote(String(err)))
         setIndex(0)
         setValues({})
       } finally {

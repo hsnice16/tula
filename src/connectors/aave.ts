@@ -1,12 +1,14 @@
 import Decimal from 'decimal.js'
 import { TulaError } from '../core/errors.js'
+import { host } from '../core/http.js'
 import type { Position, Venue } from '../core/position.js'
 import {
-  ADDRESS,
+  addressProblem,
   decodeString,
   encodeAddress,
   ethCall,
   ethCallBatch,
+  RPC_REMEDY,
   SELECTOR,
   toBigInt,
   wordToAddress,
@@ -50,7 +52,11 @@ async function loadReserves(rpc: string): Promise<Reserve[]> {
   const list = words(await ethCall(rpc, { to: POOL, data: SELECTOR.getReservesList }))
   const count = Number(toBigInt(list[1]))
   const underlyings = list.slice(2, 2 + count).map((w) => wordToAddress(w))
-  if (underlyings.length === 0) throw new TulaError('Aave returned no reserves.')
+  if (underlyings.length === 0) {
+    throw new TulaError(
+      'Aave returned no reserves, which should never happen against a working node.' + RPC_REMEDY,
+    )
+  }
 
   const reserveData = await ethCallBatch(
     rpc,
@@ -68,11 +74,30 @@ async function loadReserves(rpc: string): Promise<Reserve[]> {
     ...underlyings.map((a) => ({ to: a, data: SELECTOR.decimals })),
   ])
 
-  reserveCache = tokens.map((t, i) => ({
+  // A null is a call that failed, not an answer. Defaulted, the two of them
+  // produce a reserve named UNKNOWN — which nets with every other UNKNOWN as
+  // if they were one asset — scaled by 18 decimals, which reads a 6-decimal
+  // USDC balance as zero. Both are wrong numbers that report themselves as
+  // right, so the reserve list is refused instead and the venue is named failed.
+  const decoded = tokens.map((t, i) => ({
     ...t,
-    symbol: decodeString(meta[i] ?? '') || 'UNKNOWN',
-    decimals: Number(toBigInt(words(meta[underlyings.length + i] ?? '')[0])) || 18,
+    symbol: decodeString(meta[i] ?? ''),
+    decimals: Number(toBigInt(words(meta[underlyings.length + i] ?? '')[0])),
   }))
+
+  // An empty symbol and a zero decimals count as failures too, not only a null:
+  // one nets every such reserve together as a single unnamed asset, the other
+  // renders a raw wei integer as a quantity.
+  const undecoded = decoded.filter((t) => !t.symbol || !Number.isFinite(t.decimals) || t.decimals <= 0)
+  if (undecoded.length > 0) {
+    throw new TulaError(
+      `The Ethereum node at ${host(rpc)} did not return usable metadata for ` +
+        `${undecoded.length} Aave reserve(s).` +
+        RPC_REMEDY,
+    )
+  }
+
+  reserveCache = decoded
   return reserveCache
 }
 
@@ -99,10 +124,9 @@ export const aaveConnector: Connector = {
 
   /** Provably read-only: a public address, and an `eth_call` cannot write. */
   async verifyScope(creds: ConnectorCredentials): Promise<KeyScope> {
-    const address = creds['address']
-    if (!address || !ADDRESS.test(address)) {
-      throw new TulaError('That is not an Ethereum address. It should be 0x followed by 40 hex characters.')
-    }
+    const address = creds['address'] ?? ''
+    const problem = addressProblem(address)
+    if (problem) throw new TulaError(problem)
     await ethCall(rpcUrl(), {
       to: POOL,
       data: encodeAddress(SELECTOR.getUserAccountData, address),
@@ -134,6 +158,20 @@ export const aaveConnector: Connector = {
         data: encodeAddress(SELECTOR.balanceOf, address),
       })),
     ])
+
+    // Same reasoning as the reserve metadata above: a failed balance call is
+    // not a zero balance. Dropped silently, a missing *debt* leg makes the book
+    // read as richer and safer than it is, while the health factor beside it
+    // still renders — the exact shape of a wrong number presented as correct.
+    const unread = reserves
+      .map((r, i) => (balances[i] === null || balances[reserves.length + i] === null ? r.symbol : null))
+      .filter((s): s is string => s !== null)
+    if (unread.length > 0) {
+      throw new TulaError(
+        `The Ethereum node at ${host(rpcUrl())} did not return balances for ${unread.length} Aave reserve(s).` +
+          RPC_REMEDY,
+      )
+    }
 
     const positions: Position[] = []
     const collateralIds: string[] = []

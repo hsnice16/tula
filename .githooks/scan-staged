@@ -38,8 +38,25 @@ AIza[0-9A-Za-z_-]{30,}
 -----BEGIN [A-Z ]*PRIVATE KEY-----'
 
 for path in $(git diff --cached --name-only --diff-filter=ACM); do
-  # Binary and lockfiles produce noise, not findings.
-  case "$path" in *.lock | *.png | *.jpg | *.gif | *.ico | *.woff*) continue ;; esac
+  # No extension skip. git already reports a real binary as "Binary files …
+  # differ" and produces no added lines, so the scan costs nothing there — while
+  # skipping by name let a credential through in a text file called `logo.png`.
+
+  # A lockfile is wall-to-wall integrity hashes, so the general patterns below
+  # would fire on every line of it. The one credential that can land in one is
+  # a registry auth line, and that is worth looking for on its own.
+  case "$path" in
+    *.lock | *lock.json)
+      git diff --cached --no-color -U0 -- "$path" | sed -n 's/^+//p' |
+        grep -oiE '(_auth(Token)?|_password)[[:space:]]*=?[[:space:]]*[^[:space:]]+' |
+        sort -u |
+        while IFS= read -r hit; do
+          [ -n "$hit" ] || continue
+          printf '%s\n' "$path|${hit:0:28}…  (a registry credential in a lockfile)"
+        done >>"$FINDINGS"
+      continue
+      ;;
+  esac
   git diff --cached --no-color -U0 -- "$path" >/dev/null 2>&1 || continue
 
   added=$(git diff --cached --no-color -U0 -- "$path" | sed -n 's/^+//p')
@@ -63,12 +80,56 @@ EOF
   # An address is not secret, but a real one in this repository is somebody's
   # holdings — CONTRIBUTING forbids it "including test fixtures and pasted
   # output". Public contracts tula reads from are listed in the allowlist.
-  printf '%s\n' "$added" | grep -oiE '0x[a-f0-9]{40}' | sort -u |
+  #
+  # A 64-hex run is excluded first and reported below instead. A private key
+  # opens with 40 hex characters like everything else, and the address wording
+  # sent whoever pasted one to the allowlist — advice that commits a live key.
+  printf '%s\n' "$added" | grep -oiE '0x[a-f0-9]{40,}' | sort -u |
+    while IFS= read -r hit; do
+      [ -n "$hit" ] || continue
+      [ ${#hit} -eq 42 ] || continue
+      allowed "$hit" && continue
+      allowed "$(printf '%s' "$hit" | tr 'A-Z' 'a-z')" && continue
+      printf '%s\n' "$path|$hit  (an address — allowlist it if this is a public contract)"
+    done >>"$FINDINGS"
+
+  # 64 hex characters, with or without the prefix, is the shape of an EVM
+  # private key. A long zero run is not: that is ABI padding around an address
+  # or a number, which is most of what encoded calldata looks like, and the
+  # scanner has to stay quiet about the encoder's own tests to be worth having.
+  printf '%s\n' "$added" | grep -oiE '(0x)?[a-f0-9]{64}' |
+    grep -viE '0{12}' | sort -u |
     while IFS= read -r hit; do
       [ -n "$hit" ] || continue
       allowed "$hit" && continue
       allowed "$(printf '%s' "$hit" | tr 'A-Z' 'a-z')" && continue
-      printf '%s\n' "$path|$hit  (an address — allowlist it if this is a public contract)"
+      printf '%s\n' "$path|${hit:0:14}…  (64 hex — a private key has this shape)"
+    done >>"$FINDINGS"
+
+  # The venue credentials this tool exists to hold — Kraken's 88-character
+  # base64 secret, Binance's 64-character key — carry no vendor prefix, so the
+  # list above cannot see them. Matching the *assignment* rather than the value
+  # keeps that from firing on every hash and base64 blob in the tree.
+  # The value may be quoted or bare: `KRAKEN_API_SECRET=<value>` in a .env or a
+  # pasted shell line is the commonest shape a leaked credential actually has,
+  # and requiring quotes missed all of them.
+  printf '%s\n' "$added" |
+    grep -oiE "(secret|passphrase|password|api[_-]?key|private[_-]?key|auth[_-]?token|access[_-]?token)[\"']?[[:space:]]*[:=][[:space:]]*[\"']?[A-Za-z0-9+/=_-]{20,}" |
+    sort -u |
+    while IFS= read -r hit; do
+      [ -n "$hit" ] || continue
+      allowed "$hit" && continue
+      printf '%s\n' "$path|${hit:0:28}…  (a secret-shaped value assigned to a secret-shaped name)"
+    done >>"$FINDINGS"
+
+  # Twelve or more lowercase words inside one quoted string. Prose is not
+  # quoted, so this shape is a seed phrase and essentially nothing else — the
+  # one credential tula promises never even to ask for.
+  printf '%s\n' "$added" |
+    grep -oE "[\"']([a-z]{3,8} ){11,23}[a-z]{3,8}[\"']" | sort -u |
+    while IFS= read -r hit; do
+      [ -n "$hit" ] || continue
+      printf '%s\n' "$path|${hit:0:24}…  (12+ words in one string — a seed phrase has this shape)"
     done >>"$FINDINGS"
 done
 

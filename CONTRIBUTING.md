@@ -23,8 +23,14 @@ gate CI does — about two and a half seconds — plus a scan of staged content 
 anything key-shaped. That scan is the one check whose failure cannot be undone
 by a later commit: once a key is in history, rotating it is the only remedy.
 A published vendor test vector or a public contract address goes in
-`.githooks/allowed-secrets`, with the reason it is not a secret. `--no-verify`
-bypasses the hook; CI runs the same commands regardless.
+`.githooks/allowed-secrets`, with the reason it is not a secret — a 64-character
+hex string is the exception, because a private key has that shape and there is
+no public value of it this repository needs. `--no-verify` bypasses the hook,
+which is why CI stages the whole tree and runs the same scan; `scan-test.sh`
+proves the patterns still catch what they claim to.
+
+Every PR needs a review from the code owner (`.github/CODEOWNERS`) before it can
+merge.
 
 Never point a scratch run at your real credential store:
 

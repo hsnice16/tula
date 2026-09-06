@@ -73,6 +73,17 @@ export interface Connector {
    */
   verifyScope(creds: ConnectorCredentials): Promise<KeyScope>
 
+  /**
+   * Powers this venue exposes no way to check, so `verifyScope` returns
+   * `'unknown'` for them on every key it accepts.
+   *
+   * Declared beside `verifyScope` because the two have to agree and are read
+   * together: the connect screen already says what could not be proven, and
+   * `/<venue> status` said "checked as read-only" regardless — contradicting
+   * it on the screen somebody opens to check exactly that.
+   */
+  readonly unprovable?: readonly ('trade' | 'withdraw')[]
+
   fetchPositions(creds: ConnectorCredentials): Promise<Position[]>
 }
 

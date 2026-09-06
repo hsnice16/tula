@@ -31,8 +31,10 @@ and narrates, and never does the arithmetic.
 Hyperliquid (perps with liquidation price, spot, margin), Aave v3 on Ethereum
 (collateral, debt and health factor), and an Ethereum wallet's ETH and ERC-20
 balances — all three from a public address alone. Then Kraken, Binance, Coinbase
-Advanced, Stripe and Circle Mint, each from a read-only key. A key that can
-withdraw is refused rather than warned about.
+Advanced, Stripe and Circle Mint, each from a read-only key. A key proven to
+withdraw or trade is refused rather than warned about; where a venue exposes no
+way to check — Kraken for trading, Stripe and Circle for both — tula says so
+rather than calling it safe.
 
 ## Commands
 

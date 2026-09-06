@@ -132,7 +132,8 @@ the sigstore-backed attestation proving this repository's release workflow built
 it wherever the GitHub CLI can — saying so either way. Check one by hand:
 
 ```bash
-gh attestation verify tula-v0.1.0-darwin-arm64.tar.gz --repo hsnice16/tula
+gh attestation verify tula-v0.1.0-darwin-arm64.tar.gz --repo hsnice16/tula \
+  --signer-workflow hsnice16/tula/.github/workflows/release.yml
 ```
 
 Pin a version with `TULA_VERSION`, require provenance with
@@ -175,7 +176,7 @@ useful thing you can send.
 | **Hyperliquid** | perp positions with liquidation price, spot, margin | a public address |
 | **Aave v3** (Ethereum) | collateral, debt, health factor, per asset | a public address |
 | **Kraken** | spot and staked balances | a query-only API key |
-| **Binance** | spot, futures with liquidation price | a read-only API key |
+| **Binance** | spot balances | a read-only API key |
 | **Coinbase Advanced** | spot and held balances | a CDP API key (view-only) |
 | **Stripe** | available and pending balances, per currency | a restricted (`rk_`) key |
 | **Circle Mint** | available and unsettled balances | a restricted API key |
@@ -187,6 +188,7 @@ useful thing you can send.
 | Prices — CoinGecko, CoinPaprika, CoinMarketCap, CryptoCompare | working; one active at a time, `/<source> use` switches |
 | Staying current — `/update` checks once a day and says so in a line | working; nothing is installed until you type `/update install` |
 | Kraken margin and open orders | not yet |
+| Binance futures | not while tula is read-only — Binance's futures permission grants trading, and a key holding it is refused |
 | Aave on Arbitrum / Base | not yet — Ethereum only |
 | Execution | not in v1 — see [ROADMAP.md](./ROADMAP.md) |
 

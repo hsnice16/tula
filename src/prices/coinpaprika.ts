@@ -1,13 +1,10 @@
 import Decimal from 'decimal.js'
 import { TulaError } from '../core/errors.js'
 import type { AssetId } from '../core/position.js'
-import type { PriceOracle, Quote } from '../core/prices.js'
+import { UNITY, usablePrice, type PriceOracle, type Quote } from '../core/prices.js'
 import { request } from '../core/http.js'
 
 const TICKERS = 'https://api.coinpaprika.com/v1/tickers'
-
-/** Quoted in USD, so USD is 1 by definition and must never cost a request. */
-const UNITY = new Set(['USD', 'USDD'])
 
 export interface Ticker {
   symbol: string
@@ -27,7 +24,7 @@ type Fetcher = (url: string) => Promise<Response>
 export function bestBySymbol(rows: Ticker[]): Map<string, Ticker> {
   const out = new Map<string, Ticker>()
   for (const row of rows) {
-    if (row.quotes?.USD?.price === null || row.quotes?.USD?.price === undefined) continue
+    if (usablePrice(row.quotes?.USD?.price) === null) continue
     const symbol = row.symbol?.toUpperCase()
     if (!symbol) continue
     const held = out.get(symbol)
@@ -82,9 +79,10 @@ export class CoinPaprikaOracle implements PriceOracle {
     for (const asset of wanted) {
       const row = rows.get(asset.toUpperCase())
       const price = row?.quotes?.USD?.price
-      if (price === null || price === undefined) continue
+      const usable = usablePrice(price)
+      if (!usable) continue
       out.set(asset, {
-        price: new Decimal(price),
+        price: usable,
         // The source's own clock, per coin: a thinly traded coin's last print
         // may be hours old, and receipt time would hide that.
         asOf: row?.last_updated ? new Date(row.last_updated) : new Date(),

@@ -1,12 +1,11 @@
 import Decimal from 'decimal.js'
 import { TulaError } from '../core/errors.js'
 import type { AssetId } from '../core/position.js'
-import type { PriceOracle, Quote } from '../core/prices.js'
+import { UNITY, usablePrice, type PriceOracle, type Quote } from '../core/prices.js'
 import { request } from '../core/http.js'
 
 const PRICEMULTI = 'https://min-api.cryptocompare.com/data/pricemulti'
 
-const UNITY = new Set(['USD', 'USDD'])
 const CHUNK = 60
 
 interface Body {
@@ -60,8 +59,9 @@ export class CryptoCompareOracle implements PriceOracle {
       const received = new Date()
       for (const symbol of chunk) {
         const row = body[symbol] as { USD?: number } | undefined
-        if (row?.USD === undefined) continue
-        out.set(symbol, { price: new Decimal(row.USD), asOf: received })
+        const price = usablePrice(row?.USD)
+        if (!price) continue
+        out.set(symbol, { price, asOf: received })
       }
     }
     return out

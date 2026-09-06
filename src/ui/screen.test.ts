@@ -10,6 +10,7 @@ import { createElement } from 'react'
 import { Agent } from '../agent/agent.js'
 import { fixtureEngine } from '../agent/fixture.js'
 import { Session } from '../cli/session.js'
+import type { Connector } from '../connectors/types.js'
 import { APP_VERSION } from '../version.js'
 import type { PriceOracle } from '../core/prices.js'
 import { App } from './app.js'
@@ -108,6 +109,8 @@ interface Options {
   /** `undefined` is what a real first run passes; '' is a session that has one. */
   initialApiKey?: string | undefined
   agent?: Agent
+  /** Most tests need no venue; the ones about the command list need a real one. */
+  connectors?: Map<string, Connector>
 }
 
 async function open(columns: number, rows: number, options: Options = {}): Promise<Screen> {
@@ -136,8 +139,8 @@ async function open(columns: number, rows: number, options: Options = {}): Promi
   guardResize(stdout as unknown as NodeJS.WriteStream)
   const instance = render(
     createElement(App, {
-      session: new Session(new Map(), oracle),
-      connectors: new Map(),
+      session: new Session(options.connectors ?? new Map(), oracle),
+      connectors: options.connectors ?? new Map(),
       // Not `undefined` unless a test says so: that is what a first run passes.
       initialApiKey: 'initialApiKey' in options ? options.initialApiKey : '',
       initialVenues: [],
@@ -1096,3 +1099,42 @@ test('a venue mark takes a gutter, and both columns still line up', async () => 
     screen.stop()
   }
 })
+
+test('connecting says what it is doing while the venue is read', async () => {
+  // Connecting stores the credential, then reads the venue — seconds of it on a
+  // real book. That read used to run with the spinner off, so the screen sat on
+  // "Connected" with nothing moving, and the spinner only went up once the work
+  // was done and the cache warm.
+  const slow: Connector = {
+    venue: { id: 'slowvenue', kind: 'wallet', name: 'Slow Venue' },
+    fields: [{ name: 'address', label: 'Address', secret: false }],
+    help: [],
+    async verifyScope() {
+      return { canRead: true, canTrade: false as const, canWithdraw: false as const }
+    },
+    async fetchPositions() {
+      await new Promise((r) => setTimeout(r, 1500))
+      return []
+    },
+  }
+  const screen = await open(140, 30, { connectors: new Map([['slowvenue', slow]]) })
+  try {
+    await screen.press('/slowvenue connect\r')
+    await screen.press('0xabc\r')
+    // Waited for rather than slept past: a fixed delay races the render on a
+    // loaded machine, and a gate that fails at random teaches people to re-run
+    // it. The read takes 1.5s, so there is room to look several times.
+    let rows: string[] = []
+    for (let at = 0; at < 20; at++) {
+      rows = screen.visible()
+      if (rows.some((row) => row.includes('reading slowvenue'))) break
+      await new Promise((r) => setTimeout(r, 50))
+    }
+    // The venue being read, named — not merely a spinner.
+    expect(rows.some((row) => row.includes('reading slowvenue'))).toBe(true)
+    // And the line is not offering to take input while it works.
+    expect(rows.some((row) => row.includes('ask anything'))).toBe(false)
+  } finally {
+    screen.stop()
+  }
+}, 120_000)

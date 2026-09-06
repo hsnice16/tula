@@ -2,10 +2,10 @@ import { describe, expect, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import Decimal from 'decimal.js'
 import {
-  buildCommands,
   buildPalette,
   GROUP_LABELS,
   matchPalette,
+  menuCommands,
   priceEntries,
   type VenueEntry,
 } from './cli/registry.js'
@@ -145,7 +145,7 @@ describe('the published example', () => {
 
   test('totals the same portfolio value', () => {
     const total = portfolioValue(netExposure(BOOK, PRICES)).total
-    expect(shows(`Net value  ${usd(total)}`)).toBe(true)
+    expect(shows(`Net notional  ${usd(total)}`)).toBe(true)
   })
 
   test('reports the liquidation distances the risk engine computes', () => {
@@ -180,7 +180,7 @@ describe('the published example', () => {
     const total = portfolioValue(netExposure(BOOK, PRICES)).total
     // Biome owns the quote character in the page; the claim here is the wrapper.
     const anyQuote = (text: string) => text.replace(/['"]/g, '"')
-    expect(anyQuote(page)).toContain(anyQuote(`<Held>{"Net value  ${usd(total)}"}</Held>`))
+    expect(anyQuote(page)).toContain(anyQuote(`<Held>{"Net notional  ${usd(total)}"}</Held>`))
   })
 
   test('answers the question above it with the scenario the engine runs', () => {
@@ -276,9 +276,13 @@ const rowsOf = (name: string, until: string) =>
 const VENUES: VenueEntry[] = CONNECTORS.map((connector) => {
   const { id, kind, name } = connector.venue
   const mine = BOOK.filter((p) => p.venue === id)
+  // Taken from the connector, not defaulted: leaving it off made every venue
+  // look key-shaped, and the site published an address-only venue offering to
+  // hold a key — the one wording this file exists to keep off the page.
+  const addressOnly = !connector.fields.some((f) => f.secret)
   return mine.length > 0
-    ? { id, connected: true, detail: holdings(kind, mine) }
-    : { id, connected: false, detail: `${name} — not connected` }
+    ? { id, connected: true, addressOnly, detail: holdings(kind, mine) }
+    : { id, connected: false, addressOnly, detail: `${name} — not connected` }
 })
 
 const SOURCES = priceEntries(DEFAULT_PROVIDER)
@@ -337,9 +341,9 @@ describe('the frame quotes the command surface it claims to', () => {
     for (const [id, tone] of held) expect({ id, tone }).toEqual({ id, tone: brandColor(id ?? '') })
   })
 
-  test('the `/` menu is the head of the list buildCommands composes', () => {
+  test('the `/` menu is the head of the list menuCommands composes', () => {
     const display = menuDisplay(
-      buildCommands(VENUES, SOURCES).map((c) => ({
+      menuCommands(VENUES, SOURCES).map((c) => ({
         name: c.name,
         ...(c.args ? { args: c.args } : {}),
         summary: c.summary,

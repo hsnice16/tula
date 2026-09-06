@@ -1,0 +1,7 @@
+# Every file, so no path can be merged without the owner's review. GitHub reads
+# the last matching pattern, and a later rule with a narrower path would silently
+# drop this one — so if you add a rule below, it has to name an owner too.
+*       @hsnice16
+
+# Only enforced once "Require review from Code Owners" is on for the branch;
+# without it this file just requests a reviewer. See CONTRIBUTING.md.
