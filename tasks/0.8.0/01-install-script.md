@@ -4,7 +4,7 @@
 
 ## Goal
 
-`curl --proto '=https' --tlsv1.2 -LsSf https://hsnice16.github.io/tula/install.sh | sh`
+`curl --proto '=https' --tlsv1.2 -LsSf https://usetu.la/install.sh | sh`
 
 ## Acceptance
 

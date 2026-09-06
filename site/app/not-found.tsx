@@ -11,11 +11,11 @@ export const metadata: Metadata = {
 }
 
 /**
- * Static export writes this to `out/404.html`, which is the file GitHub Pages
- * serves for every path it has nothing at — so it is the site's only 404, and
- * it is reached without a route change. The list is `NAV` rather than a home
- * button: a reader who mistyped one path is closer to the page they wanted than
- * a reader starting over.
+ * Static export writes this to `out/404.html`, the file served for every path on
+ * the domain there is nothing at — so it is the site's only 404, and it is
+ * reached without a route change. The list is `NAV` rather than a home button: a
+ * reader who mistyped one path is closer to the page they wanted than a reader
+ * starting over.
  */
 export default function NotFound() {
   return (
