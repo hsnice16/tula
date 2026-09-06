@@ -101,7 +101,7 @@ export default function Page() {
             className="flex flex-wrap items-baseline justify-between gap-x-8 gap-y-1 border-b border-rule-soft py-3.5 last:border-b-0"
           >
             <dt className="text-ink">{promise}</dt>
-            <dd className="font-mono text-[0.78rem] text-faint">{enforced}</dd>
+            <dd className="font-mono text-[0.78rem] text-dim">{enforced}</dd>
           </div>
         ))}
       </dl>

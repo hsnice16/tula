@@ -115,11 +115,11 @@ const CHANNELS: Channel[] = [
           {FLAGS.map(([flag, why]) => (
             <div key={flag} className="contents">
               <dt className="font-mono text-notice">{flag}</dt>
-              <dd className="text-faint">{why}</dd>
+              <dd className="text-dim">{why}</dd>
             </div>
           ))}
         </dl>
-        <p className="mt-5 mb-6 text-[0.9rem] text-faint">
+        <p className="mt-5 mb-6 text-[0.9rem] text-dim">
           This pipes a script into your shell, so read it before you run it.{' '}
           <Ext href={`${SITE}/install.sh`}>install.sh</Ext> is the file the command fetches, copied
           from <Ext href={`${REPO}/blob/main/install.sh`}>the one in the repo</Ext> — the same file,
@@ -405,7 +405,7 @@ export default function Page() {
         </div>
         <Terminal title="verify">
           {
-            "curl --proto '=https' --tlsv1.2 -fLO https://github.com/hsnice16/tula/releases/download/v0.1.1/tula-v0.1.1-darwin-arm64.tar.gz\ngh attestation verify tula-v0.1.1-darwin-arm64.tar.gz --repo hsnice16/tula --signer-workflow hsnice16/tula/.github/workflows/release.yml"
+            "curl --proto '=https' --tlsv1.2 -fLO https://github.com/hsnice16/tula/releases/download/v0.1.2/tula-v0.1.2-darwin-arm64.tar.gz\ngh attestation verify tula-v0.1.2-darwin-arm64.tar.gz --repo hsnice16/tula --signer-workflow hsnice16/tula/.github/workflows/release.yml"
           }
         </Terminal>
         <p className="mt-4 text-dim">

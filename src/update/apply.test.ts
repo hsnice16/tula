@@ -28,7 +28,12 @@ function serve(body: (url: string) => Buffer | null) {
     const url = typeof input === 'string' ? input : input.toString()
     const found = body(url)
     return found
-      ? new Response(new Uint8Array(found), { status: 200 })
+      ? // Content-Length because the real asset host sends one, and it is what
+        // turns the progress callback's byte count into a percentage.
+        new Response(new Uint8Array(found), {
+          status: 200,
+          headers: { 'content-length': String(found.length) },
+        })
       : new Response('not found', { status: 404 })
   }) as typeof fetch
 }
@@ -109,6 +114,52 @@ describe('applying an update', () => {
    * how somebody ends up reading a liquidation price from a build that was
    * replaced for getting it wrong.
    */
+  /**
+   * The download is tens of megabytes and used to arrive as one awaited
+   * `arrayBuffer()`, so `/update install` held the spinner on `working` for the
+   * whole of it — the same screen `install.sh` showed before it kept curl's
+   * meter. The caller cannot report what it is never told.
+   */
+  test('reports the download as it arrives, not only when it finishes', async () => {
+    serve((url) =>
+      url.endsWith('checksums.txt') ? sums(archive, name()) : url.endsWith(name()) ? archive : null,
+    )
+    const seen: [number, number | null][] = []
+    await applyUpdate(NEW, into, (received, total) => seen.push([received, total]))
+    expect(seen.length).toBeGreaterThan(1)
+    // Opens at zero, so the label is on screen before the first chunk lands.
+    expect(seen[0]?.[0]).toBe(0)
+    // Never goes backwards, and ends on the whole archive.
+    const counts = seen.map(([n]) => n)
+    expect([...counts].sort((a, b) => a - b)).toEqual(counts)
+    expect(counts[counts.length - 1]).toBe(archive.length)
+    // The total is the archive's own length, so a percentage means something.
+    expect(seen[seen.length - 1]?.[1]).toBe(archive.length)
+  })
+
+  // A redirect to object storage does not always carry the length. The bytes
+  // are still worth reporting; only the percentage is not available.
+  test('reports bytes alone when the server sends no length', async () => {
+    globalThis.fetch = (async (input: string | URL | Request) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url.endsWith('checksums.txt')) return new Response(sums(archive, name()))
+      if (url.endsWith(name())) return new Response(new Uint8Array(archive))
+      return new Response('not found', { status: 404 })
+    }) as typeof fetch
+    const seen: [number, number | null][] = []
+    await applyUpdate(NEW, into, (received, total) => seen.push([received, total]))
+    expect(seen.every(([, total]) => total === null)).toBe(true)
+    expect(seen[seen.length - 1]?.[0]).toBe(archive.length)
+  })
+
+  test('installs correctly when nobody is listening for progress', async () => {
+    serve((url) =>
+      url.endsWith('checksums.txt') ? sums(archive, name()) : url.endsWith(name()) ? archive : null,
+    )
+    await applyUpdate(NEW, into)
+    expect(await readlink(into.launcher)).toBe(join(into.versions, NEW, 'tula'))
+  })
+
   test('refuses to move to a version that is not newer', async () => {
     serve(() => null)
     await expect(applyUpdate('0.0.1', into)).rejects.toThrow(/not newer/)

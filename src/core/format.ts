@@ -60,3 +60,15 @@ export function holdings(kind: VenueKind, positions: Position[]): string {
   const noun = leveraged ? 'position' : kind === 'wallet' ? 'token' : 'balance'
   return `${positions.length} ${noun}${positions.length === 1 ? '' : 's'}`
 }
+
+/**
+ * A download's progress, as one line for the status row. The percentage is what
+ * answers "is this nearly done"; the megabytes are what say the number is real
+ * and not a spinner that would sit at 99% forever. `null` total is a server
+ * that sent no Content-Length, where the bytes are all there is to report.
+ */
+export function downloaded(received: number, total: number | null): string {
+  const mb = (n: number) => (n / 1_000_000).toFixed(1)
+  if (!total) return `downloading ${mb(received)} MB`
+  return `downloading ${Math.floor((received / total) * 100)}% · ${mb(received)} of ${mb(total)} MB`
+}

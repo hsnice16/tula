@@ -15,7 +15,12 @@ const WORDS: Record<Outcome, { face: string; spoken: string }> = {
 }
 
 /**
- * Copy, for the block of shell it sits in the title bar of. It takes the text
+ * Copy, for the block of shell it sits in the title bar of. The chip is 22px
+ * tall because the title bar is drawn around it; the `after` pseudo-element
+ * takes the tap area past 24 without moving anything, which is the shape this
+ * has to be when the control a phone reader actually presses lives in a strip
+ * sized for a desktop pointer.
+ * It takes the text
  * as a prop rather than reading it back out of the DOM, so what lands on the
  * clipboard is the string the page was built from — a command a reader pastes
  * into a shell cannot be whatever the rendering happened to leave behind.
@@ -49,7 +54,7 @@ export function Copy({ text, label }: { text: string; label: string }) {
         type="button"
         onClick={copy}
         aria-label={`Copy the ${label} command`}
-        className="flex cursor-pointer items-center gap-1.5 rounded-[3px] border border-rule px-2 py-0.5 font-mono text-[0.62rem] uppercase tracking-[0.08em] text-faint transition-colors hover:border-accent-dim hover:text-accent"
+        className="relative flex cursor-pointer items-center gap-1.5 rounded-[3px] border border-rule px-2 py-0.5 font-mono text-[0.62rem] uppercase tracking-[0.08em] text-faint transition-colors after:absolute after:inset-x-0 after:-top-2 after:-bottom-2 after:content-[''] hover:border-accent-dim hover:text-accent"
       >
         <svg
           aria-hidden="true"

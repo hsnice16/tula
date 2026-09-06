@@ -1,6 +1,6 @@
 import { TulaError } from '../core/errors.js'
 import { APP_VERSION, SITE_URL } from '../version.js'
-import { applyUpdate } from './apply.js'
+import { applyUpdate, type DownloadProgress } from './apply.js'
 import { availableNow } from './check.js'
 import { nativeInstall, OTHER_CHANNELS } from './channel.js'
 
@@ -22,7 +22,10 @@ export interface UpdateResult {
  * changelog is the only check there is for that, so the command asks for it
  * rather than implying the download alone settles the question.
  */
-export async function update(args: string[]): Promise<UpdateResult> {
+export async function update(
+  args: string[],
+  onProgress?: DownloadProgress,
+): Promise<UpdateResult> {
   const sub = args[0]?.toLowerCase()
   if (sub && sub !== 'install') {
     return { output: `/update has no "${sub}". Run /update, or /update install.`, failed: true }
@@ -66,7 +69,7 @@ export async function update(args: string[]): Promise<UpdateResult> {
   }
 
   try {
-    await applyUpdate(available.version, native)
+    await applyUpdate(available.version, native, onProgress)
   } catch (err) {
     if (err instanceof TulaError) return { output: err.message, failed: true }
     throw err

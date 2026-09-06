@@ -21,6 +21,12 @@
 
   --color-ink: #eceae5;
   --color-dim: #8d877e;
+  /* 3.05:1 on the page ground, below the 4.5 AA asks of text this size, so it
+     is kept for one thing: the transcript inside a terminal frame, which is a
+     drawing of dim terminal output and reads as wrong at any lighter value.
+     Everything a reader needs the words of — section labels, a frame's title
+     bar, prose — takes --color-dim, which passes at 5.26. A third step light
+     enough to pass would sit on top of dim and stop being a third step. */
   --color-faint: #666159;
 
   --animate-pop: pop 360ms cubic-bezier(0.2, 0.9, 0.3, 1.25);
@@ -180,7 +186,9 @@
     font-size: 0.82rem;
     letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: var(--color-faint);
+    /* Section headings, so they carry the words a reader scans by: faint is
+       3.05:1 here, below the 4.5 AA asks of text this size. */
+    color: var(--color-dim);
   }
   .label::after {
     content: "";

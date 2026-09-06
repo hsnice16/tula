@@ -25,7 +25,16 @@ export function target(): string {
   return `${os}-${arch}`
 }
 
-async function fetchBytes(url: string): Promise<Buffer> {
+/**
+ * How far a download has got. `total` is null when the server sent no
+ * `Content-Length`, which a redirect to object storage sometimes does.
+ */
+export type DownloadProgress = (received: number, total: number | null) => void
+
+/** Ink repaints on every call, and a 21 MB body arrives in a few hundred chunks. */
+const PROGRESS_EVERY_MS = 100
+
+async function fetchBytes(url: string, onProgress?: DownloadProgress): Promise<Buffer> {
   // The signal `request` attaches stays on the body, so the venue-poll deadline
   // bounds the whole download too — and it threw out of `arrayBuffer()` as a
   // TimeoutError, past `request`'s own catch, which wraps the header race and
@@ -40,8 +49,32 @@ async function fetchBytes(url: string): Promise<Buffer> {
         `  Nothing was installed. Try /update again, or ${REPO_URL}/releases`,
     )
   }
+  // Read in chunks rather than one `arrayBuffer()`, so the caller can say how
+  // far along it is. `install.sh` shows curl's meter for the same reason: this
+  // is tens of megabytes, and a screen that does not move during it reads as a
+  // hang rather than as work.
+  const total = Number(response.headers.get('content-length')) || null
+  const body = response.body
   try {
-    return Buffer.from(await response.arrayBuffer())
+    if (!body) return Buffer.from(await response.arrayBuffer())
+    const reader = body.getReader()
+    const chunks: Uint8Array[] = []
+    let received = 0
+    let reported = 0
+    onProgress?.(0, total)
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      chunks.push(value)
+      received += value.length
+      const now = Date.now()
+      if (now - reported >= PROGRESS_EVERY_MS) {
+        reported = now
+        onProgress?.(received, total)
+      }
+    }
+    onProgress?.(received, total)
+    return Buffer.concat(chunks)
   } catch {
     throw new TulaError(
       `The download from ${host(url)} stopped part-way.\n` +
@@ -59,7 +92,11 @@ async function fetchBytes(url: string): Promise<Buffer> {
  * is check provenance — that needs the GitHub CLI, and the caller has to have
  * said so before getting here.
  */
-export async function applyUpdate(version: string, into: NativeInstall): Promise<string> {
+export async function applyUpdate(
+  version: string,
+  into: NativeInstall,
+  onProgress?: DownloadProgress,
+): Promise<string> {
   if (!isNewer(version, APP_VERSION)) {
     throw new TulaError(`${version} is not newer than ${APP_VERSION}; nothing to do.`)
   }
@@ -69,7 +106,9 @@ export async function applyUpdate(version: string, into: NativeInstall): Promise
   const temp = await mkdtemp(join(tmpdir(), 'tula-update-'))
 
   try {
-    const bytes = await fetchBytes(`${base}/${archive}`)
+    // Only the archive is reported on. checksums.txt is 386 bytes; a meter for
+    // it would be a flicker naming work that is already done.
+    const bytes = await fetchBytes(`${base}/${archive}`, onProgress)
     const sums = (await fetchBytes(`${base}/checksums.txt`)).toString()
 
     const expected = sums

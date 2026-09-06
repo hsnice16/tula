@@ -11,6 +11,15 @@ CI and build plumbing, refactors, and doc-only edits — stays in commit message
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-09-06
+
+### Changed
+
+- **`/update install` says how far the download has got.** It pulls the same tens of megabytes the installer does and awaited the whole body in one call, so the status line read `working` for all of it — the hang `install.sh` used to look like, in the one place tula replaces its own binary. The body is read in chunks now and the line counts them off: `downloading 57% · 11.9 of 20.8 MB`, or the bytes alone where the asset host sends no length. Nothing else about the update path moved: the checksum is still checked before anything is unpacked, and a version that is not newer is still refused.
+- **The hero frame on the site shows the tool's name again.** The frame is anchored to its bottom and clipped at the top, which is the only direction a terminal loses a row — and the working-directory line added to the banner made that block one row taller than the frame could hold, so the row it dropped was the one reading `tula v0.1.1`. The frame is a row deeper to fit it.
+- **The site reads at contrast on a phone, and its taps are big enough to hit.** Section labels — the heading above every block on every page — were drawn at 3.05:1, below the 4.5 that text that size needs to be read; so were the `curl` flag legend, the line telling you to read the script before piping it into a shell, and what enforces each promise on the security page. All of them take the same grey the prose does now, which passes at 5.26. The copy button on each command was 22px tall and the footer links 21, under the 24 a target needs: the button's tap area now reaches past the chip without the chip moving, since the title bar it sits in is drawn around it. At 200% text zoom the install page had started scrolling sideways, because one channel tab could not wrap and an environment variable is a single unbreakable word; both give now. The one thing still drawn faint is the transcript inside a terminal frame, which is a picture of dim terminal output and reads as wrong lighter.
+- **The site is picked up properly by a phone and a crawler.** An `apple-touch-icon`, so adding the page to an iOS home screen gets the mark rather than a screenshot of the page — served from a route with the extension in its name, because Next's own convention writes the file without one and a static host then serves an image as a byte stream. The 404 no longer claims the front page as its canonical, which it had inherited.
+
 ## [0.1.1] - 2026-09-06
 
 ### Changed
@@ -170,6 +179,7 @@ what breaks first.
 - `KeyScope` is tri-state. Kraken exposes no endpoint reporting a key's permissions, and every endpoint gated on trade permission mutates an order, so `canTrade` is `unknown` rather than guessed at. Withdraw scope is provable, and is proven.
 - Kraken margin and open orders are not read yet, so on a margin account this is not a complete Kraken picture.
 
-[Unreleased]: https://github.com/hsnice16/tula/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/hsnice16/tula/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/hsnice16/tula/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/hsnice16/tula/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/hsnice16/tula/releases/tag/v0.1.0

@@ -10,7 +10,7 @@ export const NAME = 'tula'
  * the two disagree and `release-cut.sh` bumps this with them: a frame offered
  * as the tool's own output cannot print a release that was never cut.
  */
-export const VERSION = '0.1.1'
+export const VERSION = '0.1.2'
 
 /**
  * GA4, for the site alone. Held here rather than read from `process.env`: an
@@ -95,6 +95,13 @@ export const OG_IMAGE = {
   height: 630,
   alt: `${NAME} — one asset held three ways, netted, with the move that liquidates it`,
 } as const
+
+/**
+ * The iOS home-screen icon. Declared rather than left to Next's
+ * `apple-icon` file convention, which exports it with no extension — the same
+ * reason `OG_IMAGE` is named by hand above.
+ */
+export const APPLE_ICON = { url: '/apple-icon.png', size: 180 } as const
 
 /** Spread by every page, so a card is never the one thing a new page forgets. */
 export const OG = { locale: 'en_US' as const, siteName: NAME, images: [OG_IMAGE] }

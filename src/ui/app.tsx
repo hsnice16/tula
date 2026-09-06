@@ -37,7 +37,7 @@ import {
   DEFAULT_PROVIDER,
   priceProvider,
 } from '../prices/providers.js'
-import { freshness, holdings } from '../core/format.js'
+import { downloaded, freshness, holdings } from '../core/format.js'
 import { typed } from './keys.js'
 import { askCursor, cursorRow } from './anchor.js'
 import { mouseReports, trackMouse, type MouseReport } from './mouse.js'
@@ -724,7 +724,16 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
       try {
         const parsed = parseCommand(trimmed, [...connectors.keys()])
         if (parsed) {
-          const result = await dispatchCommand(session, connectors, parsed, venueEntries)
+          const result = await dispatchCommand(
+            session,
+            connectors,
+            parsed,
+            venueEntries,
+            // `/update install` pulls tens of megabytes. Without a label the
+            // spinner reads `working` for the whole of it, which is the hang
+            // `install.sh` used to look like before it kept curl's meter.
+            (received, total) => setActivity(downloaded(received, total)),
+          )
           if (result.kind === 'connect') {
             const connector = connectors.get(result.venue)
             if (connector) return setConnecting(connectable(connector))
