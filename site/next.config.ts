@@ -1,14 +1,13 @@
 import type { NextConfig } from 'next'
 
 /**
- * Static export: GitHub Pages serves files, not a Node server. `basePath` is the
- * repository name because a project site lives at /<repo>/ — without it every
- * asset 404s at the deployed origin while working perfectly in `next dev`.
- * A custom apex domain would drop this and add a public/CNAME instead.
+ * Static export: every route here is prerendered, so a deploy is a directory of
+ * files and the origin serving `install.sh` runs no code of ours. The cost is
+ * that `headers()` and `redirects()` are ignored in this file — the response
+ * headers live in `vercel.json` instead.
  */
 const config: NextConfig = {
   output: 'export',
-  basePath: '/tula',
   trailingSlash: true,
   images: { unoptimized: true },
   // AGENTS.md at the repository root is the single source of truth; `next dev`

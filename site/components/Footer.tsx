@@ -16,10 +16,8 @@ export function Footer() {
         <Ext href={REPO} className="text-dim hover:text-accent">
           GitHub
         </Ext>
-        {/* The one link an assistant's crawler can follow to the summary written
-            for it. Nothing else reaches it: a project site under /tula/ cannot
-            own the robots.txt at the origin root, which is where it would
-            otherwise be announced. */}
+        {/* The one link an assistant's crawler can follow to the summary
+            written for it: `llms.txt` has no discovery convention behind it. */}
         <Ext href={`${SITE}/llms.txt`} className="text-dim hover:text-accent">
           llms.txt
         </Ext>

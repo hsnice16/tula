@@ -1,6 +1,6 @@
 export const REPO = 'https://github.com/hsnice16/tula'
 
-export const SITE = 'https://hsnice16.github.io/tula'
+export const SITE = 'https://usetu.la'
 
 export const NAME = 'tula'
 
@@ -13,10 +13,10 @@ export const NAME = 'tula'
 export const VERSION = '0.1.0'
 
 /**
- * GA4, for the site alone. Held here rather than read from `process.env`
- * because the Pages workflow sets no environment: an id that arrived that way
- * would build to nothing in CI and deploy a page with no tag at all, and
- * nothing would report the absence. It is public in the page source regardless.
+ * GA4, for the site alone. Held here rather than read from `process.env`: an
+ * id that arrived that way and went missing would deploy a page carrying no tag
+ * at all, and nothing would report the absence. It is public in the page source
+ * regardless, so an env var buys no secrecy to trade against that.
  */
 export const GA_MEASUREMENT_ID = 'G-14L4YMLWGV'
 
@@ -24,7 +24,7 @@ export const GA_MEASUREMENT_ID = 'G-14L4YMLWGV'
  * Search Console ownership. It stays after the property verifies: Google
  * re-checks the tag periodically and un-verifies the property when it goes,
  * which takes the sitemap and the index coverage with it. Not an env var, for
- * the same reason the measurement id is not — the Pages workflow sets none.
+ * the same reason the measurement id is not.
  */
 export const GOOGLE_SITE_VERIFICATION = '_P43RYmlEi0KfBDT9dPH3lI6PhGLWZE-OIIzl0ieHws'
 
@@ -83,7 +83,7 @@ export const NAV = [
 
 /**
  * Named and referenced by hand rather than through Next's `opengraph-image`
- * convention, which exports the file with no extension at all. GitHub Pages
+ * convention, which exports the file with no extension at all. A static host
  * serves that as a byte stream, and every card crawler drops a picture whose
  * content type is not an image — the one failure that is invisible from the
  * site itself.

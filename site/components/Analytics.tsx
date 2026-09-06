@@ -6,12 +6,17 @@ import { GA_MEASUREMENT_ID } from '@/lib/site'
  * security page says so where it lists what leaves your machine.
  *
  * Off outside a production build, or `next dev` would file the developer's own
- * reading as traffic. No `anonymize_ip`: GA4 truncates the address itself and
- * ignores the parameter, so passing it would advertise a control that is not
- * ours to offer.
+ * reading as traffic — and off on a preview, which builds as production too and
+ * is a second origin serving these same pages. This renders on the server, so
+ * `VERCEL_ENV` is read at build time and needs no `NEXT_PUBLIC_`; a host that
+ * sets none is taken for the real one rather than left silently untagged.
+ *
+ * No `anonymize_ip`: GA4 truncates the address itself and ignores the
+ * parameter, so passing it would advertise a control that is not ours to offer.
  */
 export function Analytics() {
   if (process.env.NODE_ENV !== 'production') return null
+  if ((process.env.VERCEL_ENV ?? 'production') !== 'production') return null
 
   return (
     <>

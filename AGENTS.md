@@ -494,44 +494,55 @@ The agent reads that task for goal and acceptance criteria, the version's
 ## The site
 
 `site/` is a **separate package** — Next.js 16 (App Router, RSC-first), React 19,
-Tailwind 4 with `@theme` tokens in `app/globals.css`, Biome, static-exported to
-GitHub Pages. It has its own `package.json` and lockfile on purpose: its
+Tailwind 4 with `@theme` tokens in `app/globals.css`, Biome, static-exported and
+deployed by Vercel. It has its own `package.json` and lockfile on purpose: its
 dependency tree must never join the binary's, which is the one that reads
 exchange keys. Nothing in `site/` is imported by `src/`, and nothing in `src/` is
 imported by `site/`.
 
 ```bash
 cd site && bun install     # node 22 on PATH; see the environment note below
-bun run dev                # http://localhost:3000/tula/ — basePath applies here too
+bun run dev                # http://localhost:3000
 bun run build              # -> site/out, static
 ```
 
 - **Node 22 is required to build it**, not the default v18. Use
   `export PATH="$HOME/.nvm/versions/node/v22.18.0/bin:$PATH"`, and `bun` as the
   package manager.
-- `basePath` is `/tula` because a GitHub Pages project site is served from
-  `/<repo>/`. A custom apex domain later drops it and adds `public/CNAME`
-  instead. `public/.nojekyll` is required or Pages' Jekyll step drops `_next/`
-  and the site loads unstyled.
+- **No `basePath`**: the site is served at the root of its own domain, and the
+  domain is a Vercel project setting rather than a file in here. Adding one back
+  would put every asset a directory below where the pages ask for it.
+- **`site/vercel.json` sets the response headers** — the one thing a plain
+  static host could not do. Vercel reads it from the project's root directory,
+  which is `site`; point that at the repository root instead and every header
+  here silently stops being sent. The CSP is the security page's egress claim
+  enforced: same origin, plus Google Analytics, and nothing else. `script-src`
+  carries `'unsafe-inline'` and cannot lose it — Next inlines the RSC flight
+  payload into every page, `output: 'export'` leaves no middleware to mint a
+  nonce, and the hashes change every build. HSTS is deliberately without
+  `preload`: that goes into a list baked into browsers and is slow to undo.
+  `/install.sh` is forced to `text/plain` because the install page says to read
+  it before piping it, and a download prompt is not reading it.
 - **Internal links use `<Link>` from `components/Link`, never `next/link` and
-  never a raw `<a href="/...">`.** Next applies `basePath` to a `<Link>` and not
-  to a raw anchor, so the anchor points outside the site and 404s — in `next dev`
-  as well as in production, since `basePath` is not a production-only setting. The wrapper adds `scroll={false}`: Next's own reset puts the new
-  page at the top in the frame it renders, and `components/Scroll` is what walks
-  the reader up there instead — it cannot animate a jump already taken.
+  never a raw `<a href="/...">`.** A raw anchor leaves the app and reloads the
+  whole document. The wrapper adds `scroll={false}`: Next's own reset puts the
+  new page at the top in the frame it renders, and `components/Scroll` is what
+  walks the reader up there instead — it cannot animate a jump already taken.
   `guard.sh` fails on both a raw anchor and a direct `next/link` import.
 - **Off-site links use `<Ext>`, never a raw `<a>`.** It carries the `_blank`
   target every external link on the site opens with, and the `rel` that keeps the
   opened page from reaching back through `window.opener`. Between the two rules
   no page should contain a bare anchor at all.
-- `install.sh` lives at the repository root, where CI tests it, and the Pages
-  workflow copies it into `public/` at build time. `site/public/install.sh` is
-  generated and gitignored — two copies of a script people pipe into a shell is
-  one copy too many.
+- `install.sh` lives at the repository root, where CI tests it, and the build
+  command copies it into `public/`. `site/public/install.sh` is generated and
+  gitignored — two copies of a script people pipe into a shell is one copy too
+  many. The copy reaches Vercel only because the project includes source files
+  from outside its root directory; without that the published `curl | sh`
+  fetches a 404.
 - `app/not-found.tsx` is the 404, exported to `out/404.html` — the one file
-  GitHub Pages serves for every path under `/tula/` it has nothing at. It is not
-  in `NAV`, which is the list of routes the sitemap and `llms.txt` publish, and a
-  404 in either is a 404 arrived at from a search result.
+  served for every path on the domain there is nothing at. It is not in `NAV`,
+  which is the list of routes the sitemap and `llms.txt` publish, and a 404 in
+  either is a 404 arrived at from a search result.
 - `agentRules: false` in `next.config.ts`: `next dev` otherwise writes a second
   AGENTS.md and CLAUDE.md under `site/`, and this file is the only one.
 - **The changelog and the roadmap are not on the site.** `CHANGELOG.md`,
@@ -637,27 +648,22 @@ bun run build              # -> site/out, static
   page cannot ship unindexed or unsummarised. `src/site-claims.test.ts` reads
   this file rather than `layout.tsx` for the trading caveat — the description is
   written here and rendered there.
-- **`metadataBase` is the deployed URL including `/tula`.** Next resolves every
-  canonical, `og:url` and image against it, and one without the base path
-  publishes canonicals at an origin that serves the account's own pages.
+- **`metadataBase` is the deployed URL.** Next resolves every canonical,
+  `og:url` and image against it, and a relative one publishes canonicals at
+  whatever origin the page happened to be fetched from.
 - **The preview card is `app/og.png/route.tsx`, not Next's `opengraph-image`
   convention.** That convention exports a file with no extension at all, which
-  GitHub Pages serves as a byte stream — and a card crawler drops any image
+  a static host serves as a byte stream — and a card crawler drops any image
   whose content type is not an image, a failure invisible from the site itself.
   A route handler whose path carries `.png` gets the type right, at the cost of
   naming the image by hand in `OG_IMAGE` rather than having Next infer it.
 - **Every metadata route needs `export const dynamic = 'force-static'`.** Under
   `output: export` the build refuses to collect a route it cannot prove is
   static, and a `new Date()` in the sitemap is enough to make it doubt.
-- **`robots.txt` here is read by nothing**, for the same reason `security.txt`
-  is: a crawler fetches it from the origin root, which on a project site belongs
-  to the account, and `hsnice16.github.io/robots.txt` is a 404 — which crawlers
-  read as "allow everything". It grants nothing that is not already granted, and
-  is kept as the written record of the policy rather than as load-bearing.
-  Discovery is what has to work instead: `llms.txt` is linked from the footer of
-  every page, and the sitemap is submitted by hand. A domain is deferred and not
-  planned — `tasks/1.0.0/03-docs-site.md` says why — so nothing here waits on
-  one.
+- **`robots.txt` and `.well-known/` are served from the origin root**, which
+  the apex domain owns, so both are read rather than kept as a written record.
+  Discovery still does not lean on `robots.txt`: `llms.txt` is linked from the
+  footer of every page, and the sitemap is submitted by hand.
 - **`llms.txt` links to `/security` rather than restating it.** It is the file
   nobody would think to update, so a security promise copied into it is the copy
   that goes stale. What it may state is what `lib/site.ts` already holds.
@@ -665,22 +671,23 @@ bun run build              # -> site/out, static
   it sits on.** Structured data is a second encoding of a claim, never a place
   to make a new one — nothing there is checked by a reader who can see the page.
 - **The site is measured; the binary is not.** `components/Analytics.tsx` loads
-  GA4 and nothing else, and only in a production build — `next dev` would
-  otherwise file a developer's own reading as traffic. The id sits in
-  `lib/site.ts` rather than in an env var because the Pages workflow sets no
-  environment: an id read from `process.env` would deploy a page carrying no tag
-  at all, with nothing to report the absence. `anonymize_ip` is deliberately not
-  passed — GA4 truncates the address itself and ignores it, so sending it would
-  advertise a control that is not ours to offer. The security page's egress card
-  names the split, because the reader is on the site while it happens.
+  GA4 and nothing else, and only on the production deployment — `next dev` would
+  otherwise file a developer's own reading as traffic, and a preview builds as
+  production while being a second origin serving these same pages. The id sits
+  in `lib/site.ts` rather than in an env var: one read from `process.env` and
+  gone missing would deploy a page carrying no tag at all, with nothing to
+  report the absence, and it is public in the page source regardless.
+  `anonymize_ip` is deliberately not passed — GA4 truncates the address itself
+  and ignores it, so sending it would advertise a control that is not ours to
+  offer. The security page's egress card names the split, because the reader is
+  on the site while it happens.
   `GOOGLE_SITE_VERIFICATION` sits beside the id: it is Search Console ownership,
   and it stays after the property verifies, because Google re-checks the tag and
   un-verifies when it goes — taking the sitemap and the index coverage with it.
-- **`public/.well-known/security.txt`** is RFC 9116. It belongs at the domain
-  root, which on a project site belongs to the account, so it moves there with
-  the apex domain and `Canonical` says where it is until then. `guard.sh` fails
-  30 days before `Expires`: a lapsed one is a published invitation to report
-  through a channel nobody promises to read.
+- **`public/.well-known/security.txt`** is RFC 9116, at the domain root the
+  spec requires; `Canonical` is what a copy found anywhere else has to be
+  checked against. `guard.sh` fails 30 days before `Expires`: a lapsed one is a
+  published invitation to report through a channel nobody promises to read.
 - **Every number the front page states is pinned by `src/site-example.test.ts`.**
   Both blocks that quote the tool — the command transcript and the answer to
   the plain-English question — are recomputed from one synthetic book, the
@@ -794,7 +801,9 @@ release is already public, while the site is telling people to use them.
 | The npm token is `hsnice16`'s | the packages publish under that account's own scope | `npm whoami` |
 | `HOMEBREW_TAP_TOKEN`, `NPM_TOKEN` | pushing the formula, publishing | `gh secret list` |
 | `PUBLISH_HOMEBREW`, `PUBLISH_NPM` = `true` | both jobs are skipped without them | `gh variable list` |
-| GitHub Pages enabled | the site serves `install.sh` | `gh api repos/hsnice16/tula/pages` |
+| `usetu.la` resolves, HTTPS enforced | the install command is the domain | `curl -sI https://usetu.la/install.sh` |
+| The Vercel root directory is `site` | `vercel.json`'s headers are read from there and nowhere else | `curl -sI https://usetu.la/` |
+| Vercel includes files outside that root | the build copies `install.sh` in from the repository root | `curl -sI https://usetu.la/install.sh` |
 | `APPLE_*` secrets | optional; without them macOS ships unsigned | `gh secret list` |
 
 Set each variable last, after its token exists: `true` without the token turns a

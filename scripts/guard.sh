@@ -163,10 +163,10 @@ grep -q "export const SITE = '$site_url'" site/lib/site.ts ||
 grep -q "\"homepage\": \"$site_url\"" package.json ||
   report "package.json homepage does not match SITE_URL in src/version.ts ($site_url)"
 
-# A raw internal anchor skips Next's basePath, so it works in `next dev` and
-# 404s on the deployed project site — the one place nobody tests.
+# A raw internal anchor leaves the app: a full document load, so the reader
+# waits for the whole site again and lands wherever the browser puts them.
 if grep -rn '<a href="/' site/app site/components --include='*.tsx' 2>/dev/null; then
-  report "an internal link bypasses basePath; use <Link> instead"
+  report "an internal link is a raw anchor; use <Link> instead"
 fi
 
 # components/Link is where every internal route turns Next's own scroll reset
