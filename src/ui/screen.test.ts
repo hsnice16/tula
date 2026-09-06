@@ -1027,7 +1027,7 @@ test('an answer that stops for a tool still says it is working', async () => {
   }
 })
 
-const BANNER = `tula ${APP_VERSION}`
+const BANNER = `tula v${APP_VERSION}`
 
 /** The mark sits in its own column beside the banner, so the name is not alone on its row. */
 const bannerRow = (row: string) => row.trimEnd().endsWith(BANNER)
@@ -1042,8 +1042,14 @@ test('the session opens with a banner, written once', async () => {
     const at = rows.findIndex(bannerRow)
     expect(rows[at]).toMatch(/▄▄▄ +tula/)
     expect(rows[at + 1]).toMatch(/^ +▄▟ {3}▙▄ +Your true exposure/)
-    expect(rows[at + 2]?.trim()).toBe('▄▄▄▄▄▄▄')
+    // The mark's last row now shares its line with the working directory, which
+    // is the third banner line and the one that made this block as tall as the
+    // mark rather than one row shorter than it.
+    expect(rows[at + 2]).toMatch(/^ *▄▄▄▄▄▄▄ +[~/]/)
     expect(rows[at]?.indexOf('tula')).toBe(rows[at + 1]?.indexOf('Your') ?? -1)
+    expect(rows[at + 1]?.indexOf('Your')).toBe(
+      rows[at + 2]?.search(/[~/]\S*$/) ?? -1,
+    )
     // It is a transcript entry, so it scrolls away with the rest rather than
     // being redrawn — and a redraw that reissued it would stack a second copy.
     await screen.press('/help\r')

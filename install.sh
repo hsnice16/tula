@@ -14,6 +14,8 @@
 #   TULA_INSTALL_DIR          root of the install tree (default ~/.tula)
 #   TULA_REQUIRE_ATTESTATION  refuse to install at all unless provenance is proven
 #   TULA_NO_MODIFY_PATH       do not touch any shell profile
+#   TULA_FORCE                download and check again even if this version is
+#                             already installed
 set -eu
 
 REPO="hsnice16/tula"
@@ -24,6 +26,15 @@ BROWSE="https://github.com/$REPO/releases"
 
 say() { printf '%s\n' "$*"; }
 note() { printf '  %s\n' "$*"; }
+
+# The absolute form of a path under $HOME is mostly the reader's own username,
+# and it wraps the line on a narrow window.
+tilde() {
+  case "$1" in
+    "$HOME"/*) printf '~%s' "${1#"$HOME"}" ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
 
 # Every failure names the next step. Someone stuck here has money at risk and no
 # way to tell a broken download from a hostile one.
@@ -43,6 +54,17 @@ need() {
 # error rather than saving the error page as if it were the binary.
 fetch() {
   curl --proto '=https' --tlsv1.2 -fsSL --retry 3 --retry-connrefused "$1" -o "$2"
+}
+
+# The archive is tens of megabytes and the only step here that takes minutes, so
+# it is the one fetch that keeps curl's meter: `-s` left a single "downloading"
+# line standing unchanged for the whole transfer, which reads as a hang rather
+# than as work. --speed-limit ends a stalled one instead of waiting on it for as
+# long as the OS will — under 1 KB/s for 30s is not a slow link, it is a dead one,
+# and --retry then gets another go at it.
+fetch_archive() {
+  curl --proto '=https' --tlsv1.2 -fSL --retry 3 --retry-connrefused \
+    --speed-limit 1024 --speed-time 30 -# "$1" -o "$2"
 }
 
 need curl
@@ -215,36 +237,62 @@ esac
 TARGET=$(detect_target)
 ARCHIVE="tula-v$VERSION-$TARGET.tar.gz"
 BASE="https://github.com/$REPO/releases/download/v$VERSION"
+VERSION_DIR="$INSTALL_DIR/versions/$VERSION"
 UNVERIFIED=
 UNVERIFIED_WHY=
 
 say ""
 say "tula $VERSION — $TARGET"
 
-TMP=$(mktemp -d 2>/dev/null || mktemp -d -t tula)
-trap 'rm -rf "$TMP"' EXIT INT TERM
+# Every version stays on disk under its own number, so a run asking for one that
+# is already there has nothing to fetch. It downloaded and re-verified the whole
+# archive regardless — minutes of it, on a link where that is minutes — to arrive
+# at the file it already had. The launcher and the PATH line are still put right
+# below, because repairing those is the other reason to run this twice.
+#
+# The launcher has to be a symlink already for this to count as "installed", and
+# that is the security of it, not a tidiness check. A directory alone is
+# something anyone who can write under $INSTALL_DIR can put there before tula is
+# ever installed — and a first install used to overwrite whatever it found,
+# where this would adopt it and link it unread. Requiring the link narrows the
+# fast path to a tree this script has already built and verified once; replacing
+# the binary under that link is an attack the download never prevented anyway,
+# since the launcher points at it either way.
+#
+# TULA_FORCE=1 fetches and checks again regardless.
+ALREADY=
+if [ -z "${TULA_FORCE:-}" ] && [ -x "$VERSION_DIR/tula" ] && [ -L "$BIN_DIR/tula" ]; then
+  ALREADY=1
+fi
 
-note "downloading"
-fetch "$BASE/$ARCHIVE" "$TMP/$ARCHIVE" ||
-  die "No build of $VERSION for $TARGET." \
-    "Releases: https://github.com/$REPO/releases"
-fetch "$BASE/checksums.txt" "$TMP/checksums.txt" ||
-  die "Could not download checksums.txt for $VERSION." \
-    "tula will not install a binary it cannot check."
+if [ -z "$ALREADY" ]; then
+  TMP=$(mktemp -d 2>/dev/null || mktemp -d -t tula)
+  trap 'rm -rf "$TMP"' EXIT INT TERM
 
-note "checking the download matches its published checksum"
-verify_checksum "$TMP/$ARCHIVE" "$TMP/checksums.txt"
+  note "downloading"
+  fetch_archive "$BASE/$ARCHIVE" "$TMP/$ARCHIVE" ||
+    die "No build of $VERSION for $TARGET." \
+      "Releases: https://github.com/$REPO/releases"
+  fetch "$BASE/checksums.txt" "$TMP/checksums.txt" ||
+    die "Could not download checksums.txt for $VERSION." \
+      "tula will not install a binary it cannot check."
 
-note "checking it was built by $REPO"
-verify_attestation "$TMP/$ARCHIVE"
+  note "checking the download matches its published checksum"
+  verify_checksum "$TMP/$ARCHIVE" "$TMP/checksums.txt"
 
-VERSION_DIR="$INSTALL_DIR/versions/$VERSION"
-mkdir -p "$VERSION_DIR" "$BIN_DIR"
-tar -xzf "$TMP/$ARCHIVE" -C "$VERSION_DIR" ||
-  die "Could not unpack $ARCHIVE." "The download may be truncated; try again."
-[ -f "$VERSION_DIR/tula" ] || die "$ARCHIVE did not contain a tula binary." \
-  "Report it: https://github.com/$REPO/issues"
-chmod 755 "$VERSION_DIR/tula"
+  note "checking it was built by $REPO"
+  verify_attestation "$TMP/$ARCHIVE"
+
+  mkdir -p "$VERSION_DIR" "$BIN_DIR"
+  tar -xzf "$TMP/$ARCHIVE" -C "$VERSION_DIR" ||
+    die "Could not unpack $ARCHIVE." "The download may be truncated; try again."
+  [ -f "$VERSION_DIR/tula" ] || die "$ARCHIVE did not contain a tula binary." \
+    "Report it: https://github.com/$REPO/issues"
+  chmod 755 "$VERSION_DIR/tula"
+else
+  note "already installed — nothing to download"
+  mkdir -p "$BIN_DIR"
+fi
 
 # Every version stays on disk under its own number and the launcher is a symlink,
 # so moving between them is a link flip rather than a re-download — including
@@ -300,11 +348,14 @@ fi
 say ""
 if [ -n "$REPLACED" ]; then
   say "Installed tula $VERSION, and left your launcher alone."
-  note "yours:      $LAUNCHER"
-  note "this build: $VERSION_DIR/tula"
+  note "yours:      $(tilde "$LAUNCHER")"
+  note "this build: $(tilde "$VERSION_DIR/tula")"
   note "to switch:  ln -sf \"$VERSION_DIR/tula\" \"$LAUNCHER\""
+elif [ -n "$ALREADY" ]; then
+  say "tula $VERSION is already installed at $(tilde "$LAUNCHER")"
+  note "nothing was downloaded — TULA_FORCE=1 fetches and checks it again"
 else
-  say "Installed tula $VERSION to $LAUNCHER"
+  say "Installed tula $VERSION to $(tilde "$LAUNCHER")"
 fi
 
 if [ -n "$UNVERIFIED" ]; then
