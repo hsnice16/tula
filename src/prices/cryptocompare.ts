@@ -1,5 +1,5 @@
 import Decimal from 'decimal.js'
-import { TulaError } from '../core/errors.js'
+import { remote, TulaError } from '../core/errors.js'
 import type { AssetId } from '../core/position.js'
 import { UNITY, usablePrice, type PriceOracle, type Quote } from '../core/prices.js'
 import { request } from '../core/http.js'
@@ -48,7 +48,7 @@ export class CryptoCompareOracle implements PriceOracle {
       // rejected key looks like an empty price list unless this is checked.
       if (body.Response === 'Error') {
         throw new TulaError(
-          `CryptoCompare: ${body.Message ?? 'request rejected'}\n` +
+          `CryptoCompare: ${body.Message ? remote(body.Message) : 'request rejected'}\n` +
             '  Replace the key with:  /cryptocompare connect\n' +
             '  Keys are at:           https://developers.coindesk.com/settings/api-keys',
         )

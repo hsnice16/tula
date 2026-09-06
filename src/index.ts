@@ -15,7 +15,7 @@ import { buildOracle } from './prices/providers.js'
 import { runApp } from './ui/run.js'
 import { envApiKey } from './agent/agent.js'
 import * as secrets from './secrets/store.js'
-import { APP_DESCRIPTION, APP_VERSION } from './version.js'
+import { APP_DESCRIPTION, APP_NAME, APP_VERSION } from './version.js'
 
 // The three that need only a public address come first: they are the cheapest
 // thing a new user can safely connect. The menu sorts alphabetically; this order
@@ -136,9 +136,12 @@ async function main(): Promise<void> {
   }
 
   switch (command) {
+    // `-v` is the version, not a verbosity flag: there is no verbose mode to
+    // claim the letter, and it is what node, npm and bun taught people to type.
     case '--version':
+    case '-v':
     case 'version':
-      console.log(`${APP_VERSION} (tula)`)
+      console.log(`${APP_NAME} ${APP_VERSION}`)
       return
     case 'connect':
       await connect(args[0])
