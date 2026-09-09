@@ -44,11 +44,19 @@ Highest severity first:
    - An asset symbol — as each venue's own listing spells it, as the configured
      token list names it, or as an Aave reserve contract returns it over
      whichever Ethereum RPC is configured. Every one is capped at 32 characters
-     and stripped of control characters as it enters, in `src/cli/session.ts`;
-     `src/connectors/evm.ts` caps its own decode as well, so a lying ABI length
-     prefix is never allocated.
+     as it enters, in `src/cli/session.ts`; `src/connectors/evm.ts` caps its own
+     decode as well, so a lying ABI length prefix is never allocated.
+
+     What is stripped is every codepoint that is invisible or moves what is
+     drawn — `visible()` in `src/core/untrusted.ts`, the one filter all three
+     call sites share. It is keyed on `Default_Ignorable_Code_Point` rather than
+     the control and format categories alone, because the 256 variation
+     selectors are neither and encode a byte apiece, and on the line and
+     paragraph separators, because a view built out of lines is one where a
+     forged break reads as a second message. Text is composed first, so two
+     spellings of one symbol reach the book as one asset, not two.
    - The text of an error from a venue or a price source, when one fails.
-     Capped at 200 characters and flattened to a single line by `remote()` in
+     Capped at 200 characters and put through the same filter by `remote()` in
      `src/core/errors.ts`, at the connector that received it — the only place
      that can tell tula's own words from somebody else's — so it cannot pose as
      a second message or as the line above it.

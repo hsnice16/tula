@@ -157,6 +157,7 @@ src/
   version.ts            # APP_NAME, APP_VERSION, REPO_URL — single source
   core/
     position.ts         # canonical schema: Position, NetExposure, LiquidationParams
+    untrusted.ts        # visible() — the one filter over text somebody else wrote
     exposure.ts         # netExposure, portfolioValue, oldest
     risk.ts             # liquidation distance, scenario shocks, what breaks first
     prices.ts           # PriceOracle interface (one oracle per process)
@@ -174,7 +175,7 @@ src/
     wallet.ts           # public address — native ETH and ERC-20s off a token list
     stripe.ts           # restricted key; fiat balances, per-currency minor units
     circle.ts           # restricted key; scope unprovable, so it stays unknown
-    evm.ts              # ABI encode/decode, batched eth_call, EIP-55 addresses
+    evm.ts              # ABI encode/decode, batched eth_call, EIP-55 addresses, the node
     keccak.ts           # keccak-256, for those checksums; no runtime has it
   secrets/
     store.ts            # credential store; never imported by src/agent/**
@@ -463,9 +464,9 @@ endpoint — including "validate only" variants. The absence is the product.
 
 ## Working from tasks/
 
-Point a session at one file: `Work on tasks/0.2.0/03-interactive-shell.md`.
+Point a session at one file: `Work on tasks/the-shell/03-interactive-shell.md`.
 
-The agent reads that task for goal and acceptance criteria, the version's
+The agent reads that task for goal and acceptance criteria, the milestone's
 `README.md` for scope, and this file for conventions. Update the task's
 `**Status**:` line when it lands, and add a `CHANGELOG.md` entry.
 
@@ -480,12 +481,14 @@ The agent reads that task for goal and acceptance criteria, the version's
 - The signature test vector in `src/connectors/kraken.test.ts`. It is Kraken's
   published example; if it drifts, every private call fails as
   `EAPI:Invalid signature`, which reads as a bad key.
-- The cap and the control-character strip in `decodeString` (`src/connectors/evm.ts`)
-  and in `reason()` (`src/cli/session.ts`). A decoded symbol and a venue's error
+- The caps in `decodeString` (`src/connectors/evm.ts`) and `reason()`
+  (`src/cli/session.ts`), and the one filter all three call sites share,
+  `visible()` in `src/core/untrusted.ts`. A decoded symbol and a venue's error
   text are the two strings somebody else writes that are rendered *and* sent to
   the model; both are capped and flattened to one line so neither can pose as an
   instruction. `SECURITY.md` lists exactly these two, so a third has to be added
-  there in the same commit.
+  there in the same commit. The filter is one function because it was three
+  copies that had to agree.
 - The tri-state `KeyScope`. Collapsing it to booleans reintroduces the lie. It
   is also per-power on purpose: when trading ships, `isOverScoped` drops its
   `canTrade` clause and the withdraw refusal stands unchanged.

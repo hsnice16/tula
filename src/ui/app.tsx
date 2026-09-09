@@ -2,12 +2,12 @@ import { Box, Static, Text, useApp, useInput, useStdout } from 'ink'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Agent, envApiKey, envApiKeyName, hasAmbientCredentials } from '../agent/agent.js'
 import {
-  belongsToVenue,
   credentialName,
   credentialSource,
   type CredentialSource,
 } from '../cli/commands.js'
 import { riskEngineFor } from '../cli/engine-adapter.js'
+import { belongsToVenue } from '../core/position.js'
 import {
   buildPalette,
   GROUP_LABELS,
@@ -698,7 +698,12 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
 
   const status = useMemo(() => {
     const { positions, failures } = session.current
-    const venues = new Set(positions.map((p) => p.venue)).size
+    // Counted back to the venue the user connected, not the label a row wears:
+    // one Aave address holding positions in three of its markets is one venue,
+    // and `aave-prime` beside `aave` read as two more the user had never added.
+    const venues = new Set(
+      positions.map((p) => connected.find((id) => belongsToVenue(p.venue, id)) ?? p.venue),
+    ).size
     const stalest = session.stalest()
     const parts = [
       `${venues} venue${venues === 1 ? '' : 's'}`,

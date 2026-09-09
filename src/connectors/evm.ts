@@ -1,9 +1,14 @@
 import { remote, TulaError } from '../core/errors.js'
 import { host, request } from '../core/http.js'
+import { visible } from '../core/untrusted.js'
 import { keccak256Hex } from './keccak.js'
 
 /** Every RPC failure has the same two ways out, and neither is obvious. */
 export const RPC_REMEDY = '\n  Retry with /refresh, or set TULA_ETH_RPC to another node.'
+
+/** Read per call, not at import, so a test can point a connector somewhere else. */
+export const ethRpcUrl = (): string =>
+  process.env['TULA_ETH_RPC'] ?? 'https://ethereum-rpc.publicnode.com'
 
 export const ADDRESS = /^0x[0-9a-fA-F]{40}$/
 
@@ -76,11 +81,7 @@ export const wordToAddress = (word: string | undefined): string =>
 const MAX_SYMBOL_BYTES = 32
 
 const clean = (bytes: string): string =>
-  Buffer.from(bytes, 'hex')
-    .toString('utf8')
-    .replace(/\0+$/, '')
-    .replace(/[\p{Cc}\p{Cf}]/gu, '')
-    .trim()
+  visible(Buffer.from(bytes, 'hex').toString('utf8').replace(/\0+$/, '')).trim()
 
 /**
  * ABI-encoded string: offset, length, then the bytes.

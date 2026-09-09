@@ -1,9 +1,10 @@
 import { describe, expect, test } from 'bun:test'
-import { fixtureEngine } from './fixture.js'
+import { FIXTURE_POSITIONS, fixtureEngine } from './fixture.js'
+import type { RiskEngine } from './engine.js'
 import { executeTool, TOOLS } from './tools.js'
 
-const call = (name: string, input: unknown = {}) =>
-  executeTool(fixtureEngine, name, input) as Record<string, any>
+const call = (name: string, input: unknown = {}, engine: RiskEngine = fixtureEngine) =>
+  executeTool(engine, name, input) as Record<string, any>
 
 describe('tool surface', () => {
   test('every tool has a schema the API will accept', () => {
@@ -38,6 +39,32 @@ describe('get_net_exposure', () => {
     const result = call('get_net_exposure', { asset: 'XYZ' })
     expect(result.exposures[0].notional_usd).toBeNull()
     expect(result.note).toContain('not zero')
+  })
+})
+
+describe('get_positions', () => {
+  test('a venue filter reaches that venue\u2019s sub-accounts, not only its bare label', () => {
+    // The CLI has always matched `kraken-margin` under `kraken`; the tool
+    // compared for equality, so a filtered answer silently dropped every
+    // sub-account row and still read as that venue's whole book.
+    const engine = {
+      ...fixtureEngine,
+      positions: () => [
+        ...FIXTURE_POSITIONS,
+        { ...FIXTURE_POSITIONS[0]!, id: 'sub', venue: 'cex-margin', asset: 'BTC' },
+      ],
+    }
+    const rows = call('get_positions', { venue: 'cex' }, engine)['positions']
+    expect(rows.map((r: { venue: string }) => r.venue)).toContain('cex-margin')
+  })
+
+  test('a venue filter does not catch a different venue that starts the same way', () => {
+    const engine = {
+      ...fixtureEngine,
+      positions: () => [{ ...FIXTURE_POSITIONS[0]!, id: 'other', venue: 'cexother' }],
+    }
+    const rows = call('get_positions', { venue: 'cex' }, engine)['positions']
+    expect(rows).toHaveLength(0)
   })
 })
 
@@ -80,11 +107,11 @@ describe('get_venue_status', () => {
   })
 
   test('nothing connected reads as a connection gap, with the way out', () => {
-    const empty = executeTool(
-      { ...fixtureEngine, venues: () => [], freshness: () => ({ oldest: null, loadedAt: new Date(), failures: [], priceError: null }) },
-      'get_venue_status',
-      {},
-    ) as Record<string, any>
+    const empty = call('get_venue_status', {}, {
+      ...fixtureEngine,
+      venues: () => [],
+      freshness: () => ({ oldest: null, loadedAt: new Date(), failures: [], priceError: null }),
+    })
     expect(empty.venues).toEqual([])
     expect(empty.note).toContain('/')
   })

@@ -3,6 +3,7 @@ import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type Anthropic from '@anthropic-ai/sdk'
+import Decimal from 'decimal.js'
 import { Terminal } from '@xterm/headless'
 import { homeRelative } from '../core/paths.js'
 import { afterAll, beforeAll, expect, test } from 'bun:test'
@@ -147,7 +148,6 @@ async function open(columns: number, rows: number, options: Options = {}): Promi
       initialVenues: [],
       ...(options.agent ? { agent: options.agent } : {}),
     }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     {
       stdout: stdout as any,
       stdin: stdin as any,
@@ -1111,6 +1111,61 @@ test('a venue mark takes a gutter, and both columns still line up', async () => 
     screen.stop()
   }
 })
+
+test('a venue whose markets label their own rows still lines its table up', async () => {
+  // One connected venue can label rows per market — `aave-etherfi` beside
+  // `aave` — which widens the VENUE column past anything a single-word venue
+  // produced. At the width most terminals open at, that is the frame most
+  // likely to wrap, and a row that wraps is a row Ink never erases.
+  const at = new Date()
+  const row = (venue: string, asset: string, quantity: string) => ({
+    id: `${venue}:collateral:${asset}`,
+    venue,
+    kind: 'collateral' as const,
+    asset,
+    quantity: new Decimal(quantity),
+    delta: new Decimal(quantity),
+    asOf: at,
+  })
+  const markets: Connector = {
+    venue: { id: 'markets', kind: 'lending', name: 'Markets' },
+    fields: [{ name: 'address', label: 'Address', secret: false }],
+    help: [],
+    async verifyScope() {
+      return { canRead: true, canTrade: false as const, canWithdraw: false as const }
+    },
+    async fetchPositions() {
+      return [
+        row('markets', 'ETH', '12'),
+        row('markets-second', 'WSTETH', '2'),
+        row('markets-third', 'WEETH', '1.5'),
+      ]
+    },
+  }
+
+  const screen = await open(80, 34, { connectors: new Map([['markets', markets]]) })
+  try {
+    await screen.press('/markets connect\r')
+    await screen.press('0xabc\r')
+    await screen.press('/positions\r')
+    let rows: string[] = []
+    for (let tries = 0; tries < 40; tries++) {
+      rows = screen.rows()
+      if (rows.some((r) => r.includes('markets-third'))) break
+      await new Promise((r) => setTimeout(r, 100))
+    }
+    const labelled = rows.filter((r) => /markets(-\w+)?\s+collateral/.test(r))
+    if (labelled.length < 3) dump(screen)
+    expect(labelled).toHaveLength(3)
+    // Every row puts `collateral` in the same column, which is what says the
+    // table was laid out at one width rather than wrapped into another.
+    const starts = new Set(labelled.map((r) => r.indexOf('collateral')))
+    expect(starts.size).toBe(1)
+    expect(rows.every((r) => r.length <= 80)).toBe(true)
+  } finally {
+    screen.stop()
+  }
+}, 120_000)
 
 test('connecting says what it is doing while the venue is read', async () => {
   // Connecting stores the credential, then reads the venue — seconds of it on a

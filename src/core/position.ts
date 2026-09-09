@@ -54,6 +54,19 @@ export interface Position {
   asOf: Date
 }
 
+/**
+ * A venue may label its rows with sub-accounts — `kraken-margin` beside
+ * `kraken`, `aave-prime` beside `aave` — so a venue filter has to accept its
+ * own prefixed labels.
+ *
+ * In the canonical model rather than the command layer because the agent's
+ * tools filter by venue too, and the two answering differently is a filtered
+ * book that reads as the whole one.
+ */
+export function belongsToVenue(positionVenue: VenueId, venueId: VenueId): boolean {
+  return positionVenue === venueId || positionVenue.startsWith(`${venueId}-`)
+}
+
 export interface NetExposure {
   asset: AssetId
   delta: Decimal
