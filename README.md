@@ -212,8 +212,9 @@ on top will not save it.
 
 ## Roadmap
 
-Full version themes in [ROADMAP.md](./ROADMAP.md); per-version task breakdown in
-[`tasks/`](./tasks); shipped work in [CHANGELOG.md](./CHANGELOG.md).
+Milestones and the order they are in, in [ROADMAP.md](./ROADMAP.md); the task
+breakdown behind each in [`tasks/`](./tasks); shipped work in
+[CHANGELOG.md](./CHANGELOG.md).
 
 ## Contributing
 

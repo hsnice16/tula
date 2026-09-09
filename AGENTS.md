@@ -463,9 +463,9 @@ endpoint — including "validate only" variants. The absence is the product.
 
 ## Working from tasks/
 
-Point a session at one file: `Work on tasks/0.2.0/03-interactive-shell.md`.
+Point a session at one file: `Work on tasks/the-shell/03-interactive-shell.md`.
 
-The agent reads that task for goal and acceptance criteria, the version's
+The agent reads that task for goal and acceptance criteria, the milestone's
 `README.md` for scope, and this file for conventions. Update the task's
 `**Status**:` line when it lands, and add a `CHANGELOG.md` entry.
 
