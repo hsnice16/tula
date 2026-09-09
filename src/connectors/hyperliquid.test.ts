@@ -4,7 +4,10 @@ import { hyperliquidConnector } from './hyperliquid.js'
 const ADDRESS = '0x0000000000000000000000000000000000000abc'
 const VENUE_TIME = 1788115918781
 
-// Shapes recorded from api.hyperliquid.xyz, trimmed to what the connector reads.
+// The shapes api.hyperliquid.xyz returns, trimmed to what the connector reads:
+// figures as strings, a null liquidation price rather than a missing key, and a
+// size carried to the precision the venue sends. The numbers are invented — a
+// fixture proves the parsing, and nobody's positions belong in a public repo.
 const PERPS = {
   marginSummary: {
     accountValue: '10000.0',
@@ -18,14 +21,14 @@ const PERPS = {
       type: 'oneWay',
       position: {
         coin: 'BTC',
-        szi: '-0.36296',
+        szi: '-0.41253',
         leverage: { type: 'cross', value: 20 },
-        entryPx: '78553.5',
-        liquidationPx: '8334793.0463984795',
+        entryPx: '64210.0',
+        liquidationPx: '7412885.1907364521',
       },
     },
     // A cross position far from liquidation reports null, not zero.
-    { type: 'oneWay', position: { coin: 'ATOM', szi: '953.87', liquidationPx: null } },
+    { type: 'oneWay', position: { coin: 'ATOM', szi: '640.25', liquidationPx: null } },
     { type: 'oneWay', position: { coin: 'SOL', szi: '0.0', liquidationPx: '1' } },
   ],
 }
@@ -68,9 +71,9 @@ describe('hyperliquid', () => {
     const btc = (await hyperliquidConnector.fetchPositions({ address: ADDRESS })).find(
       (p) => p.asset === 'BTC',
     )
-    expect(btc?.quantity.toString()).toBe('-0.36296')
-    expect(btc?.delta.toString()).toBe('-0.36296')
-    expect(btc?.liquidation?.price?.toString()).toBe('8334793.0463984795')
+    expect(btc?.quantity.toString()).toBe('-0.41253')
+    expect(btc?.delta.toString()).toBe('-0.41253')
+    expect(btc?.liquidation?.price?.toString()).toBe('7412885.1907364521')
     expect(btc?.liquidation?.leverage?.toString()).toBe('20')
   })
 
