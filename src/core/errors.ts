@@ -1,3 +1,5 @@
+import { visible } from './untrusted.js'
+
 /**
  * A condition the user can act on: a bad key, a loose file mode, a venue that
  * refused us. These print as a message. Anything else is a bug in tula and
@@ -19,6 +21,6 @@ const MAX_REMOTE = 200
  * off the end of them.
  */
 export function remote(text: string): string {
-  const clean = text.replace(/[\p{Cc}\p{Cf}]+/gu, ' ').trim()
+  const clean = visible(text, ' ').replace(/\s+/g, ' ').trim()
   return clean.length > MAX_REMOTE ? `${clean.slice(0, MAX_REMOTE - 1)}…` : clean
 }

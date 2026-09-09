@@ -34,7 +34,7 @@ interface PerpPosition {
 
 interface ClearinghouseState {
   assetPositions?: Array<{ position?: PerpPosition }>
-  marginSummary?: { accountValue?: string; totalMarginUsed?: string }
+  marginSummary?: { accountValue?: string; totalRawUsd?: string; totalMarginUsed?: string }
   withdrawable?: string
   time?: number
 }
@@ -153,17 +153,23 @@ export const hyperliquidConnector: Connector = {
       })
     }
 
-    // Perp margin sits in the account rather than in a position. Without it the
-    // account's USDC simply vanishes from the portfolio.
-    const free = perps.withdrawable ? new Decimal(perps.withdrawable) : new Decimal(0)
-    if (!free.isZero()) {
+    // Perp margin sits in the account rather than in a position, so without
+    // this row the account's USDC vanishes from the portfolio.
+    //
+    // `totalRawUsd`, not `withdrawable`: that is only what may be taken out
+    // now, so everything behind an open perp read as gone. It stays as the
+    // fallback because an understated balance beats no row at all. Not
+    // `accountValue` either — it adds unrealized PnL the legs carry in `delta`.
+    const rawUsd = perps.marginSummary?.totalRawUsd ?? perps.withdrawable
+    const usdc = rawUsd ? new Decimal(rawUsd) : new Decimal(0)
+    if (!usdc.isZero()) {
       positions.push({
         id: 'hyperliquid:spot:USDC-margin',
         venue: HYPERLIQUID.id,
         kind: 'spot',
         asset: 'USDC',
-        quantity: free,
-        delta: free,
+        quantity: usdc,
+        delta: usdc,
         asOf,
       })
     }

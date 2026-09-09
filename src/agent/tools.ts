@@ -1,5 +1,6 @@
 import Decimal from 'decimal.js'
 import { freshness, pct, quantity, usd } from '../core/format.js'
+import { belongsToVenue } from '../core/position.js'
 import type { Shock } from '../core/risk.js'
 import type { RiskEngine } from './engine.js'
 
@@ -134,7 +135,8 @@ export function executeTool(engine: RiskEngine, name: string, input: unknown): u
         .positions()
         .filter(
           (p) =>
-            (asset === undefined || p.asset === asset) && (venue === undefined || p.venue === venue),
+            (asset === undefined || p.asset === asset) &&
+            (venue === undefined || belongsToVenue(p.venue, venue)),
         )
         .map((p) => ({
           venue: p.venue,

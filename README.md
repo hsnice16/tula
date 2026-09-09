@@ -173,8 +173,8 @@ useful thing you can send.
 | Venue | Reads | Needs |
 |---|---|---|
 | **Wallet** (Ethereum) | native ETH and ERC-20 balances off a token list | a public address |
-| **Hyperliquid** | perp positions with liquidation price, spot, margin | a public address |
-| **Aave v3** (Ethereum) | collateral, debt, health factor, per asset | a public address |
+| **Hyperliquid** | perp positions with liquidation price, spot, the account's USDC | a public address |
+| **Aave v3** (Ethereum) | collateral, debt, health factor, per asset, across all four markets | a public address |
 | **Kraken** | spot and staked balances | a query-only API key |
 | **Binance** | spot balances | a read-only API key |
 | **Coinbase Advanced** | spot and held balances | a CDP API key (view-only) |

@@ -6,7 +6,11 @@ const VENUE_TIME = 1788115918781
 
 // Shapes recorded from api.hyperliquid.xyz, trimmed to what the connector reads.
 const PERPS = {
-  marginSummary: { accountValue: '10000.0', totalMarginUsed: '500.0' },
+  marginSummary: {
+    accountValue: '10000.0',
+    totalRawUsd: '3000.5',
+    totalMarginUsed: '500.0',
+  },
   withdrawable: '2500.5',
   time: VENUE_TIME,
   assetPositions: [
@@ -86,10 +90,33 @@ describe('hyperliquid', () => {
     expect(positions.find((p) => p.asset === 'HYPE')).toBeUndefined()
   })
 
-  test('spot balances and withdrawable margin both land', async () => {
+  test('spot balances and the perp account\u2019s USDC both land', async () => {
     stub()
     const positions = await hyperliquidConnector.fetchPositions({ address: ADDRESS })
     expect(positions.find((p) => p.asset === 'PURR')?.quantity.toString()).toBe('120.5')
+    expect(positions.find((p) => p.asset === 'USDC')?.quantity.toString()).toBe('3000.5')
+  })
+
+  test('USDC posted against an open perp is still USDC you hold', async () => {
+    stub()
+    const positions = await hyperliquidConnector.fetchPositions({ address: ADDRESS })
+    const usdc = positions.find((p) => p.asset === 'USDC')
+    // `withdrawable` is what may be taken out now, so reading it alone made
+    // every dollar behind an open position vanish from the portfolio.
+    expect(usdc?.quantity.toString()).not.toBe('2500.5')
+  })
+
+  test('unrealized profit is not counted a second time as USDC', async () => {
+    stub()
+    const positions = await hyperliquidConnector.fetchPositions({ address: ADDRESS })
+    // The account value carries the mark-to-market the perp legs already hold
+    // in their own delta; taking it here reports one move as two.
+    expect(positions.find((p) => p.asset === 'USDC')?.quantity.toString()).not.toBe('10000')
+  })
+
+  test('a venue that reports no raw balance falls back to what is withdrawable', async () => {
+    stub({ ...PERPS, marginSummary: { accountValue: '10000.0', totalMarginUsed: '500.0' } })
+    const positions = await hyperliquidConnector.fetchPositions({ address: ADDRESS })
     expect(positions.find((p) => p.asset === 'USDC')?.quantity.toString()).toBe('2500.5')
   })
 

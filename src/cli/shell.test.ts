@@ -17,6 +17,7 @@ import {
   type VenueEntry,
 } from './registry.js'
 import { Session, reason, symbol, type LoadStep } from './session.js'
+import { riskEngineFor } from './engine-adapter.js'
 import { dispatchCommand, wayBack } from './shell.js'
 
 const PRICES: Record<string, number> = { ETH: 4000, USD: 1, USDC: 1, DOT: 5 }
@@ -109,6 +110,19 @@ async function freshSession(venue = 'testvenue'): Promise<Session> {
   await secrets.put(venue, { apiKey: 'k', apiSecret: 's' })
   return new Session(CONNECTORS, oracle)
 }
+
+describe('the engine the agent sees', () => {
+  test('one venue whose rows carry sub-account labels is still one venue', async () => {
+    // `testvenue` returns rows labelled `testvenue-cex`, `-perp` and `-lend`.
+    // `/venues` and the status line both fold those back under the venue the
+    // user connected; the model answering three while the screen says one is
+    // the same book described two ways, and nothing says which is right.
+    const session = await freshSession()
+    await session.ensureLoaded()
+    const venues = riskEngineFor(session).venues()
+    expect(venues.filter((v) => v.status === 'ok').map((v) => v.venue)).toEqual(['testvenue'])
+  })
+})
 
 describe('parseCommand', () => {
   test('plain text is a question, not a command', () => {

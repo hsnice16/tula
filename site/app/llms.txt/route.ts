@@ -28,8 +28,9 @@ and narrates, and never does the arithmetic.
 
 ## What it reads
 
-Hyperliquid (perps with liquidation price, spot, margin), Aave v3 on Ethereum
-(collateral, debt and health factor), and an Ethereum wallet's ETH and ERC-20
+Hyperliquid (perps with liquidation price, spot, and the perp account's own
+USDC), Aave v3 on Ethereum across all four of its markets (collateral, debt and
+health factor, each market's own), and an Ethereum wallet's ETH and ERC-20
 balances — all three from a public address alone. Then Kraken, Binance, Coinbase
 Advanced, Stripe and Circle Mint, each from a read-only key. A key proven to
 withdraw or trade is refused rather than warned about; where a venue exposes no

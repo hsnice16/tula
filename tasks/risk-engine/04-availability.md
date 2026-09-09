@@ -25,13 +25,15 @@ settled. Different causes, one mistake.
 |---|---|---|
 | Binance | `free` and `locked` | sums them into one `spot` position |
 | Coinbase | `available_balance` and `hold` | sums them into one `spot` position |
-| Hyperliquid | `withdrawable`, `totalMarginUsed` | reads `withdrawable`, already names it `free` |
+| Hyperliquid | `totalRawUsd`, `withdrawable`, `totalMarginUsed` | reads the raw balance; what of it is free is still unsaid |
 | Circle, Stripe | unsettled and pending | `kind: 'pending'`, which `position.ts` defines as *not yet available to move* |
 | Kraken | `/0/private/Balance`, a total | nothing to split it with |
 | Aave | collateral securing debt | sets `encumbers`, read by nothing |
 | Wallet | — | nothing is pledged; all of it is free |
 
-Four of the seven already fetch the split and discard it. `encumbers` is one
+Four of the seven already fetch the split and discard it — Hyperliquid no longer
+loses the margin itself, but still does not say how much of the balance is
+free. `encumbers` is one
 mechanism of several, not the definition — which is why this task is availability
 rather than encumbrance.
 

@@ -58,7 +58,7 @@ const NOTES = [
   ],
   [
     'Text tula did not write',
-    'Two kinds of text reach the screen and the model from outside: an asset symbol \u2014 as a venue\u2019s listing spells it, or as an Aave reserve contract returns it \u2014 and a venue\u2019s own error text when one fails. Both are cut to a length limit and squashed onto one line on the way in, so neither can pose as an instruction. No memo, NFT metadata or protocol description is read at all.',
+    'Two kinds of text reach the screen and the model from outside: an asset symbol \u2014 as a venue\u2019s listing spells it, or as an Aave reserve contract returns it \u2014 and a venue\u2019s own error text when one fails. Both are cut to a length limit on the way in, and stripped of every codepoint that is invisible or moves what is drawn \u2014 so neither can pose as an instruction, forge a line, or hide bytes in the gaps of one. No memo, NFT metadata or protocol description is read at all.',
   ],
   [
     'Network egress',

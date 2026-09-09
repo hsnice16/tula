@@ -4,6 +4,7 @@ import { remote } from '../core/errors.js'
 import { netExposure, oldest, type PriceMap } from '../core/exposure.js'
 import type { AssetId, Position } from '../core/position.js'
 import type { PriceOracle } from '../core/prices.js'
+import { visible } from '../core/untrusted.js'
 import * as secrets from '../secrets/store.js'
 
 export interface LoadResult {
@@ -44,7 +45,7 @@ export function reason(err: unknown): string {
 const MAX_SYMBOL = 32
 
 export function symbol(raw: string): string {
-  const clean = raw.replace(/[\p{Cc}\p{Cf}]+/gu, '').trim()
+  const clean = visible(raw).trim()
   return clean.slice(0, MAX_SYMBOL)
 }
 
@@ -72,6 +73,11 @@ export class Session {
 
   get priceSource(): string {
     return this.oracle.source
+  }
+
+  /** The venue ids a row's label folds back to. */
+  get venueIds(): string[] {
+    return [...this.connectors.keys()]
   }
 
   /**

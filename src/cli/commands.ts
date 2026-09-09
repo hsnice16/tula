@@ -1,7 +1,7 @@
 import Decimal from 'decimal.js'
 import { envApiKey, envApiKeyName, hasAmbientCredentials } from '../agent/agent.js'
 import type { Connector } from '../connectors/types.js'
-import type { VenueKind } from '../core/position.js'
+import { belongsToVenue, type VenueKind } from '../core/position.js'
 import type { PriceProvider } from '../prices/providers.js'
 import { portfolioValue, type PortfolioValue } from '../core/exposure.js'
 import { healthFactorUnder, scenario, whatBreaksFirst, type Shock } from '../core/risk.js'
@@ -279,15 +279,6 @@ export async function venues(
     `Connectors in this build: ${[...connectors.keys()].join(', ')}`,
   ]
   return { output: lines.join('\n'), incomplete: failures.length > 0 }
-}
-
-
-/**
- * A venue may label its rows with sub-accounts — `kraken-margin` beside
- * `kraken` — so a venue filter has to accept its own prefixed labels.
- */
-export function belongsToVenue(positionVenue: string, venueId: string): boolean {
-  return positionVenue === venueId || positionVenue.startsWith(`${venueId}-`)
 }
 
 export async function positionsAt(

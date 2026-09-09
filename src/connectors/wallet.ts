@@ -6,6 +6,7 @@ import {
   addressProblem,
   encodeAddress,
   ethCallBatch,
+  ethRpcUrl,
   ethGetBalance,
   SELECTOR,
   toBigInt,
@@ -15,8 +16,6 @@ import type { Connector, ConnectorCredentials, KeyScope } from './types.js'
 import { host, request } from '../core/http.js'
 
 export const WALLET: Venue = { id: 'wallet', kind: 'wallet', name: 'Wallet (Ethereum)' }
-
-const rpcUrl = (): string => process.env['TULA_ETH_RPC'] ?? 'https://ethereum-rpc.publicnode.com'
 
 /**
  * The Token Lists standard, maintained by someone whose job it is. Which ERC-20s
@@ -104,14 +103,14 @@ export const walletConnector: Connector = {
     const address = creds['address'] ?? ''
     const problem = addressProblem(address)
     if (problem) throw new TulaError(problem)
-    await ethGetBalance(rpcUrl(), address)
+    await ethGetBalance(ethRpcUrl(), address)
     return { canRead: true, canTrade: false, canWithdraw: false }
   },
 
   async fetchPositions(creds: ConnectorCredentials): Promise<Position[]> {
     const address = creds['address']
     if (!address) throw new TulaError('A wallet needs a public address.')
-    const rpc = rpcUrl()
+    const rpc = ethRpcUrl()
 
     const tokens = await loadTokens()
     const [native, balances] = await Promise.all([

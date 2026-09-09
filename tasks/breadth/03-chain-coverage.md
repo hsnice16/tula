@@ -30,7 +30,9 @@ Ethereum, Arbitrum, Base and Hyperliquid L1 for v1.
   `chainId === MAINNET` against one list URL, so both the filter and the default
   generalize or every chain reads Ethereum's tokens.
 - Aave reserve discovery runs per deployment, since the reserves on one chain are
-  not the reserves on another.
+  not the reserves on another. The per-deployment shape exists already — reading
+  Ethereum's four markets needed it — but the cache key has to grow with it: one
+  Pool address can repeat across chains, so pool alone would cross them.
 - Freshness is per chain, and an aggregate inherits the oldest of them. A chain
   whose node is behind must not make the whole book look current.
 - Each chain's RPC is overridable, and every one has a public default. A single
