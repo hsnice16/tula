@@ -10,7 +10,7 @@ export const NAME = 'tula'
  * the two disagree and `release-cut.sh` bumps this with them: a frame offered
  * as the tool's own output cannot print a release that was never cut.
  */
-export const VERSION = '0.1.2'
+export const VERSION = '0.1.3'
 
 /**
  * GA4, for the site alone. Held here rather than read from `process.env`: an

@@ -11,6 +11,8 @@ CI and build plumbing, refactors, and doc-only edits — stays in commit message
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-09-09
+
 ### Fixed
 
 - **Aave is read across all four of its Ethereum markets, not one.** Aave v3 on Ethereum is four separate markets — Core, Prime, EtherFi and Horizon — and a Pool answers only for itself, so tula read Core and reported an empty book to anyone supplying to the other three. Nothing said so, because nothing had failed: the venue answered, and what it answered about was a quarter of the chain. Each market's address was checked on-chain against `getMarketId()` before it was written down. Positions from the markets beside Core carry their own label — `aave-prime` next to `aave` — so `/aave positions` still shows all of them and `breaks` can say which market to act on, and each market's health factor now belongs to that market's collateral rather than being shared. A debt secures only the collateral in the market it was borrowed in, which is the relationship that actually exists. A market whose read fails now fails the venue rather than passing for one holding nothing.
@@ -190,7 +192,8 @@ what breaks first.
 - `KeyScope` is tri-state. Kraken exposes no endpoint reporting a key's permissions, and every endpoint gated on trade permission mutates an order, so `canTrade` is `unknown` rather than guessed at. Withdraw scope is provable, and is proven.
 - Kraken margin and open orders are not read yet, so on a margin account this is not a complete Kraken picture.
 
-[Unreleased]: https://github.com/hsnice16/tula/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/hsnice16/tula/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/hsnice16/tula/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/hsnice16/tula/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/hsnice16/tula/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/hsnice16/tula/releases/tag/v0.1.0
