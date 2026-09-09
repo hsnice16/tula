@@ -24,7 +24,7 @@ const CHECKS = [
   ['Published checksum', 'Always. The install stops if the download does not match it.'],
   [
     'Build attestation',
-    'GitHub signs it as the release is built. Checking it needs the GitHub CLI, which most people do not have — read the section below before you count on it.',
+    'GitHub signs it as the release is built. Checking it needs the GitHub CLI, which most people do not have \u2014 see \u201cProving who built it\u201d below.',
   ],
   [
     'Versioned installs',
@@ -122,19 +122,19 @@ const CHANNELS: Channel[] = [
         <p className="mt-5 mb-6 text-[0.9rem] text-dim">
           This pipes a script into your shell, so read it before you run it.{' '}
           <Ext href={`${SITE}/install.sh`}>install.sh</Ext> is the file the command fetches, copied
-          from <Ext href={`${REPO}/blob/main/install.sh`}>the one in the repo</Ext> — the same file,
-          and the one every test runs against.
+          from <Ext href={`${REPO}/blob/main/install.sh`}>the one in the repo</Ext>, and the one
+          every test runs against.
         </p>
         <Aside>
           tula checks for a new release once a day and says so in a line. It never installs one
           without asking: <Code>/update</Code> shows what it would install and where to check it,
-          and <Code>/update install</Code> is the step that goes ahead.
+          and <Code>/update install</Code> installs it.
         </Aside>
 
         <Step title="Where it puts things">
           <p className="mb-4 text-dim">
             Everything goes under <Code>~/.tula</Code>. Each version gets its own folder, and{' '}
-            <Code>~/.tula/bin/tula</Code> is a link pointing at the one you run.
+            <Code>~/.tula/bin/tula</Code> is a link to the one you run.
           </p>
           <p className="text-dim">
             If <Code>~/.tula/bin</Code> is not on your PATH, the installer adds a line to your zsh,
@@ -155,8 +155,8 @@ const CHANNELS: Channel[] = [
 
         <Step title="Update">
           <p className="mb-4 text-dim">
-            <Code>/update install</Code> from inside tula does this without leaving it. Running the
-            command again does the same thing, and is the one that still works when tula will not
+            <Code>/update install</Code> from inside tula updates without leaving it. Running the
+            install command again does the same, and is the one that still works when tula will not
             start.
           </p>
           <p className="mb-4 text-dim">
@@ -194,8 +194,8 @@ const CHANNELS: Channel[] = [
         <Terminal title="homebrew">{'brew install hsnice16/tap/tula'}</Terminal>
         <p className="mt-5 text-dim">
           That names the tap and the formula together, which is the only way to do it in one
-          command. To type the short name instead, tap once with <Code>brew tap hsnice16/tap</Code>{' '}
-          and <Code>brew install tula</Code> works on that machine from then on.
+          command. For the short name instead, tap once with <Code>brew tap hsnice16/tap</Code>;{' '}
+          <Code>brew install tula</Code> then works on that machine.
         </p>
         <p className="mt-4 text-dim">
           Homebrew downloads the archive from the same GitHub release the install script uses, and
@@ -203,9 +203,9 @@ const CHANNELS: Channel[] = [
           prefix, not under <Code>~/.tula</Code>.
         </p>
         <p className="mt-4 mb-6 text-dim">
-          There are two names to install from. <Code>tula</Code> moves only when a release is
-          promoted to it, so a build found to be wrong is skipped by not promoting the next one.{' '}
-          <Code>tula-latest</Code> takes every release, pre-releases included.
+          There are three names to install from. <Code>tula</Code> takes stable releases only, so a
+          build found to be wrong is skipped by promoting the next one. <Code>tula-latest</Code>{' '}
+          takes every release, pre-releases included.
         </p>
         <Aside>
           tula checks for a new release once a day and says so in a line. It never installs one
@@ -234,13 +234,13 @@ const CHANNELS: Channel[] = [
         <Step title="Go back">
           <p className="text-dim">
             Install and link a pinned formula from above. A Homebrew formula holds one version, so
-            those pinned names are what makes an older build reachable at all.
+            those pinned names are what makes an older build reachable.
           </p>
         </Step>
 
         <Step title="Remove">
           <p className="mb-4 text-dim">
-            That leaves the tap behind, which is a few lines of text and nothing else.{' '}
+            Uninstalling leaves the tap behind, which is a few lines of text and nothing else.{' '}
             <Code>brew untap hsnice16/tap</Code> drops it too.
           </p>
           <Command label="remove">{'brew uninstall tula'}</Command>
@@ -262,16 +262,16 @@ const CHANNELS: Channel[] = [
           <Aside>
             <strong className="font-semibold text-ink">Checked a different way.</strong> npm
             repackages the release instead of serving it, so the GitHub attestation the other two
-            channels carry does not cover this tarball. It is published with npm's own sigstore
-            provenance instead — <Code>npm audit signatures</Code> checks it, and npmjs.com shows
-            which workflow and commit built it. What npm's integrity hash proves is only that the
-            file arrived intact, which is a different question again.
+            channels carry does not cover this tarball. It is published with npm&rsquo;s own
+            sigstore provenance — <Code>npm audit signatures</Code> checks it, and npmjs.com shows
+            which workflow and commit built it. What npm&rsquo;s integrity hash proves is only that
+            the file arrived intact, which is a different question again.
           </Aside>
         </div>
         <p className="mb-6 text-dim">
-          You need Node to install it. You do not need Node to run it: the package carries the same
-          binary as the other channels and puts it in place of its own launcher. It does not install
-          under <Code>~/.tula</Code>.
+          You need Node to install it. You do not need Node to run it: the install puts the same
+          binary the other channels serve in place of its own launcher. It does not install under{' '}
+          <Code>~/.tula</Code>.
         </p>
         <Aside>
           tula checks for a new release once a day and says so in a line. It never installs one
@@ -296,7 +296,7 @@ const CHANNELS: Channel[] = [
         <Step title="Go back">
           <p className="text-dim">
             Name the older version, the same command as above. npm keeps what it has published, so
-            an old build is a download rather than something you needed to have kept.
+            an old build is a download, not something you had to keep.
           </p>
         </Step>
 
@@ -327,8 +327,7 @@ export default function Page() {
         <Command label="confirm">{'tula --version'}</Command>
         <p className="mt-4 text-dim">
           It prints the version. If your shell says it cannot find tula, it is on disk and your PATH
-          does not reach it — which line fixes that is the one thing the three channels do not
-          share.
+          does not reach it. The fix differs by channel:
         </p>
         {/* Rows rather than the three columns the checks above take: the answers
             are uneven, and side by side the longest sets the height of the two
@@ -388,8 +387,8 @@ export default function Page() {
         <p className="mb-4 text-dim">
           A checksum proves the file arrived whole. It does not prove who made it: the checksum is
           published beside the file, so whoever could swap one could swap the other. The build
-          attestation is the part that proves origin — GitHub signs it as the release is built, and
-          nobody who gets hold of the files afterwards can reissue it.
+          attestation proves origin — GitHub signs it as the release is built, and nobody who gets
+          hold of the files afterwards can reissue it.
         </p>
         <p className="mb-6 text-dim">
           Checking one needs the GitHub CLI, signed in with <Code>gh auth login</Code>. It will not
@@ -417,9 +416,9 @@ export default function Page() {
       <p className="label mb-8">Your keys are kept apart</p>
       <div className="max-w-[46rem]">
         <p className="mb-4 text-dim">
-          Whichever way you installed it, what you save lives in <Code>~/.config/tula</Code>, away
-          from the binary. Reinstalling does not touch it, updating does not touch it, and removing
-          tula leaves it where it is.
+          Whichever way you installed it, your keys live in <Code>~/.config/tula</Code>, away from
+          the binary. Reinstalling does not touch it, updating does not touch it, and removing tula
+          leaves it where it is.
         </p>
         <p className="mb-4 text-dim">
           So deleting it is a separate step, and a deliberate one. Run this when you are done with

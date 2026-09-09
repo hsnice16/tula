@@ -1,12 +1,12 @@
 import Image, { type StaticImageData } from 'next/image'
 import type { ReactNode } from 'react'
+import aaveMark from '@/assets/venues/aave.png'
+import hyperliquidMark from '@/assets/venues/hyperliquid.png'
+import krakenMark from '@/assets/venues/kraken.png'
 import { Ask } from '@/components/Ask'
 import { Link } from '@/components/Link'
 import { Note } from '@/components/Note'
 import { Banner, Held, Prompt, Session } from '@/components/Session'
-import aaveMark from '@/public/venues/aave.png'
-import hyperliquidMark from '@/public/venues/hyperliquid.png'
-import krakenMark from '@/public/venues/kraken.png'
 
 // The one book every figure on this page comes from. Synthetic on purpose: real
 // balances belong to a real person, and they go stale. src/site-example.test.ts
@@ -24,11 +24,13 @@ const SEEN = [
  * `font-style` cannot reach an image, so the slant that matches the italic
  * around it has to be a transform.
  */
-function Mark({ src, venue, size }: { src: StaticImageData; venue: string; size: string }) {
+function Mark({ src, size }: { src: StaticImageData; size: string }) {
   return (
     <Image
       src={src}
-      alt={venue}
+      // Decorative: the venue's name follows it in the same sentence, so an alt
+      // here is the name read twice.
+      alt=""
       className={`mr-1.5 inline-block w-auto -skew-x-10 align-middle ${size}`}
     />
   )
@@ -127,17 +129,17 @@ hyperliquid  ETH    perp             +39.3%  liq price 3412.00   09:14:02 (4s ag
               </h2>
               <p className="text-dim">
                 <Named tone={BRAND.kraken}>
-                  <Mark src={krakenMark} venue="Kraken" size="h-[0.78em]" />
+                  <Mark src={krakenMark} size="h-[0.78em]" />
                   Kraken
                 </Named>{' '}
                 sees spot ETH and calls it a balance.{' '}
                 <Named tone={BRAND.hyperliquid}>
-                  <Mark src={hyperliquidMark} venue="Hyperliquid" size="h-[0.8em]" />
+                  <Mark src={hyperliquidMark} size="h-[0.8em]" />
                   Hyperliquid
                 </Named>{' '}
                 sees a perp and its liquidation price.{' '}
                 <Named tone={BRAND.aave}>
-                  <Mark src={aaveMark} venue="Aave" size="h-[0.65em]" />
+                  <Mark src={aaveMark} size="h-[0.65em]" />
                   Aave
                 </Named>{' '}
                 sees a health factor and nothing on either side of it.
@@ -186,7 +188,7 @@ hyperliquid  ETH    perp             +39.3%  liq price 3412.00   09:14:02 (4s ag
             <h2 className="mb-4 text-[clamp(1.4rem,3vw,1.85rem)] font-medium leading-tight tracking-[-0.02em]">
               You can just ask.
             </h2>
-            <p className="text-dim">Type a question instead of a command, and tula answers it.</p>
+            <p className="text-dim">Type a question instead of a command.</p>
             <p className="mt-4 text-dim">
               Connect a model and the answer comes back in plain English. Every command still works
               without one.

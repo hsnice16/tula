@@ -19,7 +19,7 @@ export function GET(): Response {
 
 > ${DESCRIPTION}
 
-You are long ETH spot on one exchange, short ETH perp on another, and holding ETH
+You are long ETH spot on one venue, short ETH perp on another, and holding ETH
 as collateral against a debt on a lending protocol. Each venue is right about its
 own piece and blind to the other two. tula reads all of them and answers the two
 questions none of them can: **what is my real exposure**, and **what breaks
@@ -33,16 +33,16 @@ USDC), Aave v3 on Ethereum across all four of its markets (collateral, debt and
 health factor, each market's own), and an Ethereum wallet's ETH and ERC-20
 balances — all three from a public address alone. Then Kraken, Binance, Coinbase
 Advanced, Stripe and Circle Mint, each from a read-only key. A key proven to
-withdraw or trade is refused rather than warned about; where a venue exposes no
+withdraw or trade is turned away rather than warned about; where a venue exposes no
 way to check — Kraken for trading, Stripe and Circle for both — tula says so
 rather than calling it safe.
 
 ## Commands
 
-- \`exposure\` — net exposure per asset across every venue, with notional and the venues that contributed
-- \`breaks\` — everything that can be liquidated, nearest first, with the move required to get there
-- \`shock <ASSET> <PCT>\` — reprice the whole book and report what changes and what liquidates
-- \`venues\` — per-venue counts, freshness and failures
+- \`/exposure\` — net exposure per asset across every venue, with notional and the venues that contributed
+- \`/breaks\` — everything that can be liquidated, nearest first, with the move required to get there
+- \`/shock <asset> <percent>\` — reprice the whole book and report what changes and what liquidates
+- \`/venues\` — per-venue counts, freshness and failures
 
 A slash means a command; anything else is a question, answered in plain English
 over the same vocabulary. Every command still works without a model key.

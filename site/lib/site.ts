@@ -77,7 +77,7 @@ export const NAV = [
     href: '/security',
     label: 'Security',
     blurb:
-      'What tula promises about your credentials and your funds, what enforces each promise in the build, and where the edges are.',
+      'What tula promises about your keys and your funds, what enforces each promise in the build, and where the edges are.',
   },
 ] as const
 
