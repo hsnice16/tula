@@ -821,11 +821,25 @@ describe('the security page names enforcement that exists', () => {
  */
 describe('the release notes agree with the build they describe', () => {
   const notes = read('CHANGELOG.md')
-  const head = notes.indexOf('## [Unreleased]')
-  const next = notes.indexOf('\n## [', head + 1)
-  const unreleased = head < 0 ? '' : notes.slice(head, next < 0 ? undefined : next)
 
-  test('there is an Unreleased section to read, so nothing below runs over nothing', () => {
+  /**
+   * The notes describing the build in this tree: `Unreleased` while work is
+   * going on, and the newest dated section once `release-cut.sh` has closed it.
+   *
+   * The first with a body, rather than `Unreleased` by name. The cut empties
+   * that section and *then* runs this gate, so reading it by name made every
+   * assertion below pass over nothing on the one commit they most need to
+   * check — the release itself. It failed loudly here only because the sweep
+   * that counts what it found was written the same day.
+   */
+  const unreleased =
+    notes
+      .split(/^## \[/m)
+      .slice(1)
+      .map((part) => `## [${part}`)
+      .find((part) => part.replace(/^## \[[^\n]*\n/, '').trim() !== '') ?? ''
+
+  test('there are notes to read, so nothing below runs over nothing', () => {
     expect(unreleased.length).toBeGreaterThan(0)
   })
 
