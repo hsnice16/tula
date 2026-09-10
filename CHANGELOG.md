@@ -11,6 +11,8 @@ CI and build plumbing, refactors, and doc-only edits — stays in commit message
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-10
+
 ### Added
 
 - **Every holding now says how much of it you can actually move, and what is holding the rest.** Ten ETH supplied to Aave against a USDC loan read as ten ETH. That is right about exposure — the price move is still yours — and it reads as holdings, so it corrupts the ordinary decision: *I have ten ETH, I do not need to top up.* Acting on that ETH fails, or liquidates what it was securing. `positions`, and a venue's own `positions`, now carry a **FREE** and an **UNAVAILABLE** column wherever a holding is held, and neither column appears at all where everything is free — an asset nothing is holding does not need two columns saying so. What is unavailable names why, because the reason is the action: collateral securing a debt is released by repaying it, a staked balance by unstaking and waiting out the unbonding period, a balance held against an open order by cancelling the order, and money that has not settled by waiting, which is the one nothing you do at the venue makes sooner. Each of those is spelled out under the table, once per reason actually present. On Aave the free figure is what the protocol will release: the health factor says how much collateral can come out before the market reaches 1.00, and that figure is stated as the lender's own limit rather than as advice, because 1.00 is the level it liquidates at — `breaks` is where what happens if you go there is answered. Where the venue does not report enough to prove a free figure, it is an em dash rather than the whole balance: Kraken states that its holds cover spot non-margin orders only, so beside an open margin position the free number would be too high; and Hyperliquid's per-balance hold is not read at all. Each says which venue could not state it and why. A holding claimed for more than it holds — what a health factor under 1 describes — says so rather than rounding up to nothing, since a position already liquidatable must not read as one that is merely fully pledged. None of this touches a single exposure figure: a pledged asset moves with its price exactly as an unpledged one does, the netted delta is unchanged, and the free quantity never reaches it. The same split, rendered by the same formatters, is in what the model is handed, so an answer in English and the table above it cannot disagree about how much of a holding can move.
@@ -290,7 +292,8 @@ what breaks first.
 - `KeyScope` is tri-state. Kraken exposes no endpoint reporting a key's permissions, and every endpoint gated on trade permission mutates an order, so `canTrade` is `unknown` rather than guessed at. Withdraw scope is provable, and is proven.
 - Kraken margin and open orders are not read yet, so on a margin account this is not a complete Kraken picture.
 
-[Unreleased]: https://github.com/hsnice16/tula/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/hsnice16/tula/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/hsnice16/tula/compare/v0.1.3...v0.2.0
 [0.1.3]: https://github.com/hsnice16/tula/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/hsnice16/tula/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/hsnice16/tula/compare/v0.1.0...v0.1.1

@@ -145,7 +145,7 @@ the sigstore-backed attestation proving this repository's release workflow built
 it wherever the GitHub CLI can — saying so either way. Check one by hand:
 
 ```bash
-gh attestation verify tula-v0.1.3-darwin-arm64.tar.gz --repo hsnice16/tula \
+gh attestation verify tula-v0.2.0-darwin-arm64.tar.gz --repo hsnice16/tula \
   --signer-workflow hsnice16/tula/.github/workflows/release.yml
 ```
 
