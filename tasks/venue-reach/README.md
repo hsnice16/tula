@@ -11,7 +11,9 @@ what a venue actually is, because a chain needs no authentication and an exchang
 needs the part that is genuinely hard.
 
 01 is here rather than in 13 because it costs nothing while the product is
-read-only and is a schema migration afterwards.
+read-only and is a schema migration afterwards. `ROADMAP.md` pulls it forward on
+that argument, ahead of the rest of this milestone; 02 and 03 keep their place
+behind 8 and 9.
 
 ## Tasks
 

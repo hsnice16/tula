@@ -79,7 +79,7 @@ replaced by a literal.
 bun install
 bun run typecheck      # tsc --noEmit
 bun test               # unit tests
-bun run check          # typecheck + test + install path + guard + guard-test, what CI runs
+bun run check          # typecheck, test, install path, guards, scan test — CI runs each, split across jobs
 bun run build          # -> dist/tula
 bun run dev            # run from source
 ```
@@ -102,13 +102,30 @@ would:
 
 The rest change what a run reads:
 
-- `TULA_ETH_RPC` — the Ethereum node. `TULA_TOKEN_LIST` — the Token Lists URL
-  wallet balances are read against.
+- `TULA_ETHEREUM_RPC`, `TULA_ARBITRUM_RPC`, `TULA_BASE_RPC` — the nodes each of
+  Ethereum, Arbitrum One and Base is read against, one chain each. Each ships
+  three public defaults and moves to the next when one rate-limits it or goes
+  down; a variable replaces that chain's list outright, and may name several
+  comma-separated. Nothing is appended to a list somebody set: which nodes see
+  the address is their decision, not a fallback. `TULA_ETH_RPC` is the name the
+  one-chain release shipped and still points Ethereum, so a dotfile that sets it
+  is not quietly ignored; the new name wins where both are set.
+  `TULA_TOKEN_LIST` — the Token Lists URL wallet balances are read against, on
+  every chain that does not set its own `TULA_<CHAIN>_TOKEN_LIST`.
+  `src/connectors/chains.ts` is the registry all of them come from.
 - `TULA_NO_UPDATE_CHECK=1` — stops the release lookup, which is what keeps a
   test suite off the network.
 - `TULA_PRICE_PAGES` — widens price coverage beyond the top 500, at the cost of
   tripping CoinGecko's rate limit, which loses every price rather than a few. No
-  CoinGecko key is sent, so no plan raises that ceiling.
+  CoinGecko key is sent, so no plan raises that ceiling. Anything but a whole
+  number of 1 or more is refused by name: `Number('')` is 0 and `Number('two')`
+  is NaN, and either one ran the page loop zero times and cached an unpriced
+  book with nothing thrown to report it.
+- `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and `ANTHROPIC_CONFIG_DIR` — read
+  by `src/agent/agent.ts`, and the only ones here not named `TULA_*`. They are
+  the model provider's own names on purpose: somebody who already has one
+  exported should not have to set a second. The two credentials go under
+  different headers, so which name supplied it is load-bearing.
 
 ## Definition of done
 
@@ -143,6 +160,16 @@ A change is finished when all of this is true, not when it works:
   scan-staged           # refuses staged content that looks like a credential
   allowed-secrets       # public values the scan would otherwise refuse, and why
 install.sh              # the published installer; served from the site, tested in CI
+patches/
+  ink@7.1.1.patch       # drops ink's DevTools connection; it survived the runtime guard
+fixtures/               # one directory per venue, plus chains/ for what a node and a token
+                        # list answered. Captured where the endpoint is public, with the
+                        # address replaced and every amount multiplied by one factor per
+                        # account that the capture records nowhere — the shapes and the
+                        # venue's arithmetic are real, the figures are nobody's. Where a key
+                        # is required, built from the venue's documented schema with the doc
+                        # URL inside the file. A venue with no directory here has no captured
+                        # response, only tests over a schema.
 scripts/
   guard.sh              # the SECURITY.md promises, enforced
   guard-test.sh         # plants a write path in src/ and expects guard.sh to name it
@@ -152,21 +179,34 @@ scripts/
   install-test.sh       # runs install.sh against a fake release, under a curl shim
   npm-pack.sh           # stages @hsnice16/tula and its per-platform packages
   homebrew-formula.sh   # renders a formula from a built release
+  binary-audit.sh       # refuses a built binary carrying a debug listener
+  conformance.live.ts   # re-checks what we believe about each venue against the live venue
+  capture-onchain.ts    # re-captures the chain and Hyperliquid fixtures — address dropped,
+                        # amounts scaled by a per-account factor it records nowhere. Run it,
+                        # never edit a fixture: a hand-typed figure is arithmetic the venue
+                        # never stated.
 src/
   index.ts              # command dispatch; catches TulaError for clean exits
-  version.ts            # APP_NAME, APP_VERSION, REPO_URL — single source
+  version.ts            # APP_NAME, APP_VERSION, IS_PRE_RELEASE, REPO_URL, SITE_URL,
+                        # APP_DESCRIPTION — single source; guard.sh reads four of them
   core/
     position.ts         # canonical schema: Position, NetExposure, LiquidationParams
     untrusted.ts        # visible() — the one filter over text somebody else wrote
     exposure.ts         # netExposure, portfolioValue, oldest
     risk.ts             # liquidation distance, scenario shocks, what breaks first
+    availability.ts     # how much of a holding can move, and what is holding the rest
+    coverage.ts         # what a connected venue was never asked for, from the connectors' own manifests; read on demand, never beside a figure
     prices.ts           # PriceOracle interface (one oracle per process)
     http.ts             # request() — the only way out to the network, deadline included
-    format.ts           # quantity, freshness, usd, pct — the only renderer of a figure
-    errors.ts           # TulaError — user-actionable vs. bug
+    format.ts           # quantity, freshness, usd, price, pct, healthFactor — the only renderer of a figure
+    errors.ts           # TulaError — user-actionable vs. bug; failureText renders the split
     paths.ts            # configDir, installDir — resolved per call, not at import
   connectors/
-    types.ts            # Connector, KeyScope (tri-state), isOverScoped, unverified
+    chains.ts           # the chains tula reads: node, EIP-155 id, token list, and the name a failure prints
+    registry.ts         # CONNECTORS — every venue in the build, and the only list of them
+    types.ts            # Connector, KeyScope (tri-state), isOverScoped, unverified, retired venues,
+                        # storedVenues — the one split every count of venues reads off — and Coverage
+    symbols.ts          # one canonical spelling per asset, so one holding is one row
     kraken.ts           # HMAC over the payload digest; scope partly unprovable
     binance.ts          # HMAC over the query string; scope fully provable
     coinbase.ts         # CDP keys over JWT (ES256 / EdDSA); scope fully provable
@@ -174,7 +214,6 @@ src/
     aave.ts             # public address over RPC — collateral, debt, health factor
     wallet.ts           # public address — native ETH and ERC-20s off a token list
     stripe.ts           # restricted key; fiat balances, per-currency minor units
-    circle.ts           # restricted key; scope unprovable, so it stays unknown
     evm.ts              # ABI encode/decode, batched eth_call, EIP-55 addresses, the node
     keccak.ts           # keccak-256, for those checksums; no runtime has it
   secrets/
@@ -191,7 +230,8 @@ src/
     tools.ts            # tool definitions + executor; figures leave here rendered
     agent.ts            # streaming loop, claude-opus-5; explain() for API failures
     signin.ts           # delegates the browser flow to `ant auth login`
-    fixture.ts          # a RiskEngine over fixed data, for tests
+    fixture.ts          # a RiskEngine over fixed data, plus the injection payloads
+    injection.eval.ts   # asks a real model to follow a hostile symbol; reports, never fails
   prices/
     providers.ts        # the selectable sources; exactly one is active per process
     coingecko.ts        # the default; symbol->id map is explicit, never guessed
@@ -199,7 +239,7 @@ src/
     cryptocompare.ts    # keyed; answers 200 with an error envelope, so check it
     coinpaprika.ts      # keyless; explicit market-cap rank settles contested tickers
   cli/
-    prompt.ts           # no-echo secret entry, one prompt per declared field; TTY and piped
+    prompt.ts           # no-echo secret entry, one prompt per declared field; a secret needs a TTY
     session.ts          # one fetch per shell session; refresh is explicit; reports each step
     commands.ts         # one implementation per command, shared by shell and one-shot
     registry.ts         # THE command surface: menu, help, dispatch, one-shot CLI
@@ -260,13 +300,70 @@ Two rules, and they are the reason the architecture exists:
 - **Unknown is a value, not a default.** `KeyScope.canTrade` is `'unknown'` when
   unprovable; `NetExposure.notional` is `null` without a price. Never collapse
   either to `false`/`0` — a confident wrong answer is worse than an admitted gap.
+- **A failed refresh keeps what it had.** A venue that fails and returns nothing
+  keeps the rows it last returned, and `LoadResult.stale` names it so the note
+  above the table says they are the previous read. `refresh` is the command
+  somebody runs to recover from a failure and was the one command that could
+  make the book smaller — a total short by a whole venue, under a block saying a
+  venue was missing and not that its holdings had left the sum. A venue that
+  answered in *part* keeps nothing: it has fresh rows already, and a previous
+  row beside one of them is the same holding twice with one of the two wrong.
 - **Freshness travels with the number.** Every `Position` carries `asOf`; every
   aggregate inherits the *oldest* contributor. Never render a figure without it.
 - **One renderer per kind of figure.** `src/core/format.ts` owns quantities,
-  money, percentages and freshness; tables, prose and tool results all call it.
-  A second `toFixed` anywhere is a second answer to the same question.
+  money, prices, percentages, health factors and freshness; tables, prose and
+  tool results all call it. A second `toFixed` anywhere is a second answer to
+  the same question. A price is not money: `usd` fixes two places because a
+  total is read to the cent, and a k-prefixed perp priced under one rendered
+  `$0.00` for as long as the two shared a renderer. Neither renderer may print a
+  known, non-zero figure as a zero — `<$0.01` and `<0.00000001` are what a value
+  too small for its column says, because `$0.00` beside a real holding is the
+  defect this project names first, and dropping the row is that defect with
+  nothing left on screen to question.
 - **Degrade loudly.** A venue that fails prints `INCOMPLETE` and exits non-zero.
   Silently serving a partial portfolio as complete is the failure that costs money.
+  A venue this build dropped that a key is still stored for prints `REMOVED` and
+  **also exits non-zero** — `isIncomplete` counts it, because the book is short
+  of a venue somebody connected and no command here can go and get it. The
+  argument the other way is that a venue nothing asked is not an error, and it is
+  a real argument; the behaviour stands until somebody decides otherwise, and
+  `src/consistency.test.ts` pins `/refresh` and `/exposure` agreeing about it, so
+  changing it is one decision rather than a drift between two commands. What may
+  not happen is a document saying the exit is zero.
+  The account of why that venue went is printed once a session; every view after
+  it names the venue and the command that removes the key. The fact persists
+  because the credential is still on disk, and the paragraph does not because
+  repeating it is nagging. A one-shot `tula` is a fresh process, so it prints
+  the whole of it every time — that reader has no session to have been told in.
+  What a connector never asks its venue for is not in this block at all, and
+  the reason is the same rule stated one level up: `INCOMPLETE`, `REMOVED` and
+  `ALTERED` each name a state that ends, which is what earns a line on every
+  view. Coverage does not — a read-only tool has unbounded uncovered surface —
+  so a count of it beside every figure never reaches zero, and a block read as
+  wallpaper takes the lines that *are* about today's money with it.
+  `src/core/coverage.ts` already says that about venues with no connector; this
+  is the same test applied to the connectors we ship. `/venues`, a venue's own
+  `status` and `get_venue_status` carry the whole of it, and the sentence under
+  a venue that answered holding nothing says it where a gap and an empty
+  account look identical. The screen and the model must be short of the same
+  things, so neither volunteers it. The one exception is `breaks` and `shock`,
+  and it is the rule rather than a hole in it: those two claim what can be
+  called in *in order*, so a venue in the book with an unread area that hides a
+  liquidation makes the order wrong rather than short, and they say so. Nor does `ALTERED`, the fifth of these
+  and the only one about text rather than holdings: a venue spelled an asset in
+  characters this build could not print, so the block names the venue, what was
+  done and the *bounded* name — never what the venue sent, which is the string
+  the bound exists to keep off a terminal. `LoadResult.altered` carries it, and
+  the first line says nothing is missing, or a reader has five states to tell
+  apart and four of them mean go and fetch something.
+- **A declared coverage gap names the task that would close it.** Every entry in
+  a connector's `doesNotRead` carries a `plan` — the task file where the work
+  goes — and `src/coverage-plan.test.ts` fails the build on a path that is not a
+  real task, on one already `done`, on a liquidation-hiding gap filed under the
+  aggregator, and on any plan `ROADMAP.md`'s table does not name. Declaring a
+  gap costs one object and used to create no obligation at all, which is how
+  thirty accumulated with thirteen in no plan and two named in no file in the
+  repository. The declaration and the plan are one edit now.
 - **Every network call goes through `request()` in `src/core/http.ts`**, never a
   bare `fetch` — `guard.sh` fails the build on one. Nothing else bounds how long
   a call takes, and a venue that never answers has to fail in order to be named.
@@ -275,12 +372,12 @@ Two rules, and they are the reason the architecture exists:
   fires only after the OS connect timeout.
 - **An update is never installed unasked.** `pendingUpdate()` prints a line and
   stops; `applyUpdate()` runs only from `/update install`, a second word somebody
-  had to mean to type. The checks are `install.sh`'s, in its order, because this
-  is the second way onto the same disk and two paths that disagree about what
-  they accept means the stricter one is decoration. It refuses a checksum
-  mismatch, an unlisted archive, and any version not newer than the running one —
-  `/releases/latest` skips pre-releases, so a pre-release build asking is offered
-  a downgrade, and nothing else would catch it. Under Homebrew or npm it declines
+  had to mean to type. It refuses a checksum mismatch and an unlisted archive
+  exactly as `install.sh` does, because this is the second way onto the same disk
+  and two paths that disagree about what they accept means the stricter one is
+  decoration. It refuses one thing more, and first: any version not newer than
+  the running one — `/releases/latest` skips pre-releases, so a pre-release build
+  asking is offered a downgrade, and nothing else would catch it. Under Homebrew or npm it declines
   to move at all: a binary that swapped itself leaves the package manager naming
   a version that is not running, which is a wrong number about a tool whose whole
   job is not showing wrong numbers.
@@ -345,9 +442,9 @@ Two rules, and they are the reason the architecture exists:
 - **Venues are commands too.** Every venue in the build is in the `/` menu with its
   status inline, and `/<venue> <sub>` scopes an action to it. A connected venue
   lists its subcommands under its own row there, since that is where the user is
-  going; an unconnected one stays a single row, because eight venues opened out
-  for `connect` and `docs` is a list nobody can read down. There is no separate
-  discovery step, and the menu doubles as the venue overview.
+  going; an unconnected one stays a single row, because every venue in the build
+  opened out for `connect` and `docs` is a list nobody can read down. There is no
+  separate discovery step, and the menu doubles as the venue overview.
 - **Colour comes from `src/ui/theme.ts`.** Dulled gold, because it is the unit
   everything here is measured against; a saturated yellow reads as a warning, and
   that meaning is held in reserve. Red stays semantic, never decorative. The one
@@ -381,8 +478,9 @@ Two rules, and they are the reason the architecture exists:
   first one goes.
 - **A wait says what it is waiting on, for the whole of the wait.** `Session`
   reports each venue as it reads it and the spinner counts the seconds off.
-  Behind a fetch that is a 15s deadline per venue, a bare "working" is
-  indistinguishable from a hang — and the session is the only layer that knows
+  Behind a fetch that is a 15s deadline per *request* — and a venue reading
+  three chains issues many — a bare "working" is indistinguishable from a hang
+  — and the session is the only layer that knows
   which venue it is on, because a command reaches `ensureLoaded` several layers
   below the UI. The row stays up under a part-written answer for the same
   reason: an answer that stops to read a tool spends most of its time with
@@ -437,10 +535,20 @@ venue in it.
    venue and refuse anything that can withdraw — permanently, trading or not.
    A key that can trade is refused too, wherever the venue will say so. Not
    documented — checked.
-4. **Bound every string somebody else writes.** Two reach the screen and the
-   model: an asset symbol and a venue's error text. Both are capped and
-   flattened to one line in `src/cli/session.ts`, where every connector
-   arrives. They are data, never instructions. No memo, NFT metadata or protocol
+4. **Bound every string somebody else writes.** Two kinds reach the screen and
+   the model: an asset symbol — as a venue's listing spells it, as the
+   configured token list names it, or as an Aave reserve contract returns it —
+   and the error text of a venue or a price source. The symbol is capped in
+   `src/cli/session.ts`, where every connector arrives; the error text is capped
+   by `remote()` in `src/core/errors.ts` where it enters, at the connector or
+   the price source that received it, which is the only place that can tell
+   tula's own words from somebody else's.
+   Both are flattened to one line by the same filter. A symbol the cap or the
+   filter changed is reported to the *reader* as well, on `LoadResult.altered`:
+   the sidecar below tells the model, and every view here works without one.
+   They are data, never instructions — and they are marked as such in the tool
+   result, by path; a new field carrying outside text without that mark fails
+   `bun test`. No memo, NFT metadata or protocol
    description is read — a third source has to be bounded there and listed in
    `SECURITY.md` in the same commit.
 
@@ -457,7 +565,7 @@ endpoint — including "validate only" variants. The absence is the product.
 4. Map into `Position` with signed quantities, an explicit `delta`, and `asOf`
    set to when the data was received.
 5. Normalize the venue's asset names to canonical symbols; unit-test the odd ones.
-6. Register it in `CONNECTORS` in `src/index.ts`; the menu picks it up automatically.
+6. Register it in `CONNECTORS` in `src/connectors/registry.ts`; the menu picks it up automatically.
 7. Give it a colour in `src/ui/brand.ts`. A venue without one renders a hole
    beside the rest, and `src/ui/brand.test.ts` fails on it.
 8. Do not sort — the command layer does that.
@@ -481,8 +589,9 @@ The agent reads that task for goal and acceptance criteria, the milestone's
 - The signature test vector in `src/connectors/kraken.test.ts`. It is Kraken's
   published example; if it drifts, every private call fails as
   `EAPI:Invalid signature`, which reads as a bad key.
-- The caps in `decodeString` (`src/connectors/evm.ts`) and `reason()`
-  (`src/cli/session.ts`), and the one filter all three call sites share,
+- The caps in `decodeString` (`src/connectors/evm.ts`), `symbol()`
+  (`src/cli/session.ts`) and `remote()` (`src/core/errors.ts`), and the one
+  filter every one of them shares,
   `visible()` in `src/core/untrusted.ts`. A decoded symbol and a venue's error
   text are the two strings somebody else writes that are rendered *and* sent to
   the model; both are capped and flattened to one line so neither can pose as an
@@ -623,7 +732,11 @@ bun run build              # -> site/out, static
   in one place because two copies of it drift apart by a pixel and read as a
   bug in whichever one you are looking at. `Channels.tsx` is the install page's
   three channels: the panels are hidden rather than unmounted, so the static
-  export ships all three and a reader who cannot run JavaScript still has them. `Scroll.tsx` scrolls the next page to the top, and sits out a
+  export ships all three and a crawler indexes the whole page. `hidden` is
+  `display: none`, so find-in-page and a reader with no JavaScript reach only
+  the open one. Each panel carries an `sr-only` h2 naming its channel: without
+  it, three identical runs of "One exact version / Update / Go back / Remove"
+  sit in the outline with nothing saying which channel they belong to. `Scroll.tsx` scrolls the next page to the top, and sits out a
   back or forward, where the reader is returning to a place they already had;
   it also holds the back-to-top button, which rides above the footer rather
   than over it — the moment somebody most wants that button is the moment they
@@ -717,9 +830,9 @@ bun run build              # -> site/out, static
   binary happens to send to today. A second provider then costs no copy edit,
   and the page never has to carry a "more coming soon" — a hedge on the page
   somebody is using to decide whether to trust a binary costs more than it
-  buys. Two pages name Anthropic and both need to: the security page, because
-  egress is where the reader needs the specific destination, and the install
-  page, because `ANTHROPIC_API_KEY` is a variable somebody has to type.
+  buys. One page names Anthropic and needs to: the security page, because egress
+  is where the reader needs the specific destination. Anywhere else the vendor is
+  a detail the reader has no decision to make about.
 - **The site is not the README.** Prose is the last resort: a table, a labelled
   list or the tool's own output says it in fewer words and is scannable. The
   overview page runs about 130 words of prose — headings and paragraphs, not
@@ -746,10 +859,10 @@ before pasting keys tied to their net worth.
   **Attestation is gated with the publish steps, not run beside them.** It had
   been unconditional, on the reasoning that a dry run should exercise every
   step. But an attestation is a public transparency-log entry, and `install.sh`
-  accepts any archive carrying one for this repository — so a dry run from any
-  branch minted proof that arbitrary code was built by `hsnice16/tula`, which is
-  indistinguishable from a release at the only place anybody checks. That is why
-  a dry run now publishes nothing at all, and why the input says so.
+  pins the signing workflow but not the ref it ran from — so a dry run from any
+  branch minted proof that a build off that branch came from this workflow, which
+  is indistinguishable from a release at the only place anybody checks. That is
+  why a dry run publishes nothing at all, and why the input says so.
 - **One tag produces every artifact.** `.github/workflows/release.yml` checks the
   tag against `src/version.ts`, runs `bun run check`, cross-compiles
   darwin/linux × arm64/x64 with Bun, signs the macOS binaries when Apple
@@ -874,13 +987,14 @@ and the attestation that goes with it.
 
 ```bash
 bun run prepare-hooks  # once per clone: points git at .githooks
-bun run check          # typecheck + tests + install test + guard + guard-test
+bun run check          # typecheck + tests + install test + guard + guard-test + scan-test
 bun run guard          # the SECURITY.md promises, enforced, and proof they still are
+bun run conformance    # what we believe about each venue, re-checked against the live venue
+bun run eval:injection # asks a real model to follow a hostile symbol; costs a paid call
 ```
 
 Hooks are a shell script under version control rather than a hook-runner
-dependency: the whole gate is one command that takes about two and a half
-seconds, so there is nothing to schedule in parallel or scope by glob, and this
+dependency: the whole gate is one command — `bun run check`, in full — and this
 repository argues its near-empty dependency list on supply-chain grounds.
 
 `scan-staged` reads the staged *diff*, not the working tree — `git add -p` can

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import Decimal from 'decimal.js'
 import { usablePrice } from './prices.js'
-import { liquidationRisk, whatBreaksFirst } from './risk.js'
+import { liquidationRisk, scenario, whatBreaksFirst } from './risk.js'
 import type { Position } from './position.js'
 
 /**
@@ -130,10 +130,38 @@ describe('a position already past its trigger', () => {
     expect(ranked[0]?.liquidatable).toBe(true)
   })
 
-  test('a position with no liquidation data is not flagged', () => {
+  test('a perp the venue gave no liquidation price for is unknown, never safe', () => {
+    // The dangerous case, and the one this used to assert with a spot balance:
+    // a perp is exactly the position that could have had liquidation data and
+    // did not. Unknown is not false, and it is not an absence either — the row
+    // is still ranked, at the bottom, where it cannot read as nothing to call.
     const { liquidation: _omitted, ...rest } = at('2')
-    const risk = liquidationRisk({ ...rest, kind: 'spot' }, new Map())
+    const blind = { ...rest, id: 'hyperliquid:perp:ETH', venue: 'hyperliquid', kind: 'perp' as const }
+    const risk = liquidationRisk(blind, new Map())
     expect(risk.move).toBeNull()
     expect(risk.liquidatable).toBe(false)
+    expect(whatBreaksFirst([blind], new Map()).map((r) => r.position.id)).toEqual([blind.id])
+  })
+
+  test('a shock does not read as safe on a perp that is already gone', () => {
+    // The other half of the flag above: `breaks` said "liquidatable now" while
+    // `shock ETH -30` on the same book said nothing liquidates, because the
+    // scenario branched on the sign of the move and never read the flag.
+    const gone: Position = {
+      id: 'hyperliquid:perp:ETH',
+      venue: 'hyperliquid',
+      kind: 'perp',
+      asset: 'ETH',
+      quantity: new Decimal(10),
+      delta: new Decimal(10),
+      liquidation: { price: new Decimal(4500) },
+      asOf: new Date(),
+    }
+    const prices = new Map([['ETH', new Decimal(4000)]])
+    expect(liquidationRisk(gone, prices).liquidatable).toBe(true)
+    for (const pct of ['-0.3', '0.2']) {
+      const result = scenario([gone], prices, [{ asset: 'ETH', pct: new Decimal(pct) }])
+      expect(result.liquidated.map((p) => p.id)).toEqual([gone.id])
+    }
   })
 })

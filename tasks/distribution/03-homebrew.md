@@ -1,6 +1,7 @@
 # 03 · Homebrew formula
 
 **Status**: done · tap, not homebrew-core; core needs a notable public release first
+**Covered by**: `src/site-claims.test.ts`, `scripts/guard.sh`
 
 ## Goal
 
@@ -12,7 +13,7 @@ Second channel, and the one most users will actually use.
   homebrew-core, which wants a public release with real usage behind it, so it
   is a 1.0 follow-up rather than something to claim now.
 - Two channels: a stable one that deliberately lags and skips known-bad builds, and `@latest`.
-- Channel selected by cask name rather than configuration.
+- Channel selected by formula name rather than configuration.
 
 ## Notes
 

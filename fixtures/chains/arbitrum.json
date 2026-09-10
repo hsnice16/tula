@@ -1,0 +1,86 @@
+{
+  "captured": "2026-09-10T14:40:28.780Z",
+  "nodes": [
+    {
+      "rpc": "https://arbitrum-one-rpc.publicnode.com",
+      "chainId": "0xa4b1",
+      "batchAnswered": 40
+    },
+    {
+      "rpc": "https://arb1.arbitrum.io/rpc",
+      "chainId": "0xa4b1",
+      "batchAnswered": 40
+    },
+    {
+      "rpc": "https://arbitrum-one.public.blastapi.io",
+      "chainId": "0xa4b1",
+      "batchAnswered": 40
+    }
+  ],
+  "tokenList": {
+    "url": "https://tokens.uniswap.org",
+    "name": "Uniswap Labs Default",
+    "tokens": 203,
+    "stablecoins": [
+      {
+        "symbol": "DAI",
+        "decimals": 18
+      },
+      {
+        "symbol": "USD1",
+        "decimals": 18
+      },
+      {
+        "symbol": "USDC",
+        "decimals": 6
+      },
+      {
+        "symbol": "USDC.e",
+        "decimals": 6
+      },
+      {
+        "symbol": "USDP",
+        "decimals": 18
+      },
+      {
+        "symbol": "USDS",
+        "decimals": 18
+      },
+      {
+        "symbol": "USDSM",
+        "decimals": 18
+      },
+      {
+        "symbol": "USDT0",
+        "decimals": 6
+      }
+    ]
+  },
+  "aave": [
+    {
+      "market": "Core",
+      "reserves": [
+        "DAI",
+        "LINK",
+        "USDC",
+        "WBTC",
+        "WETH",
+        "USD₮0",
+        "AAVE",
+        "EURS",
+        "wstETH",
+        "MAI",
+        "rETH",
+        "LUSD",
+        "USDC",
+        "FRAX",
+        "ARB",
+        "weETH",
+        "GHO",
+        "ezETH",
+        "rsETH",
+        "tBTC"
+      ]
+    }
+  ]
+}

@@ -1,14 +1,19 @@
+import { cells } from './wrap.js'
+
 export type Align = 'left' | 'right'
 
 export function renderTable(headers: string[], rows: string[][], aligns: Align[] = []): string {
+  // Cells, not code units. An asset symbol is spelled by the venue, and one
+  // CJK character measures one and is drawn two: padded by length, the column
+  // it sits in is short by its own width and every column right of it moves.
   const widths = headers.map((h, i) =>
-    Math.max(h.length, ...rows.map((r) => (r[i] ?? '').length)),
+    Math.max(cells(h), ...rows.map((r) => cells(r[i] ?? ''))),
   )
   const pad = (cell: string, i: number): string => {
-    const width = widths[i] ?? 0
-    return aligns[i] === 'right' ? cell.padStart(width) : cell.padEnd(width)
+    const gap = ' '.repeat(Math.max(0, (widths[i] ?? 0) - cells(cell)))
+    return aligns[i] === 'right' ? gap + cell : cell + gap
   }
-  const line = (cells: string[]): string => cells.map(pad).join('  ').trimEnd()
+  const line = (row: string[]): string => row.map(pad).join('  ').trimEnd()
 
   return [
     line(headers),

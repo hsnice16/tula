@@ -1,6 +1,7 @@
 # 05 · Coinbase and Circle
 
-**Status**: done
+**Status**: done · Coinbase shipped; Circle Mint was built and then removed
+**Covered by**: `src/connectors/coinbase.test.ts`, `src/site-claims.test.ts`
 
 ## Goal
 
@@ -12,10 +13,17 @@ in a protocol.
 - Coinbase Advanced reads spot and held balances over CDP API keys, with JWT
   authentication — ES256 for EC keys, EdDSA for Ed25519.
 - Coinbase scope comes from `key_permissions`, so nothing is `unknown`.
-- Circle Mint reads available and unsettled balances; unsettled is its own row.
-- Circle's key format is checked before anything leaves the machine.
-- Circle's trade and withdraw scope stays `unknown`, and the connect screen says
-  so rather than implying a check happened.
+- ~~Circle Mint reads available and unsettled balances; unsettled is its own row.~~
+- ~~Circle's key format is checked before anything leaves the machine.~~
+- ~~Circle's trade and withdraw scope stays `unknown`, and the connect screen says
+  so rather than implying a check happened.~~
+
+Circle Mint is gone from the build. Every Circle Mint API key can create payouts
+and transfers and Circle publishes no read-only scope, so the third bullet was
+the whole of it: a key tula cannot refuse and cannot prove safe. It is listed in
+`RETIRED_VENUES` (`src/connectors/types.ts`) rather than deleted, so somebody
+whose key is still stored is told what became of the venue and where to revoke
+it — forgetting a key is not revoking it.
 
 ## Notes
 
@@ -27,6 +35,7 @@ A Coinbase CDP signing key is an API credential, not a wallet key. The field is
 named `signingKey` for that reason, and because `privateKey` is a term
 `scripts/guard.sh` refuses to let into the source at all.
 
-Circle Mint balances are denominated in the fiat currency of the account, so a USD
-balance appears as USD. USDC exposure comes from wherever the USDC actually sits —
-Kraken, Hyperliquid, Aave — and nets there.
+Circle Mint balances were denominated in the fiat currency of the account, so a
+USD balance appeared as USD. USDC exposure comes from wherever the USDC actually
+sits — Kraken, Hyperliquid, Aave — and nets there, which is why removing the
+venue cost no exposure anybody was relying on.

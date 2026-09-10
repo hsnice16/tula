@@ -1,0 +1,15 @@
+{
+ "_doc": "https://developers.binance.com/docs/binance-spot-api-docs/rest-api/account-endpoints — built from the documented response example; a key is required, so this could not be captured. Binance documents no field descriptions here: `free` and `locked` are the only balance buckets it returns, and getUserAsset shows there are three more it does not.",
+ "makerCommission": 15,
+ "takerCommission": 15,
+ "canTrade": true,
+ "canWithdraw": false,
+ "canDeposit": true,
+ "accountType": "SPOT",
+ "balances": [
+  { "asset": "BTC", "free": "0.50000000", "locked": "0.25000000" },
+  { "asset": "ETH", "free": "0.00000000", "locked": "0.00000000" },
+  { "asset": "USDT", "free": "12000.00000000", "locked": "0.00000000" }
+ ],
+ "permissions": ["SPOT"]
+}

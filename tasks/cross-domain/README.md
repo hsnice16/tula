@@ -8,5 +8,6 @@ answers something no other tool can.
 
 - [01 · Hyperliquid connector](01-hyperliquid-connector.md) — done
 - [02 · Aave v3 connector](02-aave-connector.md) — done
-- [03 · Watched addresses](03-watched-addresses.md) — done, except multiple addresses per venue
-- [04 · Cross-domain fixture](04-cross-domain-fixture.md) — deferred
+- [03 · Watched addresses](03-watched-addresses.md) — done
+- [04 · Cross-domain fixture](04-cross-domain-fixture.md) — done · as a test-only
+  connector; the product ships no fixture venue

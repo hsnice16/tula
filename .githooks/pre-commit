@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Enable with:  git config core.hooksPath .githooks
 #
-# The whole gate runs in about two and a half seconds, so it runs in full rather
-# than being scoped to what changed: a hook that skips the test for the file you
-# broke is a hook people learn to distrust. Skip a run deliberately with
-# `git commit --no-verify`; CI runs the same commands either way.
+# The whole gate runs rather than being scoped to what changed: a hook that
+# skips the test for the file you broke is a hook people learn to distrust, and
+# what it costs is a minute of a machine against a bad commit somebody has to
+# find later. Skip a run deliberately with `git commit --no-verify`; CI runs the
+# same commands either way.
 set -uo pipefail
 
 ROOT=$(git rev-parse --show-toplevel)

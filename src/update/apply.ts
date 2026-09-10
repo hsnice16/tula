@@ -1,12 +1,13 @@
 import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { access, mkdir, mkdtemp, rename, rm, symlink, writeFile } from 'node:fs/promises'
+import type { Stats } from 'node:fs'
+import { access, chmod, mkdir, mkdtemp, rename, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { promisify } from 'node:util'
 import { TulaError } from '../core/errors.js'
 import { DOWNLOAD_TIMEOUT_MS, host, request } from '../core/http.js'
-import { APP_VERSION, REPO_URL } from '../version.js'
+import { APP_VERSION, REPO_URL, SITE_URL } from '../version.js'
 import type { NativeInstall } from './channel.js'
 import { isNewer } from './version.js'
 
@@ -84,13 +85,79 @@ async function fetchBytes(url: string, onProgress?: DownloadProgress): Promise<B
 }
 
 /**
+ * The three directories `install.sh`'s `check_dir` refuses, refused here on the
+ * same argument it makes: this binary is the process that opens
+ * `credentials.json`, so mode 600 on that file is worth nothing if somebody
+ * else can replace what reads it. Write is the permission that matters, which
+ * is why 755 passes — the same line `src/secrets/store.ts` draws.
+ *
+ * A directory that is not there yet is not a refusal; `applyUpdate` creates it
+ * and sets the mode itself rather than leaving it to the ambient umask.
+ */
+async function refuseSharedDirectory(dir: string): Promise<void> {
+  let info: Stats
+  try {
+    info = await stat(dir)
+  } catch {
+    return
+  }
+
+  if (info.mode & 0o022) {
+    throw new TulaError(
+      `${dir} can be written to by other users on this machine.\n` +
+        '  Whoever can write there can replace the binary that reads your keys.\n' +
+        '  Nothing was installed.\n' +
+        `  Fix it:  chmod go-w ${dir}`,
+    )
+  }
+
+  // uid rather than a name: `stat` gives the number, and resolving it to a name
+  // means a passwd lookup for an account that is by definition not this one.
+  const me = process.getuid?.()
+  if (me !== undefined && info.uid !== me) {
+    throw new TulaError(
+      `${dir} is owned by uid ${info.uid}, not by you.\n` +
+        '  tula will not install into a tree somebody else controls.\n' +
+        '  Nothing was installed.\n' +
+        `  Install it somewhere you own:  ${SITE_URL}/install/`,
+    )
+  }
+}
+
+/**
+ * `mkdir` takes the ambient umask, so under a umask of 0 the tree holding this
+ * binary is left writable by everyone — the state `refuseSharedDirectory`
+ * refuses on the next run. install.sh sets the same three.
+ */
+async function removeGroupWrite(dir: string): Promise<void> {
+  try {
+    const mode = (await stat(dir)).mode & 0o7777
+    if (mode & 0o022) await chmod(dir, mode & ~0o022)
+  } catch {
+    // install.sh swallows this too: a directory this process cannot chmod is
+    // one it does not own, and that was already refused above.
+  }
+}
+
+/**
  * Installs `version` and points the launcher at it, or installs nothing.
  *
- * The checks are `install.sh`'s, in the same order and for the same reasons:
- * this is the second way onto the same disk, and two paths that disagree about
- * what they will accept means the stricter one is decoration. What it cannot do
- * is check provenance — that needs the GitHub CLI, and the caller has to have
- * said so before getting here.
+ * Every check `install.sh` makes, this makes too: it is the second way onto the
+ * same disk, and two paths that disagree about what they will accept means the
+ * stricter one is decoration. That is `check_dir`'s two refusals over the
+ * install, bin and version directories as well as the checksum, and the modes
+ * install.sh sets afterwards. It refuses one thing more, first — a version that
+ * is not newer, since `/releases/latest` skips pre-releases and would otherwise
+ * offer a pre-release build a silent downgrade. What it cannot do is check
+ * provenance: that needs the GitHub CLI, and the caller has to have said so
+ * before getting here.
+ *
+ * That last gap is why no `.tula-sha256` receipt is written. install.sh reads a
+ * matching receipt as *this script downloaded, verified and unpacked that
+ * binary* and answers "already installed"; one written here would say it about
+ * a binary nothing checked the provenance of, and re-running the install line
+ * is what somebody does to repair a tree they suspect. The cost is that such a
+ * run downloads again, which is what a repair is.
  */
 export async function applyUpdate(
   version: string,
@@ -100,6 +167,13 @@ export async function applyUpdate(
   if (!isNewer(version, APP_VERSION)) {
     throw new TulaError(`${version} is not newer than ${APP_VERSION}; nothing to do.`)
   }
+
+  const root = dirname(into.versions)
+  const bin = dirname(into.launcher)
+  const dir = join(into.versions, version)
+  // Before the download, where install.sh also puts it: tens of megabytes
+  // fetched into a tree that is then refused is minutes spent on a refusal.
+  for (const d of [root, bin, dir]) await refuseSharedDirectory(d)
 
   const archive = `tula-v${version}-${target()}.tar.gz`
   const base = `${REPO_URL}/releases/download/v${version}`
@@ -139,8 +213,8 @@ export async function applyUpdate(
 
     // Written out only now, and unpacked only after both checks pass, so an
     // archive that fails one never reaches the install tree at all.
-    const dir = join(into.versions, version)
     await mkdir(dir, { recursive: true })
+    for (const d of [root, bin, dir]) await removeGroupWrite(d)
     const staged = join(temp, archive)
     await writeFile(staged, bytes)
     // Same reason as the `access` below: `run` rejects with a plain Error on a
@@ -162,8 +236,15 @@ export async function applyUpdate(
     try {
       await access(binary)
     } catch {
-      throw new TulaError(`${archive} did not contain a tula binary.`)
+      throw new TulaError(
+        `${archive} did not contain a tula binary. Nothing was installed.\n` +
+          `  The archive is published wrong. Report it: ${REPO_URL}/issues`,
+      )
     }
+    // Set rather than inherited from the archive: `tar` applies the umask to
+    // what it unpacks, so a umask of 077 leaves a binary the launcher points at
+    // and nothing else on the machine can run.
+    await chmod(binary, 0o755)
 
     // Renamed over rather than unlinked and remade: a link replaced in two
     // steps has a moment with nothing at the end of it, and that moment is

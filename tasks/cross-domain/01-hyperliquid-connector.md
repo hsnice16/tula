@@ -1,6 +1,7 @@
 # 01 · Hyperliquid connector
 
 **Status**: done
+**Covered by**: `src/connectors/hyperliquid.test.ts`
 
 ## Goal
 

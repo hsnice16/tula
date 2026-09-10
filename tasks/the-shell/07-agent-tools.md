@@ -1,6 +1,7 @@
 # 07 · Risk engine as a tool surface
 
 **Status**: done
+**Covered by**: `src/agent/tools.test.ts`, `src/consistency.test.ts`, `src/site-claims.test.ts`
 
 ## Goal
 

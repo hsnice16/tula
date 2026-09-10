@@ -59,6 +59,20 @@ describe('quoting', () => {
     expect(await oracle.quote('NOTACOIN')).toBeNull()
   })
 
+  test('a quote is keyed by the spelling that was asked for', async () => {
+    // All four sources have to key their map the same way, or switching source
+    // silently unprices an asset a venue happens to spell in lower case.
+    const oracle = new CoinPaprikaOracle(respond([ticker({ symbol: 'PURR', quotes: { USD: { price: 2 } } })]))
+    expect((await oracle.quoteMany(['purr'])).get('purr')?.price.toString()).toBe('2')
+  })
+
+  test('a last print that does not parse falls back to receipt, not to Invalid Date', async () => {
+    const oracle = new CoinPaprikaOracle(
+      respond([ticker({ symbol: 'ETH', quotes: { USD: { price: 2400 } }, last_updated: 'not a date' })]),
+    )
+    expect(Number.isNaN((await oracle.quote('ETH'))?.asOf.getTime())).toBe(false)
+  })
+
   test('a rate limit says prices are gone and quantities are not', async () => {
     const oracle = new CoinPaprikaOracle(respond({}, 429))
     expect(oracle.quote('ETH')).rejects.toThrow(/rate limit.*quantities are still correct/s)

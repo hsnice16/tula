@@ -102,16 +102,16 @@ LINK    180   $2,556.00  wallet                   09:14:02 (4s ago)
 USDC   1200   $1,200.00  wallet                   09:14:02 (4s ago)
 ARB     900     $558.00  wallet                   09:14:02 (4s ago)
 USDT    480     $480.00  kraken                   09:14:02 (4s ago)
-OP      320     $464.00  wallet                   09:14:02 (4s ago)
+OP      320     $464.00  kraken                   09:14:02 (4s ago)
 UNI      60     $438.00  wallet                   09:14:02 (4s ago)
 
 `}
             <Held>{'Net notional  $34,474.00'}</Held>
             <Prompt>❯ /breaks</Prompt>
-            {`VENUE        ASSET  KIND        MOVE TO LIQ  TRIGGER             AS OF
-───────────  ─────  ──────────  ───────────  ──────────────────  ─────────────────
-aave         ETH    collateral       -27.0%  health factor 1.37  09:14:02 (4s ago)
-hyperliquid  ETH    perp             +39.3%  liq price 3412.00   09:14:02 (4s ago)`}
+            {`VENUE        ASSET  KIND        MOVE TO LIQ  TRIGGER              AS OF
+───────────  ─────  ──────────  ───────────  ───────────────────  ─────────────────
+aave         ETH    collateral       -27.0%  health factor 1.37   09:14:02 (4s ago)
+hyperliquid  ETH    perp             +39.3%  liq price $3,412.00  09:14:02 (4s ago)`}
           </Session>
         </div>
       </section>
@@ -151,7 +151,7 @@ hyperliquid  ETH    perp             +39.3%  liq price 3412.00   09:14:02 (4s ag
             </div>
 
             <div className="overflow-hidden rounded border border-rule bg-panel shadow-lift">
-              <p className="border-b border-rule px-4 py-3 font-mono text-[0.68rem] uppercase tracking-[0.14em] text-faint">
+              <p className="border-b border-rule px-4 py-3 font-mono text-[0.68rem] uppercase tracking-[0.14em] text-dim">
                 One asset, three venues
               </p>
               {SEEN.map(([venue, what, qty]) => (
@@ -159,7 +159,7 @@ hyperliquid  ETH    perp             +39.3%  liq price 3412.00   09:14:02 (4s ag
                   key={venue}
                   className="flex items-baseline justify-between gap-4 border-b border-rule-soft px-4 py-3.5 font-mono text-[0.82rem]"
                 >
-                  <span className="flex-none tracking-[0.04em] text-faint">{venue}</span>
+                  <span className="flex-none tracking-[0.04em] text-dim">{venue}</span>
                   <span className="text-right text-dim">
                     {what} <b className="font-semibold text-ink">{qty}</b>
                   </span>
@@ -195,6 +195,11 @@ hyperliquid  ETH    perp             +39.3%  liq price 3412.00   09:14:02 (4s ag
             </p>
           </div>
 
+          {/* The answer leads, because the tool results carrying these figures
+              carry no coverage caveat — `incompleteNote()` and src/agent/tools.ts
+              both hold it back to the command that answers it, `/venues` and
+              get_venue_status. A preamble here would be output the tool cannot
+              produce, which is the defect src/site-example.test.ts exists for. */}
           <Ask question="what's my real ETH exposure, and what breaks first if ETH drops 20%?">
             {`Net long 6.64 ETH, $16,268.00 across kraken, hyperliquid and aave, as of
 09:14:02 (4s ago).

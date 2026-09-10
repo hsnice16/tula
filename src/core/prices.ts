@@ -41,6 +41,31 @@ export function usablePrice(raw: unknown): Decimal | null {
 export const UNITY = new Set(['USD'])
 
 /**
+ * The tickers to ask a source for, each pointing back at the spellings the
+ * caller used. A source that quotes by symbol has to ask in one case and answer
+ * in the caller's, or an asset a venue happens to spell in lower case goes
+ * unpriced by that source alone — which is a book that changes value when the
+ * price source is switched.
+ *
+ * Shared for the reason `UNITY` and `usablePrice` are: the two keyed sources
+ * had a byte-identical copy each, and the comment above them stated a property
+ * of all four, which is not a claim either copy was in a position to keep.
+ * `UNITY` is skipped here rather than in each caller — it is quoted by
+ * definition, so asking for it is a request that cannot come back better.
+ */
+export function byTicker(assets: AssetId[]): Map<string, AssetId[]> {
+  const asked = new Map<string, AssetId[]>()
+  for (const asset of assets) {
+    if (UNITY.has(asset)) continue
+    const ticker = asset.toUpperCase()
+    const spellings = asked.get(ticker)
+    if (spellings) spellings.push(asset)
+    else asked.set(ticker, [asset])
+  }
+  return asked
+}
+
+/**
  * One oracle for the whole process. Venues disagree by a few basis points and
  * mixing their quotes makes aggregate exposure silently inconsistent.
  */

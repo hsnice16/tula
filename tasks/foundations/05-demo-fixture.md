@@ -1,6 +1,7 @@
 # 05 · Opt-in demo fixture
 
 **Status**: done · later removed
+**Covered by**: `scripts/guard.sh`
 
 ## Goal
 

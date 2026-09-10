@@ -187,7 +187,13 @@
     letter-spacing: 0.16em;
     text-transform: uppercase;
     /* Section headings, so they carry the words a reader scans by: faint is
-       3.05:1 here, below the 4.5 AA asks of text this size. */
+       3.05:1 here, below the 4.5 AA asks of text this size.
+
+       An <h2> wherever it is the only text naming its section — /install and
+       /security each held a dozen h2 cards under labels a heading outline could
+       not see. A <p> where the section already has a heading of its own, as the
+       front page's two arguments do: a section with two is a section a reader
+       has to pick between. */
     color: var(--color-dim);
   }
   .label::after {

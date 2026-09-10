@@ -35,6 +35,11 @@ interface BalanceEntry {
 interface BalanceResponse {
   available?: BalanceEntry[]
   pending?: BalanceEntry[]
+  /** Money for Issued Cards, and money reserved against connected accounts.
+   *  Both are the account's, and neither is in `available`. */
+  issuing?: { available?: BalanceEntry[] }
+  connect_reserved?: BalanceEntry[]
+  refund_and_dispute_prefunding?: { available?: BalanceEntry[]; pending?: BalanceEntry[] }
   livemode?: boolean
   error?: { message?: string; type?: string }
 }
@@ -73,6 +78,28 @@ export const stripeConnector: Connector = {
 
   unprovable: ['trade', 'withdraw'],
 
+  coverage: {
+    reads: [
+      'every balance bucket /v1/balance carries: available, pending, issuing, connect reserved and refund and dispute prefunding',
+    ],
+    doesNotRead: [
+      {
+        what: 'Treasury financial account balances',
+        why:
+          'a financial account keeps a balance of its own that /v1/balance never carries, and ' +
+          'reaching it needs a second endpoint and the treasury capability on the key',
+        hides: 'value',
+        plan: 'tasks/breadth/16-stripe-depth.md',
+      },
+      {
+        what: 'connected accounts under a platform',
+        why: 'Stripe answers /v1/balance for the account the key authenticated as, and reaching another needs its own header',
+        hides: 'value',
+        plan: 'tasks/breadth/16-stripe-depth.md',
+      },
+    ],
+  },
+
   /**
    * Stripe does not report what a restricted key may do, so trade and withdraw
    * stay unproven. What it does expose is the key's *class*, and a secret key
@@ -107,13 +134,17 @@ export const stripeConnector: Connector = {
     const asOf = new Date()
     const positions: Position[] = []
 
-    const add = (entry: BalanceEntry, kind: 'spot' | 'pending') => {
+    // The bucket is part of the label, not just of the id: money for Issued
+    // Cards and money reserved against connected accounts is the account's and
+    // spends on nothing else, so a single "Stripe USD" row would say that a
+    // balance no payout can reach is money in hand.
+    const add = (entry: BalanceEntry, venue: string, kind: 'spot' | 'pending') => {
       const quantity = toAmount(entry)
       if (quantity.isZero()) return
       const asset = entry.currency.toUpperCase()
       positions.push({
-        id: `stripe:${kind}:${asset}`,
-        venue: STRIPE.id,
+        id: `${venue}:${kind}:${asset}`,
+        venue,
         kind,
         asset,
         quantity,
@@ -122,10 +153,22 @@ export const stripeConnector: Connector = {
       })
     }
 
-    for (const entry of balance.available ?? []) add(entry, 'spot')
+    // `instant_available` is the slice of this one payable out instantly, so it
+    // is skipped rather than added: a row for it would state the same money
+    // twice. Not a declared gap — Stripe says what is available outright, so
+    // nothing about the free figure goes unproven by leaving the slice alone.
+    for (const entry of balance.available ?? []) add(entry, STRIPE.id, 'spot')
     // Pending is yours but not yet movable, so it is a distinct row rather than
     // being folded into the available balance.
-    for (const entry of balance.pending ?? []) add(entry, 'pending')
+    for (const entry of balance.pending ?? []) add(entry, STRIPE.id, 'pending')
+    for (const entry of balance.issuing?.available ?? []) add(entry, 'stripe-issuing', 'spot')
+    for (const entry of balance.connect_reserved ?? []) add(entry, 'stripe-connect-reserved', 'pending')
+    for (const entry of balance.refund_and_dispute_prefunding?.available ?? []) {
+      add(entry, 'stripe-prefunding', 'spot')
+    }
+    for (const entry of balance.refund_and_dispute_prefunding?.pending ?? []) {
+      add(entry, 'stripe-prefunding', 'pending')
+    }
 
     return positions
   },

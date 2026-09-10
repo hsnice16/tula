@@ -1,6 +1,7 @@
 # 10 · Slash commands
 
 **Status**: done
+**Covered by**: `src/cli/shell.test.ts`, `src/cli/registry.test.ts`, `src/ui/screen.test.ts`
 
 ## Goal
 

@@ -37,7 +37,11 @@ xox[baprs]-[A-Za-z0-9-]{20,}
 AIza[0-9A-Za-z_-]{30,}
 -----BEGIN [A-Z ]*PRIVATE KEY-----'
 
-for path in $(git diff --cached --name-only --diff-filter=ACM); do
+# NUL-delimited, and read rather than word-split. `for path in $(…)` split on
+# whitespace, so a staged `my key.env` became two paths that do not exist, each
+# producing an empty diff — never scanned, and silently: a scanner with a blind
+# spot you choose by naming the file.
+while IFS= read -r -d '' path; do
   # No extension skip. git already reports a real binary as "Binary files …
   # differ" and produces no added lines, so the scan costs nothing there — while
   # skipping by name let a credential through in a text file called `logo.png`.
@@ -131,7 +135,7 @@ EOF
       [ -n "$hit" ] || continue
       printf '%s\n' "$path|${hit:0:24}…  (12+ words in one string — a seed phrase has this shape)"
     done >>"$FINDINGS"
-done
+done < <(git diff --cached --name-only -z --diff-filter=ACM)
 
 [ -s "$FINDINGS" ] || exit 0
 

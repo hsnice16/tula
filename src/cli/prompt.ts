@@ -17,8 +17,8 @@ async function nextPipedLine(command: string): Promise<string> {
     if (raw.trim() === '') {
       throw new TulaError(
         `${command} needs an interactive terminal.\n` +
-          'Run it directly in your shell, or pipe the values in:\n' +
-          `  printf 'KEY\\nSECRET\\n' | ${command}`,
+          'Run it directly in your shell, or pipe the address in:\n' +
+          `  printf '0xYourAddress\\n' | ${command}`,
       )
     }
     piped = raw.split('\n')
@@ -77,14 +77,30 @@ export async function ask(
   label: string,
   opts: { hidden: boolean; command: string },
 ): Promise<string> {
-  if (!process.stdin.isTTY) return nextPipedLine(opts.command)
+  if (!process.stdin.isTTY) {
+    // A secret is never taken from a pipe, and the prompt no longer tells
+    // anyone to build one: `printf 'KEY\nSECRET\n' | tula connect <venue>` puts
+    // an exchange key in the shell history and in the process list, where it
+    // outlives the command that used it. `src/index.ts` refuses a price-source
+    // key on the command line for the same reason, and the two disagreeing
+    // meant the stricter one was decoration.
+    if (opts.hidden) {
+      throw new TulaError(
+        `${opts.command} asks for a secret, so it needs an interactive terminal.\n` +
+          '  Piping one in leaves it in your shell history and in the process list,\n' +
+          '  long after the command has finished.\n' +
+          `  Run it in your own shell:  ${opts.command}`,
+      )
+    }
+    return nextPipedLine(opts.command)
+  }
   return fromTty(label, opts.hidden)
 }
 
 /**
  * One prompt per field the connectable declares, which is the same list the
- * in-app flow walks. A hardcoded key/secret pair here asked the three
- * address-only venues for an API key they do not have — so none of them could
+ * in-app flow walks. A hardcoded key/secret pair here asked Wallet,
+ * Hyperliquid and Aave for an API key they do not have — so none of them could
  * be connected from the command line at all — and typed a single-field
  * restricted key in the clear because the pair's first prompt was not secret.
  */

@@ -1,6 +1,7 @@
 # 05 · Release workflow
 
 **Status**: done · macOS signing is gated on Apple credentials being configured
+**Covered by**: `scripts/release-build.sh`, `scripts/binary-audit.sh`, `src/site-claims.test.ts`
 
 ## Goal
 

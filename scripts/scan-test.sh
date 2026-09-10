@@ -98,6 +98,10 @@ echo "scan-test: the shapes a leak is actually written in"
 probe caught "an unquoted KEY=value, as a .env holds it" "KRAKEN_API_SEC${x}RET=${b64}${b64}=="
 probe caught "a credential in a text file merely named .png" \
   "const apiSecret = '${b64}${b64}=='" logo.png
+# The path list was word-split, so this became two paths that do not exist and
+# two empty diffs. Nothing was scanned and nothing said so.
+probe caught "a credential in a file whose name has a space in it" \
+  "KRAKEN_API_SEC${x}RET=${b64}${b64}==" "my key.env"
 
 echo "scan-test: addresses"
 probe caught "an unlisted address" "const a = '0x${hex32}12345678'"

@@ -1,6 +1,7 @@
 # 06 · Wallet token balances
 
 **Status**: done
+**Covered by**: `src/connectors/wallet.test.ts`, `src/connectors/evm.test.ts`, `src/core/coverage.test.ts`
 
 ## Goal
 
@@ -15,14 +16,21 @@ from the one number the product exists to give.
   credential of any kind.
 - Native ETH via `eth_getBalance`; ERC-20 balances via batched `balanceOf`
   through `src/connectors/evm.ts`.
-- Token decimals are read on-chain and cached for the process, never assumed
-  to be 18.
+- Token decimals come from the list entry beside the address, never assumed to
+  be 18. Nothing is read on-chain for them and nothing is cached.
 - Zero balances are dropped rather than rendered as rows.
 - aTokens and variable-debt tokens are excluded, so a wallet balance never
   double-counts what the Aave connector already reports as collateral or debt.
-- The coverage boundary is stated where the user sees it: how many tokens were
-  checked, and that a token outside that set is not evidence of a zero balance.
-- Ethereum only; `03-chain-coverage` generalizes this and Aave together.
+- The coverage boundary is stated where the user sees it, so a token outside the
+  list is never read as a zero balance. `walletConnector.coverage` declares what
+  is unasked — the liquid staking and yield-bearing stables the default feed
+  omits, what an LP or vault receipt is a claim on, every chain outside the
+  three, and anything that is not an ERC-20 — and
+  [`open-pieces/01`](../open-pieces/01-scope-disclosure.md) is the line it
+  reaches. Each gap is held open by a test in `wallet.test.ts`, so closing one
+  fails the build until the declaration goes with it.
+- Ethereum, Arbitrum One and Base, one address across all three: `03-chain-coverage`
+  generalized this and Aave together, onto `src/connectors/chains.ts`.
 
 ## Notes
 

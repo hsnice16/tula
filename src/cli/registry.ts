@@ -1,5 +1,58 @@
 import { PRICE_PROVIDERS } from '../prices/providers.js'
 
+/**
+ * Where the text being written will be read. A remedy is only a remedy if it
+ * can be typed where it is printed, and `/kraken connect` pasted into a real
+ * shell is a path that does not exist.
+ *
+ * Process-wide because a process is one surface: `src/index.ts` opens the shell
+ * or runs one command, never both.
+ */
+export type Surface = 'shell' | 'cli'
+
+let surface: Surface = 'shell'
+
+export function useSurface(next: Surface): void {
+  surface = next
+}
+
+/** A command as the reader would type it, on the surface they are reading. */
+export function typed(command: string): string {
+  return surface === 'cli' ? `tula ${command}` : `/${command}`
+}
+
+/**
+ * Connecting is the one command spelled differently rather than merely
+ * prefixed: the one-shot CLI documents `tula connect <venue>`, and `tula` with
+ * no command opens the shell where the menu is.
+ */
+export function connectCommand(venueId: string): string {
+  return surface === 'cli' ? `tula connect ${venueId}` : `/${venueId} connect`
+}
+
+/** The delete, spelled for the surface. What `retired()` in `src/connectors/types.ts` is handed. */
+export function forgetCommand(venueId: string): string {
+  return typed(`forget ${venueId}`)
+}
+
+/**
+ * How somebody with no credential is sent to sign in. Not `typed('login')`:
+ * `tula login` is a command that exists only to answer that it is a shell
+ * screen, so naming it on the command line is a remedy that sends the reader
+ * back for a second one. The shell is the way out there; `ant auth login` is a
+ * real command on either surface.
+ */
+export function signInCommand(): string {
+  return surface === 'cli'
+    ? 'run tula, then /login — or: ant auth login'
+    : '/login, or: ant auth login'
+}
+
+/** How somebody with no venue connected is sent to choose one. */
+export function pickVenue(): string {
+  return surface === 'cli' ? 'Connect one with:  tula connect <venue>' : 'Type / and pick one.'
+}
+
 export type CommandGroup = 'risk' | 'venues' | 'prices' | 'session'
 
 /** Section order in the menu and in help. The book comes first: it is the product. */
@@ -187,6 +240,22 @@ export function parseCommand(line: string, venueIds: string[] = []): ParsedComma
 }
 
 /**
+ * Whether a line already tells the reader what to type. The test used to be
+ * whether the text held a slash, and a venue's own error carries one whenever
+ * it quotes a URL — a Cloudflare 503 names `/cdn-cgi/...` in its body — so a
+ * venue that named a problem and no way out silenced the remedy line meant to
+ * supply one. What makes a line a remedy is that it names a command tula has,
+ * which is a fact about tula rather than about somebody else's prose.
+ */
+export function namesCommand(text: string, venueIds: string[] = []): boolean {
+  for (const match of text.matchAll(/(?:^|[\s(])(?:\/|tula\s+)([a-z][a-z0-9-]*)/gi)) {
+    const name = match[1]
+    if (name && parseCommand(`/${name}`, venueIds)?.known) return true
+  }
+  return false
+}
+
+/**
  * The command list as the user sees it: the fixed commands plus one entry per
  * connected venue. The venues carry their own status, which is why there is no
  * `/venues` command in the menu — the menu is the overview.
@@ -211,8 +280,8 @@ export function buildCommands(
  * The menu list: the commands, with a connected venue's subcommands opened out
  * under it, in the order and wording ctrl+k already shows them. An unconnected
  * venue stays one row — the two subs it has are `connect`, which its own row
- * runs, and `docs`, and eight venues opened out for those is the list nobody
- * can read down.
+ * runs, and `docs`, and every venue in the build opened out for those is a list
+ * nobody can read down.
  */
 export function menuCommands(
   venues: VenueEntry[] = [],
@@ -274,7 +343,7 @@ export function helpText(
   prices: PriceEntry[] = [],
 ): string {
   const all = buildCommands(connected, prices)
-  const label = (c: SlashCommand) => `/${c.name} ${c.args ?? ''}`.trimEnd()
+  const label = (c: SlashCommand) => `${typed(c.name)} ${c.args ?? ''}`.trimEnd()
   const width = Math.max(...all.map((c) => label(c).length))
 
   const sections = GROUP_ORDER.flatMap((group) => {
@@ -288,7 +357,9 @@ export function helpText(
   })
 
   return [
-    'Type / for commands, or just ask a question in plain English.',
+    surface === 'cli'
+      ? 'Run any of these as shown. `tula` on its own opens the shell, where the same\ncommands take a slash and anything without one is a question in plain English.'
+      : 'Type / for commands, or just ask a question in plain English.',
     '',
     ...sections,
     `Venues in this build: ${venues.join(', ')}`,

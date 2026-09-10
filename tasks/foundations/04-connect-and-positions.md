@@ -1,6 +1,7 @@
 # 04 · connect and positions commands
 
 **Status**: done
+**Covered by**: `src/cli/oneshot.test.ts`, `src/cli/connect.test.ts`, `src/consistency.test.ts`
 
 ## Goal
 

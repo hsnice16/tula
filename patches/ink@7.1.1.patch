@@ -1,0 +1,36 @@
+diff --git a/build/reconciler.js b/build/reconciler.js
+index 5b4a9d7bfa488027c30c43e8a1664f8680d7c62d..cc22678fdce12efc9013afaa300d0b223766c933 100644
+--- a/build/reconciler.js
++++ b/build/reconciler.js
+@@ -6,23 +6,14 @@ import Yoga from 'yoga-layout';
+ import { createContext, version as reactVersion } from 'react';
+ import { createTextNode, appendChildNode, insertBeforeNode, removeChildNode, emitLayoutListeners, setStyle, setTextNodeValue, createNode, setAttribute, } from './dom.js';
+ import applyStyles from './styles.js';
+-// We need to conditionally perform devtools connection to avoid
+-// accidentally breaking other third-party code.
+-// See https://github.com/vadimdemedes/ink/issues/384
+-// See https://github.com/vadimdemedes/ink/issues/648
+-if (process.env['DEV'] === 'true') {
+-    // Intentionally no warning when the package is missing.
+-    // DEV may be set for other reasons; devtools is opt-in via installing the package.
+-    let isDevtoolsInstalled = false;
+-    try {
+-        import.meta.resolve('react-devtools-core');
+-        isDevtoolsInstalled = true;
+-    }
+-    catch { }
+-    if (isDevtoolsInstalled) {
+-        await import('./devtools.js');
+-    }
+-}
++// The React DevTools connection, removed rather than left to its runtime guard.
++// `bun build --compile` bundles this dynamic import whenever the package
++// resolves at build time, so the backend and its ws://localhost:8097 socket
++// shipped inside the process that holds every venue key -- one ambient DEV=true
++// away from a bidirectional inspect-and-mutate channel over the React tree.
++// react-devtools-core is an optional peer of ink, so `bun install` supplies it
++// whether or not this project asks for it: dropping the devDependency was not
++// enough, and dropping the package outright fails the build here.
+ const diff = (before, after) => {
+     if (before === after) {
+         return;

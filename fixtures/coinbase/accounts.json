@@ -1,0 +1,51 @@
+{
+ "_doc": "https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/accounts/list-accounts — built from the documented schema; a CDP key is required, so this could not be captured. `hold` is documented as \"Amount that is being held for pending transfers against the available balance\", so the account's whole holding is available_balance + hold.",
+ "accounts": [
+  {
+   "uuid": "aaaaaaaa-0000-0000-0000-000000000001",
+   "name": "BTC Wallet",
+   "currency": "BTC",
+   "available_balance": { "value": "0.40000000", "currency": "BTC" },
+   "hold": { "value": "0.10000000", "currency": "BTC" },
+   "type": "ACCOUNT_TYPE_CRYPTO",
+   "platform": "ACCOUNT_PLATFORM_CONSUMER",
+   "active": true,
+   "ready": true
+  },
+  {
+   "uuid": "aaaaaaaa-0000-0000-0000-000000000002",
+   "name": "USD Wallet",
+   "currency": "USD",
+   "available_balance": { "value": "1500.00", "currency": "USD" },
+   "hold": { "value": "0.00", "currency": "USD" },
+   "type": "ACCOUNT_TYPE_FIAT",
+   "platform": "ACCOUNT_PLATFORM_CONSUMER",
+   "active": true,
+   "ready": true
+  },
+  {
+   "uuid": "aaaaaaaa-0000-0000-0000-000000000003",
+   "name": "USDC Perpetuals",
+   "currency": "USDC",
+   "available_balance": { "value": "24000.00", "currency": "USDC" },
+   "hold": { "value": "0.00", "currency": "USDC" },
+   "type": "ACCOUNT_TYPE_PERP_FUTURES",
+   "platform": "ACCOUNT_PLATFORM_INTX",
+   "active": true,
+   "ready": true
+  },
+  {
+   "uuid": "aaaaaaaa-0000-0000-0000-000000000004",
+   "name": "ETH Wallet",
+   "currency": "ETH",
+   "available_balance": { "value": "0", "currency": "ETH" },
+   "hold": { "value": "0", "currency": "ETH" },
+   "type": "ACCOUNT_TYPE_CRYPTO",
+   "platform": "ACCOUNT_PLATFORM_CONSUMER",
+   "active": true,
+   "ready": true
+  }
+ ],
+ "has_next": false,
+ "size": 4
+}

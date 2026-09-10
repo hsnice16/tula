@@ -1,6 +1,7 @@
 # 06 · Ink input surface
 
 **Status**: done
+**Covered by**: `src/ui/screen.test.ts`, `src/ui/keys.test.ts`, `src/ui/mouse.test.ts`
 
 ## Goal
 

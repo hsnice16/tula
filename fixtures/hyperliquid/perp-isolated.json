@@ -1,0 +1,135 @@
+{
+  "captured": "2026-09-10T14:32:01.221Z",
+  "endpoint": "https://api.hyperliquid.xyz/info",
+  "request": {
+    "clearinghouseState": "<address>",
+    "spotClearinghouseState": "<address>"
+  },
+  "perps": {
+    "marginSummary": {
+      "accountValue": "153652.1510461573",
+      "totalNtlPos": "4262988.1417124262",
+      "totalRawUsd": "-4109335.990666269",
+      "totalMarginUsed": "151980.5523909492"
+    },
+    "crossMarginSummary": {
+      "accountValue": "66834.2476772319",
+      "totalNtlPos": "547481.2239170725",
+      "totalRawUsd": "-480646.9762398406",
+      "totalMarginUsed": "65162.6490220238"
+    },
+    "crossMaintenanceMarginUsed": "32581.3245110119",
+    "withdrawable": "1671.5986552081",
+    "assetPositions": [
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "BTC",
+          "szi": "48.1065180008",
+          "leverage": {
+            "type": "isolated",
+            "value": 30,
+            "rawUsd": "-3628689.0144264281"
+          },
+          "entryPx": "78131.8",
+          "positionValue": "3715506.9177953536",
+          "unrealizedPnl": "-43141.9600386487",
+          "returnOnEquity": "-0.3443415023",
+          "liquidationPx": "76385.1124435218",
+          "marginUsed": "86817.9033689254",
+          "maxLeverage": 40,
+          "cumFunding": {
+            "allTime": "26924.1223312878",
+            "sinceOpen": "7353.0873453338",
+            "sinceChange": "210.1422347998"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "TAO",
+          "szi": "427.6134933409",
+          "leverage": {
+            "type": "cross",
+            "value": 5
+          },
+          "entryPx": "267.881",
+          "positionValue": "104145.2663031652",
+          "unrealizedPnl": "-10404.3761550183",
+          "returnOnEquity": "-0.4541426726",
+          "liquidationPx": null,
+          "marginUsed": "20829.053260633",
+          "maxLeverage": 5,
+          "cumFunding": {
+            "allTime": "113.4230433964",
+            "sinceOpen": "113.4230433964",
+            "sinceChange": "113.4230433964"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "HYPE",
+          "szi": "5467.8830490122",
+          "leverage": {
+            "type": "cross",
+            "value": 10
+          },
+          "entryPx": "56.9515",
+          "positionValue": "443335.9576139073",
+          "unrealizedPnl": "131931.7423259659",
+          "returnOnEquity": "4.2366716907",
+          "liquidationPx": null,
+          "marginUsed": "44333.5957613907",
+          "maxLeverage": 10,
+          "cumFunding": {
+            "allTime": "3889.1539551794",
+            "sinceOpen": "3889.1539551794",
+            "sinceChange": "3348.4035570803"
+          }
+        }
+      }
+    ],
+    "time": 1789050726529
+  },
+  "spot": {
+    "balances": [
+      {
+        "coin": "USDC",
+        "token": 0,
+        "total": "879998.0463607637",
+        "hold": "215447.9934599216",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "USDE",
+        "token": 235,
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "USDT0",
+        "token": 268,
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "USDH",
+        "token": 360,
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      }
+    ],
+    "tokenToAvailableAfterMaintenance": [
+      [
+        0,
+        "697131.377411854"
+      ]
+    ]
+  }
+}

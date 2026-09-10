@@ -15,11 +15,11 @@ them, and everything works without an API key.
 - [02 · Net exposure aggregation](02-net-exposure.md) — done
 - [03 · Interactive query shell](03-interactive-shell.md) — done
 - [04 · Venue-agnostic command set](04-shell-commands.md) — done
-- [05 · Session cache and refresh](05-session-cache.md) — done
+- [05 · Session cache and refresh](05-session-cache.md) — done, except keeping the previous data
 - [06 · Ink input surface](06-ink-surface.md) — done
 - [07 · Risk engine as a tool surface](07-agent-tools.md) — done
 - [08 · Agent loop](08-agent-loop.md) — done
-- [09 · Prompt injection defence](09-injection-defense.md) — in_progress
+- [09 · Prompt injection defence](09-injection-defense.md) — done, except telling the reader a symbol was altered
 - [10 · Slash commands](10-slash-commands.md) — done
 - [11 · First-run onboarding](11-onboarding.md) — done
 - [12 · Venues as commands](12-venue-commands.md) — done

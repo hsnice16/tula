@@ -4,6 +4,7 @@ import type { Position, Venue } from '../core/position.js'
 import type { Connector, ConnectorCredentials, KeyScope } from './types.js'
 import { request } from '../core/http.js'
 import { addressProblem } from './evm.js'
+import { canonical } from './symbols.js'
 
 const INFO = 'https://api.hyperliquid.xyz/info'
 
@@ -34,9 +35,41 @@ interface PerpPosition {
 
 interface ClearinghouseState {
   assetPositions?: Array<{ position?: PerpPosition }>
-  marginSummary?: { accountValue?: string; totalRawUsd?: string; totalMarginUsed?: string }
+  marginSummary?: {
+    accountValue?: string
+    totalRawUsd?: string
+    totalMarginUsed?: string
+  }
   withdrawable?: string
   time?: number
+}
+
+/**
+ * The one row every cross perp is margined against, named so a later
+ * `/available` can find it without matching on an asset symbol.
+ */
+export const MARGIN_ID = 'hyperliquid:margin:USDC'
+
+/**
+ * Hyperliquid's own identity, and the only thing that can contradict a belief
+ * about `totalRawUsd`:
+ *
+ *   accountValue = totalRawUsd + Σ sign(szi) × positionValue
+ *
+ * Asserted against every captured account in `hyperliquid.test.ts`. A fixture
+ * that fails it means the venue changed or we read the wrong field, and either
+ * way the USDC row below is wrong.
+ */
+export function cashLegError(state: ClearinghouseState): Decimal | null {
+  const summary = state.marginSummary
+  if (!summary?.accountValue || summary.totalRawUsd === undefined) return null
+  const legs = (state.assetPositions ?? []).reduce((sum, entry) => {
+    const p = entry.position
+    if (!p?.szi || !p.positionValue) return sum
+    const notional = new Decimal(p.positionValue)
+    return sum.plus(new Decimal(p.szi).isNegative() ? notional.negated() : notional)
+  }, new Decimal(0))
+  return new Decimal(summary.accountValue).minus(new Decimal(summary.totalRawUsd).plus(legs))
 }
 
 interface SpotState {
@@ -60,6 +93,73 @@ async function info<T>(body: Record<string, unknown>): Promise<T> {
 
 export const hyperliquidConnector: Connector = {
   venue: HYPERLIQUID,
+
+  coverage: {
+    reads: [
+      'first-party perp positions, with the liquidation price and leverage the venue states',
+      'spot balances',
+      'the perp account’s cash leg, as margin rather than as a balance',
+    ],
+    doesNotRead: [
+      {
+        what: 'staked HYPE and vault deposits',
+        why: 'delegatorSummary and userVaultEquities are never called',
+        hides: 'value',
+        plan: 'tasks/breadth/10-hyperliquid-depth.md',
+      },
+      {
+        what: 'sub-accounts',
+        why: 'subAccounts is never called, and each answers under its own address',
+        hides: 'value',
+        plan: 'tasks/breadth/10-hyperliquid-depth.md',
+      },
+      {
+        what: 'the borrow/lend book',
+        why: 'borrowLendUserState is never called, and it carries a health factor of its own',
+        hides: 'liquidation',
+        plan: 'tasks/breadth/10-hyperliquid-depth.md',
+      },
+      {
+        what: 'perps on the builder-deployed dexes that perpDexs lists',
+        why: 'the dex parameter is never sent with clearinghouseState, so only the first-party book answers',
+        hides: 'liquidation',
+        plan: 'tasks/breadth/10-hyperliquid-depth.md',
+      },
+      {
+        what: 'the margin behind an isolated position, separately from the cross pool',
+        why:
+          'marginUsed is discarded, and no captured account held an isolated position to ' +
+          'measure the split against',
+        hides: 'liquidation',
+        plan: 'tasks/breadth/10-hyperliquid-depth.md',
+      },
+      {
+        what: 'what the venue has reserved against a spot balance, and what reserved it',
+        why:
+          'the `hold` field on each balance is not read, and reading it is not the whole of ' +
+          'it: on a non-USDC balance it is the resting orders, but on USDC it also carries ' +
+          'perp margin — measured over 169 accounts it did on two thirds of them, was the ' +
+          'whole of it on some, and went negative on a margin borrower. Named as an order ' +
+          'hold it would tell somebody to cancel an order that does not exist',
+        hides: 'availability',
+        plan: 'tasks/breadth/10-hyperliquid-depth.md',
+      },
+      // Declared here as well as in `wallet.ts`, which names it as an unread
+      // chain. The `NOT READ` line is built from connected venues, so somebody
+      // who connected Hyperliquid and no address would be told nothing at all
+      // — and the spot balances above are exactly the half of a HyperEVM
+      // holding that reads as the whole of it.
+      {
+        what: 'balances on HyperEVM, Hyperliquid’s own EVM chain',
+        why:
+          'a holding there is two linked balances — the HyperCore spot balance read above and ' +
+          'an EVM ERC-20, scaled against each other per token — and only the HyperCore side is ' +
+          'read, so a token bridged to HyperEVM leaves the spot row and is not replaced',
+        hides: 'value',
+        plan: 'tasks/breadth/12-chain-reach.md',
+      },
+    ],
+  },
 
   fields: [
     {
@@ -96,7 +196,6 @@ export const hyperliquidConnector: Connector = {
       info<SpotState>({ type: 'spotClearinghouseState', user: address }),
     ])
 
-    // The venue timestamps its own snapshot, so freshness is the venue's, not ours.
     // The venue's own clock, but never ahead of ours. `freshness` clamps a
     // negative age to `0s`, so a venue running fast would pin every row at
     // "0s ago" while the snapshot behind it quietly aged — a stale figure
@@ -106,12 +205,33 @@ export const hyperliquidConnector: Connector = {
     const asOf = stamped > received ? received : stamped
     const positions: Position[] = []
 
+    // `totalRawUsd` is not a deposit and not a balance. Hyperliquid states
+    // `accountValue = totalRawUsd + Σ sign(szi) × positionValue`, so this is the
+    // cash leg of a spot-equivalent decomposition of the perp book — long the
+    // coin, short the dollars. Behind a leveraged long it is negative, which
+    // read as the account owing tens of thousands of USDC it does not owe.
+    //
+    // It stays, because it is the account's equity once the legs beside it are
+    // counted and the portfolio total is wrong without it. What changes is what
+    // it claims to be: `collateral`, margined against by every cross perp
+    // below, so `/available` subtracts it rather than offering it as cash.
+    // `withdrawable` remains the fallback — an understated figure beats no row.
+    const rawUsd = perps.marginSummary?.totalRawUsd ?? perps.withdrawable
+    const margin = rawUsd ? new Decimal(rawUsd) : new Decimal(0)
+    const margined = !margin.isZero()
+
     for (const entry of perps.assetPositions ?? []) {
       const p = entry.position
       if (!p?.coin || !p.szi) continue
       const raw = new Decimal(p.szi)
       if (raw.isZero()) continue
       const { asset, size, scale } = unscale(p.coin, raw)
+
+      // Cross positions share one margin pool, so they liquidate as one account
+      // event and each points at that row. An isolated position has only the
+      // margin posted to it: it dies alone, and pointing it at the shared pool
+      // would claim a liquidation relationship it does not have.
+      const cross = margined && p.leverage?.type !== 'isolated'
 
       const position: Position = {
         id: `hyperliquid:perp:${asset}`,
@@ -121,6 +241,7 @@ export const hyperliquidConnector: Connector = {
         quantity: size,
         delta: size,
         asOf,
+        ...(cross ? { encumbers: [MARGIN_ID] } : {}),
       }
       // liquidationPx is null on a position the venue cannot liquidate yet.
       // Absent is the honest representation; a zero would read as "liquidates now".
@@ -142,34 +263,26 @@ export const hyperliquidConnector: Connector = {
     for (const balance of spot.balances ?? []) {
       const total = new Decimal(balance.total)
       if (total.isZero()) continue
+      const asset = canonical(balance.coin)
       positions.push({
-        id: `hyperliquid:spot:${balance.coin}`,
+        id: `hyperliquid:spot:${asset}`,
         venue: HYPERLIQUID.id,
         kind: 'spot',
-        asset: balance.coin,
+        asset,
         quantity: total,
         delta: total,
         asOf,
       })
     }
 
-    // Perp margin sits in the account rather than in a position, so without
-    // this row the account's USDC vanishes from the portfolio.
-    //
-    // `totalRawUsd`, not `withdrawable`: that is only what may be taken out
-    // now, so everything behind an open perp read as gone. It stays as the
-    // fallback because an understated balance beats no row at all. Not
-    // `accountValue` either — it adds unrealized PnL the legs carry in `delta`.
-    const rawUsd = perps.marginSummary?.totalRawUsd ?? perps.withdrawable
-    const usdc = rawUsd ? new Decimal(rawUsd) : new Decimal(0)
-    if (!usdc.isZero()) {
+    if (margined) {
       positions.push({
-        id: 'hyperliquid:spot:USDC-margin',
+        id: MARGIN_ID,
         venue: HYPERLIQUID.id,
-        kind: 'spot',
+        kind: 'collateral',
         asset: 'USDC',
-        quantity: usdc,
-        delta: usdc,
+        quantity: margin,
+        delta: margin,
         asOf,
       })
     }

@@ -150,11 +150,43 @@ describe('Agent', () => {
     await agent.ask('another', collect().events)
   })
 
+  test('a refusal after a tool round leaves no unanswered tool_use to break every later question', async () => {
+    const { client, calls } = stubClient([
+      toolCall('get_net_exposure', {}),
+      message('refusal', []),
+      text('third'),
+    ])
+    const agent = new Agent(fixtureEngine, { client })
+
+    await expect(agent.ask('one', collect().events)).rejects.toBeInstanceOf(TulaError)
+    await agent.ask('two', collect().events)
+
+    // Dropping the last entry here removed the tool *results* and left the
+    // assistant turn that asked for them standing. The API rejects a `tool_use`
+    // with nothing answering it, so that session could answer nothing again.
+    const sent = calls.at(-1)!['messages']
+    expect(sent).toEqual([{ role: 'user', content: 'two' }])
+  })
+
   test('gives up rather than looping forever on tools', async () => {
     const { client } = stubClient(Array.from({ length: 12 }, () => toolCall('get_net_exposure', {})))
     await expect(new Agent(fixtureEngine, { client }).ask('loop', collect().events)).rejects.toThrow(
       /tool rounds/,
     )
+  })
+
+  test('giving up leaves the abandoned question and its tool rounds out of the next one', async () => {
+    const { client, calls } = stubClient([
+      ...Array.from({ length: 12 }, () => toolCall('get_net_exposure', {})),
+      text('answer'),
+    ])
+    const agent = new Agent(fixtureEngine, { client })
+    await expect(agent.ask('loop', collect().events)).rejects.toThrow(/tool rounds/)
+    // The first request of the next question, not the last: that one loops on
+    // the stub's remaining tool calls the same way the abandoned one did.
+    const next = calls.length
+    await agent.ask('two', collect().events).catch(() => {})
+    expect(calls[next]!['messages']).toEqual([{ role: 'user', content: 'two' }])
   })
 
   test('carries conversation history across turns', async () => {

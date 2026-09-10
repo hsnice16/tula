@@ -1,0 +1,88 @@
+{
+  "captured": "2026-09-09T19:24:01.901Z",
+  "endpoint": "https://api.hyperliquid.xyz/info",
+  "request": {
+    "clearinghouseState": "<address>",
+    "spotClearinghouseState": "<address>"
+  },
+  "perps": {
+    "marginSummary": {
+      "accountValue": "94279.5201861102",
+      "totalNtlPos": "241145.0636261229",
+      "totalRawUsd": "-146865.5434400126",
+      "totalMarginUsed": "24114.5063626123"
+    },
+    "crossMarginSummary": {
+      "accountValue": "94279.5201861102",
+      "totalNtlPos": "241145.0636261229",
+      "totalRawUsd": "-146865.5434400126",
+      "totalMarginUsed": "24114.5063626123"
+    },
+    "crossMaintenanceMarginUsed": "12057.2531813061",
+    "withdrawable": "70165.0138234979",
+    "assetPositions": [
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "HYPE",
+          "szi": "2800.5605140887",
+          "leverage": {
+            "type": "cross",
+            "value": 10
+          },
+          "entryPx": "55.9274",
+          "positionValue": "241145.0636261229",
+          "unrealizedPnl": "84516.8326927027",
+          "returnOnEquity": "5.396015277",
+          "liquidationPx": null,
+          "marginUsed": "24114.5063626123",
+          "maxLeverage": 10,
+          "cumFunding": {
+            "allTime": "2022.410195411",
+            "sinceOpen": "2022.410195411",
+            "sinceChange": "2022.410195411"
+          }
+        }
+      }
+    ],
+    "time": 1788981843717
+  },
+  "spot": {
+    "balances": [
+      {
+        "coin": "USDC",
+        "token": 0,
+        "total": "1731202.8397201339",
+        "hold": "123339.9941167573",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "USDE",
+        "token": 235,
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "USDT0",
+        "token": 268,
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "USDH",
+        "token": 360,
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      }
+    ],
+    "tokenToAvailableAfterMaintenance": [
+      [
+        0,
+        "1719145.5865388278"
+      ]
+    ]
+  }
+}

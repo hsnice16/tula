@@ -18,10 +18,7 @@ export const metadata: Metadata = {
 }
 
 const PROMISES = [
-  [
-    'No code path can move funds off a venue',
-    'no withdrawal or transfer endpoint, in any connector',
-  ],
+  ['No code path can move funds off a venue', 'no endpoint that moves funds, in any connector'],
   ['Nothing places an order, for the moment', 'the build fails if an order endpoint appears'],
   [
     'A key that can move funds is turned away, not warned about',
@@ -58,11 +55,11 @@ const NOTES = [
   ],
   [
     'Text tula did not write',
-    'Two kinds of text reach the screen and the model from outside: an asset symbol \u2014 as a venue\u2019s listing spells it, or as an Aave reserve contract returns it \u2014 and a venue\u2019s own error text when one fails. Both are cut to a length limit on the way in, and stripped of every codepoint that is invisible or moves what is drawn \u2014 so neither can pose as an instruction, forge a line, or hide bytes in the gaps of one. No memo, NFT metadata or protocol description is read at all.',
+    'Two kinds of text reach the screen and the model from outside: an asset symbol \u2014 as a venue\u2019s listing spells it, as the configured token list names it, or as an Aave reserve contract returns it \u2014 and the error text of a venue or a price source when one fails. Both are cut to a length limit on the way in, and stripped of every codepoint that is invisible or moves what is drawn \u2014 so neither can pose as an instruction, forge a line, or hide bytes in the gaps of one. No memo, NFT metadata or protocol description is read at all.',
   ],
   [
     'Network egress',
-    'The venues you connect, a public Ethereum RPC, the price source, the token list. Anthropic only when you ask a question, and only the numbers already worked out \u2014 never a key. Once a day it also asks GitHub whether there is a newer release, carrying nothing about you; TULA_NO_UPDATE_CHECK=1 stops even that. Nothing is downloaded until you run /update install, which fetches the archive and its checksums. Beyond that the binary sends nothing about how you use it. This site is measured with Google Analytics; the binary is not.',
+    'The venues you connect, a public RPC on each chain read — Ethereum, Arbitrum One and Base — the price source, the token list. Anthropic only when you ask a question, and only the numbers already worked out \u2014 never a key. The interactive shell also asks GitHub whether there is a newer release, once a day at most and carrying nothing about you — a one-shot command never does; TULA_NO_UPDATE_CHECK=1 stops even that. Nothing is downloaded until you run /update install, which fetches the archive and its checksums. Beyond that the binary sends nothing about how you use it. This site is measured with Google Analytics; the binary is not.',
   ],
 ] as const
 
@@ -93,7 +90,7 @@ export default function Page() {
         </p>
       </div>
 
-      <p className="label mb-8">Promises, and what enforces them</p>
+      <h2 className="label mb-8">Promises, and what enforces them</h2>
       <dl className="mb-step-3 max-w-[52rem]">
         {PROMISES.map(([promise, enforced]) => (
           <div
@@ -106,7 +103,7 @@ export default function Page() {
         ))}
       </dl>
 
-      <p className="label mb-8">Where the edges are</p>
+      <h2 className="label mb-8">Where the edges are</h2>
       <div className="grid gap-px overflow-hidden rounded border border-rule bg-rule md:grid-cols-2">
         {NOTES.map(([title, body], i) => (
           // An odd count leaves a visible empty cell; the last one takes the row.
@@ -114,7 +111,7 @@ export default function Page() {
             key={title}
             className={`bg-bg px-5 py-5 ${i === NOTES.length - 1 && NOTES.length % 2 ? 'md:col-span-2' : ''}`}
           >
-            <h2 className="mb-2 text-[0.95rem] font-semibold text-ink">{title}</h2>
+            <h3 className="mb-2 text-[0.95rem] font-semibold text-ink">{title}</h3>
             <p className="text-[0.88rem] leading-relaxed text-dim">{body}</p>
           </div>
         ))}

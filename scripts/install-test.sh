@@ -30,8 +30,8 @@ bad() {
 TREE_BEFORE=0
 [ -e "$HOME/.tula" ] && TREE_BEFORE=1
 
-# A release exactly as the workflow lays one out: two archives and a checksums
-# file listing both.
+# A release exactly as the workflow lays one out: every published target, and a
+# checksums file listing all of them.
 RELEASE="$WORK/release"
 mkdir -p "$RELEASE/stage"
 printf '#!/bin/sh\necho tula 9.9.9\n' >"$RELEASE/stage/tula"
@@ -83,7 +83,7 @@ mkdir -p "$BIN"
 # decompresses in-process — so a list built by reading install.sh on a laptop
 # misses it, and every extraction fails on Linux with "Cannot exec".
 for tool in sh env cp tar gzip gunzip uname mkdir grep cut sed basename dirname \
-  mktemp chmod ln rm sha256sum shasum openssl; do
+  mktemp chmod ln rm cat ls id readlink sha256sum shasum openssl; do
   path=$(command -v "$tool" 2>/dev/null) && ln -sf "$path" "$BIN/$tool"
 done
 
@@ -350,8 +350,9 @@ mv "$HOLD"/*.tar.gz "$RELEASE/"
 # A version directory is not proof of an install. Anyone able to write under the
 # install tree can put one there before tula has ever been installed, and the
 # fast path would otherwise adopt whatever binary it found and link it unread —
-# where a first install used to overwrite it. The launcher being a symlink
-# already is what says this script built the tree.
+# where a first install used to overwrite it. There is no launcher here at all,
+# so the plant fails the fast path's second condition; h12b below supplies one
+# and is stopped by the `.tula-sha256` receipt instead.
 H="$WORK/h12"
 mkdir -p "$H/.tula/versions/9.9.9"
 printf '#!/bin/sh\necho planted\n' >"$H/.tula/versions/9.9.9/tula"
@@ -362,6 +363,67 @@ if case "$out" in *"already installed"*) false ;; *) true ;; esac &&
   ok "a planted version directory is downloaded over, not adopted"
 else
   bad "a planted version directory is downloaded over, not adopted" "$out"
+fi
+
+# The same plant with the launcher supplied too, which is what the case above
+# was missing: the launcher being a symlink was the whole of what said "this
+# script built the tree", and anyone who could plant the directory could plant
+# the link beside it.
+H="$WORK/h12b"
+mkdir -p "$H/.tula/versions/9.9.9" "$H/.tula/bin"
+printf '#!/bin/sh\necho planted\n' >"$H/.tula/versions/9.9.9/tula"
+chmod 755 "$H/.tula/versions/9.9.9/tula"
+ln -s "$H/.tula/versions/9.9.9/tula" "$H/.tula/bin/tula"
+out=$(run "$H")
+if case "$out" in *"already installed"*) false ;; *) true ;; esac &&
+  ! grep -q planted "$H/.tula/versions/9.9.9/tula"; then
+  ok "a planted tree with its launcher already in place is not adopted either"
+else
+  bad "a planted tree with its launcher already in place is not adopted either" "$out"
+fi
+
+# Re-running the install line is what somebody does to repair a tree they
+# suspect. Confirming the swapped binary as "already installed" is the one
+# answer that turns the documented repair into a rubber stamp.
+H="$WORK/h12c"
+mkdir -p "$H"
+run "$H" >/dev/null 2>&1
+printf '#!/bin/sh\necho swapped\n' >"$H/.tula/versions/9.9.9/tula"
+out=$(run "$H")
+if case "$out" in *"already installed"*) false ;; *) true ;; esac &&
+  ! grep -q swapped "$H/.tula/versions/9.9.9/tula"; then
+  ok "a binary swapped under the launcher is downloaded over, not confirmed"
+else
+  bad "a binary swapped under the launcher is downloaded over, not confirmed" "$out"
+fi
+
+# `ln -sf` dereferences a symlink to a directory and writes the new link inside
+# it, so the launcher went on pointing where it did while the script reported
+# the new version installed to it.
+H="$WORK/h13"
+mkdir -p "$H/.tula/bin" "$H/elsewhere"
+ln -s "$H/elsewhere" "$H/.tula/bin/tula"
+out=$(run "$H")
+if [ "$(readlink "$H/.tula/bin/tula")" = "$H/.tula/versions/9.9.9/tula" ] &&
+  [ ! -e "$H/elsewhere/tula" ]; then
+  ok "replaces a launcher that is a symlink to a directory, rather than linking inside it"
+else
+  bad "replaces a launcher that is a symlink to a directory, rather than linking inside it" "$out"
+fi
+
+# The credential file's 600 mode is worth nothing if somebody else can replace
+# the process that opens it. src/secrets/store.ts refuses a config directory
+# anyone can write to; the tree holding the binary that reads that file had no
+# check at all.
+H="$WORK/h14"
+mkdir -p "$H/.tula"
+chmod 775 "$H/.tula"
+out=$(run "$H")
+if [ ! -e "$H/.tula/bin/tula" ] &&
+  case "$out" in *"written to by other users"*) true ;; *) false ;; esac; then
+  ok "refuses an install tree other users can write to, and installs nothing"
+else
+  bad "refuses an install tree other users can write to, and installs nothing" "$out"
 fi
 
 

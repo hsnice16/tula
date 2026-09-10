@@ -1,26 +1,10 @@
 import { describe, expect, test } from 'bun:test'
-import { aaveConnector } from '../connectors/aave.js'
-import { binanceConnector } from '../connectors/binance.js'
-import { circleConnector } from '../connectors/circle.js'
-import { coinbaseConnector } from '../connectors/coinbase.js'
-import { hyperliquidConnector } from '../connectors/hyperliquid.js'
-import { krakenConnector } from '../connectors/kraken.js'
-import { stripeConnector } from '../connectors/stripe.js'
-import { walletConnector } from '../connectors/wallet.js'
+import { CONNECTORS } from '../connectors/registry.js'
 import { PRICE_PROVIDERS } from '../prices/providers.js'
 import { brandColor } from './brand.js'
 
 const SHIPPED = [
-  ...[
-    walletConnector,
-    hyperliquidConnector,
-    aaveConnector,
-    krakenConnector,
-    coinbaseConnector,
-    binanceConnector,
-    stripeConnector,
-    circleConnector,
-  ].map((c) => c.venue.id),
+  ...[...CONNECTORS.values()].map((c) => c.venue.id),
   ...PRICE_PROVIDERS.map((p) => p.id),
 ]
 

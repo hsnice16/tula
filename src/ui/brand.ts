@@ -3,7 +3,7 @@
  * tula's own palette, and a venue's mark is not ours to restyle to match it.
  *
  * Every value is sampled from that brand's own artwork: the marks the site
- * already ships under `site/public/venues` for the three it shows, and the
+ * already ships under `site/assets/venues` for the three it shows, and the
  * vendor's own favicon for the rest. A hue picked by eye lands on a neighbouring
  * brand often enough that the mark stops identifying anything.
  */
@@ -17,7 +17,6 @@ export const BRAND_MARK = '●'
 const BRAND: Readonly<Record<string, string>> = {
   aave: '#9c8cff',
   binance: '#f0b90b',
-  circle: '#5fbfff',
   coinbase: '#0052ff',
   coingecko: '#4bcc00',
   coinmarketcap: '#3861fb',

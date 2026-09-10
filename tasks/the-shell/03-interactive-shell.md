@@ -1,6 +1,7 @@
 # 03 · Interactive query shell
 
 **Status**: done
+**Covered by**: `src/ui/screen.test.ts`, `src/cli/oneshot.test.ts`, `src/cli/shell.test.ts`
 
 ## Goal
 
@@ -12,7 +13,8 @@ The prompt a user types into. A question-and-answer loop, not a dashboard.
 - Line editing, history, and tab completion over the command set.
 - Ctrl-C cancels the current line; Ctrl-D exits cleanly.
 - Every rendered figure carries its `as_of`.
-- The banner states how many venues are connected and how fresh the data is.
+- The banner names which venues the session is reading. The count and the
+  freshness are on the status line, which is [`06`](06-ink-surface.md)'s.
 
 ## Notes
 

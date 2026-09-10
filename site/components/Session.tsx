@@ -1,6 +1,6 @@
 'use client'
 
-import { type ReactNode, useEffect, useState } from 'react'
+import { type CSSProperties, type ReactNode, useEffect, useState } from 'react'
 import { Logo } from '@/components/Logo'
 import { Frame } from '@/components/Terminal'
 import { VERSION } from '@/lib/site'
@@ -37,6 +37,9 @@ const BRAND: Readonly<Record<string, string>> = {
 /** The mark for a row, keyed off its leading word: `/kraken breaks` is Kraken's. */
 const brandOf = (label: string) => BRAND[label.replace(/^\//, '').split(' ')[0] ?? '']
 
+/** `--color-dim` lifted to clear 4.5:1 on TUI.surface; see PaletteDialog. */
+const DIM_ON_SURFACE = '#918b82'
+
 /** The row every reserved height below is a multiple of. */
 const ROW = '1.3rem'
 const rows = (n: number) => `calc(${n} * ${ROW})`
@@ -70,7 +73,7 @@ const MENU: readonly Row[] = [
 ]
 
 /** What the menu has below its window, which is what the binary counts there. */
-const MENU_REST = 39
+const MENU_REST = 38
 
 /**
  * The palette while nothing is typed: the same commands, plus every
@@ -93,10 +96,10 @@ const BROWSE: readonly Row[] = [
 ]
 
 /** Matches below the window, counted in matches rather than rows, as the dialog does. */
-const BROWSE_BELOW = 60
+const BROWSE_BELOW = 57
 
 /** Rows the whole browse list draws as — the headings and the blanks included. */
-const BROWSE_ROWS = 76
+const BROWSE_ROWS = 73
 
 /**
  * The same palette once `brea` is typed: ranked and flat, headings dropped. Four
@@ -317,7 +320,18 @@ function PaletteDialog({
   return (
     <div
       className="w-full whitespace-pre rounded-[6px] border px-[2ch] py-[1.3rem] shadow-[0_18px_50px_-18px_rgba(0,0,0,0.95)]"
-      style={{ borderColor: TUI.accentSoft, background: TUI.surface }}
+      // This is the one ground on the page that is not the site's own: `dim`
+      // reads 4.88:1 on the frame's panel and 4.33 on the binary's surface, and
+      // every unselected row, the search hint and the count below the list are
+      // drawn in it. Four steps lighter, scoped to this dialog, takes it to 4.56
+      // without lightening the same token in the transcript beside it.
+      style={
+        {
+          borderColor: TUI.accentSoft,
+          background: TUI.surface,
+          '--color-dim': DIM_ON_SURFACE,
+        } as CSSProperties
+      }
     >
       <div className="flex" style={{ height: ROW }}>
         <span className="font-bold" style={{ color: TUI.accent }}>

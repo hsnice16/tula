@@ -1,6 +1,8 @@
 # 01 · Canonical position schema
 
 **Status**: done
+**Covered by**: `src/core/exposure.test.ts`, `src/core/risk.test.ts`,
+`src/core/availability.test.ts`
 
 ## Goal
 

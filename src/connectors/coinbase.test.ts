@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { afterEach, describe, expect, test } from 'bun:test'
 import {
   createPublicKey,
   createSign,
@@ -6,7 +6,9 @@ import {
   generateKeyPairSync,
   verify as edVerify,
 } from 'node:crypto'
-import { buildJwt, derToJose, loadKey, normalizeKey } from './coinbase.js'
+import { readFileSync } from 'node:fs'
+import { whatBreaksFirst } from '../core/risk.js'
+import { buildJwt, coinbaseConnector, derToJose, loadKey, normalizeKey, perpAsset } from './coinbase.js'
 
 const ec = generateKeyPairSync('ec', {
   namedCurve: 'prime256v1',
@@ -120,5 +122,132 @@ describe('buildJwt', () => {
     const a = parts(buildJwt(KEY_NAME, ec.privateKey, 'GET', '/x')).header.nonce
     const b = parts(buildJwt(KEY_NAME, ec.privateKey, 'GET', '/x')).header.nonce
     expect(a).not.toBe(b)
+  })
+})
+
+/**
+ * Built from Coinbase's documented schemas — a CDP key is required, so neither
+ * response could be captured. Each fixture names the page it was built from.
+ */
+const ACCOUNTS = JSON.parse(
+  readFileSync(new URL('../../fixtures/coinbase/accounts.json', import.meta.url), 'utf8'),
+) as { accounts: Array<{ available_balance: { value: string }; hold: { value: string } }> }
+
+const BREAKDOWN = JSON.parse(
+  readFileSync(new URL('../../fixtures/coinbase/portfolio-breakdown.json', import.meta.url), 'utf8'),
+) as unknown
+
+const CREDS = { keyName: KEY_NAME, signingKey: ec.privateKey }
+const originalFetch = globalThis.fetch
+const reached: string[] = []
+
+/** `pages` is what /accounts answers, in order; anything past it is a bug. */
+function stub(pages: unknown[], extra: Record<string, unknown> = {}) {
+  reached.length = 0
+  let page = 0
+  globalThis.fetch = (async (input: unknown) => {
+    const url = String(input)
+    reached.push(url)
+    const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200 })
+    for (const [fragment, body] of Object.entries(extra)) {
+      if (url.includes(fragment)) return json(body)
+    }
+    if (url.includes('/key_permissions')) {
+      return json({
+        can_view: true,
+        can_trade: false,
+        can_transfer: false,
+        portfolio_uuid: '11111111-2222-3333-4444-555555555555',
+      })
+    }
+    if (url.includes('/accounts')) return json(pages[Math.min(page++, pages.length - 1)])
+    if (url.includes('/portfolios/')) return json({ breakdown: { perp_positions: [] } })
+    return new Response('not found', { status: 404 })
+  }) as unknown as typeof fetch
+}
+
+afterEach(() => {
+  globalThis.fetch = originalFetch
+})
+
+describe('coinbase balances', () => {
+  test('what is held is a row of its own, not folded into what you can move', async () => {
+    stub([ACCOUNTS])
+    const positions = await coinbaseConnector.fetchPositions(CREDS)
+    const btc = positions.filter((p) => p.asset === 'BTC')
+    expect(btc.find((p) => p.kind === 'spot')?.quantity.toString()).toBe('0.4')
+    expect(btc.find((p) => p.kind === 'pending')?.quantity.toString()).toBe('0.1')
+  })
+
+  test('an account holding nothing is not a row', async () => {
+    stub([ACCOUNTS])
+    const positions = await coinbaseConnector.fetchPositions(CREDS)
+    expect(positions.some((p) => p.asset === 'ETH')).toBe(false)
+  })
+
+  test('a second page of accounts is read, not silently dropped', async () => {
+    stub([
+      { accounts: [{ currency: 'BTC', available_balance: { value: '1', currency: 'BTC' } }], has_next: true, cursor: 'c1' },
+      { accounts: [{ currency: 'SOL', available_balance: { value: '9', currency: 'SOL' } }], has_next: false },
+    ])
+    const assets = (await coinbaseConnector.fetchPositions(CREDS)).map((p) => p.asset)
+    expect(assets).toContain('BTC')
+    expect(assets).toContain('SOL')
+  })
+
+  test('a cursor that never clears fails rather than reporting a partial book', async () => {
+    stub([{ accounts: [{ currency: 'BTC', available_balance: { value: '1', currency: 'BTC' } }], has_next: true, cursor: 'c' }])
+    await expect(coinbaseConnector.fetchPositions(CREDS)).rejects.toThrow(/20 pages/)
+  })
+})
+
+describe('coinbase perpetuals', () => {
+  test('a perp is exposure to the asset, not just the cash beside it', async () => {
+    stub([ACCOUNTS], { '/portfolios/': BREAKDOWN })
+    const positions = await coinbaseConnector.fetchPositions(CREDS)
+    const btc = positions.find((p) => p.kind === 'perp' && p.asset === 'BTC')
+    expect(btc?.quantity.toString()).toBe('0.75')
+    expect(btc?.liquidation?.price?.toString()).toBe('51000')
+    expect(btc?.liquidation?.leverage?.toString()).toBe('5')
+  })
+
+  test('a short is negative however Coinbase signed net_size', async () => {
+    stub([ACCOUNTS], { '/portfolios/': BREAKDOWN })
+    const eth = (await coinbaseConnector.fetchPositions(CREDS)).find((p) => p.kind === 'perp' && p.asset === 'ETH')
+    expect(eth?.quantity.toString()).toBe('-12')
+  })
+
+  // Coinbase sends 0 for "no liquidation price", and 0 read as a price puts a
+  // position a hundred percent away from a fall it is nowhere near.
+  test('a zero liquidation price is unknown, not a price', async () => {
+    stub([ACCOUNTS], { '/portfolios/': BREAKDOWN })
+    const sol = (await coinbaseConnector.fetchPositions(CREDS)).find((p) => p.kind === 'perp' && p.asset === 'SOL')
+    expect(sol?.liquidation?.price).toBeUndefined()
+    // Still ranked, because a position that can be liquidated at an unknown
+    // distance must not vanish from the table that answers "what breaks first".
+    expect(whatBreaksFirst([sol!], new Map())).toHaveLength(1)
+  })
+
+  test('a perp product resolves to the asset it tracks', () => {
+    expect(perpAsset('BTC-PERP-INTX')).toBe('BTC')
+    expect(perpAsset('ETH-PERP-INTX')).toBe('ETH')
+  })
+})
+
+// Written to be broken by progress: closing one of these fails its test, so the
+// line claiming tula does not read it has to go in the same change.
+describe('coinbase declared gaps', () => {
+  test('CFTC futures are still unread — delete the gap when they are', async () => {
+    stub([ACCOUNTS], { '/portfolios/': BREAKDOWN })
+    await coinbaseConnector.fetchPositions(CREDS)
+    expect(reached.some((url) => url.includes('/cfm/'))).toBe(false)
+  })
+
+  test('only the key’s own portfolio is read — delete the gap when it is not', async () => {
+    stub([ACCOUNTS], { '/portfolios/': BREAKDOWN })
+    await coinbaseConnector.fetchPositions(CREDS)
+    // The list endpoint is the only way to learn a portfolio the key is not
+    // scoped to, so reaching it is what closing this gap would look like.
+    expect(reached.some((url) => /\/portfolios(\?|$)/.test(url))).toBe(false)
   })
 })

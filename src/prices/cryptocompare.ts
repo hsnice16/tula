@@ -1,7 +1,7 @@
 import Decimal from 'decimal.js'
 import { remote, TulaError } from '../core/errors.js'
 import type { AssetId } from '../core/position.js'
-import { UNITY, usablePrice, type PriceOracle, type Quote } from '../core/prices.js'
+import { byTicker, UNITY, usablePrice, type PriceOracle, type Quote } from '../core/prices.js'
 import { request } from '../core/http.js'
 
 const PRICEMULTI = 'https://min-api.cryptocompare.com/data/pricemulti'
@@ -33,7 +33,8 @@ export class CryptoCompareOracle implements PriceOracle {
     const now = new Date()
     for (const asset of assets) if (UNITY.has(asset)) out.set(asset, { price: new Decimal(1), asOf: now })
 
-    const wanted = [...new Set(assets.filter((a) => !UNITY.has(a)).map((a) => a.toUpperCase()))]
+    const asked = byTicker(assets)
+    const wanted = [...asked.keys()]
     if (wanted.length === 0) return out
 
     for (let start = 0; start < wanted.length; start += CHUNK) {
@@ -55,13 +56,13 @@ export class CryptoCompareOracle implements PriceOracle {
       }
 
       // Receipt time: pricemulti carries no per-symbol timestamp, and dating a
-      // quote earlier than we can prove would overstate its freshness.
+      // quote later than we can prove would overstate its freshness.
       const received = new Date()
       for (const symbol of chunk) {
         const row = body[symbol] as { USD?: number } | undefined
         const price = usablePrice(row?.USD)
         if (!price) continue
-        out.set(symbol, { price, asOf: received })
+        for (const asset of asked.get(symbol) ?? [symbol]) out.set(asset, { price, asOf: received })
       }
     }
     return out
@@ -72,7 +73,8 @@ function failure(status: number): TulaError {
   if (status === 401 || status === 403) {
     return new TulaError(
       'CryptoCompare rejected the API key. Prices are unavailable; quantities are still correct.\n' +
-        '  Replace it with:  /cryptocompare connect',
+        '  Replace it with:  /cryptocompare connect\n' +
+        '  Keys are at:      https://developers.coindesk.com/settings/api-keys',
     )
   }
   if (status === 429) {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import Decimal from 'decimal.js'
-import { netExposure, oldest, portfolioValue } from './exposure.js'
+import { canonicalAsset, netExposure, oldest, portfolioValue } from './exposure.js'
 import type { Position, PositionKind } from './position.js'
 
 const T0 = new Date('2026-08-30T10:00:00Z')
@@ -64,6 +64,42 @@ describe('netExposure', () => {
     expect(exposures.map((e) => e.asset)).toEqual(['BTC', 'SOL', 'XYZ'])
   })
 
+  test('two venues spelling one ticker differently hold one asset', () => {
+    // Hyperliquid's spot list says `PURR` and a wallet token list says `purr`.
+    // Bucketed by the raw string they were two rows that never net, which is
+    // the netting this function exists for, not doing it.
+    const exposures = netExposure(
+      [pos('hyperliquid', 'PURR', '100'), pos('wallet', 'purr', '-40')],
+      new Map([['PURR', new Decimal(2)]]),
+    )
+    expect(exposures).toHaveLength(1)
+    expect(exposures[0]?.asset).toBe('PURR')
+    expect(exposures[0]?.delta.toString()).toBe('60')
+    expect(exposures[0]?.notional?.toString()).toBe('120')
+  })
+
+  test('a price quoted under the other spelling still prices the row', () => {
+    const exposures = netExposure([pos('wallet', 'purr', '100')], new Map([['PURR', new Decimal(2)]]))
+    expect(exposures[0]?.notional?.toString()).toBe('200')
+  })
+
+  test('a stale price ages the row, however fresh the balance is', () => {
+    // A CoinPaprika quote can be hours old. Read from the positions alone, it
+    // rendered under a two-second AS OF — a stale figure presented as live.
+    const exposures = netExposure(
+      [pos('a', 'ETH', '2', 'spot', T1)],
+      new Map([['ETH', new Decimal(4000)]]),
+      new Map([['ETH', T0]]),
+    )
+    expect(exposures[0]?.asOf).toEqual(T0)
+  })
+
+  test('the age of a quote says nothing about a row that has none', () => {
+    const exposures = netExposure([pos('a', 'XYZ', '2', 'spot', T1)], new Map(), new Map([['XYZ', T0]]))
+    expect(exposures[0]?.notional).toBeNull()
+    expect(exposures[0]?.asOf).toEqual(T1)
+  })
+
   test('ranks a large short ahead of a small long', () => {
     const exposures = netExposure(
       [pos('a', 'ETH', '-5', 'perp'), pos('a', 'SOL', '1')],
@@ -115,5 +151,22 @@ describe('oldest', () => {
 
   test('finds the stalest input', () => {
     expect(oldest([pos('a', 'ETH', '1', 'spot', T1), pos('b', 'BTC', '1', 'spot', T0)])).toEqual(T0)
+  })
+
+  test('a price older than every balance is what dates the view', () => {
+    // The status line said the book was seconds old while it was being valued
+    // at prices from an hour before.
+    expect(oldest([pos('a', 'ETH', '1', 'spot', T1)], new Map([['ETH', T0]]))).toEqual(T0)
+  })
+
+  test('a timestamp that does not parse is skipped, not reported as the oldest', () => {
+    const bad = new Map([['ETH', new Date('garbage')]])
+    expect(oldest([pos('a', 'ETH', '1', 'spot', T1)], bad)).toEqual(T1)
+  })
+})
+
+describe('canonicalAsset', () => {
+  test('one spelling per asset, so two venues cannot hold it twice', () => {
+    expect(canonicalAsset('purr')).toBe(canonicalAsset('PURR'))
   })
 })

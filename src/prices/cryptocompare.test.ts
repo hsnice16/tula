@@ -55,4 +55,25 @@ describe('CryptoCompare', () => {
     const oracle = new CryptoCompareOracle('k', respond({ ETH: { USD: 2400 } }))
     expect(await oracle.quote('NOTACOIN')).toBeNull()
   })
+
+  test('a quote is keyed by the spelling that was asked for', async () => {
+    // It was keyed by the upper-cased ticker while CoinGecko and CoinPaprika
+    // key by the request, so switching source unpriced any asset a venue
+    // spells in lower case — `purr` on a wallet, `PURR` on Hyperliquid.
+    const oracle = new CryptoCompareOracle('k', respond({ PURR: { USD: 2 } }))
+    const quotes = await oracle.quoteMany(['purr'])
+    expect(quotes.get('purr')?.price.toString()).toBe('2')
+  })
+
+  test('both spellings of one ticker are answered, and it is asked for once', async () => {
+    const seen: string[] = []
+    const oracle = new CryptoCompareOracle('k', async (url) => {
+      seen.push(url)
+      return new Response(JSON.stringify({ PURR: { USD: 2 } }))
+    })
+    const quotes = await oracle.quoteMany(['purr', 'PURR'])
+    expect(quotes.get('purr')?.price.toString()).toBe('2')
+    expect(quotes.get('PURR')?.price.toString()).toBe('2')
+    expect(seen).toHaveLength(1)
+  })
 })

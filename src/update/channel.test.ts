@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { createHash } from 'node:crypto'
 import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -27,13 +28,17 @@ afterEach(async () => {
   await rm(root, { recursive: true, force: true })
 })
 
-/** The tree `install.sh` leaves behind. */
+/**
+ * The tree `install.sh` leaves behind, `.tula-sha256` included: the installer
+ * writes one beside every binary it verified, and its fast path reads it back.
+ */
 async function nativeTree(version = '0.1.0'): Promise<string> {
   const dir = join(root, 'versions', version)
   await mkdir(dir, { recursive: true })
   await mkdir(join(root, 'bin'), { recursive: true })
   const binary = join(dir, 'tula')
   await writeFile(binary, '')
+  await writeFile(join(dir, '.tula-sha256'), `${createHash('sha256').update('').digest('hex')}\n`)
   await symlink(binary, join(root, 'bin', 'tula'))
   return binary
 }

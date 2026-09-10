@@ -49,13 +49,18 @@ async function publish(): Promise<void> {
   }) as typeof fetch
 }
 
-/** The tree install.sh leaves, with this process running from inside it. */
+/**
+ * The tree install.sh leaves, with this process running from inside it — the
+ * `.tula-sha256` receipt beside the binary included, since that is what the
+ * installer writes and what its fast path later reads.
+ */
 async function nativeTree(): Promise<void> {
   const dir = join(root, 'versions', '0.1.0')
   await mkdir(dir, { recursive: true })
   await mkdir(join(root, 'bin'), { recursive: true })
   const binary = join(dir, 'tula')
   await writeFile(binary, '')
+  await writeFile(join(dir, '.tula-sha256'), `${createHash('sha256').update('').digest('hex')}\n`)
   await symlink(binary, join(root, 'bin', 'tula'))
   setExecPath(binary)
 }
@@ -86,9 +91,10 @@ describe('/update', () => {
    * URL. It is read off a redirect, which is the one input on this path that
    * does not come from us, so its shape is checked rather than assumed.
    */
-  test('a tag that is not a release number is no answer at all', async () => {
+  test('a tag that is not a release number installs nothing and is not read as current', async () => {
     await nativeTree()
     await publish()
+    const before = await linkedVersion()
     const offering = globalThis.fetch
     globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString()
@@ -98,8 +104,28 @@ describe('/update', () => {
       return landed
     }) as typeof fetch
 
-    const { output } = await update(['install'])
-    expect(output).toContain('newest release')
+    const result = await update(['install'])
+    expect(await linkedVersion()).toBe(before)
+    expect(result.output).not.toContain('newest release')
+    expect(result.output).toContain('is unknown')
+    expect(result.failed).toBe(true)
+  })
+
+  /**
+   * `pendingUpdate` is silent on every failure and that is right: nobody opened
+   * tula to find out about tula. This one was typed, so a check that did not
+   * happen must not read as a check that found nothing.
+   */
+  test('an unreachable GitHub does not report the running build as the newest release', async () => {
+    await nativeTree()
+    globalThis.fetch = (async () => {
+      throw new Error('getaddrinfo ENOTFOUND github.com')
+    }) as unknown as typeof fetch
+
+    const result = await update([])
+    expect(result.output).not.toContain('newest release')
+    expect(result.output).toContain(`${REPO_URL}/releases/latest`)
+    expect(result.failed).toBe(true)
   })
 
   test('rejects a subcommand it does not have, rather than guessing', async () => {

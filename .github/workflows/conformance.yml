@@ -1,0 +1,40 @@
+name: Venue conformance
+
+# What this catches is a rule inferred from a venue's data going stale as that
+# data changes. Kraken's four-character X/Z prefix rule was true when it was
+# written; nine listings later tula was renaming Tether Gold to AUT, and every
+# fixture in the repo had been captured before those listings existed. Nothing
+# in `bun test` can find that, because nothing in `bun test` talks to a venue.
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly. A venue lists tokens in days, not hours, and a daily report nobody
+    # reads is the same as no report.
+    - cron: '17 6 * * 1'
+  release:
+    types: [published]
+
+# Never on pull_request. `ci.yml` runs on push and PR and has to stay openable
+# by somebody with a fork and no secrets; a job that reaches two venues, GitHub
+# and a token feed also fails on a network the runner cannot reach, and a red X
+# for that is one people learn to ignore.
+permissions:
+  contents: read
+
+jobs:
+  conformance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.2.16
+      - run: bun install --frozen-lockfile
+
+      # The report is the artifact, not the exit code: the script exits 0 whether
+      # a venue drifted or not, and writes the whole of what it found to the run
+      # summary so it can be read without opening the log.
+      - name: what tula believes, re-checked against the venue
+        run: bun run conformance

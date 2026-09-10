@@ -134,6 +134,8 @@ interface KeyPermissions {
   can_view?: boolean
   can_trade?: boolean
   can_transfer?: boolean
+  /** The portfolio the key is scoped to; Coinbase derives it from the key itself. */
+  portfolio_uuid?: string
 }
 
 interface AccountsResponse {
@@ -144,6 +146,37 @@ interface AccountsResponse {
   }>
   has_next?: boolean
   cursor?: string
+}
+
+/** Native and underlying-currency views of one figure. Coinbase spells the
+ *  members of this one in camelCase; the rest of the API is snake_case. */
+interface BalancePair {
+  rawCurrency?: { value?: string }
+  userNativeCurrency?: { value?: string }
+}
+
+interface PerpPosition {
+  product_id?: string
+  symbol?: string
+  position_side?: string
+  net_size?: string
+  leverage?: string
+  liquidation_price?: BalancePair
+}
+
+interface BreakdownResponse {
+  breakdown?: { perp_positions?: PerpPosition[] }
+}
+
+const amount = (pair: BalancePair | undefined): string | undefined =>
+  pair?.rawCurrency?.value ?? pair?.userNativeCurrency?.value
+
+/**
+ * `BTC-PERP-INTX` is one contract on one asset. Split rather than stripped:
+ * a suffix list is a guess about names Coinbase adds without telling anyone.
+ */
+export function perpAsset(productId: string): string {
+  return productId.split('-')[0] ?? productId
 }
 
 export const coinbaseConnector: Connector = {
@@ -169,6 +202,32 @@ export const coinbaseConnector: Connector = {
     { label: 'Advanced Trade authentication', url: 'https://docs.cdp.coinbase.com/advanced-trade/docs/rest-api-auth' },
     { label: 'Your API keys', url: 'https://portal.cdp.coinbase.com/access/api' },
   ],
+
+  coverage: {
+    reads: [
+      'every account the key can list, free and held stated apart',
+      'perpetual futures positions, with the liquidation price and leverage Coinbase publishes',
+    ],
+    doesNotRead: [
+      {
+        what: 'portfolios other than the one the key is scoped to',
+        why:
+          'Coinbase derives the portfolio from the API key itself, so one key reaches one ' +
+          'portfolio. Reaching the rest needs one key each, which the user has to add.',
+        hides: 'value',
+        plan: 'tasks/breadth/14-coinbase-depth.md',
+      },
+      {
+        what: 'CFTC-regulated futures positions',
+        why:
+          'Coinbase states a futures position as a contract count beside a contract size, with ' +
+          'no documented conversion to asset units, and publishes its liquidation threshold ' +
+          'against the account rather than the position',
+        hides: 'liquidation',
+        plan: 'tasks/breadth/14-coinbase-depth.md',
+      },
+    ],
+  },
 
   /** Coinbase reports what the key may do, so every field here is proven. */
   async verifyScope(creds: ConnectorCredentials): Promise<KeyScope> {
@@ -209,23 +268,76 @@ export const coinbaseConnector: Connector = {
       )
     }
 
+    // Held funds are still yours and still exposed, so they stay in the book —
+    // as their own row. Summing them into the spot figure was right about the
+    // exposure and destroyed the only answer to "how much can I move".
+    const byId = new Map<string, Position>()
+    const add = (asset: string, kind: 'spot' | 'pending', quantity: Decimal) => {
+      if (quantity.isZero()) return
+      const id = `coinbase:${kind}:${asset}`
+      const merged = byId.get(id)?.quantity.plus(quantity) ?? quantity
+      byId.set(id, { id, venue: COINBASE.id, kind, asset, quantity: merged, delta: merged, asOf })
+    }
+
     for (const account of accounts) {
       const asset = account.available_balance?.currency ?? account.currency
       if (!asset) continue
-      // Held funds are still yours and still exposed, so they belong in the total.
-      const total = new Decimal(account.available_balance?.value ?? '0').plus(account.hold?.value ?? '0')
-      if (total.isZero()) continue
-      positions.push({
-        id: `coinbase:spot:${asset}`,
-        venue: COINBASE.id,
-        kind: 'spot',
-        asset,
-        quantity: total,
-        delta: total,
-        asOf,
-      })
+      add(asset, 'spot', new Decimal(account.available_balance?.value ?? '0'))
+      add(asset, 'pending', new Decimal(account.hold?.value ?? '0'))
     }
+    positions.push(...byId.values())
 
+    positions.push(...(await perpPositions(creds, asOf)))
     return positions
   },
+}
+
+/**
+ * The accounts list shows the cash a perp account holds and never the position
+ * standing against it, so a book one price move from liquidation read as a pile
+ * of USDC. The breakdown is where Coinbase publishes the liquidation price.
+ */
+async function perpPositions(creds: ConnectorCredentials, asOf: Date): Promise<Position[]> {
+  // The key names its own portfolio; there is no other way to address it.
+  const { portfolio_uuid: portfolio } = await get<KeyPermissions>(
+    '/api/v3/brokerage/key_permissions',
+    creds,
+  )
+  if (!portfolio) return []
+
+  const body = await get<BreakdownResponse>(
+    `/api/v3/brokerage/portfolios/${encodeURIComponent(portfolio)}`,
+    creds,
+  )
+
+  const positions: Position[] = []
+  for (const perp of body.breakdown?.perp_positions ?? []) {
+    const product = perp.product_id ?? perp.symbol
+    if (!product) continue
+    const size = new Decimal(perp.net_size ?? '0')
+    if (size.isZero()) continue
+    // Coinbase states the side separately and net_size unsigned on some rows;
+    // the side is the authority where it gave one.
+    const signed = perp.position_side?.endsWith('SHORT') ? size.abs().negated() : size
+    const liquidation = amount(perp.liquidation_price)
+    const price = liquidation === undefined ? null : new Decimal(liquidation)
+
+    positions.push({
+      id: `coinbase:perp:${product}`,
+      venue: COINBASE.id,
+      kind: 'perp',
+      asset: perpAsset(product),
+      quantity: signed,
+      delta: signed,
+      asOf,
+      liquidation: {
+        // Written even where Coinbase named no price: the leverage below is
+        // still worth carrying, and `rankable` keeps a perp on its kind.
+        ...(price && !price.isZero() ? { price } : {}),
+        ...(perp.leverage ? { leverage: new Decimal(perp.leverage) } : {}),
+      },
+    })
+  }
+
+  return positions
 }

@@ -5,8 +5,9 @@ import { NAV, pageUrl, SITE } from '@/lib/site'
 export const dynamic = 'force-static'
 
 /**
- * The whole site is `NAV` plus `llms.txt`; there is no route the header does
- * not show. Derived rather than listed so a fourth page cannot ship unindexed.
+ * Every readable page is `NAV` plus `llms.txt`, derived rather than listed so a
+ * fourth page cannot ship unindexed. What is left out is what a reader would
+ * never arrive at: the 404, the assets, `install.sh` and `security.txt`.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
   // The site is static, so "last modified" is the build that published it —

@@ -21,12 +21,14 @@ TARGETS=(
 rm -rf "$OUT"
 mkdir -p "$OUT"
 
-# Reproducible archives: two builds of the same commit must produce the same
-# checksum, or a checksum that changed for no reason teaches people to ignore
-# checksums. `gzip -n` is why this is not `-czf` — the gzip header stamps the
-# time otherwise, and that alone changes the checksum of an identical tree.
-# macOS ships bsdtar, which spells ownership differently and has no --mtime at
-# all, so the timestamp is set on the staged files instead.
+# The archive adds no nondeterminism of its own: `gzip -n` is why this is not
+# `-czf` — the gzip header stamps the time otherwise — and ownership and the
+# mtime are pinned below. macOS ships bsdtar, which spells ownership differently
+# and has no --mtime at all, so the timestamp is set on the staged files instead.
+# The binary inside is not reproducible and none of this reaches it: `bun build
+# --compile` stamps a build id, so two builds of one commit differ by a few dozen
+# bytes. Provenance is the attestation, never a rebuild; nothing here says
+# otherwise, and no user-facing surface does either.
 if tar --version 2>/dev/null | grep -qi gnu; then
   TAR_FLAGS=(--owner=0 --group=0 --numeric-owner)
 else
@@ -42,6 +44,10 @@ for entry in "${TARGETS[@]}"; do
   echo "building $name"
   bun build src/index.ts --compile --target="$target" --outfile "$stage/tula"
   chmod 755 "$stage/tula"
+  # Before the archive exists, so a binary carrying a debug listener is never a
+  # file anybody can pick up. Every target, because what gets bundled is decided
+  # by what resolves at build time and that is the same for all four.
+  bash "$(dirname "$0")/binary-audit.sh" "$stage/tula"
   cp LICENSE "$stage/LICENSE"
 
   # Members are named explicitly rather than by recursing the directory, so

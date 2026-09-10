@@ -18,9 +18,9 @@
     "check": "tsc --noEmit && bun test && bash scripts/install-test.sh && bash scripts/guard.sh && bash scripts/guard-test.sh && bash scripts/scan-test.sh",
     "guard": "bash scripts/guard.sh && bash scripts/guard-test.sh && bash scripts/scan-test.sh",
     "prepare-hooks": "git config core.hooksPath .githooks",
-    "test:install": "bash scripts/install-test.sh",
-    "release:build": "bash scripts/release-build.sh",
-    "release:cut": "bash scripts/release-cut.sh"
+    "conformance": "bun run scripts/conformance.live.ts",
+    "release:cut": "bash scripts/release-cut.sh",
+    "eval:injection": "bun run src/agent/injection.eval.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.122.0",
@@ -32,7 +32,6 @@
     "@types/bun": "1.4.0",
     "@types/react": "19.2.18",
     "@xterm/headless": "6.0.0",
-    "react-devtools-core": "7.0.1",
     "typescript": "7.0.2"
   },
   "repository": {
@@ -51,5 +50,8 @@
     "kraken",
     "hyperliquid",
     "aave"
-  ]
+  ],
+  "patchedDependencies": {
+    "ink@7.1.1": "patches/ink@7.1.1.patch"
+  }
 }

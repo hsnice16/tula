@@ -1,40 +1,46 @@
 # 7 · The open pieces
 
-Nothing here is new scope: every item is a gap inside something that already
-shipped. Closing it finishes milestones 2, 3 and 6, and leaves 4 holding only the
-aggregator.
+Shipped. Nothing here was new scope: every item was a gap inside something that
+had already shipped. Closing it finished milestone 3, left 4 holding the
+aggregator and one dead end, and left 6 holding one unstated assumption.
 
-They belong together because they are one gap wearing four sets of clothes — **the
-book does not yet tell the truth about itself.**
+They belonged together because they were one gap wearing four sets of clothes —
+**the book did not tell the truth about itself.** What each of them was, and what
+answers it now:
 
-- **What is actually yours.** Four connectors fetch what is free to move and sum
-  it away, so an open order, a pending payout and pledged collateral all read as
-  spendable.
+- **What is actually yours.** Four connectors fetched what was free to move and
+  summed it away, so an open order, a pending payout and pledged collateral all
+  read as spendable. `src/core/availability.ts`, and the **FREE** and
+  **UNAVAILABLE** columns it draws.
 - **What tula actually read.** A chain never queried is not a venue that failed,
-  so `INCOMPLETE` stays silent and the total is short with nothing saying so.
-- **Which text is actually ours.** Venue strings reach the model as ordinary
-  values, and what marks them as data is a sentence in the system prompt.
-- **How much of you it reads.** One address per venue, one chain, eight venues —
-  each a limit nobody is told about.
+  so `INCOMPLETE` stayed silent and the total was short with nothing saying so.
+  `src/core/coverage.ts`, and the `NOT READ` line.
+- **Which text is actually ours.** Venue strings reached the model as ordinary
+  values, and what marked them as data was a sentence in the system prompt. Every
+  tool result now names the paths that text sits at, derived from the payload.
+- **How much of you it reads.** Three chains and no more, and one or two
+  endpoints of each venue connected — each a limit nobody was told about. Each
+  connector declares its own, and each declaration is held open by a test.
 
 ## Tasks
 
-- [01 · Scope disclosure](01-scope-disclosure.md) — planned
-- [02 · A credential store that holds a set](02-credential-store-set.md) — planned
-- [Availability](../risk-engine/04-availability.md) — planned
-- [Prompt injection defence](../the-shell/09-injection-defense.md) — in_progress
-- [Multiple addresses per venue](../cross-domain/03-watched-addresses.md) — needs 02
-- [Chain coverage](../breadth/03-chain-coverage.md) — planned
+- [01 · Scope disclosure](01-scope-disclosure.md) — done
+- [02 · A credential store that holds a set](02-credential-store-set.md) — done
+- [Availability](../risk-engine/04-availability.md) — done
+- [Prompt injection defence](../the-shell/09-injection-defense.md) — done, except telling the reader a symbol was altered
+- [Multiple addresses per venue](../cross-domain/03-watched-addresses.md) — done
+- [Chain coverage](../breadth/03-chain-coverage.md) — done
 
-## Order
+## What is left, and where it lives now
 
-01 first: it is the cheapest, and it makes every limit below it honest while the
-rest are still being built. Then availability, which is the one where a shipped
-view currently misleads. Then injection labelling, which is small and unblocks
-the conformance gate in 11. Then 02, which unblocks multiple addresses. Chains
-and the aggregator last, and the aggregator is the item most likely to slip —
-choosing between Zerion, Zapper, DeBank Cloud and Alchemy Portfolio is a decision
-about cost and terms, not an implementation detail.
+The reader-facing half of the injection work. Labelling venue text *to the model*
+was this milestone's item and shipped; `src/cli/session.ts` still swaps a
+sanitized symbol in silently, so somebody reading `/positions` learns nothing
+about the venue that sent it. That is a gap in milestone 2, not here, and
+[`ROADMAP.md`](../../ROADMAP.md) names it there.
+
+The aggregator was never this milestone's — it completes a total rather than
+repairing one, and it waits for 10.
 
 ## Done means
 
@@ -43,9 +49,9 @@ the failure it prevents rather than the mechanism, because the name is what a
 reader sees when it breaks at 2am — the same reason `src/core/exposure.test.ts`
 says *notional is null without a price, never zero* rather than *returns null*.
 
-Nothing is stubbed ahead of the work: a placeholder test is a reachable stub, and
-`bun run check` gates every commit, so a failing test would block the tree until
-the feature lands.
+Nothing was stubbed ahead of the work: a placeholder test is a reachable stub, and
+`bun run check` gates every commit, so a failing test would have blocked the tree
+until the feature landed.
 
 ## Not here
 
