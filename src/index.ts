@@ -1,5 +1,6 @@
 import { ask, askFields } from './cli/prompt.js'
-import { forgetCommand, nearestCommand, useSurface } from './cli/registry.js'
+import { useSurface } from './core/surface.js'
+import { forgetCommand, nearestCommand } from './cli/registry.js'
 import { Session } from './cli/session.js'
 import { dispatchCommand, parseCommand } from './cli/shell.js'
 import { CONNECTORS } from './connectors/registry.js'
@@ -52,8 +53,11 @@ async function chooseEntry(
     return null
   }
 
+  // `1-1` over a single entry is a range with one end, and it reads as a typo
+  // in the line that offers to delete something.
+  const pick = held.length === 1 ? '1' : `1-${held.length}`
   const answer = await ask(
-    `  Type a to add another, or 1-${held.length} to replace that one: `,
+    `  Type a to add another, or ${pick} to replace ${held.length === 1 ? 'it' : 'the one you pick'}: `,
     { hidden: false, command },
   )
   if (answer.toLowerCase() === 'a') {

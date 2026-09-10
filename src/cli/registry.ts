@@ -1,34 +1,5 @@
+import { isCli, typed } from '../core/surface.js'
 import { PRICE_PROVIDERS } from '../prices/providers.js'
-
-/**
- * Where the text being written will be read. A remedy is only a remedy if it
- * can be typed where it is printed, and `/kraken connect` pasted into a real
- * shell is a path that does not exist.
- *
- * Process-wide because a process is one surface: `src/index.ts` opens the shell
- * or runs one command, never both.
- */
-export type Surface = 'shell' | 'cli'
-
-let surface: Surface = 'shell'
-
-export function useSurface(next: Surface): void {
-  surface = next
-}
-
-/** A command as the reader would type it, on the surface they are reading. */
-export function typed(command: string): string {
-  return surface === 'cli' ? `tula ${command}` : `/${command}`
-}
-
-/**
- * Connecting is the one command spelled differently rather than merely
- * prefixed: the one-shot CLI documents `tula connect <venue>`, and `tula` with
- * no command opens the shell where the menu is.
- */
-export function connectCommand(venueId: string): string {
-  return surface === 'cli' ? `tula connect ${venueId}` : `/${venueId} connect`
-}
 
 /** The delete, spelled for the surface. What `retired()` in `src/connectors/types.ts` is handed. */
 export function forgetCommand(venueId: string): string {
@@ -43,14 +14,14 @@ export function forgetCommand(venueId: string): string {
  * real command on either surface.
  */
 export function signInCommand(): string {
-  return surface === 'cli'
+  return isCli()
     ? 'run tula, then /login — or: ant auth login'
     : '/login, or: ant auth login'
 }
 
 /** How somebody with no venue connected is sent to choose one. */
 export function pickVenue(): string {
-  return surface === 'cli' ? 'Connect one with:  tula connect <venue>' : 'Type / and pick one.'
+  return isCli() ? 'Connect one with:  tula connect <venue>' : 'Type / and pick one.'
 }
 
 export type CommandGroup = 'risk' | 'venues' | 'prices' | 'session'
@@ -357,7 +328,7 @@ export function helpText(
   })
 
   return [
-    surface === 'cli'
+    isCli()
       ? 'Run any of these as shown. `tula` on its own opens the shell, where the same\ncommands take a slash and anything without one is a question in plain English.'
       : 'Type / for commands, or just ask a question in plain English.',
     '',

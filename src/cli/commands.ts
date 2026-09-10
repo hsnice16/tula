@@ -43,14 +43,8 @@ import { freshness, healthFactor, holdings, pct, price, quantity, usd } from '..
 import { renderTable, type Align } from '../ui/table.js'
 import * as secrets from '../secrets/store.js'
 import { APP_DESCRIPTION, APP_NAME, APP_VERSION, IS_PRE_RELEASE, REPO_URL } from '../version.js'
-import {
-  connectCommand,
-  forgetCommand,
-  namesCommand,
-  pickVenue,
-  signInCommand,
-  typed,
-} from './registry.js'
+import { connectCommand, typed } from '../core/surface.js'
+import { forgetCommand, namesCommand, pickVenue, signInCommand } from './registry.js'
 import type { Altered, Alteration, Session } from './session.js'
 
 export interface CommandResult {
@@ -351,7 +345,10 @@ async function emptyBook(session: Session): Promise<string> {
   const them = read.length === 1 ? named : 'them'
   return (
     `${named} ${read.length === 1 ? 'is' : 'are'} connected and returned nothing.\n` +
-    `  Either the account is empty, it is not the one you trade with${
+    // The `or` moves rather than disappearing: two possibilities take it before
+    // the second, three take it before the third, and dropped from the two-item
+    // form the sentence stopped being one.
+    `  Either the account is empty, ${unread ? '' : 'or '}it is not the one you trade with${
       unread ? `,\n  or what it holds is in a part of ${them} nothing here reads` : ''
     }.\n` +
     `  ${typed(`${read[0]} status`)} shows what tula is reading${unread ? ' and what it is not' : ''};\n` +
@@ -384,7 +381,7 @@ function unreadVenue(session: Session, venueId: string, kind: VenueKind, held: n
   const unread = disclosure(CONNECTORS, [venueId]).areas.length > 0
   return (
     `${venueId} returned ${kind === 'wallet' ? 'no tokens' : 'nothing'}.\n` +
-    `  Either the account is empty, it is not the one you meant to connect${
+    `  Either the account is empty, ${unread ? '' : 'or '}it is not the one you meant to connect${
       unread ? `,\n  or what it holds is in a part of ${venueId} nothing here reads` : ''
     }.\n` +
     `  ${typed(`${venueId} status`)} shows what tula is reading${unread ? ' and what it is not' : ''};\n` +

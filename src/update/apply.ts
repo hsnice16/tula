@@ -14,6 +14,17 @@ import { isNewer } from './version.js'
 const run = promisify(execFile)
 
 /**
+ * How long an unpack may take before it is a hang rather than work.
+ *
+ * `tar` was the one wait in this codebase with no deadline on it, and it is
+ * reached with an archive from the network — so a truncated or malformed one
+ * held `/update install` open with no way out but Ctrl-C, which is the failure
+ * `src/core/http.ts` bounds everywhere else. Generous, because the archive is
+ * tens of megabytes and a slow disk is not a hang.
+ */
+const UNPACK_TIMEOUT_MS = 120_000
+
+/**
  * What this machine's build is called in a release. Mirrors `detect_target` in
  * `install.sh`, and is exported for the tests: they have to name the archive
  * they serve, and a second copy of this mapping there would agree with itself
@@ -56,9 +67,12 @@ async function fetchBytes(url: string, onProgress?: DownloadProgress): Promise<B
   // hang rather than as work.
   const total = Number(response.headers.get('content-length')) || null
   const body = response.body
+  // Only `cancel` is needed out here; the read loop keeps its own handle.
+  let open: { cancel(): Promise<void> } | undefined
   try {
     if (!body) return Buffer.from(await response.arrayBuffer())
     const reader = body.getReader()
+    open = reader
     const chunks: Uint8Array[] = []
     let received = 0
     let reported = 0
@@ -81,6 +95,11 @@ async function fetchBytes(url: string, onProgress?: DownloadProgress): Promise<B
       `The download from ${host(url)} stopped part-way.\n` +
         '  Nothing was installed. Try /update install again.',
     )
+  } finally {
+    // Released however the read ends. On the very failure the catch above
+    // exists for, the reader and the body under it were left locked — and this
+    // is the one path here that holds an open socket rather than a file.
+    await open?.cancel().catch(() => {})
   }
 }
 
@@ -221,7 +240,10 @@ export async function applyUpdate(
     // missing tar or a non-zero exit, and `command.ts` rethrows anything that is
     // not a TulaError — so an unpack failure left the update as a stack trace.
     try {
-      await run('tar', ['-xzf', staged, '-C', dir])
+      await run('tar', ['-xzf', staged, '-C', dir], {
+        timeout: UNPACK_TIMEOUT_MS,
+        killSignal: 'SIGKILL',
+      })
     } catch {
       throw new TulaError(
         `Could not unpack ${archive}. Nothing was installed.\n` +

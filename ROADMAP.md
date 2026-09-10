@@ -34,8 +34,9 @@ covering its acceptance and `src/tasks.test.ts` fails on one that does not —
 
 Two milestones are ◐ — **4** and **12** — and every open piece is named here
 rather than left to the reader. Neither holds a bullet marked `**Not met.**`:
-that spelling and no other, so one grep over `tasks/` now finds none, and this
-paragraph can be checked rather than believed. What is left of each is work
+that spelling and no other, so `grep -rn 'Not met' tasks/*/` finds none — the
+directories, not `tasks/README.md`, which documents the marker and so contains
+it — and this paragraph can be checked rather than believed. What is left of each is work
 nobody has started rather than work that missed. 4 is the aggregator, which
 waits for 10, and Aave V4, which does not — the two are split below. 12 is ◐ the
 other way round from every other row: the docs site shipped, and of the
@@ -91,7 +92,9 @@ major version on, and as v3 drains into v4 an Aave position tula cannot see is a
 liquidation tula cannot rank. [`breadth/08`](./tasks/breadth/08-aave-v4.md) is
 the task, and it is honest about what is unknown — the account model, whether a
 health factor is per Hub, whether `getUserAccountData` has an equivalent. The
-`NOT READ` line stands until the connector reads V4; that is what tells the user.
+declaration stands until the connector reads V4, and `/venues` is where the
+reader meets it — that, or the sentence under an Aave book that came back
+empty, which is where somebody on V4 actually lands.
 
 The risk engine (6) landed alongside breadth and distribution rather than after
 them, and that reordering is why this table stopped naming versions: it used to,

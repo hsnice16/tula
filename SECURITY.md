@@ -74,6 +74,11 @@ Highest severity first:
      source that received it, the only place that can tell tula's own words from
      somebody else's — so it cannot pose as a second message or as the line
      above it.
+   - The text of an error from the model provider, which takes the same cap in
+     `explain()` in `src/agent/agent.ts`. It is listed here because it is the
+     one source of outside text that is not a venue's, and it went unbounded
+     while the other two were capped: the argument `remote()` makes about what
+     an escape sequence can repaint does not stop at the venue boundary.
 
    No memo, NFT metadata or protocol description is read at all.
 

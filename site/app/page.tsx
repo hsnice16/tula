@@ -111,7 +111,11 @@ UNI      60     $438.00  wallet                   09:14:02 (4s ago)
             {`VENUE        ASSET  KIND        MOVE TO LIQ  TRIGGER              AS OF
 ───────────  ─────  ──────────  ───────────  ───────────────────  ─────────────────
 aave         ETH    collateral       -27.0%  health factor 1.37   09:14:02 (4s ago)
-hyperliquid  ETH    perp             +39.3%  liq price $3,412.00  09:14:02 (4s ago)`}
+hyperliquid  ETH    perp             +39.3%  liq price $3,412.00  09:14:02 (4s ago)
+
+Ranked over what tula reads: aave, hyperliquid and kraken each have an unread
+area that could hold a liquidation of its own.
+  /venues names them.`}
           </Session>
         </div>
       </section>
@@ -195,18 +199,25 @@ hyperliquid  ETH    perp             +39.3%  liq price $3,412.00  09:14:02 (4s a
             </p>
           </div>
 
-          {/* The answer leads, because the tool results carrying these figures
-              carry no coverage caveat — `incompleteNote()` and src/agent/tools.ts
-              both hold it back to the command that answers it, `/venues` and
-              get_venue_status. A preamble here would be output the tool cannot
-              produce, which is the defect src/site-example.test.ts exists for. */}
+          {/* The answer leads: `incompleteNote()` and src/agent/tools.ts hold
+              coverage back to the command that answers it. The one caveat that
+              survives is about the *ranking* — `unrankedVenues()` — so it rides
+              on this answer, which asks what breaks first, and on the /breaks
+              frame above. A preamble about coverage would be output the tool
+              cannot produce; so would an answer with no ranking caveat at all,
+              which is what stood here. src/site-example.test.ts is the defect's
+              home either way. */}
           <Ask question="what's my real ETH exposure, and what breaks first if ETH drops 20%?">
             {`Net long 6.64 ETH, $16,268.00 across kraken, hyperliquid and aave, as of
 09:14:02 (4s ago).
 
 A 20% fall takes the book to $31,220.40, a change of -$3,253.60, and
 nothing liquidates. Aave is nearest: a health factor of 1.37 breaks at
--27.0%. The hyperliquid short breaks the other way, +39.3%.`}
+-27.0%. The hyperliquid short breaks the other way, +39.3%.
+
+That ranking is over what tula reads. aave, hyperliquid and kraken each
+have an area it does not read that could hold a liquidation of its own —
+/venues names them.`}
           </Ask>
         </div>
       </section>

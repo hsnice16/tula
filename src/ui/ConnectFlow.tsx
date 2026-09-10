@@ -8,7 +8,7 @@ import {
   type ConnectorCredentials,
   type KeyScope,
 } from '../connectors/types.js'
-import { connectCommand, typed } from '../cli/registry.js'
+import { connectCommand, typed } from '../core/surface.js'
 import { failureText } from '../core/errors.js'
 import * as secrets from '../secrets/store.js'
 import type { StoredCredential } from '../secrets/store.js'
@@ -303,22 +303,34 @@ export function ConnectFlow({ target, onDone, existing = [], save: store, doneMe
       {step.kind === 'pick' && (
         <Box flexDirection="column" marginTop={1}>
           <Text>{`  ${target.name} already holds ${existing.length} ${existing.length === 1 ? noun : nouns}:`}</Text>
+          {/* A list of one needs no index — and given one, the same digit stood
+              in the key column twice: once labelling the address, once as the
+              key that deletes it. Numbered only where there is something to
+              tell apart. */}
           {existing.map((entry, at) => (
             <Text key={entry.id}>
-              <Text color={theme.accent}>{`  ${at < PICKABLE ? at + 1 : ' '}  `}</Text>
+              <Text color={theme.accent}>
+                {`  ${existing.length === 1 || at >= PICKABLE ? ' ' : at + 1}  `}
+              </Text>
               {secrets.credentialLabel(entry)}
             </Text>
           ))}
           <Box marginTop={1} flexDirection="column">
             <Text>
               <Text color={theme.accent}>{'  a'}</Text>
-              {`  add another ${noun}, and keep every one above`}
+              {`  add another ${noun}, and keep ${existing.length === 1 ? 'the one' : 'every one'} above`}
             </Text>
+            {/* The one key here that destroys something, drawn in the colour
+                this screen already uses for that. The digits above are the same
+                keys, so in one accent column a reader met `1` as a bullet and
+                `1` as delete, in the same colour, four rows apart. */}
             <Text>
-              <Text color={theme.accent}>
+              <Text color={theme.danger}>
                 {`  ${existing.length === 1 ? '1' : `1-${Math.min(existing.length, PICKABLE)}`}`}
               </Text>
-              {`  replace that one — it is deleted, and you type ${target.id} to confirm`}
+              {existing.length === 1
+                ? `  replace it — the one above is deleted, and you type ${target.id} to confirm`
+                : `  replace that ${noun} — it is deleted, and you type ${target.id} to confirm`}
             </Text>
             {existing.length > PICKABLE && (
               <Text dimColor>

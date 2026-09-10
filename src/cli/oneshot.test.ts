@@ -109,7 +109,9 @@ describe('one account of several, from the command line', () => {
     const out = stdout + stderr
     expect(out).toContain('already holds 2')
     expect(out).toContain('Adding to them')
-    expect(out).not.toContain('to replace that one')
+    // The prompt's own words, so rewording it cannot make this pass by missing.
+    expect(out).not.toContain('to replace the one you pick')
+    expect(out).not.toContain('Type a to add another')
     // The piped line reached the address prompt rather than the question above
     // it: this is the refusal that only comes from having read the address.
     expect(out.toLowerCase()).toContain('address')

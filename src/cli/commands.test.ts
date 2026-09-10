@@ -149,6 +149,26 @@ describe('what the book does not cover, where the book is read', () => {
     expect(result.incomplete).toBe(false)
   })
 
+  test('the sentence stays a sentence whether there are two possibilities or three', async () => {
+    // The `or` belongs before the last item, and the last item moves. Written
+    // as a fixed part of the second clause it vanished from the two-item form:
+    // "Either the account is empty, it is not the one you trade with."
+    const withGap = await commands.positions(await sessionOver(map(holding('aave', []))))
+    expect(withGap.output).toContain('empty, it is not the one you trade with,')
+    expect(withGap.output).toContain('or what it holds is in a part of aave')
+
+    // A venue the registry has no manifest for, which is the only way to reach
+    // the two-item form: every venue this build ships declares something.
+    const base = CONNECTORS.get('aave')!
+    const stranger: Connector = {
+      ...base,
+      venue: { ...base.venue, id: 'stranger' },
+      fetchPositions: async () => [],
+    }
+    const noGap = await commands.positions(await sessionOver(map(stranger)))
+    expect(noGap.output).toContain('empty, or it is not the one you trade with.')
+  })
+
   test('an empty book names the third possibility, not just the two that are wrong', async () => {
     // The founding case, and it was the one screen that never said it: connect
     // Aave, hold everything on V4, and the whole book comes back empty. Offered

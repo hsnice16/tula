@@ -190,7 +190,7 @@ useful thing you can send.
 | **Kraken** | spot, staked and held balances in every wallet, and open margin positions with the loan behind each | one or more query-only API keys |
 | **Binance** | spot balances with free and locked stated apart, and cross and isolated margin with the liquidation price each carries | one or more read-only API keys |
 | **Coinbase Advanced** | every account the key can list, free and held stated apart, and perpetual positions with liquidation price and leverage | one or more CDP API keys (view-only) |
-| **Stripe** | all six balance buckets `/v1/balance` carries, per currency | one or more restricted (`rk_`) keys |
+| **Stripe** | five of the six balance buckets `/v1/balance` carries, per currency — `instant_available` is a slice of `available` and would state the same money twice | one or more restricted (`rk_`) keys |
 
 | | |
 |---|---|

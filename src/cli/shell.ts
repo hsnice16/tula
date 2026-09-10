@@ -10,20 +10,8 @@ import {
   priceProvider,
   type PriceProvider,
 } from '../prices/providers.js'
-import {
-  connectCommand,
-  defaultSubcommand,
-  forgetCommand,
-  helpText,
-  nearestCommand,
-  parseCommand,
-  priceEntries,
-  PRICE_SUBCOMMANDS,
-  typed,
-  VENUE_SUBCOMMANDS,
-  type ParsedCommand,
-  type VenueEntry,
-} from './registry.js'
+import { connectCommand, typed } from '../core/surface.js'
+import { defaultSubcommand, forgetCommand, helpText, nearestCommand, parseCommand, priceEntries, PRICE_SUBCOMMANDS, VENUE_SUBCOMMANDS, type ParsedCommand, type VenueEntry } from './registry.js'
 import type { Session } from './session.js'
 
 export type UiAction = 'exit' | 'clear' | 'login'

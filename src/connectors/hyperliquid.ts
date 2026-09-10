@@ -128,8 +128,8 @@ export const hyperliquidConnector: Connector = {
       {
         what: 'the margin behind an isolated position, separately from the cross pool',
         why:
-          'marginUsed is discarded, and no captured account held an isolated position to ' +
-          'measure the split against',
+          'marginUsed is discarded, so the margin behind an isolated leg is neither ' +
+          'carved out of the cross pool nor shown beside it',
         hides: 'liquidation',
         plan: 'tasks/breadth/10-hyperliquid-depth.md',
       },

@@ -7,7 +7,8 @@ import type { PriceOracle } from '../core/prices.js'
 import { visible } from '../core/untrusted.js'
 import { cells } from '../ui/wrap.js'
 import * as secrets from '../secrets/store.js'
-import { connectCommand, forgetCommand, typed } from './registry.js'
+import { connectCommand, typed } from '../core/surface.js'
+import { forgetCommand } from './registry.js'
 
 /** What `symbol()` did to a name the venue sent, in the words the reader gets. */
 export type Alteration = 'hidden' | 'empty' | 'long'

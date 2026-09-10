@@ -196,6 +196,7 @@ src/
     risk.ts             # liquidation distance, scenario shocks, what breaks first
     availability.ts     # how much of a holding can move, and what is holding the rest
     coverage.ts         # what a connected venue was never asked for, from the connectors' own manifests; read on demand, never beside a figure
+    surface.ts          # shell or one-shot CLI, and how a command is spelled for each — below every layer that prints a remedy
     prices.ts           # PriceOracle interface (one oracle per process)
     http.ts             # request() — the only way out to the network, deadline included
     format.ts           # quantity, freshness, usd, price, pct, healthFactor — the only renderer of a figure

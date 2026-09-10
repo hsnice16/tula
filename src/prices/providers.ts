@@ -1,4 +1,5 @@
 import { TulaError } from '../core/errors.js'
+import { typed } from '../core/surface.js'
 import type {
   Connectable,
   ConnectorCredentials,
@@ -112,7 +113,9 @@ export function buildOracle(
   if (!chosen) {
     return {
       oracle: new CoinGeckoOracle(),
-      note: `"${id}" is not a price source this build knows. Using CoinGecko; pick one with /coingecko use.`,
+      note:
+        `"${id}" is not a price source this build knows. Using CoinGecko meanwhile;\n` +
+        `  ${typed('coingecko use')} makes that the stored choice, and ${typed('help')} lists the rest.`,
     }
   }
   try {

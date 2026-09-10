@@ -11,7 +11,7 @@ import {
 } from './cli/registry.js'
 import { trigger } from './cli/commands.js'
 import { CONNECTORS as SHIPPED } from './connectors/registry.js'
-import { disclosure } from './core/coverage.js'
+import { disclosure, list, unrankedVenues } from './core/coverage.js'
 import { netExposure, portfolioValue } from './core/exposure.js'
 import { holdings, pct, quantity, usd } from './core/format.js'
 import type { Position, PositionKind } from './core/position.js'
@@ -200,6 +200,23 @@ describe('the published example', () => {
     // claim about this book under this shock — not a safe thing to leave typed.
     expect(result.liquidated).toEqual([])
     expect(answer).toContain('nothing liquidates')
+  })
+
+  /**
+   * The exception, and the one this page got wrong: `what_breaks_first` and
+   * `run_scenario` do carry `unranked_liquidation_sources`, because a ranking
+   * with an unseen source in it is wrong rather than short. An answer to *this*
+   * question — what breaks first — published without it is a picture of output
+   * the tool does not produce.
+   */
+  test('names the venues whose unread areas the ranking could not see', () => {
+    const inBook = disclosure(SHIPPED, [...new Set(BOOK.map((p) => p.venue))])
+    const unseen = unrankedVenues(inBook, BOOK)
+    expect(unseen.length).toBeGreaterThan(0)
+    const answer = QUOTED[1]!.replace(/\s+/g, ' ')
+    expect(answer).toContain(list(unseen))
+    // After the figures, never before them: the question asked for a ranking.
+    expect(answer.indexOf(list(unseen))).toBeGreaterThan(answer.indexOf('Net long'))
   })
 
   test('quotes no coverage caveat, because no tool result carries one', () => {

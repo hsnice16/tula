@@ -2,7 +2,7 @@ import { readdirSync, statSync } from 'node:fs'
 import { homedir, platform } from 'node:os'
 import { join } from 'node:path'
 import Anthropic from '@anthropic-ai/sdk'
-import { TulaError } from '../core/errors.js'
+import { remote, TulaError } from '../core/errors.js'
 import type { RiskEngine } from './engine.js'
 import { executeTool, TOOLS } from './tools.js'
 
@@ -247,10 +247,16 @@ export class Agent {
  * through this API and still work.
  */
 export function explain(err: unknown): string {
+  // Every one of these carries text tula did not write, so every one goes
+  // through `remote()` — the same bound each venue's error takes. The argument
+  // there is about what an escape sequence in outside text can repaint, and it
+  // does not stop at the venue boundary: this is the third source of it on
+  // screen, and it was the one left unbounded.
+
   const fallback = 'Type / for the commands — they answer without the model.'
 
   if (err instanceof Anthropic.APIConnectionError) {
-    return `Could not reach Anthropic: ${err.message}\n  Check the network and ask again. ${fallback}`
+    return `Could not reach Anthropic: ${remote(err.message)}\n  Check the network and ask again. ${fallback}`
   }
 
   if (err instanceof Anthropic.APIError) {
@@ -272,9 +278,9 @@ export function explain(err: unknown): string {
       )
     }
     if (status === 400) {
-      return `Anthropic refused the request: ${err.message}\n  ${fallback}`
+      return `Anthropic refused the request: ${remote(err.message)}\n  ${fallback}`
     }
   }
 
-  return `${err instanceof Error ? err.message : String(err)}\n  ${fallback}`
+  return `${remote(err instanceof Error ? err.message : String(err))}\n  ${fallback}`
 }

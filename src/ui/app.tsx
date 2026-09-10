@@ -599,15 +599,21 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
    */
   const applyCredentials = useCallback(
     async (result: CredentialsResult) => {
+      // The two reads are inside it too. `store.load()` throws by design on a
+      // store whose mode drifted, one reached through a symlink, or one a newer
+      // build wrote — the refusals it exists to make — and left outside the
+      // catch those became an unhandled rejection at the moment somebody had
+      // just signed in, with the sentence explaining why never drawn.
+      let source: Awaited<ReturnType<typeof credentialSource>>
+      let key: string | undefined
       try {
         if (result.kind === 'key') await secrets.putProviderKey(result.apiKey)
         if (result.kind === 'signed-out') await secrets.removeProviderKey()
+        source = await credentialSource()
+        key = envApiKey() ?? (await secrets.getProviderKey())
       } catch (err) {
         return push('error', failureText(err))
       }
-
-      const source = await credentialSource()
-      const key = envApiKey() ?? (await secrets.getProviderKey())
       setAgent(
         source === 'none' ? null : new Agent(riskEngineFor(session), key ? { apiKey: key } : {}),
       )
@@ -750,8 +756,13 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
   }, [session, connectors, connected, entries.length])
 
   useEffect(() => {
-    void secrets.getPriceSource().then((stored) => setActivePrice(stored?.provider ?? DEFAULT_PROVIDER))
-  }, [])
+    // A store this cannot read is not a store with no price source in it: the
+    // read throws, and unhandled it takes the shell down before it has drawn.
+    void secrets
+      .getPriceSource()
+      .then((stored) => setActivePrice(stored?.provider ?? DEFAULT_PROVIDER))
+      .catch((err: unknown) => push('error', failureText(err)))
+  }, [push])
 
   const prices: PriceEntry[] = useMemo(() => priceEntries(activePrice), [activePrice])
 
@@ -1577,6 +1588,12 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
             await session.refresh()
           }
           await showState()
+        } catch (err) {
+          // `onDone` is a void-typed prop, so a throw out of this async handler
+          // is an unhandled rejection rather than a line on screen — and the
+          // store read above throws on exactly the tampering it exists to
+          // refuse. The `finally` restored the spinner and let the crash run.
+          push('error', failureText(err))
         } finally {
           setBusy(false)
         }
