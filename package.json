@@ -23,7 +23,7 @@
     "eval:injection": "bun run src/agent/injection.eval.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "0.122.0",
+    "@anthropic-ai/sdk": "0.124.0",
     "decimal.js": "10.6.0",
     "ink": "7.1.1",
     "react": "19.2.8"
