@@ -365,6 +365,13 @@ Two rules, and they are the reason the architecture exists:
   gap costs one object and used to create no obligation at all, which is how
   thirty accumulated with thirteen in no plan and two named in no file in the
   repository. The declaration and the plan are one edit now.
+- **`src/index.ts` reaches the terminal UI only through a dynamic import.** A
+  one-shot command draws its tables through `src/ui/table.ts` and never needs a
+  reconciler; loading Ink and React for one cost 82ms against 56ms on
+  `--version`, and — measured on Linux — left `process.stdin` empty for whatever
+  read it next when the input came from a spawned parent rather than a shell
+  pipe, so `tula connect` refused an address a script had piped in. A static
+  import of anything under `ui/` there fails `src/cli/oneshot.test.ts`.
 - **Every network call goes through `request()` in `src/core/http.ts`**, never a
   bare `fetch` — `guard.sh` fails the build on one. Nothing else bounds how long
   a call takes, and a venue that never answers has to fail in order to be named.
@@ -546,14 +553,16 @@ venue in it.
    the price source that received it, which is the only place that can tell
    tula's own words from somebody else's — and by `explain()` in
    `src/agent/agent.ts`, which is that place for the provider.
-   Both are flattened to one line by the same filter. A symbol the cap or the
+   Each is flattened to one line by the same filter. A symbol the cap or the
    filter changed is reported to the *reader* as well, on `LoadResult.altered`:
    the sidecar below tells the model, and every view here works without one.
    They are data, never instructions — and they are marked as such in the tool
    result, by path; a new field carrying outside text without that mark fails
    `bun test`. No memo, NFT metadata or protocol
-   description is read — a third source has to be bounded there and listed in
-   `SECURITY.md` in the same commit.
+   description is read — a fourth source has to be bounded there, listed in
+   `SECURITY.md`, and added to the `SOURCES` list in `src/site-claims.test.ts`
+   in the same commit. That list is the one that fails the build: the third got
+   in without it, and two published surfaces then disagreed about the count.
 
 Never add a code path that can place an order, and never import a venue's order
 endpoint — including "validate only" variants. The absence is the product.

@@ -79,13 +79,15 @@ const EMPTY: LoadResult = {
   loadedAt: new Date(0),
 }
 
-// Two strings on this screen are written by somebody else: a venue's error text
-// and an asset symbol. Both are drawn in the tables *and* returned to the model
-// as tool results. The symbol is bounded here, the one place every connector
-// arrives; the error text is bounded by `remote()` at the connector that
-// received it, which is the only place that can tell it from tula's own words.
-// `SECURITY.md` lists exactly these two. A third has to be added there in the
-// same commit.
+// Two of the three strings tula did not write are on this screen: a venue's
+// error text and an asset symbol. Both are drawn in the tables *and* returned
+// to the model as tool results. The symbol is bounded here, the one place every
+// connector arrives; the error text is bounded by `remote()` at the connector
+// that received it, which is the only place that can tell it from tula's own
+// words. The third is the model provider's own error, bounded in
+// `src/agent/agent.ts` and never in a tool result. A fourth has to reach
+// `SECURITY.md` and the `SOURCES` list in `src/site-claims.test.ts` in the same
+// commit — that list is what fails the build when a surface names fewer.
 //
 // Bounding one quietly is what `LoadResult.altered` exists to stop, and it
 // covers the symbol alone. The error text needs no second record: it is already

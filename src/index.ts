@@ -7,7 +7,6 @@ import { CONNECTORS } from './connectors/registry.js'
 import { isOverScoped, overScopedPowers, retired, unverified } from './connectors/types.js'
 import { remote, TulaError } from './core/errors.js'
 import { buildOracle } from './prices/providers.js'
-import { runApp } from './ui/run.js'
 import { envApiKey } from './agent/agent.js'
 import * as secrets from './secrets/store.js'
 import { APP_DESCRIPTION, APP_NAME, APP_VERSION } from './version.js'
@@ -295,6 +294,18 @@ async function main(): Promise<void> {
     // The environment wins over the stored key, so a shell export can override
     // what is on disk without editing the file.
     const apiKey = envApiKey() ?? (await secrets.getProviderKey())
+    // Imported here rather than at the top, because this is the only branch
+    // that needs Ink and React. The others draw too — `result.output` below is
+    // a table — but they render it themselves through `src/ui/table.ts`, and a
+    // one-shot command was loading a whole reconciler to print it: 82ms to
+    // 56ms on `--version`, measured.
+    //
+    // Not only the cost. Measured on Linux, importing this module leaves
+    // `process.stdin` empty for whatever reads it next when the input came
+    // from a spawned parent rather than a shell pipe — so `tula connect wallet`
+    // reading an address a script fed it was refused on one platform and not
+    // the other. `src/cli/oneshot.test.ts` holds the import where it is.
+    const { runApp } = await import('./ui/run.js')
     await runApp(session, CONNECTORS, apiKey, await secrets.listVenues())
     return
   }

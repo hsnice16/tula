@@ -6,11 +6,14 @@
 
 ## Goal
 
-Text tula did not write reaches the screen and the model. Two kinds do today: an
-asset symbol — as a venue's listing spells it, or as an Aave reserve contract
-returns it over whichever RPC is configured — and a venue's own error text when
-one fails. No memo, NFT metadata or protocol description is read at all, and
-adding a third source means bounding it and listing it in `SECURITY.md`.
+Text tula did not write reaches the screen and the model. Two kinds did when
+this was written: an asset symbol — as a venue's listing spells it, or as an
+Aave reserve contract returns it over whichever RPC is configured — and a
+venue's own error text when one fails. The model provider's own error text is
+the third, bounded since. No memo, NFT metadata or protocol description is read
+at all, and adding a fourth means bounding it, listing it in `SECURITY.md`, and
+adding it to the `SOURCES` list in `src/site-claims.test.ts` — the one that
+fails the build when a surface names fewer than the build has.
 
 ## Acceptance
 

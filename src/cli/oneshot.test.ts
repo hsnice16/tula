@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { spawnSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { chmod, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -166,6 +167,36 @@ describe('a command line is not the shell', () => {
     // imports), so the caller hands the spelling in.
     expect(out).toContain('tula forget circle')
     expect(out).not.toContain('/forget circle')
+  })
+})
+
+describe('the one-shot path loads no renderer', () => {
+  /**
+   * `src/index.ts` imported `./ui/run.js` at the top, so every one-shot command
+   * loaded Ink and React — 82ms against 56ms on `--version`. It also cost more
+   * than time: measured on Linux, importing that module leaves `process.stdin`
+   * empty for whatever reads it next when the input came from a spawned parent
+   * rather than a shell pipe, so every test below that pipes an answer in
+   * failed there while passing on macOS. The product was right on both; an
+   * import at the top of the file was what made it look otherwise.
+   *
+   * The dynamic import inside the shell branch still bundles into the binary.
+   * It is simply not evaluated by a command that never opens the shell.
+   */
+  test('src/index.ts reaches the UI only through a dynamic import', () => {
+    const source = readFileSync('src/index.ts', 'utf8')
+    // Any line that both names the UI and reads as a specifier, rather than a
+    // line matching one import shape: `import {\n  runApp,\n} from './ui/run.js'`
+    // is the style used elsewhere in this repo and went straight through a
+    // per-line `^import … from` pattern, which would have made this test agree
+    // with the bug it exists to prevent. Prose naming a file is not an import.
+    const reaching = source
+      .split('\n')
+      .filter((line) => line.includes('/ui/'))
+      .filter((line) => /\bfrom '|\bimport '|\bimport\(/.test(line))
+      .filter((line) => !line.includes('await import('))
+    expect(reaching).toEqual([])
+    expect(source).toContain("await import('./ui/run.js')")
   })
 })
 
