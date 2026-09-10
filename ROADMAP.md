@@ -39,9 +39,10 @@ paragraph can be checked rather than believed. What is left of each is work
 nobody has started rather than work that missed. 4 is the aggregator, which
 waits for 10, and Aave V4, which does not — the two are split below. 12 is ◐ the
 other way round from every other row: the docs site shipped, and of the
-hardening pass one bullet already holds on its own — no panic path leaves the
-terminal in raw mode, on both the shell and the one-shot prompt — while the rest
-of that milestone has not started.
+hardening pass two bullets already hold on their own — no panic path leaves the
+terminal in raw mode, on both the shell and the one-shot prompt, and every
+venue-supplied string is treated as data on every path that renders it — while
+the rest of that milestone has not started.
 
 **1**, **2** and **6** closed. 2's last bullet was the reader-facing half of the
 injection work: venue text was labelled for the model — every tool result
@@ -67,9 +68,9 @@ added the line that says what tula never asked for: a chain never queried is not
 a venue that *failed*, so `INCOMPLETE` stayed quiet and the total was short with
 nothing saying so. Availability landed beside it, under 6, which is why 6
 closed on one unstated assumption rather than on four connectors summing a free
-balance away. What 7 did not reach is the reader-facing half of 2's injection
-work: labelling venue text *to the model* was 7's item and shipped; saying so on
-screen was never in it, and stays in 2.
+balance away. Labelling venue text *to the model* was 7's item; saying
+so on screen was 2's, and both now hold — `ALTERED` is the fifth thing a view
+says about itself.
 
 4's two open pieces are scheduled in different places, and the same rule puts
 each where it is: everything uncovered that *can* be liquidated is hand-built,
@@ -178,11 +179,13 @@ three of them "a decode of bytes already fetched", and reading the code rather
 than the declarations showed that claim was worth what such claims usually are.
 The bytes are in hand; decoding them changes no figure on any screen, and
 retiring a declaration for that would shorten the list without the reader seeing
-anything new. What the exercise did turn up is one gap that was never declared
-at all — the eMode category Aave liquidates an account against, where this
-build weights every shock by the reserve's own threshold instead. That is a
-wrong number rather than a missing one, and it sat under a health factor Aave
-did state, which is why nothing about it looked wrong.
+anything new. What the exercise turned up instead was a gap nobody had declared
+— the eMode category Aave liquidates an account against — and it was a wrong
+number rather than a missing one, sitting under a health factor Aave did state,
+which is why nothing about it looked wrong. It is fixed rather than listed
+above; [`breadth/09`](./tasks/breadth/09-aave-depth.md) records what reading it
+against the chain turned out to require, including the field that looks like
+the answer and is not.
 
 Nothing here is a promise about a date. What it is is the difference between a
 gap somebody chose and a gap nobody has looked at, and the two sections at the

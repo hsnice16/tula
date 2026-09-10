@@ -14,7 +14,7 @@ answers it now:
   **UNAVAILABLE** columns it draws.
 - **What tula actually read.** A chain never queried is not a venue that failed,
   so `INCOMPLETE` stayed silent and the total was short with nothing saying so.
-  `src/core/coverage.ts`, and the `NOT READ` line.
+  `src/core/coverage.ts`, and what `/venues` reads off it.
 - **Which text is actually ours.** Venue strings reached the model as ordinary
   values, and what marked them as data was a sentence in the system prompt. Every
   tool result now names the paths that text sits at, derived from the payload.
@@ -27,17 +27,16 @@ answers it now:
 - [01 · Scope disclosure](01-scope-disclosure.md) — done
 - [02 · A credential store that holds a set](02-credential-store-set.md) — done
 - [Availability](../risk-engine/04-availability.md) — done
-- [Prompt injection defence](../the-shell/09-injection-defense.md) — done, except telling the reader a symbol was altered
+- [Prompt injection defence](../the-shell/09-injection-defense.md) — done
 - [Multiple addresses per venue](../cross-domain/03-watched-addresses.md) — done
 - [Chain coverage](../breadth/03-chain-coverage.md) — done
 
 ## What is left, and where it lives now
 
-The reader-facing half of the injection work. Labelling venue text *to the model*
-was this milestone's item and shipped; `src/cli/session.ts` still swaps a
-sanitized symbol in silently, so somebody reading `/positions` learns nothing
-about the venue that sent it. That is a gap in milestone 2, not here, and
-[`ROADMAP.md`](../../ROADMAP.md) names it there.
+The reader-facing half of the injection work was this section's one open item and
+has since shipped as `ALTERED`: a venue that spelled an asset in characters this
+build could not draw is named on screen, with what was done and the bounded name.
+It was milestone 2's to close, not this one's.
 
 The aggregator was never this milestone's — it completes a total rather than
 repairing one, and it waits for 10.

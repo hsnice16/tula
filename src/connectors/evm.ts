@@ -201,9 +201,10 @@ async function onSomeNode<T>(chain: Chain, read: (url: string) => Promise<T>): P
 const post = (chain: Chain, body: unknown): Promise<{ url: string; parsed: unknown }> =>
   onSomeNode(chain, async (url) => {
     const parsed = await postTo(chain, url, body)
-    // Before a single row is read off it, and here rather than at each call
-    // site: a rate limit moves a chain onto a node nothing has vouched for, and
-    // the whole point of the check is that such a node answers plausibly.
+    // Here rather than at each call site, and before the answer is handed back:
+    // a rate limit moves a chain onto a node nothing has vouched for, and the
+    // whole point of the check is that such a node answers plausibly. Every
+    // read goes through this function, so this is the whole of the guarantee.
     await confirmChain(chain, url)
     return { url, parsed }
   })
@@ -307,11 +308,6 @@ export async function ethCallBatch(
       url: string
       parsed: RpcResponse[] | RpcResponse
     }
-    // Before a single answer is read, not after the loop: a rate limit can move
-    // the chain onto a node nothing has vouched for, and the whole point of the
-    // check is that a node answering for the wrong chain answers plausibly.
-    await confirmChain(chain, url)
-
     // A batch answered by a single object is not an answer to the batch: nodes
     // reply that way to reject the whole request, and read as one row it left
     // every call in the chunk null — forty balances missing behind one message
@@ -371,9 +367,6 @@ export async function ethGetBalance(chain: Chain, address: string): Promise<bigi
     method: 'eth_getBalance',
     params: [address, 'latest'],
   })
-  // Same reason as the batch: a balance is only worth reading once the node
-  // that gave it has said which chain it is.
-  await confirmChain(chain, url)
   const parsed = answer as { result?: string; error?: { message: string } }
   if (parsed.error) {
     throw new TulaError(

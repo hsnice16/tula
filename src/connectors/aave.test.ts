@@ -210,6 +210,8 @@ interface StubEMode {
   collateral: bigint
   /** The category view reverting, which must never read as a threshold of zero. */
   silent?: boolean
+  /** `getUserEMode` itself reverting, which must never read as "not in eMode". */
+  unread?: boolean
 }
 
 function stubNode(
@@ -259,7 +261,10 @@ function stubNode(
       if (selector === '0x4417a583') return { id, result: '0x' + word(market?.config ?? 0n) }
       // eMode: which category the account is in, and that category's collateral
       // threshold and membership bitmap.
-      if (selector === '0xeddf1b79') return { id, result: '0x' + word(BigInt(eMode?.category ?? 0)) }
+      if (selector === '0xeddf1b79') {
+        if (eMode?.unread) return { id, error: { message: 'execution reverted' } }
+        return { id, result: '0x' + word(BigInt(eMode?.category ?? 0)) }
+      }
       if (selector === '0xb286f467') {
         if (eMode?.silent) return { id, error: { message: 'execution reverted' } }
         return { id, result: '0x' + word(0n) + word(BigInt(eMode?.threshold ?? 0)) + word(0n) }
@@ -669,6 +674,15 @@ describe('the gaps this connector declares are still gaps', () => {
       (p) => p.venue === 'aave' && p.asset === 'USDC' && p.kind === 'collateral',
     )
     expect(usdc?.liquidation?.liquidationThreshold?.toString()).toBe('0.78')
+  })
+
+  test('a market that will not say which category it is in fails, rather than reading as none', async () => {
+    // The quiet one. Unanswered, `getUserEMode` decodes to category 0, which is
+    // a valid answer meaning "not in eMode" — so every leg falls back to the
+    // reserve's own threshold and a leg the category holds at 95% leaves the
+    // book as a plain supply. No failure, no INCOMPLETE, exit 0.
+    stubNode(null, null, null, null, { category: 1, threshold: 9500, collateral: 1n << 2n, unread: true })
+    await expect(aaveConnector.fetchPositions(CREDS)).rejects.toThrow(/did not answer for the Aave/)
   })
 
   test('a category that will not answer fails, rather than reading as a threshold of zero', async () => {

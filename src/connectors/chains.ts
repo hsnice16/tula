@@ -3,7 +3,7 @@ import type { ChainId } from '../core/position.js'
  * The chains tula reads, and how to reach each one.
  *
  * One place, because three things have to agree per chain and drifted apart
- * when they were spread over the connectors: the node a call goes to, the
+ * when they were spread over the connectors: the nodes a call may go to, the
  * EIP-155 id a token list is filtered by, and the name a failure prints. A
  * chain named wrong in a failure sends the reader to fix an endpoint that is
  * working, which on a three-chain book is the commonest way to lose an hour.

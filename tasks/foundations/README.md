@@ -7,7 +7,7 @@ boundary now is far cheaper than retrofitting it around a working agent later.
 ## Tasks
 
 - [01 · Canonical position schema](01-position-schema.md) — done
-- [02 · Secrets store and the boundary](02-secrets-boundary.md) — done, except `redact()`
+- [02 · Secrets store and the boundary](02-secrets-boundary.md) — done
 - [03 · Kraken connector](03-kraken-connector.md) — done
 - [04 · connect and positions commands](04-connect-and-positions.md) — done
 - [05 · Opt-in demo fixture](05-demo-fixture.md) — done, later removed

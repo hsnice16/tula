@@ -45,8 +45,8 @@ interface ClearinghouseState {
 }
 
 /**
- * The one row every cross perp is margined against, named so a later
- * `/available` can find it without matching on an asset symbol.
+ * The one row every cross perp is margined against, named so `availability()`
+ * can find it without matching on an asset symbol.
  */
 export const MARGIN_ID = 'hyperliquid:margin:USDC'
 
@@ -214,7 +214,7 @@ export const hyperliquidConnector: Connector = {
     // It stays, because it is the account's equity once the legs beside it are
     // counted and the portfolio total is wrong without it. What changes is what
     // it claims to be: `collateral`, margined against by every cross perp
-    // below, so `/available` subtracts it rather than offering it as cash.
+    // below, so the free figure subtracts it rather than offering it as cash.
     // `withdrawable` remains the fallback — an understated figure beats no row.
     const rawUsd = perps.marginSummary?.totalRawUsd ?? perps.withdrawable
     const margin = rawUsd ? new Decimal(rawUsd) : new Decimal(0)

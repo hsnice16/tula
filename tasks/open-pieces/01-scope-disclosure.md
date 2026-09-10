@@ -66,38 +66,54 @@ and one they find out from a liquidation.
 
 ## What shipped
 
-`NOT READ — N area(s) of <venues> were never asked for, so anything held there is
-missing from these figures. The rest of them answered. /venues names each.`
+`Never asked for. These venues answered about the rest, and nothing failed:` —
+every area under the venue it belongs to, opening with what the gap costs the
+reader rather than with the endpoint that goes unread.
 
-One line, beside the freshness of the view, on every command that reports a
-figure and on every tool result including a filtered one. It is built by
-`disclosure()` and `notReadLine()` in `src/core/coverage.ts` out of each
-connector's own `coverage.doesNotRead`, so it shrinks when a connector starts
-reading something and disappears when the last gap closes.
+It is built by `disclosure()` and `notReadDetail()` in `src/core/coverage.ts`
+out of each connector's own `coverage.doesNotRead`, so it shrinks when a
+connector starts reading something and disappears when the last gap closes.
+
+**Where it is read, and why not everywhere.** It shipped as one line beside the
+freshness of every view and on every tool result, and that was wrong. Coverage
+does not resolve the way a failure does — a read-only tool has unbounded
+uncovered surface — so a count printed beside every figure never reaches zero,
+and the block it shared with `INCOMPLETE` stopped being read. `src/core/coverage.ts`
+already stated that rule about venues with no connector at all; this is the same
+test applied to the connectors we ship. So:
+
+- **`/venues` and `/<venue> status` carry the whole of it**, and
+  `get_venue_status.never_asked_for` hands the model the same list. Nothing else
+  volunteers it, on either surface — a caveat the model offers over a table
+  carrying none is one book described two ways.
+- **`breaks` and `shock` are the exception**, and it is the rule rather than a
+  hole in it: they claim what can be called in *in order*, so a venue in the
+  book with an unread area that hides a liquidation makes that order wrong
+  rather than short. `unrankedVenues()` narrows it to those venues and those
+  gaps, so it shortens as they close.
+- **A venue that answered and holds nothing says it on the spot**, because that
+  is the one case where a gap and an empty account look identical.
 
 Two things the acceptance leaves open, settled here:
 
-- **The line names the venues and counts the areas; the areas themselves are one
-  command away.** Nineteen of them on one line is the wallpaper the bullet above
-  is written against. `/venues` groups every area under its venue, and
-  `/<venue> status` lists that venue's own; both open with what the gap costs the
-  reader — value, a liquidation, or what you can move — rather than with the
-  endpoint that goes unread. The agent gets the whole list in
-  `get_venue_status.never_asked_for` and the flag on everything else.
 - **A venue that answered about nothing is a failure, never a venue that
   answered in part.** Named in both it would be told that nothing failed, two
   rows under the line saying it went down. A venue that fails at one of its
   addresses and answers at another is still disclosed, though: dropped on the
   first failure, the wallet that did answer would go undisclosed with it.
+- **Declaring a gap now costs a decision.** Every entry names the task that would
+  close it, and `src/coverage-plan.test.ts` fails the build on a plan that is not
+  a real task, one already finished, a liquidation-hiding gap filed under the
+  aggregator, or one `ROADMAP.md` does not account for. Thirteen of thirty were
+  in no plan at all when that was written.
 
-There are four states now, not three, and each says which it is in its own
-words: `INCOMPLETE` for a venue — or one of its addresses — that failed,
-`REMOVED` for a venue this build dropped that a key is still stored for,
-`NOT READ` for a venue that answered about part of the account, and the
-per-venue sentence for one that answered and holds nothing. That last one names
-the third possibility beside it wherever the venue declares something unread:
-what it holds may be in a part nothing here asks about.
+There are five states, and each says which it is in its own words: `INCOMPLETE`
+for a venue — or one of its addresses — that failed, `REMOVED` for a venue this
+build dropped that a key is still stored for, `ALTERED` for a venue that spelled
+an asset in characters this build could not draw, the per-venue sentence for one
+that answered and holds nothing, and this, which is read where it is asked for.
 
-The line for the case in the notes: an account migrated to Aave V4 answers with
-nothing, no venue fails, and `NOT READ` names `aave` with `Aave V4, whose Core,
-Prime and Plus Hubs on Ethereum hold real deposits` under it in `/venues`.
+The case in the notes: an account migrated to Aave V4 answers with nothing, no
+venue fails, and the sentence under it names the third possibility — what it
+holds may be in a part nothing here asks about — with `Aave V4, whose Core,
+Prime and Plus Hubs on Ethereum hold real deposits` under `aave` in `/venues`.

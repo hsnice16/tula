@@ -113,14 +113,17 @@ export interface Reserve {
   ltv: Decimal
 }
 
+/** Aave states every ratio in basis points, reserve and eMode category alike. */
+const bps = (n: bigint): Decimal => new Decimal(n.toString()).div(10_000)
+
 /**
  * `ReserveConfigurationMap` is one word of bit fields. LTV and the liquidation
  * threshold are what a shock has to be measured against per asset: the average
  * in `getUserAccountData` treats one asset falling as if every asset fell.
+ *
+ * What it does *not* decode is the eMode field at bits [168..175], and that is
+ * deliberate: `categoriesOf` explains why reading it would be wrong.
  */
-/** Aave states every ratio in basis points, reserve and eMode category alike. */
-const bps = (n: bigint): Decimal => new Decimal(n.toString()).div(10_000)
-
 export function reserveConfig(word: string | undefined): { ltv: Decimal; liquidationThreshold: Decimal } {
   const bits = toBigInt(word)
   return { ltv: bps(bits & 0xffffn), liquidationThreshold: bps((bits >> 16n) & 0xffffn) }
@@ -251,11 +254,17 @@ async function loadReserves(
   return out
 }
 
-/**
- * One chain's markets, read as a unit: they share a node, so they fail as one
- * and they are as fresh as one. Every chain is read separately for the opposite
- * reason — a public node rate-limiting Base must leave Ethereum on the book.
- */
+/** One market's eMode category, and which of its reserves the category holds. */
+interface EMode {
+  category: number
+  threshold: Decimal
+  collateral: bigint
+}
+
+/** Membership is a bitmask over reserve ids, the same ids the config bitmap uses. */
+const inCategory = (eMode: EMode | null, id: number): boolean =>
+  eMode !== null && ((eMode.collateral >> BigInt(id)) & 1n) === 1n
+
 /**
  * The thresholds Aave would actually liquidate this account against.
  *
@@ -275,16 +284,6 @@ async function loadReserves(
  * Only the categories this account is actually in are fetched. Ids are sparse
  * and run past 48, so enumerating them is both wrong and unbounded.
  */
-interface EMode {
-  category: number
-  threshold: Decimal
-  collateral: bigint
-}
-
-/** Membership is a bitmask over reserve ids, the same ids the config bitmap uses. */
-const inCategory = (eMode: EMode | null, id: number): boolean =>
-  eMode !== null && ((eMode.collateral >> BigInt(id)) & 1n) === 1n
-
 async function categoriesOf(
   chain: Chain,
   instances: readonly Instance[],
@@ -340,6 +339,11 @@ async function categoriesOf(
   return instances.map((instance) => found.get(instance) ?? null)
 }
 
+/**
+ * One chain's markets, read as a unit: they share a node, so they fail as one
+ * and they are as fresh as one. Every chain is read separately for the opposite
+ * reason — a public node rate-limiting Base must leave Ethereum on the book.
+ */
 async function readMarkets(
   chain: Chain,
   instances: readonly Instance[],
@@ -373,8 +377,15 @@ async function readMarkets(
   // A market that did not answer is not a market holding nothing. Dropping it
   // silently would be this read's own defect one level down: a book short by
   // whatever that market holds, with nothing saying so.
-  const silent = instances.filter(
-    (_, i) => summary[i] === null || summary[instances.length + i] === null,
+  //
+  // All three calls, not the first two. An unanswered `getUserEMode` reads as
+  // category 0 — not in eMode — because `toBigInt(undefined)` is `0n`, and that
+  // is not a milder version of the same failure: it puts every collateral leg
+  // back on the reserve's own threshold, and drops a leg the category holds at
+  // 95% off the book entirely. Precisely what reading eMode was added to stop,
+  // reached by the node declining one call out of three.
+  const silent = instances.filter((_, i) =>
+    [i, instances.length + i, instances.length * 2 + i].some((at) => summary[at] === null),
   ).map((one) => one.name)
   if (silent.length > 0) {
     throw new TulaError(

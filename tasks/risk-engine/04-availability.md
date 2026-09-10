@@ -121,9 +121,12 @@ are worth stating, because neither is in the acceptance above:
   gap each connector declares as `hides: 'availability'`, rather than a second
   list beside it. It withholds the free figure on a venue's plain balance rows;
   a hold or a pledge tula can actually see is still stated there. Kraken and
-  Hyperliquid are the two that reach it today, and Stripe the third — a Stripe
-  balance is "available" in Stripe's sense and not payable out now, which is the
-  question this column asks.
+  Hyperliquid are the two that reach it. Stripe was the third and is not: it
+  states what is available outright, so nothing about its free figure goes
+  unproven, and `src/connectors/stripe.ts` says so where the decision is made.
+  Declaring it anyway put an em dash on every Stripe row under a legend saying
+  the figure could not be proven, which was a refusal to answer a question the
+  venue had answered.
 
 A perp carries no free figure at all: it is exposure rather than a quantity of
 anything sitting anywhere, and a long reported as free would read as cash the
