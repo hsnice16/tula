@@ -18,8 +18,10 @@ const slug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
  * one channel read two answers that were not theirs to find the one that was.
  *
  * Panels hide rather than unmount, so the static export ships all three in the
- * HTML: what a crawler indexes and what find-in-page reaches is the whole page,
- * not whichever tab happened to be first.
+ * HTML and a crawler indexes the whole page, not whichever tab happened to be
+ * first. `hidden` is `display: none`, so find-in-page and a reader with no
+ * JavaScript reach the open panel only — the tab strip is the whole of what
+ * either has to go on.
  */
 export function Channels({ channels }: { channels: Channel[] }) {
   const [at, setAt] = useState(0)
@@ -111,6 +113,12 @@ export function Channels({ channels }: { channels: Channel[] }) {
           hidden={i !== at}
           className={`max-w-[46rem] pt-10 ${moved ? 'animate-panel' : ''}`}
         >
+          {/* The channel's name is on screen as its tab, so this is the same
+              words for the two readers a tab strip is invisible to: a heading
+              outline, and a crawler reading all three panels at once. Without
+              it every panel's steps — "Update", "Go back", "Remove" — sit under
+              the page's h1 with nothing saying which channel they belong to. */}
+          <h2 className="sr-only">{name}</h2>
           {body}
         </div>
       ))}

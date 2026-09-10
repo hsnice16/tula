@@ -2,9 +2,12 @@
 # tula installer — https://usetu.la
 #
 # The install path is part of the security product. Someone running this is
-# about to paste keys tied to their net worth into the binary it fetches, so
-# every step that could hand them a different binary is checked, and the script
-# refuses rather than warns.
+# about to paste keys tied to their net worth into the binary it fetches, so the
+# download is checked against its published checksum and nothing is installed on
+# a mismatch. Provenance is the part that needs the GitHub CLI, present and
+# signed in: with it, a failed attestation refuses the same way; without it the
+# install goes ahead and says plainly that nothing proved this repository built
+# the binary. TULA_REQUIRE_ATTESTATION=1 makes that a refusal too.
 #
 #   curl --proto '=https' --tlsv1.2 -LsSf https://usetu.la/install.sh | sh
 #
@@ -82,6 +85,10 @@ need mktemp
 need chmod
 need ln
 need rm
+need cat
+need ls
+need id
+need readlink
 need basename
 need dirname
 
@@ -205,6 +212,30 @@ verify_attestation() {
   return 0
 }
 
+# The binary installed here is the process that opens the credential file, so
+# the directory holding it is as sensitive as the file: `src/secrets/store.ts`
+# refuses a config directory anyone can write to for the same reason, and mode
+# 600 on credentials.json is worth nothing if somebody else can replace what
+# reads it. `mkdir -p` takes the ambient umask, so this is checked rather than
+# assumed. `ls -ld` because `stat` spells its flags differently on BSD and GNU.
+check_dir() {
+  [ -d "$1" ] || return 0
+  set -- "$1" $(ls -ld "$1")
+  mode=$2
+  owner=$4
+  case "$mode" in
+    ?????w* | ????????w*)
+      die "$(tilde "$1") can be written to by other users on this machine." \
+        "Whoever can write there can replace the binary that reads your keys." \
+        "Fix it:            chmod go-w \"$1\"" \
+        "Or install elsewhere:  TULA_INSTALL_DIR=<path>" ;;
+  esac
+  me=$(id -un 2>/dev/null || printf '%s' "$owner")
+  [ "$owner" = "$me" ] || die "$(tilde "$1") is owned by $owner, not by you." \
+    "tula will not install into a tree somebody else controls." \
+    "Install elsewhere:  TULA_INSTALL_DIR=<path>"
+}
+
 # ----------------------------------------------------------------- install ---
 
 # `latest` resolves rather than downloads. It is already the default here, but it
@@ -244,24 +275,35 @@ UNVERIFIED_WHY=
 say ""
 say "tula $VERSION — $TARGET"
 
+check_dir "$INSTALL_DIR"
+check_dir "$BIN_DIR"
+check_dir "$VERSION_DIR"
+
 # Every version stays on disk under its own number, so a run asking for one that
 # is already there has nothing to fetch. It downloaded and re-verified the whole
 # archive regardless — minutes of it, on a link where that is minutes — to arrive
 # at the file it already had. The launcher and the PATH line are still put right
 # below, because repairing those is the other reason to run this twice.
 #
-# The launcher has to be a symlink already for this to count as "installed", and
-# that is the security of it, not a tidiness check. A directory alone is
-# something anyone who can write under $INSTALL_DIR can put there before tula is
-# ever installed — and a first install used to overwrite whatever it found,
-# where this would adopt it and link it unread. Requiring the link narrows the
-# fast path to a tree this script has already built and verified once; replacing
-# the binary under that link is an attack the download never prevented anyway,
-# since the launcher points at it either way.
+# What makes the short cut safe is that every part of it has to be this script's
+# own work: the launcher is a symlink, it points at *this* version directory,
+# and the binary there still hashes to what was unpacked and verified. A version
+# directory alone is something anyone who can write under $INSTALL_DIR can plant
+# before tula is ever installed; a launcher alone says nothing about what it
+# points at; and neither says the binary has not been swapped since. Re-running
+# the install line is what somebody does to repair a tree they suspect, and the
+# one answer it must never give is "already installed" about a tampered build.
+#
+# The receipt is not a defence against whoever can rewrite the tree — they can
+# rewrite the receipt too. It is what stops a swapped binary being confirmed by
+# the repair, which is the case that actually happens.
 #
 # TULA_FORCE=1 fetches and checks again regardless.
+RECEIPT="$VERSION_DIR/.tula-sha256"
 ALREADY=
-if [ -z "${TULA_FORCE:-}" ] && [ -x "$VERSION_DIR/tula" ] && [ -L "$BIN_DIR/tula" ]; then
+if [ -z "${TULA_FORCE:-}" ] && [ -x "$VERSION_DIR/tula" ] &&
+  [ -L "$BIN_DIR/tula" ] && [ "$(readlink "$BIN_DIR/tula")" = "$VERSION_DIR/tula" ] &&
+  [ -f "$RECEIPT" ] && [ "$(cat "$RECEIPT")" = "$(sha256_of "$VERSION_DIR/tula")" ]; then
   ALREADY=1
 fi
 
@@ -284,14 +326,20 @@ if [ -z "$ALREADY" ]; then
   verify_attestation "$TMP/$ARCHIVE"
 
   mkdir -p "$VERSION_DIR" "$BIN_DIR"
+  chmod go-w "$INSTALL_DIR" "$VERSION_DIR" "$BIN_DIR" 2>/dev/null || true
   tar -xzf "$TMP/$ARCHIVE" -C "$VERSION_DIR" ||
     die "Could not unpack $ARCHIVE." "The download may be truncated; try again."
   [ -f "$VERSION_DIR/tula" ] || die "$ARCHIVE did not contain a tula binary." \
     "Report it: https://github.com/$REPO/issues"
   chmod 755 "$VERSION_DIR/tula"
+  # What the fast path above compares against on the next run. Written after the
+  # archive passed its checksum and its attestation, so it records a binary this
+  # script verified rather than one it merely found.
+  sha256_of "$VERSION_DIR/tula" >"$RECEIPT"
 else
   note "already installed — nothing to download"
   mkdir -p "$BIN_DIR"
+  chmod go-w "$INSTALL_DIR" "$BIN_DIR" 2>/dev/null || true
 fi
 
 # Every version stays on disk under its own number and the launcher is a symlink,
@@ -304,7 +352,13 @@ if [ -e "$LAUNCHER" ] && [ ! -L "$LAUNCHER" ]; then
   # that may be setting TULA_CONFIG_DIR or pinning a version on purpose.
   REPLACED=1
 else
-  ln -sf "$VERSION_DIR/tula" "$LAUNCHER"
+  # Removed first rather than overwritten in place. Where the launcher is a
+  # symlink to a *directory*, `ln -sf` follows it and writes the new link
+  # *inside* that directory — so the launcher went on pointing where it did
+  # while this script reported the new version installed to it. `-n` (GNU) and
+  # `-h` (BSD) fix that and are spelled differently; `rm` is spelled once.
+  rm -f "$LAUNCHER"
+  ln -s "$VERSION_DIR/tula" "$LAUNCHER"
 fi
 
 # -------------------------------------------------------------------- path ---

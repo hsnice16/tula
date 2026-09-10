@@ -6,5 +6,5 @@ where that proof becomes a command the user can run.
 ## Tasks
 
 - [01 · tula doctor](01-doctor.md) — planned
-- [02 · Staleness policy](02-staleness-policy.md) — planned
+- [02 · Staleness policy](02-staleness-policy.md) — planned, less the inheritance rule
 - [03 · Periodic scope recheck](03-scope-recheck.md) — planned

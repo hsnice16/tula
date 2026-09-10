@@ -1,0 +1,530 @@
+{
+  "captured": "2026-09-09T19:24:01.901Z",
+  "endpoint": "https://api.hyperliquid.xyz/info",
+  "request": {
+    "clearinghouseState": "<address>",
+    "spotClearinghouseState": "<address>"
+  },
+  "perps": {
+    "marginSummary": {
+      "accountValue": "84011.6303726359",
+      "totalNtlPos": "361512.1928947356",
+      "totalRawUsd": "25410.6042801131",
+      "totalMarginUsed": "80585.7990453749"
+    },
+    "crossMarginSummary": {
+      "accountValue": "84011.6303726359",
+      "totalNtlPos": "361512.1928947356",
+      "totalRawUsd": "25410.6042801131",
+      "totalMarginUsed": "80585.7990453749"
+    },
+    "crossMaintenanceMarginUsed": "40292.8995205398",
+    "withdrawable": "3425.831327261",
+    "assetPositions": [
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "ATOM",
+          "szi": "-4226.4184108244",
+          "leverage": {
+            "type": "cross",
+            "value": 5
+          },
+          "entryPx": "1.4852",
+          "positionValue": "7923.6892366135",
+          "unrealizedPnl": "-1646.547880805",
+          "returnOnEquity": "-1.3115427768",
+          "liquidationPx": "139.3391491431",
+          "marginUsed": "1584.7378470364",
+          "maxLeverage": 5,
+          "cumFunding": {
+            "allTime": "1.3261172199",
+            "sinceOpen": "1.3261172199",
+            "sinceChange": "1.2971810146"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "AVAX",
+          "szi": "-1093.8486916773",
+          "leverage": {
+            "type": "cross",
+            "value": 10
+          },
+          "entryPx": "7.3117",
+          "positionValue": "8673.6732006555",
+          "unrealizedPnl": "-675.7797217183",
+          "returnOnEquity": "-0.8449471395",
+          "liquidationPx": "564.3571516033",
+          "marginUsed": "867.3673200656",
+          "maxLeverage": 10,
+          "cumFunding": {
+            "allTime": "-18.2865956922",
+            "sinceOpen": "-18.2865956922",
+            "sinceChange": "-18.2865956922"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "OP",
+          "szi": "-18590.903344439",
+          "leverage": {
+            "type": "cross",
+            "value": 5
+          },
+          "entryPx": "0.08852",
+          "positionValue": "1905.0098657047",
+          "unrealizedPnl": "-259.2693894999",
+          "returnOnEquity": "-0.7876982831",
+          "liquidationPx": "31.3533374423",
+          "marginUsed": "381.0019731409",
+          "maxLeverage": 5,
+          "cumFunding": {
+            "allTime": "4.6194525435",
+            "sinceOpen": "4.6194525435",
+            "sinceChange": "4.5982056945"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "DOGE",
+          "szi": "-98.0766975312",
+          "leverage": {
+            "type": "cross",
+            "value": 10
+          },
+          "entryPx": "0.071908",
+          "positionValue": "8.6882223275",
+          "unrealizedPnl": "-1.6357045483",
+          "returnOnEquity": "-2.3193199926",
+          "liquidationPx": "6205.9221228154",
+          "marginUsed": "0.8688220896",
+          "maxLeverage": 10,
+          "cumFunding": {
+            "allTime": "-274.4737746356",
+            "sinceOpen": "-274.4737746356",
+            "sinceChange": "-0.0804887537"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "BCH",
+          "szi": "-98.9064120746",
+          "leverage": {
+            "type": "cross",
+            "value": 10
+          },
+          "entryPx": "246.16",
+          "positionValue": "25479.2808145284",
+          "unrealizedPnl": "-1132.4784182538",
+          "returnOnEquity": "-0.4651446214",
+          "liquidationPx": "6411.3835112684",
+          "marginUsed": "2547.9280814528",
+          "maxLeverage": 10,
+          "cumFunding": {
+            "allTime": "-77.5615272335",
+            "sinceOpen": "-77.5615272335",
+            "sinceChange": "-77.5615272335"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "APT",
+          "szi": "-3872.5691403446",
+          "leverage": {
+            "type": "cross",
+            "value": 10
+          },
+          "entryPx": "0.5424",
+          "positionValue": "2558.2191741116",
+          "unrealizedPnl": "-457.7376723887",
+          "returnOnEquity": "-2.1792035398",
+          "liquidationPx": "157.8295585547",
+          "marginUsed": "255.8219169816",
+          "maxLeverage": 10,
+          "cumFunding": {
+            "allTime": "-5.313681646",
+            "sinceOpen": "-5.313681646",
+            "sinceChange": "-5.313681646"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "kSHIB",
+          "szi": "-1507471.7719167318",
+          "leverage": {
+            "type": "cross",
+            "value": 10
+          },
+          "entryPx": "0.005157",
+          "positionValue": "8084.5711127894",
+          "unrealizedPnl": "-310.5391850148",
+          "returnOnEquity": "-0.3994570487",
+          "liquidationPx": "0.4091169343",
+          "marginUsed": "808.4571107062",
+          "maxLeverage": 10,
+          "cumFunding": {
+            "allTime": "-25.8790679287",
+            "sinceOpen": "-25.8790679287",
+            "sinceChange": "-25.8790679287"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "ZRO",
+          "szi": "-6521.1697310318",
+          "leverage": {
+            "type": "cross",
+            "value": 5
+          },
+          "entryPx": "0.98725",
+          "positionValue": "7508.47482831",
+          "unrealizedPnl": "-1070.3858176447",
+          "returnOnEquity": "-0.8312915648",
+          "liquidationPx": "90.2430630011",
+          "marginUsed": "1501.694965662",
+          "maxLeverage": 5,
+          "cumFunding": {
+            "allTime": "-25.7787275923",
+            "sinceOpen": "-25.7787275923",
+            "sinceChange": "-25.7787275923"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "DOT",
+          "szi": "-5897.7026078205",
+          "leverage": {
+            "type": "cross",
+            "value": 10
+          },
+          "entryPx": "0.84519",
+          "positionValue": "6640.2233661452",
+          "unrealizedPnl": "-1655.5440990413",
+          "returnOnEquity": "-3.321265041",
+          "liquidationPx": "104.3267053292",
+          "marginUsed": "664.0223366145",
+          "maxLeverage": 10,
+          "cumFunding": {
+            "allTime": "-10.7454283068",
+            "sinceOpen": "-10.7454283068",
+            "sinceChange": "-10.7454283068"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "KAS",
+          "szi": "-110.2467986847",
+          "leverage": {
+            "type": "cross",
+            "value": 3
+          },
+          "entryPx": "0.028065",
+          "positionValue": "3.9982104011",
+          "unrealizedPnl": "-0.904070282",
+          "returnOnEquity": "-0.8765636789",
+          "liquidationPx": "4968.7328574879",
+          "marginUsed": "1.3327363231",
+          "maxLeverage": 3,
+          "cumFunding": {
+            "allTime": "-33.938592853",
+            "sinceOpen": "-33.938592853",
+            "sinceChange": "-0.0420212116"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "ADA",
+          "szi": "-52501.1004879327",
+          "leverage": {
+            "type": "cross",
+            "value": 10
+          },
+          "entryPx": "0.201141",
+          "positionValue": "11392.2137948765",
+          "unrealizedPnl": "-832.0851716695",
+          "returnOnEquity": "-0.7879498455",
+          "liquidationPx": "11.8100357278",
+          "marginUsed": "1139.2213794877",
+          "maxLeverage": 10,
+          "cumFunding": {
+            "allTime": "-18.5531903486",
+            "sinceOpen": "-18.5531903486",
+            "sinceChange": "-18.5531903486"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "kBONK",
+          "szi": "-1105763.2207066316",
+          "leverage": {
+            "type": "cross",
+            "value": 10
+          },
+          "entryPx": "0.00295",
+          "positionValue": "3310.6550827957",
+          "unrealizedPnl": "-47.6544844158",
+          "returnOnEquity": "-0.146044976",
+          "liquidationPx": "0.5534261787",
+          "marginUsed": "331.0655081364",
+          "maxLeverage": 10,
+          "cumFunding": {
+            "allTime": "-11.1768154394",
+            "sinceOpen": "-11.1768154394",
+            "sinceChange": "-11.1768154394"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "GALA",
+          "szi": "-876069.0268651305",
+          "leverage": {
+            "type": "cross",
+            "value": 3
+          },
+          "entryPx": "0.001727",
+          "positionValue": "1603.2063191632",
+          "unrealizedPnl": "-90.2144356288",
+          "returnOnEquity": "-0.1788795497",
+          "liquidationPx": "0.6271036669",
+          "marginUsed": "534.4021063877",
+          "maxLeverage": 3,
+          "cumFunding": {
+            "allTime": "-4.1733567698",
+            "sinceOpen": "-4.1733567698",
+            "sinceChange": "-4.1733567698"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "ETC",
+          "szi": "-1098.4017412854",
+          "leverage": {
+            "type": "cross",
+            "value": 5
+          },
+          "entryPx": "7.5038",
+          "positionValue": "8950.4364290379",
+          "unrealizedPnl": "-708.2494427808",
+          "returnOnEquity": "-0.4296489779",
+          "liquidationPx": "537.0824447063",
+          "marginUsed": "1790.0872855212",
+          "maxLeverage": 5,
+          "cumFunding": {
+            "allTime": "-2.9750814513",
+            "sinceOpen": "-2.9750814513",
+            "sinceChange": "-2.9750814513"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "IOTA",
+          "szi": "-115524.3272555282",
+          "leverage": {
+            "type": "cross",
+            "value": 3
+          },
+          "entryPx": "0.039877",
+          "positionValue": "4983.8350021307",
+          "unrealizedPnl": "-377.071404162",
+          "returnOnEquity": "-0.2455550819",
+          "liquidationPx": "4.7848513035",
+          "marginUsed": "1661.2783335663",
+          "maxLeverage": 3,
+          "cumFunding": {
+            "allTime": "7.0571918139",
+            "sinceOpen": "7.0571918139",
+            "sinceChange": "7.0571918139"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "SPX",
+          "szi": "20917.8266849898",
+          "leverage": {
+            "type": "cross",
+            "value": 5
+          },
+          "entryPx": "0.57232",
+          "positionValue": "10801.3381653282",
+          "unrealizedPnl": "-1170.451381742",
+          "returnOnEquity": "-0.4888372691",
+          "liquidationPx": null,
+          "marginUsed": "2160.2676326361",
+          "maxLeverage": 5,
+          "cumFunding": {
+            "allTime": "69.0169557688",
+            "sinceOpen": "69.0169557688",
+            "sinceChange": "35.8646910485"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "VVV",
+          "szi": "2134.3994991854",
+          "leverage": {
+            "type": "cross",
+            "value": 3
+          },
+          "entryPx": "17.0866",
+          "positionValue": "52715.39883088",
+          "unrealizedPnl": "16245.6038240814",
+          "returnOnEquity": "1.3363609931",
+          "liquidationPx": null,
+          "marginUsed": "17571.7996098161",
+          "maxLeverage": 3,
+          "cumFunding": {
+            "allTime": "516.9339900878",
+            "sinceOpen": "516.9339900878",
+            "sinceChange": "516.9339900878"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "CC",
+          "szi": "-501428.9282853428",
+          "leverage": {
+            "type": "cross",
+            "value": 3
+          },
+          "entryPx": "0.11271",
+          "positionValue": "52429.4087415154",
+          "unrealizedPnl": "4086.6501596479",
+          "returnOnEquity": "0.2169286167",
+          "liquidationPx": "1.1970037382",
+          "marginUsed": "17476.4695802665",
+          "maxLeverage": 3,
+          "cumFunding": {
+            "allTime": "-157.2257909425",
+            "sinceOpen": "-157.2257909425",
+            "sinceChange": "-116.8156200889"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "XMR",
+          "szi": "287.6997594923",
+          "leverage": {
+            "type": "cross",
+            "value": 5
+          },
+          "entryPx": "486.852",
+          "positionValue": "146539.872497421",
+          "unrealizedPnl": "6472.4959612705",
+          "returnOnEquity": "0.231049375",
+          "liquidationPx": null,
+          "marginUsed": "29307.9744994842",
+          "maxLeverage": 5,
+          "cumFunding": {
+            "allTime": "2969.5278927025",
+            "sinceOpen": "2969.5278927025",
+            "sinceChange": "1879.2770988573"
+          }
+        }
+      }
+    ],
+    "time": 1788981846465
+  },
+  "spot": {
+    "balances": [
+      {
+        "coin": "USDC",
+        "token": 0,
+        "total": "679372.9411761649",
+        "hold": "80585.7990453749",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "TRUMP",
+        "token": 10,
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "HYPE",
+        "token": 150,
+        "total": "2809.2611924177",
+        "hold": "0.0",
+        "entryNtl": "228437.0286345246"
+      },
+      {
+        "coin": "USDE",
+        "token": 235,
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "USDT0",
+        "token": 268,
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "XAUT0",
+        "token": 297,
+        "total": "0.0067651946",
+        "hold": "0.0",
+        "entryNtl": "32.4718331192"
+      },
+      {
+        "coin": "USDH",
+        "token": 360,
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "MAX",
+        "token": 734,
+        "total": "6668113.9207508788",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      }
+    ],
+    "tokenToAvailableAfterMaintenance": [
+      [
+        0,
+        "639080.041655625"
+      ]
+    ]
+  }
+}

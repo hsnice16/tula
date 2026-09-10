@@ -1,0 +1,180 @@
+{
+  "captured": "2026-09-10T14:40:28.780Z",
+  "nodes": [
+    {
+      "rpc": "https://ethereum-rpc.publicnode.com",
+      "chainId": "0x1",
+      "batchAnswered": 40
+    },
+    {
+      "rpc": "https://eth.rpc.blxrbdn.com",
+      "chainId": "0x1",
+      "batchAnswered": 40
+    },
+    {
+      "rpc": "https://rpc.mevblocker.io",
+      "chainId": "0x1",
+      "batchAnswered": 40
+    }
+  ],
+  "tokenList": {
+    "url": "https://tokens.uniswap.org",
+    "name": "Uniswap Labs Default",
+    "tokens": 403,
+    "stablecoins": [
+      {
+        "symbol": "DAI",
+        "decimals": 18
+      },
+      {
+        "symbol": "USD1",
+        "decimals": 18
+      },
+      {
+        "symbol": "USDC",
+        "decimals": 6
+      },
+      {
+        "symbol": "USDG",
+        "decimals": 6
+      },
+      {
+        "symbol": "USDP",
+        "decimals": 18
+      },
+      {
+        "symbol": "USDQ",
+        "decimals": 6
+      },
+      {
+        "symbol": "USDR",
+        "decimals": 6
+      },
+      {
+        "symbol": "USDS",
+        "decimals": 18
+      },
+      {
+        "symbol": "USDSM",
+        "decimals": 18
+      },
+      {
+        "symbol": "USDT",
+        "decimals": 6
+      }
+    ]
+  },
+  "aave": [
+    {
+      "market": "Core",
+      "reserves": [
+        "WETH",
+        "wstETH",
+        "WBTC",
+        "USDC",
+        "DAI",
+        "LINK",
+        "AAVE",
+        "cbETH",
+        "USDT",
+        "rETH",
+        "LUSD",
+        "CRV",
+        "MKR",
+        "SNX",
+        "BAL",
+        "UNI",
+        "LDO",
+        "ENS",
+        "1INCH",
+        "FRAX",
+        "GHO",
+        "RPL",
+        "sDAI",
+        "STG",
+        "KNC",
+        "FXS",
+        "crvUSD",
+        "PYUSD",
+        "weETH",
+        "osETH",
+        "USDe",
+        "ETHx",
+        "sUSDe",
+        "tBTC",
+        "cbBTC",
+        "USDS",
+        "rsETH",
+        "LBTC",
+        "eBTC",
+        "RLUSD",
+        "PT-eUSDE-29MAY2025",
+        "PT-sUSDE-31JUL2025",
+        "USDtb",
+        "PT-USDe-31JUL2025",
+        "PT-eUSDE-14AUG2025",
+        "eUSDe",
+        "FBTC",
+        "EURC",
+        "PT-sUSDE-25SEP2025",
+        "PT-USDe-25SEP2025",
+        "tETH",
+        "ezETH",
+        "XAUt",
+        "PT-sUSDE-27NOV2025",
+        "PT-USDe-27NOV2025",
+        "PT-USDe-5FEB2026",
+        "PT-sUSDE-5FEB2026",
+        "mUSD",
+        "syrupUSDT",
+        "USDG",
+        "PT-USDe-7MAY2026",
+        "PT-sUSDE-7MAY2026",
+        "PT-srUSDe-2APR2026",
+        "BTC.b",
+        "PT-srUSDe-25JUN2026",
+        "PT-USDG-28MAY2026",
+        "PT-srUSDe-22OCT2026"
+      ]
+    },
+    {
+      "market": "Prime",
+      "reserves": [
+        "wstETH",
+        "WETH",
+        "USDS",
+        "USDC",
+        "ezETH",
+        "sUSDe",
+        "GHO",
+        "rsETH",
+        "tETH"
+      ]
+    },
+    {
+      "market": "EtherFi",
+      "reserves": [
+        "weETH",
+        "USDC",
+        "PYUSD",
+        "FRAX"
+      ]
+    },
+    {
+      "market": "Horizon",
+      "reserves": [
+        "GHO",
+        "USDC",
+        "RLUSD",
+        "USTB",
+        "USCC",
+        "USYC",
+        "JTRSY",
+        "JAAA",
+        "VBILL",
+        "ACRED",
+        "mGLOBAL"
+      ]
+    }
+  ]
+}

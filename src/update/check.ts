@@ -75,7 +75,20 @@ export async function pendingUpdate(now = Date.now()): Promise<Available | null>
   return said ? found : null
 }
 
+export interface UpdateCheck {
+  /** The newer release, if the lookup happened and there was one. */
+  update: Available | null
+  /**
+   * Whether GitHub answered with a release number at all. Collapsed into
+   * `update: null`, an unreachable GitHub and a build already on the newest
+   * release were the same sentence — and the reassuring one, to somebody who
+   * asked precisely because they wanted to know.
+   */
+  checked: boolean
+}
+
 /** The same question `/update` asks, without the once-a-day gate in the way. */
-export async function availableNow(): Promise<Available | null> {
-  return offer(await latestRelease())
+export async function availableNow(): Promise<UpdateCheck> {
+  const latest = await latestRelease()
+  return latest === null ? { update: null, checked: false } : { update: offer(latest), checked: true }
 }

@@ -1,6 +1,6 @@
 # 01 · Provider interface
 
-**Status**: planned
+**Status**: planned — two of the rules below already hold for Anthropic
 
 ## Goal
 
@@ -14,10 +14,14 @@
   loops — and a missing capability is said out loud, not worked around quietly.
 - Every provider names one pinned host, listed in `SECURITY.md` and reported by
   `doctor`. A base URL read from the environment still cannot redirect the book.
+  **Anthropic's is pinned and listed, and `scripts/guard.sh` fails the build if
+  it stops being.** `doctor` is [`trust-surface/01`](../trust-surface/01-doctor.md).
 - A custom endpoint is a confirmed act with the host on screen, never a variable
   a shell profile can set.
 - Where a provider has its own CLI or keychain, tula delegates to it and holds no
-  token. A pasted key is the fallback, not the pattern.
+  token. A pasted key is the fallback, not the pattern. **Holds for Anthropic** —
+  `startSignIn` (`src/agent/signin.ts`) spawns `ant auth login` and tula never
+  sees the token.
 
 ## Notes
 

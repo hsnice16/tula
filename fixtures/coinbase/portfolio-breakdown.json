@@ -1,0 +1,61 @@
+{
+ "_doc": "https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/portfolios/get-portfolio-breakdown — built from the documented schema; a CDP key is required, so this could not be captured. liquidation_price, mark_price and im_notional are BalancePair, whose members are camelCase in an otherwise snake_case API.",
+ "breakdown": {
+  "portfolio": {
+   "name": "Perps",
+   "uuid": "11111111-2222-3333-4444-555555555555",
+   "type": "INTX",
+   "deleted": false
+  },
+  "portfolio_balances": {
+   "total_balance": { "value": "24000.00", "currency": "USD" },
+   "perp_unrealized_pnl": { "value": "-1200.00", "currency": "USD" }
+  },
+  "perp_positions": [
+   {
+    "product_id": "BTC-PERP-INTX",
+    "symbol": "BTC-PERP-INTX",
+    "position_side": "FUTURES_POSITION_SIDE_LONG",
+    "net_size": "0.75",
+    "leverage": "5",
+    "margin_type": "MARGIN_TYPE_CROSS",
+    "liquidation_buffer": "4200.00",
+    "liquidation_percentage": "18.5",
+    "mark_price": {
+     "userNativeCurrency": { "value": "62000.00", "currency": "USD" },
+     "rawCurrency": { "value": "62000.00", "currency": "USDC" }
+    },
+    "liquidation_price": {
+     "userNativeCurrency": { "value": "51000.00", "currency": "USD" },
+     "rawCurrency": { "value": "51000.00", "currency": "USDC" }
+    }
+   },
+   {
+    "product_id": "ETH-PERP-INTX",
+    "symbol": "ETH-PERP-INTX",
+    "position_side": "FUTURES_POSITION_SIDE_SHORT",
+    "net_size": "12",
+    "leverage": "3",
+    "margin_type": "MARGIN_TYPE_CROSS",
+    "liquidation_price": {
+     "userNativeCurrency": { "value": "4100.00", "currency": "USD" },
+     "rawCurrency": { "value": "4100.00", "currency": "USDC" }
+    }
+   },
+   {
+    "product_id": "SOL-PERP-INTX",
+    "symbol": "SOL-PERP-INTX",
+    "position_side": "FUTURES_POSITION_SIDE_LONG",
+    "net_size": "300",
+    "leverage": "2",
+    "margin_type": "MARGIN_TYPE_ISOLATED",
+    "liquidation_price": {
+     "userNativeCurrency": { "value": "0", "currency": "USD" },
+     "rawCurrency": { "value": "0", "currency": "USDC" }
+    }
+   }
+  ],
+  "spot_positions": [],
+  "futures_positions": []
+ }
+}

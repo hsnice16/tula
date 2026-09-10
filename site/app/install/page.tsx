@@ -85,11 +85,11 @@ const SYSTEMS = [
   ['Windows', 'Through WSL', 'Install inside WSL, where it is Linux. There is no native build.'],
 ] as const
 
-/** A step within one channel's panel, under the h1 the page opens with. */
+/** A step within one channel's panel, under that panel's own heading. */
 function Step({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="mt-8">
-      <h2 className="mb-2.5 text-[0.95rem] font-semibold text-ink">{title}</h2>
+      <h3 className="mb-2.5 text-[0.95rem] font-semibold text-ink">{title}</h3>
       {children}
     </div>
   )
@@ -126,15 +126,18 @@ const CHANNELS: Channel[] = [
           every test runs against.
         </p>
         <Aside>
-          tula checks for a new release once a day and says so in a line. It never installs one
-          without asking: <Code>/update</Code> shows what it would install and where to check it,
-          and <Code>/update install</Code> installs it.
+          The tula shell checks for a new release once a day and says so in a line. It never
+          installs one without asking: <Code>/update</Code> shows what it would install and where to
+          check it, and <Code>/update install</Code> installs it.
         </Aside>
 
         <Step title="Where it puts things">
           <p className="mb-4 text-dim">
             Everything goes under <Code>~/.tula</Code>. Each version gets its own folder, and{' '}
-            <Code>~/.tula/bin/tula</Code> is a link to the one you run.
+            <Code>~/.tula/bin/tula</Code> is a link to the one you run. The installer refuses a tree
+            somebody else owns or can write to — mode 600 on your keys buys nothing if another
+            account can replace the binary that opens them — and <Code>TULA_INSTALL_DIR</Code> puts
+            it somewhere you do own.
           </p>
           <p className="text-dim">
             If <Code>~/.tula/bin</Code> is not on your PATH, the installer adds a line to your zsh,
@@ -160,9 +163,11 @@ const CHANNELS: Channel[] = [
             start.
           </p>
           <p className="mb-4 text-dim">
-            It downloads nothing when the newest release is the one you already have — it says so
-            and relinks, which takes about a second. <Code>TULA_FORCE=1</Code> fetches and checks
-            that same version again anyway.
+            It downloads nothing when the version you already have is the one it was going to
+            install <em>and</em> that build still hashes to what was checked when it landed — it
+            says so and relinks, which takes about a second. Anything else, a tree an older
+            installer left without that record included, is downloaded and verified again.{' '}
+            <Code>TULA_FORCE=1</Code> fetches and checks that same version again anyway.
           </p>
           <Terminal title="update">{INSTALL_COMMAND}</Terminal>
         </Step>
@@ -208,8 +213,8 @@ const CHANNELS: Channel[] = [
           takes every release, pre-releases included.
         </p>
         <Aside>
-          tula checks for a new release once a day and says so in a line. It never installs one
-          without asking, and on Homebrew it does not install one at all — that is{' '}
+          The tula shell checks for a new release once a day and says so in a line. It never
+          installs one without asking, and on Homebrew it does not install one at all — that is{' '}
           <Code>brew upgrade tula</Code>, so brew is never left naming a version that is not
           running.
         </Aside>
@@ -274,8 +279,8 @@ const CHANNELS: Channel[] = [
           <Code>~/.tula</Code>.
         </p>
         <Aside>
-          tula checks for a new release once a day and says so in a line. It never installs one
-          without asking, and on npm it does not install one at all — that is{' '}
+          The tula shell checks for a new release once a day and says so in a line. It never
+          installs one without asking, and on npm it does not install one at all — that is{' '}
           <Code>npm update</Code>, so npm is never left naming a version that is not running.
         </Aside>
 
@@ -322,7 +327,7 @@ export default function Page() {
 
       <Channels channels={CHANNELS} />
 
-      <p className="label mt-step-3 mb-8">Confirm it worked</p>
+      <h2 className="label mt-step-3 mb-8">Confirm it worked</h2>
       <div className="mb-step-3 max-w-[46rem]">
         <Command label="confirm">{'tula --version'}</Command>
         <p className="mt-4 text-dim">
@@ -342,20 +347,20 @@ export default function Page() {
         </dl>
       </div>
 
-      <p className="label mb-8">Every install is checked</p>
+      <h2 className="label mb-8">Every install is checked</h2>
       {/* Three columns only where they are wide enough for a sentence. At the
           `sm` these took, the longest ran six lines beside a neighbour of
           three. */}
       <div className="mb-step-3 grid gap-px overflow-hidden rounded border border-rule bg-rule md:grid-cols-3">
         {CHECKS.map(([title, body]) => (
           <div key={title} className="bg-bg px-5 py-5">
-            <h2 className="mb-1.5 text-[0.95rem] font-semibold text-ink">{title}</h2>
+            <h3 className="mb-1.5 text-[0.95rem] font-semibold text-ink">{title}</h3>
             <p className="text-[0.88rem] leading-relaxed text-dim">{body}</p>
           </div>
         ))}
       </div>
 
-      <p className="label mb-8">What it runs on</p>
+      <h2 className="label mb-8">What it runs on</h2>
       {/* Below the table's own width every row is a block instead. The note is
           what answers "will it run on mine?", and scrolled sideways it sits off
           a phone with nothing to say it is there. */}
@@ -382,7 +387,7 @@ export default function Page() {
         </table>
       </div>
 
-      <p className="label mb-8">Proving who built it</p>
+      <h2 className="label mb-8">Proving who built it</h2>
       <div className="mb-step-3 max-w-[46rem]">
         <p className="mb-4 text-dim">
           A checksum proves the file arrived whole. It does not prove who made it: the checksum is
@@ -404,7 +409,7 @@ export default function Page() {
         </div>
         <Terminal title="verify">
           {
-            "curl --proto '=https' --tlsv1.2 -fLO https://github.com/hsnice16/tula/releases/download/v0.1.3/tula-v0.1.3-darwin-arm64.tar.gz\ngh attestation verify tula-v0.1.3-darwin-arm64.tar.gz --repo hsnice16/tula --signer-workflow hsnice16/tula/.github/workflows/release.yml"
+            "curl --proto '=https' --tlsv1.2 -fLO https://github.com/hsnice16/tula/releases/download/v0.2.0/tula-v0.2.0-darwin-arm64.tar.gz\ngh attestation verify tula-v0.2.0-darwin-arm64.tar.gz --repo hsnice16/tula --signer-workflow hsnice16/tula/.github/workflows/release.yml"
           }
         </Terminal>
         <p className="mt-4 text-dim">
@@ -413,7 +418,7 @@ export default function Page() {
         </p>
       </div>
 
-      <p className="label mb-8">Your keys are kept apart</p>
+      <h2 className="label mb-8">Your keys are kept apart</h2>
       <div className="max-w-[46rem]">
         <p className="mb-4 text-dim">
           Whichever way you installed it, your keys live in <Code>~/.config/tula</Code>, away from

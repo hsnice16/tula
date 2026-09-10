@@ -19,7 +19,7 @@ them, and everything works without an API key.
 - [06 · Ink input surface](06-ink-surface.md) — done
 - [07 · Risk engine as a tool surface](07-agent-tools.md) — done
 - [08 · Agent loop](08-agent-loop.md) — done
-- [09 · Prompt injection defence](09-injection-defense.md) — in_progress
+- [09 · Prompt injection defence](09-injection-defense.md) — done
 - [10 · Slash commands](10-slash-commands.md) — done
 - [11 · First-run onboarding](11-onboarding.md) — done
 - [12 · Venues as commands](12-venue-commands.md) — done

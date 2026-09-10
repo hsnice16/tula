@@ -50,6 +50,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # The whole history, so the step below can ask whether the commit
+          # being released is on main. A shallow checkout cannot answer that.
+          fetch-depth: 0
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.2.16
@@ -83,6 +86,24 @@ jobs:
             echo "::notice::Dry run — building and verifying everything, publishing nothing."
           fi
 
+      # The attestation every install verifies is bound to this file's *path* —
+      # `--signer-workflow <repo>/.github/workflows/release.yml` — and a tag can
+      # point at any commit, including one that was never on main and that
+      # rewrote this workflow. Anything published from here has to be reachable
+      # from main, or the provenance proves only that some version of this file
+      # ran. It runs before anything is built, so an off-main tag costs a minute
+      # rather than a release.
+      - name: what is being released is on main
+        if: steps.version.outputs.publish == 'true'
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || {
+            echo "::error::$GITHUB_REF_NAME points at a commit that is not on main;" \
+              "an attestation minted here would name this workflow's path from a" \
+              "tree nobody reviewed." >&2
+            exit 1
+          }
+
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
@@ -94,10 +115,6 @@ jobs:
       - run: bun run check
 
       - run: bash scripts/release-build.sh dist/release
-
-      # Proves the published installer works against the shape of release this
-      # job just produced, before that release exists for anyone to install.
-      - run: bash scripts/install-test.sh
 
       # ------------------------------------------------------------- signing --
       #
@@ -133,6 +150,18 @@ jobs:
         run: |
           set -euo pipefail
           keychain=$RUNNER_TEMP/build.keychain
+          # A trap, not a line at the end: `delete-keychain` was reached only on
+          # the happy path, so a failure anywhere in the loop below left the
+          # keychain unlocked and in the search list for every later step, and
+          # left the decoded certificate and API key sitting in $RUNNER_TEMP for
+          # the life of the job. Runners are ephemeral; the rest of this job is
+          # not, and it clones a tap and publishes with tokens of its own.
+          cleanup() {
+            security list-keychains -d user -s login.keychain 2>/dev/null || true
+            security delete-keychain "$keychain" 2>/dev/null || true
+            rm -f "$RUNNER_TEMP/cert.p12" "$RUNNER_TEMP/key.p8"
+          }
+          trap cleanup EXIT
           security create-keychain -p "" "$keychain"
           security set-keychain-settings -lut 900 "$keychain"
           security unlock-keychain -p "" "$keychain"
@@ -169,8 +198,6 @@ jobs:
               gzip -n >"dist/release/tula-v$VERSION-darwin-$arch.tar.gz"
           done
 
-          security delete-keychain "$keychain"
-
       # Signing rewrote two archives, so every checksum is recomputed here
       # rather than earlier. This file is what the installer checks against.
       - name: checksums
@@ -180,6 +207,25 @@ jobs:
           rm -f checksums.txt
           shasum -a 256 ./*.tar.gz | sed 's| \./| |' >checksums.txt
           cat checksums.txt
+
+      # After signing and after the checksums, not before either. Run earlier it
+      # proved the installer against archives that no longer existed by the time
+      # anybody could download them — signing rewrites two of them, and the file
+      # the installer checks against is written above.
+      - run: bash scripts/install-test.sh
+
+      # And the archives themselves, as they will ship: the checksums a user
+      # verifies, and a binary that starts. A signed Mach-O that Gatekeeper or a
+      # bad re-tar has broken passes every check above and fails on first run.
+      - name: the shipped archives verify and run
+        run: |
+          set -euo pipefail
+          cd dist/release
+          shasum -a 256 -c checksums.txt
+          work=$(mktemp -d)
+          tar -xzf "tula-v${{ steps.version.outputs.version }}-darwin-arm64.tar.gz" -C "$work"
+          "$work/tula" --version
+          rm -rf "$work"
 
       # Signed by GitHub's workflow identity through sigstore: keyless, so there
       # is no signing key for this project to generate, publish, rotate or lose.
@@ -218,8 +264,13 @@ jobs:
             echo
             echo "## Verify"
             echo
+            # "present and signed in": install.sh treats a gh that is present
+            # but not authenticated exactly as an absent one — it installs and
+            # says provenance was not proven. This copy is the body of every
+            # release, which is where people read it.
             echo "Every archive carries a sigstore-backed build attestation. The installer"
-            echo "checks it automatically when the GitHub CLI is present; by hand:"
+            echo "checks it automatically where the GitHub CLI is present and signed in, and"
+            echo "says plainly that provenance was not proven where it is not. By hand:"
             echo
             echo '```bash'
             # --signer-workflow, not just --repo: --repo alone accepts an

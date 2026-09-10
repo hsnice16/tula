@@ -1,11 +1,12 @@
 # 04 · Venue-agnostic command set
 
 **Status**: done
+**Covered by**: `src/cli/shell.test.ts`, `src/consistency.test.ts`, `src/cli/oneshot.test.ts`
 
 ## Goal
 
-The vocabulary of the daily driver. Structured commands now; natural language is
-2.0 and sits on exactly these.
+The vocabulary of the daily driver. Structured commands first, and the plain
+English that shipped beside them in this same milestone sits on exactly these.
 
 ## Acceptance
 

@@ -1,6 +1,7 @@
 # 04 · Stripe connector
 
 **Status**: done
+**Covered by**: `src/connectors/stripe.test.ts`
 
 ## Goal
 

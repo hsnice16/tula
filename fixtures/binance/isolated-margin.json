@@ -1,0 +1,80 @@
+{
+ "_doc": "https://developers.binance.com/docs/margin_trading/account/Query-Isolated-Margin-Account-Info — built from the documented response example; a key is required, so this could not be captured. netAsset is Binance's own signed figure: totalAsset minus borrowed and interest. The account-level totals are omitted by Binance whenever the `symbols` parameter is sent, which is why tula never sends it.",
+ "assets": [
+  {
+   "baseAsset": {
+    "asset": "BTC",
+    "borrowEnabled": true,
+    "borrowed": "0.00000000",
+    "free": "0.00000000",
+    "interest": "0.00000000",
+    "locked": "0.00000000",
+    "netAsset": "1.50000000",
+    "netAssetOfBtc": "1.50000000",
+    "repayEnabled": true,
+    "totalAsset": "1.50000000"
+   },
+   "quoteAsset": {
+    "asset": "USDT",
+    "borrowEnabled": true,
+    "borrowed": "40000.00000000",
+    "free": "0.00000000",
+    "interest": "12.00000000",
+    "locked": "0.00000000",
+    "netAsset": "-40012.00000000",
+    "netAssetOfBtc": "-0.65000000",
+    "repayEnabled": true,
+    "totalAsset": "0.00000000"
+   },
+   "symbol": "BTCUSDT",
+   "isolatedCreated": true,
+   "enabled": true,
+   "marginLevel": "1.42000000",
+   "marginLevelStatus": "NORMAL",
+   "marginRatio": "1.10000000",
+   "indexPrice": "62000.00000000",
+   "liquidatePrice": "29500.00000000",
+   "liquidateRate": "1.00000000",
+   "tradeEnabled": true
+  },
+  {
+   "baseAsset": {
+    "asset": "ETH",
+    "borrowEnabled": true,
+    "borrowed": "0.00000000",
+    "free": "0.00000000",
+    "interest": "0.00000000",
+    "locked": "0.00000000",
+    "netAsset": "0.00000000",
+    "netAssetOfBtc": "0.00000000",
+    "repayEnabled": true,
+    "totalAsset": "0.00000000"
+   },
+   "quoteAsset": {
+    "asset": "USDT",
+    "borrowEnabled": true,
+    "borrowed": "0.00000000",
+    "free": "0.00000000",
+    "interest": "0.00000000",
+    "locked": "0.00000000",
+    "netAsset": "0.00000000",
+    "netAssetOfBtc": "0.00000000",
+    "repayEnabled": true,
+    "totalAsset": "0.00000000"
+   },
+   "symbol": "ETHUSDT",
+   "isolatedCreated": true,
+   "enabled": false,
+   "marginLevel": "0.00000000",
+   "marginLevelStatus": "EXCESSIVE",
+   "marginRatio": "0.00000000",
+   "indexPrice": "3100.00000000",
+   "liquidatePrice": "0.00000000",
+   "liquidateRate": "0.00000000",
+   "tradeEnabled": false
+  }
+ ],
+ "totalAssetOfBtc": "1.50000000",
+ "totalLiabilityOfBtc": "0.65000000",
+ "totalNetAssetOfBtc": "0.85000000"
+}

@@ -1,0 +1,365 @@
+{
+  "captured": "2026-09-09T19:24:01.901Z",
+  "endpoint": "https://api.hyperliquid.xyz/info",
+  "request": {
+    "clearinghouseState": "<address>",
+    "spotClearinghouseState": "<address>"
+  },
+  "perps": {
+    "marginSummary": {
+      "accountValue": "89342.2395949019",
+      "totalNtlPos": "567708.0585386577",
+      "totalRawUsd": "657050.2981335596",
+      "totalMarginUsed": "189236.0195128859"
+    },
+    "crossMarginSummary": {
+      "accountValue": "89342.2395949019",
+      "totalNtlPos": "567708.0585386577",
+      "totalRawUsd": "657050.2981335596",
+      "totalMarginUsed": "189236.0195128859"
+    },
+    "crossMaintenanceMarginUsed": "28385.4029269329",
+    "withdrawable": "0.0",
+    "assetPositions": [
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "HYPE",
+          "szi": "-6593.1300784923",
+          "leverage": {
+            "type": "cross",
+            "value": 3
+          },
+          "entryPx": "13.1333",
+          "positionValue": "567708.0585386577",
+          "unrealizedPnl": "-481118.3727943647",
+          "returnOnEquity": "-16.6689035302",
+          "liquidationPx": "132.8043084426",
+          "marginUsed": "189236.0195128859",
+          "maxLeverage": 10,
+          "cumFunding": {
+            "allTime": "-77743.9243726764",
+            "sinceOpen": "-77743.9243726764",
+            "sinceChange": "-71537.8691339202"
+          }
+        }
+      }
+    ],
+    "time": 1788981842011
+  },
+  "spot": {
+    "balances": [
+      {
+        "coin": "USDC",
+        "token": 0,
+        "total": "351667.8260352326",
+        "hold": "189236.0195128859",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "PURR",
+        "token": 1,
+        "total": "263866.5410065515",
+        "hold": "0.0",
+        "entryNtl": "57232.1056140653"
+      },
+      {
+        "coin": "ARI",
+        "token": 58,
+        "total": "3911.550145266",
+        "hold": "0.0",
+        "entryNtl": "0.3911550057"
+      },
+      {
+        "coin": "VAULT",
+        "token": 106,
+        "total": "4.5091509255",
+        "hold": "0.0",
+        "entryNtl": "0.0045091455"
+      },
+      {
+        "coin": "MUNCH",
+        "token": 146,
+        "total": "2869.7479118299",
+        "hold": "0.0",
+        "entryNtl": "0.010618064"
+      },
+      {
+        "coin": "HYPE",
+        "token": 150,
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "STAR",
+        "token": 154,
+        "total": "43.1745668366",
+        "hold": "0.0",
+        "entryNtl": "0.0043174534"
+      },
+      {
+        "coin": "USDE",
+        "token": 235,
+        "total": "10883.6894706968",
+        "hold": "0.0",
+        "entryNtl": "10883.6894706968"
+      },
+      {
+        "coin": "USDT0",
+        "token": 268,
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "LICKO",
+        "token": 307,
+        "total": "518.9747486698",
+        "hold": "0.0",
+        "entryNtl": "0.0031138469"
+      },
+      {
+        "coin": "UENA",
+        "token": 338,
+        "total": "27.6500115944",
+        "hold": "0.0",
+        "entryNtl": "6.9871579299"
+      },
+      {
+        "coin": "USDH",
+        "token": 360,
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+20860",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+20861",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+12170",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+12171",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+15191",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+15210",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+15211",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+20370",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+20371",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+12270",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+12271",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+20390",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+20391",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+15240",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+15241",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+15250",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+15251",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+20270",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+20271",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+14730",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+14731",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+14750",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+14751",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+14780",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+14781",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+14820",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+14821",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+14840",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+14841",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+14910",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+15280",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+15281",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+19880",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+15300",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "+15301",
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "MAX",
+        "token": 734,
+        "total": "67349546.923306039",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      }
+    ],
+    "tokenToAvailableAfterMaintenance": [
+      [
+        0,
+        "323282.4231082997"
+      ],
+      [
+        235,
+        "10883.6894706968"
+      ]
+    ]
+  }
+}

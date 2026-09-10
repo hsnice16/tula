@@ -78,10 +78,16 @@ proves that check still catches one.
   than dressed up.
 - **Exchange API keys must be query-only.** Scope is verified against the venue at
   connect time; a key that can withdraw is refused, not warned about.
-- **Where a venue cannot prove scope, we say so.** Kraken exposes no endpoint that
-  reports a key's permissions, and every trade-gated endpoint mutates an order —
-  so tula reports that permission as *unknown* rather than implying a check
-  that did not happen.
+- **Where a venue cannot prove scope, we say so.** Kraken proves a key cannot
+  withdraw — the endpoint gated on that permission reads without moving
+  anything, so a refusal is the proof. Nothing proves it cannot *trade*: every
+  trade-gated endpoint places or mutates an order. Trade is the permission tula
+  reports as *unknown*, rather than implying a check that did not happen.
+- **A venue with no read-only key is not a venue tula offers.** Unproven is one
+  thing; a credential every one of whose forms can move money is another, and no
+  wording on a connect screen makes it safe to store. Circle Mint was dropped for
+  exactly this — a Mint key can create payouts and transfers, and Circle publishes
+  no way to make one that cannot.
 - **Credentials stay on your machine**, at `~/.config/tula/credentials.json`,
   mode 600 enforced on every read, and are sent only to the venue they belong to.
 - **Credentials never enter model context.** The agent layer sees one interface —
@@ -91,17 +97,24 @@ proves that check still catches one.
   deterministic code and handed to it, already rounded and formatted by the same
   code that draws the tables. It has no raw value to re-round, so the sentence it
   writes and the row on screen cannot disagree.
-- **Text tula did not write is bounded.** Two strings reach the screen and the
-  model from outside: an asset symbol — as a venue's listing spells it, or as an
-  Aave reserve contract returns it — and a venue's own error text when one
-  fails. Both are capped and flattened to a single line, so neither can pose as
-  an instruction; a read-only tool can still be talked into lying to you about a
-  health factor.
+- **Text tula did not write is bounded.** Three kinds of string reach the screen
+  and the model from outside: an asset symbol — as a venue's listing spells it,
+  as the configured token list names it, or as an Aave reserve contract returns
+  it — the error text of a venue or a price source when one fails, and the error
+  text of the model provider. All three are
+  capped and flattened to a single line, so none can pose as an instruction,
+  and every tool result names the paths they sit at — so what
+  marks them as data is the payload rather than a sentence in a prompt the model
+  has to keep. A name that had to be cleaned is said out loud too: an `ALTERED`
+  line names the venue that sent it and the node variable that chooses who
+  answers for a chain, never the string itself. A read-only tool can still be
+  talked into lying to you about a health factor.
 
 Network egress is the venues you connect, the price source you chose, a public
-Ethereum node and token list for the on-chain venues, GitHub once a day to see
-whether there is a newer release — and, only when you ask a question in plain
-English, Anthropic, which receives the computed figures and never a credential.
+node on each chain read — Ethereum, Arbitrum One and Base — and a token list for
+the on-chain venues, GitHub once a day from the interactive shell to see whether
+there is a newer release — and, only when you ask a question in plain English,
+Anthropic, which receives the computed figures and never a credential.
 Drive tula with commands and it never talks to a model at all.
 [SECURITY.md](./SECURITY.md) lists each one and what it sees.
 
@@ -132,7 +145,7 @@ the sigstore-backed attestation proving this repository's release workflow built
 it wherever the GitHub CLI can — saying so either way. Check one by hand:
 
 ```bash
-gh attestation verify tula-v0.1.3-darwin-arm64.tar.gz --repo hsnice16/tula \
+gh attestation verify tula-v0.2.0-darwin-arm64.tar.gz --repo hsnice16/tula \
   --signer-workflow hsnice16/tula/.github/workflows/release.yml
 ```
 
@@ -172,27 +185,33 @@ useful thing you can send.
 
 | Venue | Reads | Needs |
 |---|---|---|
-| **Wallet** (Ethereum) | native ETH and ERC-20 balances off a token list | a public address |
-| **Hyperliquid** | perp positions with liquidation price, spot, the account's USDC | a public address |
-| **Aave v3** (Ethereum) | collateral, debt, health factor, per asset, across all four markets | a public address |
-| **Kraken** | spot and staked balances | a query-only API key |
-| **Binance** | spot balances | a read-only API key |
-| **Coinbase Advanced** | spot and held balances | a CDP API key (view-only) |
-| **Stripe** | available and pending balances, per currency | a restricted (`rk_`) key |
-| **Circle Mint** | available and unsettled balances | a restricted API key |
+| **Wallet** (Ethereum, Arbitrum One and Base) | native ETH and ERC-20 balances off a token list, per chain | one or more public addresses |
+| **Hyperliquid** | perp positions with liquidation price, spot, the account's USDC | one or more public addresses |
+| **Aave v3** (Ethereum, Arbitrum One and Base) | collateral, debt, health factor, per asset, across six markets | one or more public addresses |
+| **Kraken** | spot, staked and held balances in every wallet, and open margin positions with the loan behind each | one or more query-only API keys |
+| **Binance** | spot balances with free and locked stated apart, and cross and isolated margin with the liquidation price each carries | one or more read-only API keys |
+| **Coinbase Advanced** | every account the key can list, free and held stated apart, and perpetual positions with liquidation price and leverage | one or more CDP API keys (view-only) |
+| **Stripe** | five of the six balance buckets `/v1/balance` carries, per currency — `instant_available` is a slice of `available` and would state the same money twice | one or more restricted (`rk_`) keys |
 
 | | |
 |---|---|
 | Net exposure, scenarios, liquidation distance | working |
+| More than one account per venue — a hot wallet and a cold one, two exchange keys | working; every figure counts all of them, each row carries the account it came from, and `INCOMPLETE` names the account that failed rather than only the venue |
+| How much of a holding you can move, and what is holding the rest | working; a `FREE` and an `UNAVAILABLE` column where something is held, and an em dash where the venue reports too little to prove it |
+| What tula never asked for | working; `/venues` names every area a connector declares it does not read, with what each may hide, and every one of them is scheduled work in [ROADMAP.md](./ROADMAP.md) |
 | Interactive shell — slash commands, ctrl+k to search them, ctrl+o for long output, plain English | working; both command lists take the mouse as well as the keyboard |
 | Prices — CoinGecko, CoinPaprika, CoinMarketCap, CryptoCompare | working; one active at a time, `/<source> use` switches |
-| Staying current — `/update` checks once a day and says so in a line | working; nothing is installed until you type `/update install` |
-| Kraken margin and open orders | not yet |
+| Staying current — the shell checks once a day and says so in a line; `/update` checks there and then | working; nothing is installed until you type `/update install` |
+| Kraken's account margin level | planned — Kraken liquidates on an account-wide level and no position carries that figure, so those rows rank `unknown` until it is read |
 | Binance futures | not while tula is read-only — Binance's futures permission grants trading, and a key holding it is refused |
-| Aave on Arbitrum / Base | not yet — Ethereum only |
+| Solana | planned — a different RPC and account model, so a connector of its own rather than a registry entry ([`breadth/12`](./tasks/breadth/12-chain-reach.md)) |
+| Hyperliquid's own EVM chain (HyperEVM) | planned — both legs or neither. A balance there is a HyperCore spot balance and an EVM ERC-20 scaled against each other, so one leg alone is a number that is not the holding ([`breadth/12`](./tasks/breadth/12-chain-reach.md)) |
+| Aave V4 | planned — v4 is Hubs and Spokes rather than Pools, so no call the connector makes reaches it ([`breadth/08`](./tasks/breadth/08-aave-v4.md)) |
 | Execution | not in v1 — see [ROADMAP.md](./ROADMAP.md) |
 
-On a Kraken margin account, today's output is not your full Kraken exposure.
+On a Kraken margin account the positions are read, but the margin level Kraken
+would actually liquidate on is not, so those rows rank `unknown` rather than
+carrying a distance.
 
 ## Stack & rationale
 

@@ -1,4 +1,4 @@
-import { Box, Text, useInput } from 'ink'
+import { Box, Text, useApp, useInput } from 'ink'
 import { useEffect, useState } from 'react'
 import { ambientFingerprint } from '../agent/agent.js'
 import { startSignIn } from '../agent/signin.js'
@@ -56,7 +56,7 @@ function options(mode: CredentialsMode, source: CredentialSource): Option[] {
   }
   list.push(
     mode === 'first-run'
-      ? { id: 'leave', label: 'Continue without one', hint: 'every command still works' }
+      ? { id: 'leave', label: 'Continue without one', hint: 'Esc · every command still works' }
       : { id: 'leave', label: 'Keep it as it is', hint: 'Esc' },
   )
   return list
@@ -79,12 +79,21 @@ function immovable(source: CredentialSource): string | null {
  * through /login, which is the only way to see what is in use.
  */
 export function Credentials({ mode, source, onDone }: Props) {
+  const { exit } = useApp()
   const choices = options(mode, source)
   const [choice, setChoice] = useState(0)
   const [entering, setEntering] = useState(false)
   const [waiting, setWaiting] = useState<string | null>(null)
   const [key, setKey] = useState('')
   const [error, setError] = useState<string | null>(null)
+  /**
+   * Selecting "Sign out" does not sign you out. The list is arrowed through and
+   * confirmed with Enter, so the row above the one you meant is one press away —
+   * and an `sk-ant-` key is shown by the console once, which makes forgetting it
+   * the same cost as losing it. The question is asked with the safe answer
+   * already under the cursor, so the key that got here does the harmless thing.
+   */
+  const [confirmSignOut, setConfirmSignOut] = useState<0 | 1 | null>(null)
 
   // The browser flow finishes out of process, so the only way to know it landed
   // is to watch the profile directory the Anthropic CLI writes. Compared against
@@ -103,6 +112,24 @@ export function Credentials({ mode, source, onDone }: Props) {
   }, [waiting, onDone])
 
   useInput((input, keyEvent) => {
+    // First, and before every early return below. This is the first screen
+    // anyone sees, and Ink holds raw mode, so a ctrl+c nothing handles is not
+    // passed to the terminal either: the tool reads as hung at its own opening
+    // screen. It leaves tula rather than this panel, which is what the key
+    // means everywhere else; Esc is what backs out of the screen.
+    if (keyEvent.ctrl && input === 'c') return exit()
+
+    if (confirmSignOut !== null) {
+      if (keyEvent.escape) return setConfirmSignOut(null)
+      if (keyEvent.upArrow) return setConfirmSignOut(0)
+      if (keyEvent.downArrow) return setConfirmSignOut(1)
+      if (keyEvent.return) {
+        if (confirmSignOut === 0) return setConfirmSignOut(null)
+        return onDone({ kind: 'signed-out' })
+      }
+      return
+    }
+
     if (waiting !== null) {
       if (keyEvent.escape) {
         setWaiting(null)
@@ -140,7 +167,9 @@ export function Credentials({ mode, source, onDone }: Props) {
       return
     }
 
-    if (keyEvent.escape && mode === 'manage') return onDone({ kind: 'cancelled' })
+    // On a first run this is the same thing "Continue without one" does, and
+    // that is the option Esc has always been the shortcut for under /login.
+    if (keyEvent.escape) return onDone({ kind: 'cancelled' })
     if (keyEvent.upArrow) return setChoice((c) => Math.max(0, c - 1))
     if (keyEvent.downArrow) return setChoice((c) => Math.min(choices.length - 1, c + 1))
     if (keyEvent.return) {
@@ -155,7 +184,10 @@ export function Credentials({ mode, source, onDone }: Props) {
         setError(null)
         return setWaiting(ambientFingerprint())
       }
-      if (picked === 'signout') return onDone({ kind: 'signed-out' })
+      if (picked === 'signout') {
+        setError(null)
+        return setConfirmSignOut(0)
+      }
       return onDone({ kind: 'cancelled' })
     }
   })
@@ -198,6 +230,31 @@ export function Credentials({ mode, source, onDone }: Props) {
             <Text dimColor>
               {'\nThe Anthropic CLI keeps the token, not tula. Press Enter when it is done,\nEsc to cancel.'}
             </Text>
+          </Box>
+        </Box>
+      ) : confirmSignOut !== null ? (
+        <Box marginTop={1} flexDirection="column">
+          <Text color={theme.notice}>Forget the API key tula has saved?</Text>
+          <Text dimColor>
+            {'  Anthropic shows a key once, when it is created, so getting this one back\n  means making a new one — there is nothing here to undo it with.'}
+          </Text>
+          {/* Its own row: the path is as long as the reader's home directory,
+              and a sentence built around one wraps wherever that leaves it. */}
+          <Text dimColor wrap="truncate">{`  Deleted from ${secrets.locationHint()}`}</Text>
+          <Box marginTop={1} flexDirection="column">
+            {[
+              { id: 'keep', label: 'Keep the key' },
+              { id: 'forget', label: 'Forget it' },
+            ].map((option, index) =>
+              index === confirmSignOut ? (
+                <Text key={option.id} color={theme.accent} bold>{`❯ ${option.label}`}</Text>
+              ) : (
+                <Text key={option.id} dimColor>{`  ${option.label}`}</Text>
+              ),
+            )}
+          </Box>
+          <Box marginTop={1}>
+            <Text dimColor>↑↓ to choose · Enter to confirm · Esc to go back</Text>
           </Box>
         </Box>
       ) : entering ? (

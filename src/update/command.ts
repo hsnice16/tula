@@ -1,5 +1,5 @@
 import { TulaError } from '../core/errors.js'
-import { APP_VERSION, SITE_URL } from '../version.js'
+import { APP_VERSION, REPO_URL, SITE_URL } from '../version.js'
 import { applyUpdate, type DownloadProgress } from './apply.js'
 import { availableNow } from './check.js'
 import { nativeInstall, OTHER_CHANNELS } from './channel.js'
@@ -32,7 +32,24 @@ export async function update(
   }
 
   const native = await nativeInstall()
-  const available = await availableNow()
+  const { update: available, checked } = await availableNow()
+
+  // A background check stays silent on failure — nobody opened tula to find out
+  // about tula. This one was typed, so the answer to "could not ask" is not the
+  // answer to "asked, nothing newer", and it exits non-zero: a script that runs
+  // `tula update` learned nothing here.
+  if (!checked) {
+    return {
+      output: [
+        `Could not read a release number from GitHub, so whether ${APP_VERSION} is`,
+        'current is unknown. Nothing was downloaded and nothing changed.',
+        '',
+        `  Check the releases yourself: ${REPO_URL}/releases/latest`,
+        '  Then run /update again.',
+      ].join('\n'),
+      failed: true,
+    }
+  }
 
   if (!available) {
     return { output: `tula ${APP_VERSION} is the newest release.` }

@@ -1,0 +1,134 @@
+{
+  "captured": "2026-09-09T19:24:01.901Z",
+  "endpoint": "https://api.hyperliquid.xyz/info",
+  "request": {
+    "clearinghouseState": "<address>",
+    "spotClearinghouseState": "<address>"
+  },
+  "perps": {
+    "marginSummary": {
+      "accountValue": "0.0",
+      "totalNtlPos": "0.0",
+      "totalRawUsd": "0.0",
+      "totalMarginUsed": "0.0"
+    },
+    "crossMarginSummary": {
+      "accountValue": "0.0",
+      "totalNtlPos": "0.0",
+      "totalRawUsd": "0.0",
+      "totalMarginUsed": "0.0"
+    },
+    "crossMaintenanceMarginUsed": "0.0",
+    "withdrawable": "0.0",
+    "assetPositions": [],
+    "time": 1788981841811
+  },
+  "spot": {
+    "balances": [
+      {
+        "coin": "USDC",
+        "token": 0,
+        "total": "93570.862012694",
+        "hold": "46548.8076625522",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "VAULT",
+        "token": 106,
+        "total": "0.8885007011",
+        "hold": "0.0",
+        "entryNtl": "0.0008884977"
+      },
+      {
+        "coin": "HYPE",
+        "token": 150,
+        "total": "760.3040654013",
+        "hold": "0.0",
+        "entryNtl": "18469.5702351095"
+      },
+      {
+        "coin": "STAR",
+        "token": 154,
+        "total": "22.1537536053",
+        "hold": "0.0",
+        "entryNtl": "0.0022153743"
+      },
+      {
+        "coin": "UBTC",
+        "token": 197,
+        "total": "2.0076600039",
+        "hold": "0.0",
+        "entryNtl": "148471.5200428317"
+      },
+      {
+        "coin": "UETH",
+        "token": 221,
+        "total": "216.3435244955",
+        "hold": "0.0",
+        "entryNtl": "947087.6631100074"
+      },
+      {
+        "coin": "USDE",
+        "token": 235,
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "USOL",
+        "token": 254,
+        "total": "220.7925294796",
+        "hold": "0.0",
+        "entryNtl": "28089.1451360811"
+      },
+      {
+        "coin": "USDT0",
+        "token": 268,
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "UFART",
+        "token": 269,
+        "total": "121479.1720635968",
+        "hold": "0.0",
+        "entryNtl": "59497.4769785341"
+      },
+      {
+        "coin": "UPUMP",
+        "token": 299,
+        "total": "2.4183406292",
+        "hold": "0.0",
+        "entryNtl": "0.0104297022"
+      },
+      {
+        "coin": "UBONK",
+        "token": 320,
+        "total": "372242324.0490106107",
+        "hold": "0.0",
+        "entryNtl": "9309.7820140309"
+      },
+      {
+        "coin": "USDH",
+        "token": 360,
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "MAX",
+        "token": 734,
+        "total": "7603040.6540132352",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      }
+    ],
+    "tokenToAvailableAfterMaintenance": [
+      [
+        0,
+        "93570.862012694"
+      ]
+    ]
+  }
+}

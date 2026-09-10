@@ -1,50 +1,53 @@
 # 04 · Availability
 
-**Status**: planned · the inputs exist, nothing reads them
+**Status**: done
+**Covered by**: `src/core/availability.test.ts`, `src/cli/commands.test.ts`,
+`src/agent/tools.test.ts`, `src/consistency.test.ts`, `src/connectors/binance.test.ts`,
+`src/connectors/coinbase.test.ts`, `src/connectors/kraken.test.ts`,
+`src/connectors/hyperliquid.test.ts`
 
 ## Goal
 
 One question — **how much of this can you actually move** — answered wherever the
 venue makes it answerable, and admitted where it does not.
 
-## What the user sees today
+## What the user saw
 
-Ten ETH supplied to Aave against USDC debt reads as **10 ETH**. Correct as
-exposure — the price move is still theirs — but it reads as holdings, and the
+Ten ETH supplied to Aave against USDC debt read as **10 ETH**. Correct as
+exposure — the price move is still theirs — but it read as holdings, and the
 decision it corrupts is the ordinary one: *I have 10 ETH, I do not need to top
 up.* That ETH is securing a loan. Acting on it fails, or liquidates what it was
 securing.
 
-The same sentence is true of a Binance balance sitting in an open order, a
+The same sentence was true of a Binance balance sitting in an open order, a
 Coinbase hold, a Kraken `.S` balance mid-unbond, and a Stripe payout that has not
 settled. Different causes, one mistake.
 
-## Where the answer already is
+## Where the answer already was
 
-| Venue | What it reports | What tula does |
+| Venue | What it reports | What tula did with it |
 |---|---|---|
-| Binance | `free` and `locked` | sums them into one `spot` position |
-| Coinbase | `available_balance` and `hold` | sums them into one `spot` position |
-| Hyperliquid | `totalRawUsd`, `withdrawable`, `totalMarginUsed` | reads the raw balance; what of it is free is still unsaid |
-| Circle, Stripe | unsettled and pending | `kind: 'pending'`, which `position.ts` defines as *not yet available to move* |
+| Binance | `free` and `locked` | summed them into one `spot` position |
+| Coinbase | `available_balance` and `hold` | summed them into one `spot` position |
+| Hyperliquid | `totalRawUsd`, `withdrawable`, `totalMarginUsed` | read the raw balance; what of it was free went unsaid |
+| Stripe | unsettled and pending | `kind: 'pending'`, which `position.ts` defines as *not yet available to move* |
 | Kraken | `/0/private/Balance`, a total | nothing to split it with |
-| Aave | collateral securing debt | sets `encumbers`, read by nothing |
+| Aave | collateral securing debt | set `encumbers`, read by nothing |
 | Wallet | — | nothing is pledged; all of it is free |
 
-Four of the seven already fetch the split and discard it — Hyperliquid no longer
-loses the margin itself, but still does not say how much of the balance is
-free. `encumbers` is one
+Four of them already fetched the split and discarded it. `encumbers` is one
 mechanism of several, not the definition — which is why this task is availability
 rather than encumbrance.
 
 ## Acceptance
 
 - Every asset reports how much is free to move, and how much is not.
-- **Free is `null` where it cannot be proven, never the total.** Kraken's balance
-  endpoint reports no hold, so either the connector moves to one that does or
-  Kraken's free amount is unknown. Reporting the total as free is the confident
-  wrong answer `KeyScope`'s tri-state exists to refuse, and it is worse than
-  today: nobody currently believes tula answers this.
+- **Free is `null` where it cannot be proven, never the total.** Reporting the
+  total as free is the confident wrong answer `KeyScope`'s tri-state exists to
+  refuse. Kraken was the case that set the rule: `/0/private/Balance` reports no
+  hold at all, so the connector moved to `BalanceEx`, which reports one — and
+  still withholds the figure in the two cases that endpoint cannot answer, an
+  account with a margin position open and an account with more than one wallet.
 - **What is unavailable names why**, because the reason is the action. Securing a
   debt means repay it; staked means wait out the unbond; pending means wait for
   settlement; locked means cancel the order. A single "encumbered" bucket tells
@@ -95,7 +98,42 @@ builds its own rows and can carry both without `NetExposure` carrying either.
 
 ## Notes
 
-Binance and Coinbase are the cheapest work here: the data is already fetched, and
-summing it away is a deliberate line in each connector. Kraken is the opposite —
-the honest answer there is `unknown` until the connector reads an endpoint that
-reports the hold, and `unknown` is a shipped answer, not a gap.
+Binance and Coinbase were the cheapest work here: the data was already fetched,
+and summing it away was a deliberate line in each connector. Kraken was the
+opposite — the honest answer was `unknown` until the connector read an endpoint
+that reports the hold, and `unknown` is a shipped answer, not a gap.
+
+## What shipped
+
+`availability(positions, facts)` in `src/core/availability.ts`, one entry per
+holding, with the `encumbers` graph inverted in that one place. Two calls in it
+are worth stating, because neither is in the acceptance above:
+
+- **How much of a pledged Aave leg is free is read off the health factor**, as
+  `quantity × (1 − 1/HF)` — the fraction of every collateral leg the market
+  releases before it reaches 1.00. Prices and liquidation thresholds cancel out
+  of that ratio, which is what lets the split stay a quantity for an asset
+  nobody priced, and with one collateral asset it is exactly what the protocol
+  will let go of. It is labelled as the lender's limit rather than as advice:
+  1.00 is the level it liquidates at, and `breaks` answers what happens there.
+  **Not confirmed by the maintainer** — flagged rather than assumed.
+- **Which venues cannot state a free figure is read off `coverage`**, from the
+  gap each connector declares as `hides: 'availability'`, rather than a second
+  list beside it. It withholds the free figure on a venue's plain balance rows;
+  a hold or a pledge tula can actually see is still stated there. Kraken and
+  Hyperliquid are the two that reach it. Stripe was the third and is not: it
+  states what is available outright, so nothing about its free figure goes
+  unproven, and `src/connectors/stripe.ts` says so where the decision is made.
+  Declaring it anyway put an em dash on every Stripe row under a legend saying
+  the figure could not be proven, which was a refusal to answer a question the
+  venue had answered.
+
+A perp carries no free figure at all: it is exposure rather than a quantity of
+anything sitting anywhere, and a long reported as free would read as cash the
+size of the whole position.
+
+A venue watching several addresses is answered per address: a debt at one wallet
+claims only that wallet's collateral, and an `encumbers` id nobody could resolve
+blanks that wallet's figures alone. Read off `Position.account`, never out of an
+id — the ids are namespaced per account, and parsing one for meaning is the
+coupling `03-watched-addresses` moved the account into a field to avoid.

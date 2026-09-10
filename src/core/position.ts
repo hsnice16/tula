@@ -3,6 +3,14 @@ import Decimal from 'decimal.js'
 export type VenueId = string
 export type AssetId = string
 
+/**
+ * Declared here rather than in `src/connectors/chains.ts`, which holds the node
+ * and token list for each: a position carries its chain, so the canonical schema
+ * has to name them — and importing the connector's copy would put every
+ * connector inside the agent layer's reach, which `scripts/guard.sh` refuses.
+ */
+export type ChainId = 'ethereum' | 'arbitrum' | 'base'
+
 export type VenueKind = 'cex' | 'perp-dex' | 'lending' | 'wallet' | 'payments'
 
 export interface Venue {
@@ -27,6 +35,14 @@ export interface LiquidationParams {
   /** Aave convention: below 1 the position is liquidatable. */
   healthFactor?: Decimal
   leverage?: Decimal
+  /**
+   * Fraction, not basis points. Carried on the leg rather than in a map keyed by
+   * asset, because one symbol has different thresholds in different Aave markets
+   * and a shared map would take whichever was read last. `collateralMoveUnder`
+   * reads it to weight each leg's share of what secures the debt; a market where
+   * one leg omits it is weighted by value alone throughout.
+   */
+  liquidationThreshold?: Decimal
 }
 
 export interface Position {
@@ -46,6 +62,26 @@ export interface Position {
   delta: Decimal
 
   liquidation?: LiquidationParams
+
+  /**
+   * Which chain this position sits on. Absent for a venue that is not a chain.
+   *
+   * Its own field because the venue label already carries the *market* on
+   * Ethereum — `aave-prime` — so spelling the chain there too leaves `breaks`
+   * parsing a string to answer which of the two it is looking at.
+   */
+  chain?: ChainId
+
+  /**
+   * Which stored credential this row came from. Absent when the venue holds one.
+   *
+   * Its own field rather than a `venue-suffix`, because that convention already
+   * means sub-account or market — `kraken-margin`, `aave-prime`. Loading a
+   * second meaning onto it leaves `breaks` unable to tell "which market" from
+   * "which wallet", and those are different actions. `label` is display-ready
+   * and never derived from a secret, so it may cross into a tool result.
+   */
+  account?: { id: string; label: string }
 
   /** Sibling positions this one is margined against. A debt is meaningless alone. */
   encumbers?: string[]

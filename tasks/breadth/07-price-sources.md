@@ -1,6 +1,7 @@
 # 07 · Switchable price sources
 
 **Status**: done
+**Covered by**: `src/cli/registry.test.ts`, `src/secrets/store.test.ts`, `src/cli/shell.test.ts`
 
 ## Goal
 
@@ -15,7 +16,11 @@ not being able to change which oracle that is, is not.
 - Exactly one is active per process; choosing one replaces the last.
 - A source needing a key is keyed in-app, never on a command line.
 - Switching rebuilds the oracle and reprices the whole book, never half of it.
-- A source that answers but prices nothing says so and names the way back.
+- A source that answers but prices nothing says so and names the way back. The
+  remedy was reached only from `priceError`, which is set only where `quoteMany`
+  throws, so a source that answered 200 and matched no symbol reported `0 assets
+  priced` and stopped there. It is reached from the count now, held apart from
+  an empty book, which is the same count and not a source that failed.
 
 ## Notes
 

@@ -13,4 +13,4 @@ a fixture than to discover it wrong against a live perp position.
 - [01 · Liquidation distance](01-liquidation-distance.md) — done
 - [02 · Scenario shocks](02-scenario-shocks.md) — done
 - [03 · What breaks first](03-what-breaks-first.md) — done
-- [04 · Availability](04-availability.md) — planned
+- [04 · Availability](04-availability.md) — done

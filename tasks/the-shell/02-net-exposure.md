@@ -1,6 +1,7 @@
 # 02 · Net exposure aggregation
 
 **Status**: done
+**Covered by**: `src/core/exposure.test.ts`, `src/consistency.test.ts`
 
 ## Goal
 
@@ -17,4 +18,5 @@ number. This is the thing no venue will build.
 
 ## Notes
 
-Built in `src/core/exposure.ts` and tested; not yet surfaced by a command.
+Built in `src/core/exposure.ts`. `/exposure` renders it, and it is what the
+shell runs on open.

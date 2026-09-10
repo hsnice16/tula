@@ -14,8 +14,11 @@ import { fixtureEngine } from '../agent/fixture.js'
 import { Session } from '../cli/session.js'
 import type { Connector } from '../connectors/types.js'
 import { APP_VERSION } from '../version.js'
+import type { Position } from '../core/position.js'
 import type { PriceOracle } from '../core/prices.js'
+import * as secrets from '../secrets/store.js'
 import { App } from './app.js'
+import { cells } from './wrap.js'
 import { guardResize } from './resize.js'
 
 /**
@@ -65,8 +68,17 @@ interface Screen {
   rows(): string[]
   /** Only the rows a user is looking at. */
   visible(): string[]
+  /**
+   * The rows the emulator wrapped, by index. A row that ran past the last
+   * column is not a long string here — xterm split it on the way in, and every
+   * line it hands back is the viewport's own width — so the split itself is the
+   * only trace of the overflow left to assert on.
+   */
+  wrapped(): number[]
   /** What the emulator made of the mouse-tracking requests it was sent. */
   mouseMode(): string
+  /** Whether the app has left. Ctrl+C is the only thing here that ends one. */
+  exited(): boolean
   stop(): void
 }
 
@@ -113,6 +125,8 @@ interface Options {
   agent?: Agent
   /** Most tests need no venue; the ones about the command list need a real one. */
   connectors?: Map<string, Connector>
+  /** What `src/index.ts` reads out of the store before the shell opens. */
+  initialVenues?: string[]
 }
 
 async function open(columns: number, rows: number, options: Options = {}): Promise<Screen> {
@@ -145,7 +159,7 @@ async function open(columns: number, rows: number, options: Options = {}): Promi
       connectors: options.connectors ?? new Map(),
       // Not `undefined` unless a test says so: that is what a first run passes.
       initialApiKey: 'initialApiKey' in options ? options.initialApiKey : '',
-      initialVenues: [],
+      initialVenues: options.initialVenues ?? [],
       ...(options.agent ? { agent: options.agent } : {}),
     }),
     {
@@ -157,6 +171,16 @@ async function open(columns: number, rows: number, options: Options = {}): Promi
       // one under the last — which is the defect this file exists to catch. The
       // terminal under test is a user's, never the runner's.
       interactive: true,
+    },
+  )
+
+  let left = false
+  void instance.waitUntilExit().then(
+    () => {
+      left = true
+    },
+    () => {
+      left = true
     },
   )
 
@@ -181,10 +205,9 @@ async function open(columns: number, rows: number, options: Options = {}): Promi
       }
       return out
     },
-    // Narrowing reflows rows off the top into scrollback before any handler is
-    // told the size changed, so a clear can never reach them: they are the one
-    // artifact nothing on this side of the terminal can retract. They are also
-    // not what anyone is looking at, and the live screen is the claim being made.
+    // Scrollback is cleared on a redraw (`3J`), so what `rows()` holds above the
+    // viewport is whatever a resize has not reached yet rather than the frame
+    // under test. The live screen is the claim being made.
     visible: () => {
       const out: string[] = []
       const buffer = term.buffer.active
@@ -193,7 +216,14 @@ async function open(columns: number, rows: number, options: Options = {}): Promi
       }
       return out
     },
+    wrapped: () => {
+      const out: number[] = []
+      const buffer = term.buffer.active
+      for (let y = 0; y < buffer.length; y++) if (buffer.getLine(y)?.isWrapped) out.push(y)
+      return out
+    },
     mouseMode: () => term.modes.mouseTrackingMode,
+    exited: () => left,
     resize: async (nextColumns: number, nextRows: number, waitMs = 250) => {
       term.resize(nextColumns, nextRows)
       stdout.columns = nextColumns
@@ -210,7 +240,10 @@ async function open(columns: number, rows: number, options: Options = {}): Promi
 }
 
 const isRule = (row: string) => row.trim().startsWith('─'.repeat(10))
-const isStatus = (row: string) => /\d+ venues/.test(row)
+// Singular included, because the count is of venues connected and a session
+// with one draws `1 venue` — and anchored on the separator that follows it, or
+// the REMOVED block's own `1 venue(s)` is read as a second status line.
+const isStatus = (row: string) => /\d+ venues?\s+·/.test(row)
 
 function ruleRows(screen: Screen) {
   return screen.visible().filter(isRule).length
@@ -272,19 +305,19 @@ for (const columns of WIDTHS) {
     }
   })
 
-  test(`no row reaches past ${columns} columns`, async () => {
+  test(`no row wraps at ${columns} columns`, async () => {
     const screen = await open(columns, 33)
     try {
       await screen.press('/help\r')
       await screen.press('/')
-      // A row wider than the viewport is the mechanism itself, so it is worth
-      // failing on directly: by the time it shows up as a ghost the cause is
-      // several frames back.
-      const wrapped = screen
-        .rows()
-        .map((row, at) => ({ at, width: row.length }))
-        .filter((row) => row.width > columns)
-      expect(wrapped).toEqual([])
+      // Nothing here can be read off a row's length: the emulator hands back
+      // lines of exactly `columns`, having already done the wrap. A wider row
+      // is the mechanism itself, so it is worth failing on directly — by the
+      // time it shows up as a ghost the cause is several frames back.
+      if (screen.wrapped().length > 0) dump(screen)
+      expect(screen.wrapped()).toEqual([])
+      // And a screen that drew nothing wraps nothing.
+      expect(screen.rows().filter((row) => row.includes('Type / for commands'))).toHaveLength(1)
     } finally {
       screen.stop()
     }
@@ -643,20 +676,21 @@ test('a drag: every step of a narrowing, one frame apart', async () => {
   }
 })
 
-test('a hard shrink leaves what it leaves, and then stops', async () => {
+test('a hard shrink leaves nothing of the frame it caught', async () => {
   const screen = await open(200, 40)
   try {
     await screen.press('/help\r')
     // Narrowing past half the width reflows rows already on screen into more
-    // rows than Ink recorded before the resize, so it erases fewer than it
-    // wrote and some of that frame survives. Nothing here can un-reflow rows a
-    // terminal has already split. What is ours is that it stops there: the
-    // debris is bounded by the one frame the resize caught, and every frame
-    // after it erases its own. Growth is the bug; a scar is not.
+    // rows than Ink recorded before the resize, so Ink's own erase runs short
+    // and the top of the old frame stays standing. `guardResize` does not try
+    // to erase those rows: it clears the screen and the scrollback with it and
+    // redraws, ahead of Ink, so there is no debris to bound. Bounding it was
+    // what this asked for, and a bound that a single surviving frame satisfies
+    // reads as a licence for one.
     await screen.resize(60, 20, 40)
-    const scar = ruleRows(screen)
+    expectOneInputBox(screen)
     for (const keys of ['a', 'b', '\x7f', '\x7f', '/', '\x1b']) await screen.press(keys)
-    expect(ruleRows(screen)).toBeLessThanOrEqual(scar)
+    expectOneInputBox(screen)
   } finally {
     screen.stop()
   }
@@ -682,14 +716,11 @@ test('a pane dragged shut and opened again', async () => {
 })
 
 /**
- * Clearing the screen is the other erase a reflow cannot outrun, and it is the
- * wrong one: everything above the frame is the transcript, which <Static> wrote
- * once and Ink will never write again. These two say what a clear would cost —
- * the first that the transcript is still on screen, the second that there is
- * still only one of it, which is what a clear that re-emitted to make up for
- * itself would break. A re-emission appends, while the copy that scrolled past
- * the top of the viewport stays where no clear reaches: unbounded growth traded
- * for a bounded ghost.
+ * A redraw has to re-emit the transcript, which <Static> otherwise writes once,
+ * so these two hold it to being on screen and to there being one of it. The
+ * scrollback clear `resize.ts` pairs with the re-emission is what makes the
+ * second true: without `3J` the copy that scrolled past the top of the viewport
+ * survives every clear and stacks.
  */
 test('a narrowing keeps the transcript', async () => {
   const screen = await open(132, 63)
@@ -721,10 +752,10 @@ test('a drag does not leave the transcript behind more than once', async () => {
 })
 
 /**
- * Widening splits nothing, so there is nothing here to erase — the terminal
- * rejoins the rows it wrapped and the transcript comes back whole on its own.
- * Which is the argument for not redrawing it: a redraw at the narrow width is
- * what would make the wrapping permanent.
+ * Widening leaves no ghost and is still owed the redraw: the transcript carries
+ * Ink's line breaks rather than the terminal's, so nothing rejoins the rows the
+ * narrow width split, and a widened pane would stay wrapped for the width it
+ * left.
  */
 test('widening puts the transcript back as it was', async () => {
   const screen = await open(195, 63)
@@ -902,6 +933,36 @@ test('a browser sign-in is not asked for again on the next start', async () => {
     // line beside it contradicts, and what a signed-in user saw every start.
     expect(screen.visible().join('\n')).not.toContain('Sign in with your Anthropic account')
     expectOneFrame(screen)
+  } finally {
+    screen.stop()
+    await restore()
+  }
+})
+
+/**
+ * A key is pasted, never typed, and the paste that goes wrong is silent: a
+ * shell prompt, a truncated clipboard, the account id off the console page.
+ * Stored unchecked, the first thing it breaks is the question somebody asked,
+ * several screens later, with the sign-in screen long gone — so the shape is
+ * checked here, where the paste and the reader are both still present.
+ */
+test('a paste that is not an Anthropic key is refused at the screen it was pasted on', async () => {
+  const restore = await credentialEnv({ profile: false })
+  const screen = await open(100, 33, { initialApiKey: undefined })
+  try {
+    await screen.press('\x1b[B')
+    await screen.press('\r')
+    expect(screen.visible().join('\n')).toContain('Paste the key')
+
+    await screen.press('ANTHROPIC_API_KEY=\r')
+    const refused = screen.visible().join('\n')
+    expect(refused).toContain('sk-ant-')
+    // Still here, with the reason, rather than through to a shell that will
+    // fail on the first question and blame the question.
+    expect(refused).toContain('Paste the key')
+
+    await screen.press('sk-ant-api03-notreal\r')
+    expect(screen.visible().join('\n')).not.toContain('Paste the key')
   } finally {
     screen.stop()
     await restore()
@@ -1161,7 +1222,7 @@ test('a venue whose markets label their own rows still lines its table up', asyn
     // table was laid out at one width rather than wrapped into another.
     const starts = new Set(labelled.map((r) => r.indexOf('collateral')))
     expect(starts.size).toBe(1)
-    expect(rows.every((r) => r.length <= 80)).toBe(true)
+    expect(screen.wrapped()).toEqual([])
   } finally {
     screen.stop()
   }
@@ -1205,3 +1266,638 @@ test('connecting says what it is doing while the venue is read', async () => {
     screen.stop()
   }
 }, 120_000)
+
+/**
+ * A venue that answers from a public address, which is every venue in this file
+ * that needs connecting: a connect flow with a secret field would mask what is
+ * typed, and nothing here is testing masking.
+ */
+function fakeVenue(
+  id: string,
+  name: string,
+  fetchPositions: () => Promise<Position[]>,
+): Connector {
+  return {
+    venue: { id, kind: 'wallet', name },
+    fields: [{ name: 'address', label: 'Address', secret: false }],
+    help: [],
+    async verifyScope() {
+      return { canRead: true, canTrade: false as const, canWithdraw: false as const }
+    },
+    fetchPositions,
+  }
+}
+
+function holding(venue: string, asset: string, quantity: string): Position {
+  return {
+    id: `${venue}:spot:${asset}`,
+    venue,
+    kind: 'spot',
+    asset,
+    quantity: new Decimal(quantity),
+    delta: new Decimal(quantity),
+    asOf: new Date(),
+  }
+}
+
+/** Waits for the transcript to say something, rather than sleeping past it. */
+async function until(screen: Screen, want: string, tries = 40): Promise<string[]> {
+  let rows = screen.rows()
+  for (let at = 0; at < tries; at++) {
+    rows = screen.rows()
+    if (rows.some((row) => row.includes(want))) return rows
+    await new Promise((r) => setTimeout(r, 100))
+  }
+  return rows
+}
+
+/**
+ * A credential for a venue this build dropped is still on disk, and the opening
+ * screen gave three answers about it at once: the banner called it connected,
+ * the status line counted it among the failures, and the venue count left it
+ * out — `Connected: circle, …` over `1 failed` over `2 venues`, eight rows above
+ * a block saying nothing was asked of it and nothing failed. Removed, failed and
+ * never-asked are three different things, and this is the screen they meet on.
+ */
+/**
+ * The one assertion that has to be made against the grid rather than against a
+ * string: what a right-to-left override does is reorder the cells a row is
+ * painted into, so a test comparing the output to itself would agree with a
+ * terminal drawing the row backwards. Read off the emulator, the codepoint is
+ * either in the buffer or it is not.
+ */
+test('a name tula had to clean is accounted for, and never repainted to prove it', async () => {
+  const restore = await credentialEnv({ profile: true })
+  const OVERRIDE = '\u202e'
+  const venue = fakeVenue('node', 'Node Wallet', async () => [
+    { ...holding('node', `ET${OVERRIDE}H`, '2'), chain: 'ethereum' as const },
+  ])
+  await secrets.put('node', { address: '0xabc' })
+  const screen = await open(120, 33, {
+    connectors: new Map([['node', venue]]),
+    initialVenues: await secrets.listVenues(),
+  })
+  try {
+    await screen.press('/positions\r')
+    const rows = await until(screen, 'ALTERED —')
+
+    const said = rows.find((row) => row.includes('hidden characters removed')) ?? ''
+    expect(said).toContain('node')
+    expect(said).toContain('ETH')
+    // Rule 7: whoever answers as the node writes every symbol tula reads there.
+    expect(rows.some((row) => row.includes('TULA_ETHEREUM_RPC'))).toBe(true)
+    // Nothing is missing, so none of the four states that mean something is.
+    for (const other of ['INCOMPLETE', 'REMOVED', 'NOT READ']) {
+      expect({ other, said: rows.some((row) => row.includes(other)) }).toEqual({ other, said: false })
+    }
+    expect(rows.every((row) => !row.includes(OVERRIDE))).toBe(true)
+  } finally {
+    screen.stop()
+    await restore()
+  }
+}, 120_000)
+
+test('a venue this build dropped is neither connected nor failed', async () => {
+  // Its own store: the claim is about a screen with exactly two credentials on
+  // it, and the sandbox every other test here shares has leftovers of theirs.
+  const restore = await credentialEnv({ profile: true })
+  const wallet = fakeVenue('kept', 'Kept Wallet', async () => [holding('kept', 'ETH', '2')])
+  await secrets.put('kept', { address: '0xabc' })
+  await secrets.put('circle', { apiKey: 'not-real' })
+  const screen = await open(120, 33, {
+    connectors: new Map([['kept', wallet]]),
+    initialVenues: await secrets.listVenues(),
+  })
+  try {
+    await screen.press('/exposure\r')
+    const rows = await until(screen, 'REMOVED —')
+
+    const banner = rows.find((row) => row.includes('Connected:')) ?? ''
+    expect(banner).toContain('kept')
+    expect(banner).not.toContain('circle')
+    // Named anyway, because the key is still theirs and still on disk — and
+    // named with the way out, which is the only thing to do about it.
+    const removed = rows.find((row) => row.includes('Removed: circle')) ?? ''
+    expect(removed).toContain('/forget circle')
+
+    const status = screen.visible().find(isStatus) ?? ''
+    // The count the banner names, and not one more.
+    expect(status).toMatch(/\b1 venue\b/)
+    expect(status).toContain('1 removed')
+    expect(status).not.toContain('failed')
+  } finally {
+    screen.stop()
+    await restore()
+  }
+}, 120_000)
+
+/**
+ * `disconnect` is a row under every connected venue in `/` and a runnable entry
+ * in ctrl+k, so arrowing one row past `status` and pressing Enter — or one
+ * stray click in the menu band, where tracking is live for as long as the menu
+ * is up — used to delete the venue's credential outright. An exchange shows a
+ * secret key once, so that is the same cost as losing it.
+ */
+test('one Enter cannot forget a venue, and a second Enter keeps it', async () => {
+  const wallet = fakeVenue('spare', 'Spare Wallet', async () => [])
+  const screen = await open(120, 33, { connectors: new Map([['spare', wallet]]) })
+  try {
+    await screen.press('/spare connect\r')
+    await screen.press('0xabc\r')
+    await until(screen, 'Connected Spare Wallet')
+    expect(await secrets.listVenues()).toContain('spare')
+
+    await screen.press('/spare disconnect\r')
+    const asked = await until(screen, 'Forget Spare Wallet?')
+    expect(asked.some((row) => row.includes('Forget Spare Wallet?'))).toBe(true)
+    // Named, and named as the address it is — there is no key here to lose.
+    expect(asked.some((row) => row.includes('0xabc'))).toBe(true)
+    expect(await secrets.listVenues()).toContain('spare')
+
+    // The reflex after a press that seemed to do nothing is to press again.
+    await screen.press('\r')
+    await until(screen, 'nothing was deleted')
+    expect(await secrets.listVenues()).toContain('spare')
+
+    // And typing the name is what actually runs it.
+    await screen.press('/spare disconnect\r')
+    await until(screen, 'Forget Spare Wallet?')
+    await screen.press('spare\r')
+    await until(screen, 'Forgot')
+    expect(await secrets.listVenues()).not.toContain('spare')
+  } finally {
+    screen.stop()
+  }
+}, 120_000)
+
+/**
+ * The same press, arrived at the way the defect described: down the opened-out
+ * rows of a connected venue in the `/` menu, one row past the one meant.
+ */
+test('arrowing onto disconnect in the menu asks before it deletes anything', async () => {
+  const wallet = fakeVenue('spare', 'Spare Wallet', async () => [])
+  const screen = await open(120, 33, { connectors: new Map([['spare', wallet]]) })
+  try {
+    await screen.press('/spare connect\r')
+    await screen.press('0xabc\r')
+    await until(screen, 'Connected Spare Wallet')
+
+    await screen.press('/spare ')
+    await screen.press('disc')
+    await screen.press('\r')
+    await until(screen, 'Forget Spare Wallet?')
+    expect(await secrets.listVenues()).toContain('spare')
+
+    await screen.press('\x1b')
+    await until(screen, 'nothing was deleted')
+    expect(await secrets.listVenues()).toContain('spare')
+    expectOneFrame(screen)
+  } finally {
+    await secrets.remove('spare')
+    screen.stop()
+  }
+}, 120_000)
+
+/**
+ * Connecting a venue that already holds something is the one path where the
+ * screen can lose a credential without anybody asking to delete one. Before
+ * this it called `secrets.replace`, which was right only for as long as there
+ * was no way to add a second — so the question the flow now opens with is the
+ * whole of what stops "add my other wallet" from meaning "forget the first".
+ */
+test('connecting a second address keeps the first, and says which it is adding to', async () => {
+  const wallet = fakeVenue('twins', 'Twin Wallet', async () => [])
+  const screen = await open(120, 33, { connectors: new Map([['twins', wallet]]) })
+  try {
+    await screen.press('/twins connect\r')
+    await screen.press('0xaaa\r')
+    await until(screen, 'Connected Twin Wallet')
+
+    await screen.press('/twins connect\r')
+    const asked = await until(screen, 'already holds')
+    // What is there, and what each answer does to it. Neither is a default.
+    expect(asked.some((row) => row.includes('0xaaa'))).toBe(true)
+    expect(asked.some((row) => row.includes('add another address'))).toBe(true)
+
+    await screen.press('a')
+    await screen.press('0xbbb\r')
+    // A name, because from two entries on a handle is the only way to say which
+    // one a figure came from — and it is optional, never a required field.
+    const named = await until(screen, 'Name for this address')
+    expect(named.some((row) => row.includes('optional'))).toBe(true)
+    await screen.press('cold\r')
+    await until(screen, 'Connected Twin Wallet')
+
+    const held = await secrets.listCredentials('twins')
+    expect(held.map((e) => e.credentials['address'])).toEqual(['0xaaa', '0xbbb'])
+    expect(held.map((e) => e.name)).toEqual([undefined, 'cold'])
+    expectOneFrame(screen)
+  } finally {
+    await secrets.remove('twins')
+    screen.stop()
+  }
+}, 120_000)
+
+/**
+ * The gate is for deletions, and only for deletions. A venue holding two
+ * addresses answers a bare `disconnect` by asking which — so putting the
+ * confirmation in front of that made somebody type a venue's name to agree to
+ * a deletion that was never going to happen, and the next thing a gate like
+ * that teaches is to type through it faster.
+ */
+test('a disconnect that will ask which address does not ask to confirm one first', async () => {
+  const wallet = fakeVenue('pair', 'Pair Wallet', async () => [])
+  const screen = await open(120, 33, { connectors: new Map([['pair', wallet]]) })
+  try {
+    await screen.press('/pair connect\r')
+    await screen.press('0xaaa\r')
+    await until(screen, 'Connected Pair Wallet')
+    await screen.press('/pair connect\r')
+    await until(screen, 'already holds')
+    await screen.press('a')
+    await screen.press('0xbbb\r')
+    await until(screen, 'Name for this address')
+    await screen.press('\r')
+    await until(screen, 'Connected Pair Wallet')
+
+    await screen.press('/pair disconnect\r')
+    const rows = await until(screen, 'needs to say which')
+    expect(rows.some((row) => row.includes('Forget Pair Wallet?'))).toBe(false)
+    expect(rows.some((row) => row.includes('/pair disconnect 0xaaa'))).toBe(true)
+    expect(await secrets.listCredentials('pair')).toHaveLength(2)
+
+    // Naming one is what asks, and the question is about that one alone.
+    await screen.press('/pair disconnect 0xbbb\r')
+    const asked = await until(screen, 'Forget Pair Wallet?')
+    expect(asked.some((row) => row.includes('0xbbb'))).toBe(true)
+    expect(asked.some((row) => row.includes('The other 1 stay'))).toBe(true)
+    await screen.press('pair\r')
+    await until(screen, 'Forgot 0xbbb')
+    expect((await secrets.listCredentials('pair')).map((e) => e.credentials['address'])).toEqual([
+      '0xaaa',
+    ])
+  } finally {
+    await secrets.remove('pair')
+    screen.stop()
+  }
+}, 120_000)
+
+/**
+ * Replacing destroys a credential, so it goes through the gate every other
+ * deletion here goes through: the name typed out, and never Enter — Enter is
+ * the key that got you to the question, and a press that changes nothing on
+ * screen reads as a press that missed.
+ */
+test('replacing an address needs the venue typed, and one Enter keeps what is stored', async () => {
+  const wallet = fakeVenue('rotate', 'Rotate Wallet', async () => [])
+  const screen = await open(120, 33, { connectors: new Map([['rotate', wallet]]) })
+  try {
+    await screen.press('/rotate connect\r')
+    await screen.press('0xaaa\r')
+    await until(screen, 'Connected Rotate Wallet')
+
+    await screen.press('/rotate connect\r')
+    await until(screen, 'already holds')
+    await screen.press('1')
+    await screen.press('0xbbb\r')
+    const gate = await until(screen, 'Type rotate to confirm')
+    // The reader is told what goes, not merely asked to type a word.
+    expect(gate.some((row) => row.includes('Replacing 0xaaa'))).toBe(true)
+    // Nothing is on disk yet: the new address is verified first, so agreeing to
+    // the deletion is never a bet on a credential that has not been checked.
+    expect((await secrets.listCredentials('rotate')).map((e) => e.credentials['address'])).toEqual([
+      '0xaaa',
+    ])
+
+    await screen.press('\r')
+    await until(screen, 'nothing was replaced')
+    expect((await secrets.listCredentials('rotate')).map((e) => e.credentials['address'])).toEqual([
+      '0xaaa',
+    ])
+
+    await screen.press('/rotate connect\r')
+    await until(screen, 'already holds')
+    await screen.press('1')
+    await screen.press('0xbbb\r')
+    await until(screen, 'Type rotate to confirm')
+    await screen.press('rotate\r')
+    await until(screen, 'Connected Rotate Wallet')
+    const held = await secrets.listCredentials('rotate')
+    expect(held.map((e) => e.credentials['address'])).toEqual(['0xbbb'])
+  } finally {
+    await secrets.remove('rotate')
+    screen.stop()
+  }
+}, 120_000)
+
+/**
+ * The bullet this task exists to protect: a screen that asks a wallet for
+ * anything typed behind dots is the shape of a phishing page, and adding a
+ * second address added three new steps to draw. A masked box is what a
+ * connector's `secret` field earns; nothing tula asks for on its own account —
+ * the choice, the name, the confirmation — may ever look like one.
+ */
+test('no step of connecting an address-only venue ever masks what is typed', async () => {
+  const wallet = fakeVenue('unmasked', 'Unmasked Wallet', async () => [])
+  const screen = await open(120, 33, { connectors: new Map([['unmasked', wallet]]) })
+  const nothingMasked = () => {
+    const masked = screen.visible().filter((row) => row.includes('•'))
+    expect(masked).toEqual([])
+    // And the promise stays on screen beside every one of those steps.
+    expect(screen.visible().some((row) => row.includes('never asks for a seed phrase'))).toBe(true)
+  }
+  try {
+    await screen.press('/unmasked connect\r')
+    nothingMasked()
+    await screen.press('0xaaa')
+    nothingMasked()
+    await screen.press('\r')
+    await until(screen, 'Connected Unmasked Wallet')
+
+    await screen.press('/unmasked connect\r')
+    await until(screen, 'already holds')
+    nothingMasked()
+    await screen.press('a')
+    await screen.press('0xbbb\r')
+    await until(screen, 'Name for this address')
+    await screen.press('cold')
+    nothingMasked()
+    await screen.press('\r')
+    await until(screen, 'Connected Unmasked Wallet')
+
+    await screen.press('/unmasked connect\r')
+    await until(screen, 'already holds')
+    await screen.press('1')
+    await screen.press('0xccc\r')
+    await until(screen, 'Type unmasked to confirm')
+    await screen.press('unmask')
+    nothingMasked()
+    await screen.press('\x1b')
+  } finally {
+    await secrets.remove('unmasked')
+    screen.stop()
+  }
+}, 120_000)
+
+/**
+ * A venue that failed and a table long enough to be previewed. The caveat is
+ * appended last, which is exactly where the preview cut: eleven positions and
+ * one failed venue drew a table that read as the whole book, `… 6 more lines`,
+ * and nothing at all about the venue that was never read.
+ */
+test('a venue that failed is still named under a table too long to show whole', async () => {
+  const assets = ['ETH', 'BTC', 'SOL', 'AVAX', 'LINK', 'UNI', 'AAVE', 'MKR', 'LDO', 'ARB', 'OP']
+  const good = fakeVenue('good', 'Good Venue', async () =>
+    assets.map((asset) => holding('good', asset, '1.5')),
+  )
+  const bad = fakeVenue('bad', 'Bad Venue', async () => {
+    throw new Error('the node refused the request')
+  })
+  const screen = await open(120, 40, {
+    connectors: new Map([
+      ['good', good],
+      ['bad', bad],
+    ]),
+  })
+  try {
+    await screen.press('/good connect\r')
+    await screen.press('0xabc\r')
+    await screen.press('/bad connect\r')
+    await screen.press('0xdef\r')
+    await screen.press('/exposure\r')
+
+    const rows = await until(screen, 'more lines')
+    // The preview is doing its job — this is the frame the caveat used to be
+    // held back by, not one where everything happened to fit.
+    expect(rows.some((row) => row.includes('more lines'))).toBe(true)
+    const shown = screen.visible().join('\n')
+    expect(shown).toContain('INCOMPLETE')
+    expect(shown).toContain('This is not your full exposure')
+    expect(shown).toContain('bad:')
+    // The frame is still its own shape under all of it: one input box, no ghost.
+    expect(ruleRows(screen)).toBe(2)
+  } finally {
+    await secrets.remove('good')
+    await secrets.remove('bad')
+    screen.stop()
+  }
+}, 120_000)
+
+/**
+ * The REMOVED block is the tail of `incompleteNote` and the transcript cuts at
+ * twelve rows, so the one line that replaces the paragraph from the second view
+ * on has to be pinned exactly as the paragraph was. Shortened without that, the
+ * only remaining mention of a credential still on disk would sit precisely
+ * where the preview cuts.
+ */
+test('the short line about a dropped venue survives a table too long to show whole', async () => {
+  const restore = await credentialEnv({ profile: true })
+  const assets = ['ETH', 'BTC', 'SOL', 'AVAX', 'LINK', 'UNI', 'AAVE', 'MKR', 'LDO', 'ARB', 'OP']
+  const wallet = fakeVenue('kept', 'Kept Wallet', async () =>
+    assets.map((asset) => holding('kept', asset, '1.5')),
+  )
+  await secrets.put('kept', { address: '0xabc' })
+  await secrets.put('circle', { apiKey: 'not-real' })
+  const screen = await open(120, 40, {
+    connectors: new Map([['kept', wallet]]),
+    initialVenues: await secrets.listVenues(),
+  })
+  try {
+    await screen.press('/exposure\r')
+    await until(screen, 'Circle Mint was removed')
+    await screen.press('/exposure\r')
+    const rows = await until(screen, 'still stored')
+
+    // The preview is doing its job — this is the frame the line has to survive,
+    // not one where everything happened to fit.
+    expect(rows.some((row) => row.includes('more lines'))).toBe(true)
+    const shown = screen.visible().join('\n')
+    expect(shown).toContain('REMOVED — circle, still stored.')
+    expect(shown).toContain('/forget circle')
+    // And the paragraph is not printed a second time.
+    expect(screen.visible().filter((row) => row.includes('Circle Mint was removed'))).toEqual([])
+    expect(ruleRows(screen)).toBe(2)
+  } finally {
+    screen.stop()
+    await restore()
+  }
+}, 120_000)
+
+/**
+ * Mode 1003 reports every movement of the pointer, and a hand resting on the
+ * trackpad puts one in front of the next character. The report and the `0`
+ * arrived in one chunk, only the report was read, and `/shock ETH -20` was
+ * submitted as `/shock ETH -2` — a different scenario, with nothing on screen
+ * to say a character had gone.
+ */
+test('a character that shares a chunk with a mouse report still reaches the line', async () => {
+  const screen = await open(120, 33)
+  try {
+    await screen.press('/shock ETH -2')
+    // A report reaches this handler with its escape already stripped — which
+    // is why the parser accepts it without one — and what follows it in the
+    // same chunk is the digit.
+    await screen.press('[<35;10;10M0')
+    const rows = screen.visible()
+    const line = rows[rows.findIndex(isRule) + 1]?.trim()
+    expect(line).toBe('❯ /shock ETH -20')
+  } finally {
+    screen.stop()
+  }
+})
+
+/**
+ * A venue writes the asset symbol. One CJK character measures one code unit and
+ * is drawn two cells wide, so a column padded by length is short by its own
+ * width on that row and every column right of it moves — and the row wraps,
+ * which is the row Ink counts as one and never takes back.
+ */
+test('a venue that spells an asset in Chinese still lines its table up', async () => {
+  const wide = fakeVenue('wide', 'Wide Venue', async () => [
+    holding('wide', 'ETH', '12'),
+    holding('wide', '比特币', '2'),
+    holding('wide', 'USDC', '1000'),
+  ])
+  const screen = await open(80, 33, { connectors: new Map([['wide', wide]]) })
+  try {
+    await screen.press('/wide connect\r')
+    await screen.press('0xabc\r')
+    await screen.press('/positions\r')
+    const rows = await until(screen, '比特币')
+
+    const held = rows.filter((row) => /^\s*wide\s+spot/.test(row))
+    expect(held).toHaveLength(3)
+    // Every row of the table draws the same number of cells, which is what
+    // says every column right of ASSET starts where the rows above start it.
+    expect(new Set(held.map(cells)).size).toBe(1)
+    // A wide glyph counts two cells, so a table laid out by code point fits the
+    // width it measured and runs past the one the terminal has.
+    expect(screen.wrapped()).toEqual([])
+    expect(ruleRows(screen)).toBe(2)
+  } finally {
+    await secrets.remove('wide')
+    screen.stop()
+  }
+}, 120_000)
+
+/**
+ * The first screen anyone sees of tula. Ink holds raw mode, so a ctrl+c nothing
+ * handles raises no SIGINT either: the key everybody has learned did nothing at
+ * all, twice, and the tool read as hung at its opening screen.
+ */
+test('ctrl+c leaves the screen the first run opens on', async () => {
+  const restore = await credentialEnv({ profile: false })
+  const screen = await open(100, 33, { initialApiKey: undefined })
+  try {
+    expect(screen.visible().join('\n')).toContain('Sign in with your Anthropic account')
+    await screen.press('\x03')
+    expect(screen.exited()).toBe(true)
+  } finally {
+    screen.stop()
+    await restore()
+  }
+})
+
+/**
+ * ctrl+d is how a shell is left, and there is a line editor under this one: in a
+ * real shell it deletes forward mid-word, so leaving on it would end a session
+ * somebody was halfway through typing a command into. Only an empty line leaves.
+ */
+test('ctrl+d leaves an empty line, and never a half-typed one', async () => {
+  const screen = await open(100, 30)
+  try {
+    await screen.press('/expo')
+    await screen.press('\x04')
+    expect(screen.exited()).toBe(false)
+    // Still there to finish, which is the whole reason it did not leave.
+    expect(screen.visible().join('\n')).toContain('/expo')
+
+    // ctrl+c on a line with something on it clears the line rather than leaving,
+    // for the same reason — and that is what makes the next ctrl+d empty.
+    await screen.press('\x03')
+    expect(screen.exited()).toBe(false)
+
+    await screen.press('\x04')
+    expect(screen.exited()).toBe(true)
+  } finally {
+    screen.stop()
+  }
+})
+
+/**
+ * The arrows are the only way back to a command that has scrolled off, and the
+ * one that recalls it usually starts with a slash — which re-opens the menu and
+ * hands it the next arrow, so history stayed one step deep however often you
+ * pressed. `recallHistory` dismisses the menu for exactly that.
+ */
+test('the up arrow brings a command back, and the down arrow puts it away again', async () => {
+  const screen = await open(100, 30)
+  const showing = (text: string) => screen.visible().filter((row) => row.includes(text)).length
+  try {
+    await screen.press('/exposure\r')
+    // Echoed into the transcript, once, and the line it was typed on is empty.
+    expect(showing('/exposure')).toBe(1)
+
+    await screen.press('\x1b[A')
+    // Twice now: the echo above, and the line it has been put back on.
+    expect(showing('/exposure')).toBe(2)
+
+    await screen.press('\x1b[B')
+    expect(showing('/exposure')).toBe(1)
+  } finally {
+    screen.stop()
+  }
+})
+
+test('ctrl+c leaves the connect screen while the key is still being checked', async () => {
+  const slow: Connector = {
+    ...fakeVenue('slowly', 'Slow Venue', async () => []),
+    async verifyScope() {
+      await new Promise((r) => setTimeout(r, 5000))
+      return { canRead: true, canTrade: false as const, canWithdraw: false as const }
+    },
+  }
+  const screen = await open(120, 33, { connectors: new Map([['slowly', slow]]) })
+  try {
+    await screen.press('/slowly connect\r')
+    expect(screen.visible().join('\n')).toContain('Connect Slow Venue')
+    // The wait is a call to the venue behind a deadline, and a screen that
+    // cannot be left during it is exactly when somebody reaches for this key.
+    await screen.press('0xabc\r')
+    expect(screen.visible().join('\n')).toContain('checking the address')
+    await screen.press('\x03')
+    expect(screen.exited()).toBe(true)
+  } finally {
+    screen.stop()
+  }
+}, 60_000)
+
+/**
+ * "Sign out" is one row under whatever the cursor was on, and an `sk-ant-` key
+ * is shown by the console once — so forgetting it is the same cost as losing
+ * it. The question is asked with the safe answer already under the cursor.
+ */
+test('signing out asks first, and Enter on the question keeps the key', async () => {
+  const restore = await credentialEnv({ profile: false })
+  await secrets.putProviderKey('sk-ant-notarealkey')
+  const screen = await open(100, 33)
+  try {
+    await screen.press('/login\r')
+    await screen.press('\x1b[B')
+    await screen.press('\x1b[B')
+    expect(screen.visible().join('\n')).toContain('Sign out')
+    await screen.press('\r')
+
+    const asked = screen.visible().join('\n')
+    expect(asked).toContain('Forget the API key tula has saved?')
+    expect(await secrets.getProviderKey()).toBe('sk-ant-notarealkey')
+
+    // The safe answer is the one under the cursor, so the key that got here
+    // does the harmless thing.
+    await screen.press('\r')
+    expect(await secrets.getProviderKey()).toBe('sk-ant-notarealkey')
+  } finally {
+    screen.stop()
+    await restore()
+  }
+})

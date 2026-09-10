@@ -15,11 +15,11 @@ git clone https://github.com/hsnice16/tula && cd tula
 bun install
 bun run prepare-hooks  # points git at .githooks — do this once
 bun run build          # -> dist/tula
-bun run check          # typecheck + tests + install test + guard — what CI runs
+bun run check          # typecheck, tests, install path, guards — CI runs each of these, and more
 ```
 
 `prepare-hooks` sets `core.hooksPath`, so `.githooks/pre-commit` runs the same
-gate CI does — about two and a half seconds — plus a scan of staged content for
+gate CI does — the whole of `bun run check` — plus a scan of staged content for
 anything key-shaped. That scan is the one check whose failure cannot be undone
 by a later commit: once a key is in history, rotating it is the only remedy.
 A published vendor test vector or a public contract address goes in
@@ -29,8 +29,9 @@ no public value of it this repository needs. `--no-verify` bypasses the hook,
 which is why CI stages the whole tree and runs the same scan; `scan-test.sh`
 proves the patterns still catch what they claim to.
 
-Every PR needs a review from the code owner (`.github/CODEOWNERS`) before it can
-merge.
+Every PR asks for a review from the code owner (`.github/CODEOWNERS`). That is a
+requirement rather than a request only once *Require review from Code Owners* is
+on for the branch; without the setting the file adds a reviewer and nothing more.
 
 Never point a scratch run at your real credential store:
 
@@ -51,7 +52,15 @@ whole path with any address and no credentials at all.
 - Pin it to an exact version — no `^`, no `~` — and commit the lockfile change.
   Upgrades are their own commit, so the diff shows what moved.
 - No credential, address, or balance from a real account anywhere in the diff —
-  including test fixtures and pasted output.
+  including test fixtures and pasted output. A captured fixture keeps the venue's
+  shapes and the venue's arithmetic and none of its amounts:
+  `scripts/capture-onchain.ts` stands a placeholder in for each address and
+  multiplies every amount by one factor per account, drawn at capture time and
+  recorded nowhere — a factor anyone can read divides straight back out to the
+  real balance. What the venue relates is degree one in those amounts and holds
+  exactly after the multiplication; a rounded or invented figure relates nothing,
+  and a fixture that states no arithmetic can only ever agree with whatever the
+  connector already believed.
 - A new module is listed in the AGENTS.md layout, and anything that changed
   behaviour is reflected in `README.md` and `CHANGELOG.md`. `guard.sh` fails on
   a module nobody documented; a doc describing what the code used to do is
@@ -75,8 +84,9 @@ These are not style preferences.
    wrong answer is worse than an admitted gap.
 5. **A rendered figure without its `asOf`.** Freshness is a safety feature.
 6. **`number` for a quantity or price.** `decimal.js`, always.
-7. **Language that reads as a toy.** No "demo", "dummy", "fake", "toy" or
-   "playground" in anything a user sees. `scripts/guard.sh` fails the build on it.
+7. **Language that reads as a toy.** No "demo", "dummy", "fake", "toy",
+   "playground", "just a test" or "for now" in anything a user sees.
+   `scripts/guard.sh` fails the build on it.
 8. **A dead end with no way out.** Every error and every empty state names the
    next step — the command to run, the kind of key to make, the link to the
    venue's own page. See "What the user reads" in [AGENTS.md](./AGENTS.md).
@@ -93,11 +103,21 @@ connect output. Do not probe by mutating state.
 
 ## Releasing
 
-One tag produces every artifact. `.github/workflows/release.yml` verifies the tag
-against `src/version.ts`, runs the full check, cross-compiles the four targets,
-signs the macOS binaries when Apple credentials are configured, attests every
-archive, then publishes to GitHub Releases, npm and the Homebrew tap. Any failing
-step fails the release; nothing is published half-done.
+One tag produces every artifact. `.github/workflows/release.yml` waits on the
+`release` environment for a reviewer, refuses a tag that is not an ancestor of
+`main` — the attestation names this workflow by path, so a tag off main would
+prove only that some version of the file ran — verifies the tag against
+`src/version.ts`, runs the full check, cross-compiles the four targets, signs the
+macOS binaries where Apple credentials are configured, attests every archive,
+then publishes to GitHub Releases, npm and the Homebrew tap.
+
+A failing step fails the release, but npm and Homebrew are separate jobs behind
+`vars.PUBLISH_NPM` and `vars.PUBLISH_HOMEBREW`, and an unset one **skips rather
+than fails**: the GitHub release is already published and correct, and a missing
+token is a setup gap rather than a bad build — the same tag can be re-run once it
+exists. A skipped job looks exactly like a green release while the install page
+goes on telling people to use that channel, so the run prints a warning naming
+each channel that is off. Read it before you announce anything.
 
 ```bash
 bash scripts/release-build.sh dist/release   # the same artifacts, locally
@@ -111,12 +131,18 @@ bash scripts/homebrew-formula.sh dist/release tula   # the formula, real checksu
 Two ways, neither of which publishes anything by accident.
 
 **A dry run of the workflow.** Actions → Release → *Run workflow*, leaving
-`publish` off. It builds all four targets, signs, verifies, runs the installer
-against them and attests — then stops, and leaves the artifacts and
-`checksums.txt` on the run to inspect. Publishing is off by default because
-`GITHUB_REF_TYPE` is `branch` on a manual run, so the tag-matches-version check
-cannot protect it; without the gate, a manual run would cut a real release from
-whatever was on the branch.
+`publish` off. It builds all four targets, verifies them and runs the installer
+against them — then stops, and leaves the artifacts and `checksums.txt` on the
+run to inspect. It signs only where `secrets.APPLE_CERT_P12` is set; without it
+the macOS binaries are unsigned and the run says so. Publishing is off by default
+because `GITHUB_REF_TYPE` is `branch` on a manual run, so the tag-matches-version
+check cannot protect it; without the gate, a manual run would cut a real release
+from whatever was on the branch. **It does not attest.** That step is gated with
+the publish steps rather than run beside them: an attestation is a public
+transparency-log entry, and `install.sh` pins the signing workflow but not the
+ref it ran from — so a dry run from any branch would mint proof that a build off
+that branch came from this workflow, indistinguishable from a release at the only
+place anybody checks.
 
 **A pre-release tag,** when you want the real channels exercised. Set
 `APP_VERSION` to something like `0.4.0-rc.1` and push `v0.4.0-rc.1`: the GitHub

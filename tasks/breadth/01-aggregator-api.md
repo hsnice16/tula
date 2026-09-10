@@ -7,11 +7,19 @@
 Cover what is left of the long tail through a single integration rather than one
 connector each.
 
-The tail is narrower than the usual list of protocol names suggests.
-`src/connectors/wallet.ts` reads every ERC-20 on the Token Lists standard, so
-stETH, wstETH and sUSDe already arrive with a price, and Lido and Ethena are not
-what is missing. What is still unread: positions that are not a token in the
-wallet, and receipt tokens whose `delta` needs the protocol's own pool math.
+This task once said the tail was narrower than the usual list of protocol names
+suggests, on the grounds that stETH, wstETH and sUSDe already arrive priced. They
+do not. `src/connectors/wallet.ts` reads the ERC-20s a Token Lists feed names,
+and the default feed names none of the liquid staking tokens or the yield-bearing
+stables — the connector declares exactly that under `doesNotRead`, and
+`src/connectors/wallet.test.ts` holds the gap open with 100 stETH reading as
+silence rather than a row.
+
+So Lido and Ethena are missing, and they are missing as a token nobody asked
+about rather than as pool math: a broader list answers that half, and no provider
+is needed for it. What only a provider answers is positions that are not a token
+in the wallet at all, and receipt tokens whose `delta` needs the protocol's own
+pool math.
 
 ## Acceptance
 
@@ -45,5 +53,6 @@ that.
 
 Until a user asks for it, `open-pieces/01-scope-disclosure` states the gap, which
 is the honest thing to do about one you have not decided to close. `TULA_TOKEN_LIST`
-is the cheap half-step: a broader list widens ERC-20 coverage for a config default,
-with no key and no address leaving the machine.
+is the cheap half-step, and the whole of the answer for the staking and
+yield-bearing tokens above: a broader list widens ERC-20 coverage for a config
+default, with no key and no address leaving the machine.

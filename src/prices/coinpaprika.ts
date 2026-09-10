@@ -44,8 +44,8 @@ export class CoinPaprikaOracle implements PriceOracle {
     private readonly ttlMs = 60_000,
   ) {}
 
-  private async load(): Promise<Map<string, Ticker>> {
-    if (this.cache && Date.now() - this.cache.at < this.ttlMs) return this.cache.rows
+  private async load(): Promise<{ at: number; rows: Map<string, Ticker> }> {
+    if (this.cache && Date.now() - this.cache.at < this.ttlMs) return this.cache
 
     const res = await this.fetcher(TICKERS)
     if (!res.ok) {
@@ -58,9 +58,8 @@ export class CoinPaprikaOracle implements PriceOracle {
     const rows = (await res.json()) as Ticker[]
     if (!Array.isArray(rows)) throw new TulaError('CoinPaprika returned an unexpected response.')
 
-    const best = bestBySymbol(rows)
-    this.cache = { at: Date.now(), rows: best }
-    return best
+    this.cache = { at: Date.now(), rows: bestBySymbol(rows) }
+    return this.cache
   }
 
   async quote(asset: AssetId): Promise<Quote | null> {
@@ -75,18 +74,20 @@ export class CoinPaprikaOracle implements PriceOracle {
     const wanted = assets.filter((a) => !UNITY.has(a))
     if (wanted.length === 0) return out
 
-    const rows = await this.load()
+    const cached = await this.load()
     for (const asset of wanted) {
-      const row = rows.get(asset.toUpperCase())
+      const row = cached.rows.get(asset.toUpperCase())
       const price = row?.quotes?.USD?.price
       const usable = usablePrice(price)
       if (!usable) continue
-      out.set(asset, {
-        price: usable,
-        // The source's own clock, per coin: a thinly traded coin's last print
-        // may be hours old, and receipt time would hide that.
-        asOf: row?.last_updated ? new Date(row.last_updated) : new Date(),
-      })
+      // The source's own clock, per coin: a thinly traded coin's last print may
+      // be hours old, and receipt time would hide that. A stamp that does not
+      // parse falls back to when the list arrived rather than reaching the
+      // screen as `Invalid  (NaNd ago)`.
+      const stamped = row?.last_updated ? new Date(row.last_updated) : null
+      const asOf =
+        stamped && !Number.isNaN(stamped.getTime()) ? stamped : new Date(cached.at)
+      out.set(asset, { price: usable, asOf })
     }
     return out
   }

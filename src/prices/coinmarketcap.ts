@@ -1,7 +1,7 @@
 import Decimal from 'decimal.js'
 import { TulaError } from '../core/errors.js'
 import type { AssetId } from '../core/position.js'
-import { UNITY, usablePrice, type PriceOracle, type Quote } from '../core/prices.js'
+import { byTicker, UNITY, usablePrice, type PriceOracle, type Quote } from '../core/prices.js'
 import { request } from '../core/http.js'
 
 const QUOTES = 'https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest'
@@ -43,7 +43,8 @@ export class CoinMarketCapOracle implements PriceOracle {
     const now = new Date()
     for (const asset of assets) if (UNITY.has(asset)) out.set(asset, { price: new Decimal(1), asOf: now })
 
-    const wanted = [...new Set(assets.filter((a) => !UNITY.has(a)).map((a) => a.toUpperCase()))]
+    const asked = byTicker(assets)
+    const wanted = [...asked.keys()]
     if (wanted.length === 0) return out
 
     for (let start = 0; start < wanted.length; start += CHUNK) {
@@ -60,12 +61,15 @@ export class CoinMarketCapOracle implements PriceOracle {
         const usable = usablePrice(price)
         if (!usable) continue
         const stamped = rows[0]?.quote?.USD?.last_updated
-        out.set(symbol.toUpperCase(), {
-          price: usable,
-          // The venue's own clock where it gives one: dating a quote later than
-          // it was true would overstate its freshness.
-          asOf: stamped ? new Date(stamped) : new Date(),
-        })
+        const at = stamped ? new Date(stamped) : null
+        // The venue's own clock where it gives one: dating a quote later than
+        // it was true would overstate its freshness. A stamp that does not
+        // parse falls back to receipt rather than reaching the screen as
+        // `Invalid  (NaNd ago)`.
+        const asOf = at && !Number.isNaN(at.getTime()) ? at : new Date()
+        for (const asset of asked.get(symbol.toUpperCase()) ?? [symbol.toUpperCase()]) {
+          out.set(asset, { price: usable, asOf })
+        }
       }
     }
     return out

@@ -49,6 +49,14 @@ export function startSignIn(): SignInStart {
     child.unref()
     return { ok: true }
   } catch (err) {
-    return { ok: false, reason: err instanceof Error ? err.message : String(err) }
+    // The branch above hands over two next steps; a spawn that fails is the
+    // same dead end for the reader and was handing over the raw errno, which
+    // `Credentials.tsx` prints verbatim on the first screen anybody sees.
+    return {
+      ok: false,
+      reason:
+        `${bin} would not start: ${err instanceof Error ? err.message : String(err)}\n` +
+        `  Run  ${bin} auth login  in your own shell, or paste an API key instead.`,
+    }
   }
 }

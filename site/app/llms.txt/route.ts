@@ -29,13 +29,24 @@ and narrates, and never does the arithmetic.
 ## What it reads
 
 Hyperliquid (perps with liquidation price, spot, and the perp account's own
-USDC), Aave v3 on Ethereum across all four of its markets (collateral, debt and
-health factor, each market's own), and an Ethereum wallet's ETH and ERC-20
-balances — all three from a public address alone. Then Kraken, Binance, Coinbase
-Advanced, Stripe and Circle Mint, each from a read-only key. A key proven to
-withdraw or trade is turned away rather than warned about; where a venue exposes no
-way to check — Kraken for trading, Stripe and Circle for both — tula says so
-rather than calling it safe.
+USDC), Aave v3 across six markets on Ethereum, Arbitrum One and Base (collateral,
+debt and health factor, each market's own), and a wallet's ETH and ERC-20
+balances on those same three chains — all three from one public address alone.
+Then Kraken, Binance, Coinbase
+Advanced and Stripe, each from a read-only key. A key proven to withdraw or trade
+is turned away rather than warned about; where a venue exposes no way to check —
+Kraken for trading, Stripe for both — tula says so rather than calling it safe.
+A venue that publishes no read-only key at all is not offered: there is nothing
+to connect it with that tula would hold. A venue may hold more than one address
+or key, and every figure counts all of them.
+
+tula states what it does not read, and states it where it is asked. Each
+connector declares its own gaps — Aave V4, the endpoints of each venue nothing
+here calls, the chains outside the three — and \`/venues\` names every one of
+them, area by area, with what each may hide. A venue that answered holding
+nothing says so on the spot, since that is the case where a gap and an empty
+account look identical. Every one of those gaps is scheduled work in
+ROADMAP.md, not a permanent shape.
 
 ## Commands
 

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { createHash } from 'node:crypto'
 import { execFile } from 'node:child_process'
-import { mkdir, mkdtemp, readFile, readlink, rm, symlink, writeFile } from 'node:fs/promises'
+import { access, chmod, mkdir, mkdtemp, readFile, readlink, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
@@ -23,9 +23,13 @@ const realFetch = globalThis.fetch
  * runs. Everything else here is real — a real gzip, a real sha256, a real
  * symlink flipped on a real tree.
  */
+const reached: string[] = []
+
 function serve(body: (url: string) => Buffer | null) {
+  reached.length = 0
   globalThis.fetch = (async (input: string | URL | Request) => {
     const url = typeof input === 'string' ? input : input.toString()
+    reached.push(url)
     const found = body(url)
     return found
       ? // Content-Length because the real asset host sends one, and it is what
@@ -49,11 +53,16 @@ beforeEach(async () => {
   await run('tar', ['-czf', join(root, 'a.tar.gz'), '-C', build, 'tula'])
   archive = await readFile(join(root, 'a.tar.gz'))
 
-  // The tree as install.sh leaves it: one version, and a link pointing at it.
+  // The tree as install.sh leaves it: one version, a link pointing at it, and
+  // the `.tula-sha256` receipt the installer writes beside a binary it
+  // downloaded and verified. Modelled because a receipt is what the installer's
+  // fast path reads, and what `applyUpdate` deliberately does not write — the
+  // difference is only visible against a fixture that has one.
   const current = join(root, 'versions', '0.1.0')
   await mkdir(current, { recursive: true })
   await mkdir(join(root, 'bin'), { recursive: true })
   await writeFile(join(current, 'tula'), '')
+  await writeFile(join(current, '.tula-sha256'), `${createHash('sha256').update('').digest('hex')}\n`)
   await symlink(join(current, 'tula'), join(root, 'bin', 'tula'))
   into = { versions: join(root, 'versions'), launcher: join(root, 'bin', 'tula') }
 })
@@ -109,12 +118,6 @@ describe('applying an update', () => {
   })
 
   /**
-   * `/releases/latest` skips pre-releases, so a pre-release build asking is
-   * offered the newest stable — which can be behind it. Downgrading silently is
-   * how somebody ends up reading a liquidation price from a build that was
-   * replaced for getting it wrong.
-   */
-  /**
    * The download is tens of megabytes and used to arrive as one awaited
    * `arrayBuffer()`, so `/update install` held the spinner on `working` for the
    * whole of it — the same screen `install.sh` showed before it kept curl's
@@ -160,6 +163,12 @@ describe('applying an update', () => {
     expect(await readlink(into.launcher)).toBe(join(into.versions, NEW, 'tula'))
   })
 
+  /**
+   * `/releases/latest` skips pre-releases, so a pre-release build asking is
+   * offered the newest stable — which can be behind it. Downgrading silently is
+   * how somebody ends up reading a liquidation price from a build that was
+   * replaced for getting it wrong.
+   */
   test('refuses to move to a version that is not newer', async () => {
     serve(() => null)
     await expect(applyUpdate('0.0.1', into)).rejects.toThrow(/not newer/)
@@ -170,5 +179,86 @@ describe('applying an update', () => {
     serve((url) => (url.endsWith('checksums.txt') ? sums(archive, name()) : null))
     await expect(applyUpdate(NEW, into)).rejects.toThrow(/404/)
     expect(await stillOnOld()).toBe(true)
+  })
+})
+
+/**
+ * `install.sh` refuses a tree another user can write to, because the binary it
+ * installs is the process that opens `credentials.json`. This is the second way
+ * onto the same disk: a check only one of the two makes is a check somebody
+ * routes around by typing `/update install` instead of the install line.
+ */
+describe('the tree an update will and will not go into', () => {
+  const ok = () =>
+    serve((url) =>
+      url.endsWith('checksums.txt') ? sums(archive, name()) : url.endsWith(name()) ? archive : null,
+    )
+
+  test('refuses an install directory other users can write to, before downloading anything', async () => {
+    ok()
+    await chmod(root, 0o777)
+    await expect(applyUpdate(NEW, into)).rejects.toThrow(/can be written to by other users/)
+    expect(reached).toEqual([])
+    expect(await stillOnOld()).toBe(true)
+  })
+
+  test('refuses a bin directory other users can write to', async () => {
+    ok()
+    await chmod(join(root, 'bin'), 0o777)
+    await expect(applyUpdate(NEW, into)).rejects.toThrow(/can be written to by other users/)
+    expect(await stillOnOld()).toBe(true)
+  })
+
+  // The one somebody can plant before tula is ever installed: a version
+  // directory left open is a binary anybody can swap after this run unpacks it.
+  test('refuses a version directory other users can write to', async () => {
+    ok()
+    await mkdir(join(into.versions, NEW), { recursive: true })
+    await chmod(join(into.versions, NEW), 0o777)
+    await expect(applyUpdate(NEW, into)).rejects.toThrow(/can be written to by other users/)
+    expect(await stillOnOld()).toBe(true)
+  })
+
+  // 755 leaves nothing to replace, so install.sh does not refuse it and neither
+  // does this. A check stricter than the one it mirrors is the same drift.
+  test('installs into a directory others can read but not write', async () => {
+    ok()
+    await chmod(root, 0o755)
+    await applyUpdate(NEW, into)
+    expect(await readlink(into.launcher)).toBe(join(into.versions, NEW, 'tula'))
+  })
+
+  test('leaves the new version directory closed to other users under a wide-open umask', async () => {
+    ok()
+    const was = process.umask(0o000)
+    try {
+      await applyUpdate(NEW, into)
+    } finally {
+      process.umask(was)
+    }
+    // `mkdir` takes the umask, so without setting the mode this is 777 — the
+    // state the check above refuses on the very next run.
+    expect((await stat(join(into.versions, NEW))).mode & 0o022).toBe(0)
+  })
+
+  test('leaves a binary the shell can run, whatever the archive carried', async () => {
+    ok()
+    await applyUpdate(NEW, into)
+    expect((await stat(join(into.versions, NEW, 'tula'))).mode & 0o777).toBe(0o755)
+  })
+
+  /**
+   * install.sh reads a matching `.tula-sha256` as *this script downloaded,
+   * verified and unpacked that binary* and answers "already installed". Nothing
+   * here checks provenance, so a receipt written here would have the repair run
+   * — the thing somebody does to a tree they suspect — skip the attestation.
+   */
+  test('writes no install receipt, so the installer still re-verifies this tree', async () => {
+    ok()
+    await applyUpdate(NEW, into)
+    await expect(access(join(into.versions, NEW, '.tula-sha256'))).rejects.toThrow()
+    // The one install.sh wrote for the version it installed is untouched, so
+    // this is a receipt this path declined to mint, not a tree with none in it.
+    await access(join(into.versions, '0.1.0', '.tula-sha256'))
   })
 })

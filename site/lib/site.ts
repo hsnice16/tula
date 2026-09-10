@@ -10,7 +10,7 @@ export const NAME = 'tula'
  * the two disagree and `release-cut.sh` bumps this with them: a frame offered
  * as the tool's own output cannot print a release that was never cut.
  */
-export const VERSION = '0.1.3'
+export const VERSION = '0.2.0'
 
 /**
  * GA4, for the site alone. Held here rather than read from `process.env`: an
@@ -181,12 +181,13 @@ export const KEYWORDS = [
   'coinbase',
   'coinbase advanced',
   'stripe',
-  'circle mint',
   'kraken api',
   'binance api',
   'hyperliquid positions',
   'aave health factor',
   'ethereum',
+  'arbitrum',
+  'base chain',
   'erc-20',
   'onchain',
   'wallet balances',

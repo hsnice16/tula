@@ -54,7 +54,7 @@ export function Copy({ text, label }: { text: string; label: string }) {
         type="button"
         onClick={copy}
         aria-label={`Copy the ${label} command`}
-        className="relative flex cursor-pointer items-center gap-1.5 rounded-[3px] border border-rule px-2 py-0.5 font-mono text-[0.62rem] uppercase tracking-[0.08em] text-faint transition-colors after:absolute after:inset-x-0 after:-top-2 after:-bottom-2 after:content-[''] hover:border-accent-dim hover:text-accent"
+        className="relative flex cursor-pointer items-center gap-1.5 rounded-[3px] border border-rule px-2 py-0.5 font-mono text-[0.62rem] uppercase tracking-[0.08em] text-dim transition-colors after:absolute after:inset-x-0 after:-top-2 after:-bottom-2 after:content-[''] hover:border-accent-dim hover:text-accent"
       >
         <svg
           aria-hidden="true"

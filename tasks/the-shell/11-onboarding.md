@@ -1,6 +1,7 @@
 # 11 · First-run onboarding
 
 **Status**: done
+**Covered by**: `src/ui/screen.test.ts`, `src/cli/credentials.test.ts`, `src/secrets/store.test.ts`
 
 ## Goal
 

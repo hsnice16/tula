@@ -1,9 +1,10 @@
-import { Box, Static, Text, useApp, useInput, useStdout } from 'ink'
+import { Box, Static, Text, useApp, useInput, useStdout, type Key } from 'ink'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Agent, envApiKey, envApiKeyName, hasAmbientCredentials } from '../agent/agent.js'
 import {
   credentialName,
   credentialSource,
+  failedVenue,
   type CredentialSource,
 } from '../cli/commands.js'
 import { riskEngineFor } from '../cli/engine-adapter.js'
@@ -17,7 +18,9 @@ import {
   matchVenueSubcommands,
   parseCommand,
   priceEntries,
+  forgetCommand,
   type PaletteEntry,
+  type ParsedCommand,
   type PriceEntry,
   type VenueEntry,
 } from '../cli/registry.js'
@@ -25,12 +28,17 @@ import type { LoadStep, Session } from '../cli/session.js'
 import { dispatchCommand } from '../cli/shell.js'
 import { pendingUpdate } from '../update/check.js'
 import type { Connector } from '../connectors/types.js'
-import { TulaError } from '../core/errors.js'
+import { failureText } from '../core/errors.js'
 import * as secrets from '../secrets/store.js'
 import { homeRelative } from '../core/paths.js'
-import { APP_DESCRIPTION, APP_VERSION, REPO_URL } from '../version.js'
+import { APP_DESCRIPTION, APP_VERSION } from '../version.js'
 import { ConnectFlow } from './ConnectFlow.js'
-import { connectable, type Connectable, type ConnectorCredentials } from '../connectors/types.js'
+import {
+  connectable,
+  storedVenues,
+  type Connectable,
+  type ConnectorCredentials,
+} from '../connectors/types.js'
 import {
   asConnectable,
   buildOracle,
@@ -56,6 +64,13 @@ interface Entry {
   id: number
   kind: EntryKind
   text: string
+  /**
+   * The tail of `text` that truncation may not hold back. A total omitting a
+   * venue prints `INCOMPLETE` beneath it, and that block is appended last —
+   * exactly where the preview cuts, so past twelve rows the answer arrived
+   * looking whole and the caveat did not arrive at all.
+   */
+  pinned?: string
 }
 
 const SPINNER = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
@@ -77,19 +92,28 @@ const REDRAW_SETTLE_MS = 50
 /** Drawn at, and subtracted from, the width an output block wraps against. */
 const OUTPUT_INDENT = 3
 
-/** What of an entry the transcript shows, the rows that takes, and what it holds back. */
+/**
+ * What of an entry the transcript shows, the rows that takes, and what it holds
+ * back — with `pinned` held over to the far side of the count, so the block
+ * saying the answer is incomplete lands under the answer whatever its length.
+ * Pinning the whole of an entry is how one says it must not be truncated at all.
+ */
 function preview(
   text: string,
   width: number,
   expanded: boolean,
-): { text: string; rows: number; hidden: number } {
+  pinned = '',
+): { head: string; rows: number; hidden: number; tail: string } {
   const rows = wrapLines(text, width)
-  if (expanded || rows.length <= PREVIEW_ROWS) return { text, rows: rows.length, hidden: 0 }
-  return {
-    text: rows.slice(0, PREVIEW_ROWS).join('\n'),
-    rows: PREVIEW_ROWS,
-    hidden: rows.length - PREVIEW_ROWS,
-  }
+  const whole = { head: text, rows: rows.length, hidden: 0, tail: '' }
+  if (expanded || rows.length <= PREVIEW_ROWS) return whole
+  const tail = pinned !== '' && text.endsWith(pinned) ? pinned : ''
+  const tailRows = tail === '' ? 0 : wrapLines(tail, width).length
+  const hidden = rows.length - PREVIEW_ROWS - tailRows
+  // The count is a row of its own, so holding back one row saves nothing and
+  // costs the reader the line it was hiding.
+  if (hidden <= 1) return whole
+  return { head: rows.slice(0, PREVIEW_ROWS).join('\n'), rows: PREVIEW_ROWS + tailRows, hidden, tail }
 }
 
 /**
@@ -111,25 +135,93 @@ const TOOL_LABELS: Readonly<Record<string, string>> = {
  */
 const RESPONDING = 'answering'
 
-/** A load's step, in the voice the tool labels above are written in. */
 /**
- * What a failure reads as on screen.
- *
- * A `TulaError` is a condition the user can act on and says so itself. Anything
- * else is a bug in tula, and `String(err)` turned it into a bare line —
- * `TypeError: x is not a function` — with nothing to do about it and nowhere to
- * send it. `errors.ts` keeps the stack for exactly this case; the least the
- * screen can do is say whose fault it is and where it goes.
+ * The one thing a command here does that cannot be undone: take a credential
+ * off disk. `/<venue> disconnect`, `/<source> disconnect` and `/forget <venue>`
+ * are the three spellings of it, and every one of them is one press away — a
+ * row under each connected venue in `/`, a runnable entry in ctrl+k, and a
+ * single left-click on either.
  */
-function failureText(err: unknown): string {
-  if (err instanceof TulaError) return err.message
-  const message = err instanceof Error ? err.message : String(err)
-  return `${message}\n  This is a bug in tula, not something you did.\n  Please report it: ${REPO_URL}/issues`
+function forgets(parsed: ParsedCommand): { venue: string; ref?: string; all: boolean } | null {
+  // `/forget <venue>` is the spelling that means everything stored for it,
+  // however many accounts that is. `/<venue> disconnect` takes one, and asks
+  // which where there is more than one to mean.
+  if (parsed.name === 'forget') return parsed.args[0] ? { venue: parsed.args[0], all: true } : null
+  if (parsed.args[0] === 'disconnect') {
+    // `/wallet disconnect vault` names one of a set, and the question has to
+    // name the same one — a confirmation about "the address" over a venue
+    // holding three is a deletion nobody could check before agreeing to it.
+    const ref = parsed.args[1]
+    return ref ? { venue: parsed.name, ref, all: false } : { venue: parsed.name, all: false }
+  }
+  return null
 }
 
+/** The part of Ink's `Key` this shell reads. Every other field is decoration. */
+type Press = Pick<
+  Key,
+  | 'upArrow'
+  | 'downArrow'
+  | 'leftArrow'
+  | 'rightArrow'
+  | 'return'
+  | 'escape'
+  | 'ctrl'
+  | 'meta'
+  | 'tab'
+  | 'backspace'
+  | 'delete'
+>
+
+/** A chunk that came in beside a mouse report carries no modifier of its own. */
+const TEXT_ONLY: Press = {
+  upArrow: false,
+  downArrow: false,
+  leftArrow: false,
+  rightArrow: false,
+  return: false,
+  escape: false,
+  ctrl: false,
+  meta: false,
+  tab: false,
+  backspace: false,
+  delete: false,
+}
+
+/**
+ * What is left of a chunk once its mouse reports are taken out, as typed text.
+ * An escape sequence that shared the chunk is dropped rather than typed: half
+ * an arrow key on the line is worse than an arrow key that did not arrive.
+ */
+function alsoTyped(rest: string): string {
+  if (rest.includes('\x1b')) return ''
+  return rest.replace(/[\x00-\x09\x0b\x0c\x0e-\x1f\x7f]/g, '')
+}
+
+/**
+ * A pending credential deletion, and the word that runs it.
+ *
+ * Not Enter, and not a single letter. Enter is the key that arrived here, and
+ * the menu already teaches that a press which changes nothing on screen was a
+ * press that missed — so an overshoot answered by pressing Enter again would
+ * be the same defect with a sentence in front of it. A stray character is what
+ * a hand resting on a trackpad produces. Typing the name of what is about to
+ * be forgotten cannot be reached by either, and it settles *which* venue is
+ * being forgotten, which is the thing an overshoot got wrong.
+ */
+interface Forget {
+  /** The command to run once the name has been typed. */
+  line: string
+  /** What has to be typed: the id of the venue or price source. */
+  word: string
+  /** For the line under the input, which stays up while the name is typed. */
+  label: string
+}
+
+/** A load's step, in the voice the tool labels are written in. */
 function loadLabel(step: LoadStep): string {
   return step.kind === 'venue'
-    ? `reading ${step.venue}`
+    ? `reading ${step.venue}${step.account ? ` (${step.account})` : ''}`
     : `pricing ${step.assets} asset${step.assets === 1 ? '' : 's'}`
 }
 
@@ -171,6 +263,7 @@ function Output({
   expanded,
   dim,
   trimTop,
+  pinned,
 }: {
   kind: EntryKind
   text: string
@@ -178,9 +271,10 @@ function Output({
   expanded: boolean
   dim: boolean
   trimTop: number
+  pinned: string | undefined
 }) {
-  const { text: shown, hidden } = preview(text, width, expanded)
-  const cut = trimTop > 0 ? wrapLines(shown, width).slice(trimTop).join('\n') : shown
+  const { head, hidden, tail } = preview(text, width, expanded, pinned)
+  const cut = trimTop > 0 ? wrapLines(head, width).slice(trimTop).join('\n') : head
   return (
     <Box marginBottom={1} paddingLeft={OUTPUT_INDENT} flexDirection="column">
       <Line kind={kind} text={cut} dim={dim} />
@@ -188,6 +282,7 @@ function Output({
         // The way out belongs where the dead end is, not in a help screen.
         <Text dimColor>{`… ${hidden} more line${hidden === 1 ? '' : 's'} · ctrl+o`}</Text>
       )}
+      {tail !== '' && <Line kind={kind} text={tail} dim={dim} />}
     </Box>
   )
 }
@@ -263,6 +358,7 @@ function TranscriptEntry({
       expanded={expanded}
       dim={dim}
       trimTop={trimTop}
+      pinned={entry.pinned}
     />
   )
 }
@@ -274,7 +370,7 @@ function entryRows(entry: Entry, width: number, expanded: boolean): number {
   // because `preview` is the wrong ruler for a two-column block, and a height
   // that disagrees with what was drawn clips the backdrop by the difference.
   if (entry.kind === 'banner') return Math.max(MARK.length, bannerRows(entry.text, width).length) + 1
-  const { rows, hidden } = preview(entry.text, width, expanded)
+  const { rows, hidden } = preview(entry.text, width, expanded, entry.pinned)
   return rows + (hidden > 0 ? 1 : 0) + 1
 }
 
@@ -375,10 +471,21 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
       : null,
   )
   const [connecting, setConnecting] = useState<Connectable | null>(null)
+  /**
+   * What the venue being connected already holds, read as the screen opens. The
+   * flow needs it to ask add-or-replace, and reading it there rather than
+   * inside the component keeps the component a screen over data it was handed.
+   */
+  const [connectExisting, setConnectExisting] = useState<secrets.StoredCredential[]>([])
   // Set only while a price source is being keyed, so onDone knows to activate it.
   const [pendingPrice, setPendingPrice] = useState<string | null>(null)
   const [activePrice, setActivePrice] = useState<string>(DEFAULT_PROVIDER)
   const [connected, setConnected] = useState<string[]>(initialVenues)
+  /** The store as it was at start, split the one way every count here splits it. */
+  const opening = useMemo(
+    () => storedVenues(initialVenues, connectors.keys()),
+    [initialVenues, connectors],
+  )
 
   const [entries, setEntries] = useState<Entry[]>([])
   /**
@@ -400,10 +507,20 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
         // the same in any directory — but it is what tells two terminals apart
         // at a glance, and every other tool in one prints it.
         homeRelative(process.cwd()),
-        ...(initialVenues.length > 0 ? [`Connected: ${initialVenues.join(', ')}`] : []),
+        // What this build reads, not what is on disk. Naming a venue tula has
+        // dropped as connected is contradicted by the REMOVED block the same
+        // screen prints below it, and the reader has no way to tell which of
+        // the two is the one that is out of date.
+        ...(opening.read.length > 0 ? [`Connected: ${opening.read.join(', ')}`] : []),
+        // Said, because the credential is still theirs and still on disk — and
+        // said with the way out, because nothing else on the opening screen is
+        // going to mention it until a command reads the store.
+        ...opening.removed.map(
+          (id) => `Removed: ${id} — tula no longer reads it. ${forgetCommand(id)}`,
+        ),
       ].join('\n'),
     }),
-    [initialVenues],
+    [opening],
   )
   const [input, setInput] = useState('')
   const [cursor, setCursor] = useState(0)
@@ -429,13 +546,37 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
   // turned on for: after reading "18 more lines" you usually want the answer
   // above it whole too, and the next one as well.
   const [expanded, setExpanded] = useState(false)
+  const [forgetting, setForgetting] = useState<Forget | null>(null)
   const [history, setHistory] = useState<string[]>([])
   const historyIndex = useRef(-1)
   const nextId = useRef(0)
 
-  const push = useCallback((kind: EntryKind, text: string) => {
-    setEntries((prev) => [...prev, { id: nextId.current++, kind, text }])
+  const push = useCallback((kind: EntryKind, text: string, pinned?: string) => {
+    setEntries((prev) => [
+      ...prev,
+      { id: nextId.current++, kind, text, ...(pinned ? { pinned } : {}) },
+    ])
   }, [])
+
+  /**
+   * The end of a command's output that the transcript may not hold back.
+   *
+   * The command hands over the block it appended, so the same *call* that wrote
+   * it says where it starts — no reading for the word `INCOMPLETE`, which would
+   * be a second copy of a sentence commands.ts owns, and no second call to
+   * `incompleteNote`, which answers a shorter thing once a session has been
+   * given the REMOVED explanation and would then name a tail this output does
+   * not end with. A command that reports its failures inside the table instead
+   * (`/venues`) hands over nothing, so the whole of it is pinned and none of it
+   * is truncated.
+   */
+  const caveat = useCallback(
+    (result: { output: string; note?: string; incomplete?: boolean }): string | undefined => {
+      if (!result.incomplete) return undefined
+      return result.note !== undefined && result.note !== '' ? result.note : result.output
+    },
+    [],
+  )
 
   /**
    * <Static> writes each entry to the terminal once, so emptying the transcript
@@ -458,15 +599,21 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
    */
   const applyCredentials = useCallback(
     async (result: CredentialsResult) => {
+      // The two reads are inside it too. `store.load()` throws by design on a
+      // store whose mode drifted, one reached through a symlink, or one a newer
+      // build wrote — the refusals it exists to make — and left outside the
+      // catch those became an unhandled rejection at the moment somebody had
+      // just signed in, with the sentence explaining why never drawn.
+      let source: Awaited<ReturnType<typeof credentialSource>>
+      let key: string | undefined
       try {
         if (result.kind === 'key') await secrets.putProviderKey(result.apiKey)
         if (result.kind === 'signed-out') await secrets.removeProviderKey()
+        source = await credentialSource()
+        key = envApiKey() ?? (await secrets.getProviderKey())
       } catch (err) {
         return push('error', failureText(err))
       }
-
-      const source = await credentialSource()
-      const key = envApiKey() ?? (await secrets.getProviderKey())
       setAgent(
         source === 'none' ? null : new Agent(riskEngineFor(session), key ? { apiKey: key } : {}),
       )
@@ -609,13 +756,20 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
   }, [session, connectors, connected, entries.length])
 
   useEffect(() => {
-    void secrets.getPriceSource().then((stored) => setActivePrice(stored?.provider ?? DEFAULT_PROVIDER))
-  }, [])
+    // A store this cannot read is not a store with no price source in it: the
+    // read throws, and unhandled it takes the shell down before it has drawn.
+    void secrets
+      .getPriceSource()
+      .then((stored) => setActivePrice(stored?.provider ?? DEFAULT_PROVIDER))
+      .catch((err: unknown) => push('error', failureText(err)))
+  }, [push])
 
   const prices: PriceEntry[] = useMemo(() => priceEntries(activePrice), [activePrice])
 
   const menu: Menu | null = useMemo(() => {
-    if (!input.startsWith('/') || busy || menuDismissed) return null
+    // Nothing runs off the menu while a credential is waiting to be named, and
+    // a list of commands over a question is a list that answers a different one.
+    if (!input.startsWith('/') || busy || menuDismissed || forgetting) return null
     const rest = input.slice(1)
     const space = rest.indexOf(' ')
 
@@ -673,7 +827,7 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
       heading: connectors.get(head)?.venue.name ?? head,
       total: matchVenueSubcommands('', entry?.connected ?? false).length,
     }
-  }, [input, busy, menuDismissed, venueEntries, prices, connectors])
+  }, [input, busy, menuDismissed, forgetting, venueEntries, prices, connectors])
 
   const setLine = useCallback((value: string, at = value.length) => {
     setInput(value)
@@ -698,36 +852,146 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
 
   const status = useMemo(() => {
     const { positions, failures } = session.current
-    // Counted back to the venue the user connected, not the label a row wears:
-    // one Aave address holding positions in three of its markets is one venue,
-    // and `aave-prime` beside `aave` read as two more the user had never added.
-    const venues = new Set(
-      positions.map((p) => connected.find((id) => belongsToVenue(p.venue, id)) ?? p.venue),
-    ).size
+    // The venues the user connected that this build reads — the same split the
+    // banner names, so the two can no longer state different numbers about one
+    // store. Counted off the store rather than off the rows: one Aave address
+    // holding positions in three of its markets is one venue, and a venue that
+    // answered with nothing is still one that is connected.
+    const { read, removed } = storedVenues(connected, connectors.keys())
     const stalest = session.stalest()
     const parts = [
-      `${venues} venue${venues === 1 ? '' : 's'}`,
+      `${read.length} venue${read.length === 1 ? '' : 's'}`,
       `${positions.length} position${positions.length === 1 ? '' : 's'}`,
     ]
     if (stalest) parts.push(freshness(stalest))
-    if (failures.length > 0) parts.push(`${failures.length} failed`)
+    // Removed, failed and never-asked are three different things. Counting a
+    // venue this build dropped among the failures reported an outage about a
+    // venue nothing was asked of, eight lines under a block saying so.
+    const failed = failures.filter((f) => !removed.includes(failedVenue(f)))
+    if (failed.length > 0) parts.push(`${failed.length} failed`)
+    if (removed.length > 0) parts.push(`${removed.length} removed`)
     parts.push(agent ? 'opus 5' : 'commands only')
     return parts.join('  ·  ')
-  }, [session, agent, entries.length, streaming, connected, tick])
+  }, [session, agent, entries.length, streaming, connected, connectors, tick])
+
+  /**
+   * Says what is about to be forgotten and what it would take to get it back,
+   * then waits for the name to be typed. The question goes into the transcript
+   * rather than into a dialog: it is a step in the command that was asked for,
+   * it is traceable there afterwards, and a floating panel is a redraw of the
+   * whole screen for a sentence and a word.
+   */
+  const askToForget = useCallback(
+    async (line: string, id: string, ref: string | undefined, all: boolean): Promise<boolean> => {
+      const connector = connectors.get(id)
+      const provider = priceProvider(id)
+      const name = connector?.venue.name ?? provider?.name ?? id
+      const lines = [`Forget ${name}?`]
+
+      if (provider) {
+        const stored = await secrets.getPriceSource()
+        // Nothing on disk is nothing to lose, and a question about a key that
+        // does not exist is a question nobody can answer. The command itself
+        // says so better than a confirmation could.
+        if (stored?.provider !== id || !stored.apiKey) return false
+        const fallback = priceProvider(DEFAULT_PROVIDER)?.name ?? DEFAULT_PROVIDER
+        lines.push(
+          `  tula deletes the ${name} API key from ${secrets.locationHint()} and prices`,
+          `  every figure from ${fallback} again.`,
+        )
+      } else {
+        // A store that cannot be read is a store that may well hold this: the
+        // question is asked, rather than a deletion running on the assumption.
+        let stored: secrets.StoredCredential[] = []
+        let named: secrets.StoredCredential | undefined
+        let read = true
+        try {
+          stored = await secrets.listCredentials(id)
+          if (ref) named = await secrets.findCredential(id, ref)
+        } catch {
+          read = false
+        }
+        if (read && stored.length === 0) return false
+        // A ref that matches nothing deletes nothing, so there is nothing to
+        // confirm: the command itself answers, naming what the venue does hold.
+        if (ref && read && !named) return false
+        // Neither does `/<venue> disconnect` over a venue holding several,
+        // which asks which one instead of guessing. Confirming a deletion and
+        // then being told to pick one is a gate that taught nothing and cost a
+        // typed word — and the next thing it teaches is to type it faster.
+        if (!ref && !all && stored.length > 1) return false
+
+        // Everything stored, or the one entry the command named — and the
+        // question says which, because "3 addresses" and "this one of 3" are
+        // different deletions and the reader agrees to exactly one of them.
+        const shown = (named ? [named] : stored).map((e) => secrets.credentialLabel(e))
+        const kept = stored.length - shown.length
+
+        const addressOnly = connector?.fields.every((f) => !f.secret) ?? false
+        if (connector && addressOnly) {
+          // An address is public, and it is the whole of what is stored, so it
+          // is named: that is what tells one wallet from another.
+          lines.push(
+            shown.length === 1
+              ? `  tula forgets the address it reads ${name} from: ${shown[0]}`
+              : `  tula forgets all ${shown.length} addresses it reads ${name} from: ${shown.join(', ')}`,
+            ...(kept > 0 ? [`  The other ${kept} stay, and so do their positions.`] : []),
+            '  Reconnecting takes the same address again — nothing else is lost.',
+          )
+        } else if (connector) {
+          lines.push(
+            shown.length === 1 && stored.length === 1
+              ? `  tula deletes the read-only ${name} key from ${secrets.locationHint()}.`
+              : `  tula deletes ${shown.length} of ${name}'s read-only keys from ${secrets.locationHint()}: ${shown.join(', ')}`,
+            ...(kept > 0 ? [`  The other ${kept} stay, and so do their positions.`] : []),
+            '  An exchange shows a secret key once, when it is created, so the way',
+            '  back is to make a new one there — not to undo this.',
+          )
+        } else {
+          lines.push(`  tula deletes what is stored for ${id}, from ${secrets.locationHint()}.`)
+        }
+      }
+
+      lines.push('', `  Type ${id} and press Enter to confirm, or Esc to keep it.`)
+      push('notice', lines.join('\n'))
+      setForgetting({ line, word: id, label: name })
+      return true
+    },
+    [connectors, push],
+  )
+
+  /** Enter with anything else on the line keeps the credential, and says so. */
+  const keepCredential = useCallback(() => {
+    if (!forgetting) return
+    push(
+      'notice',
+      `Kept ${forgetting.label} — nothing was deleted.\n` +
+        `  Run ${forgetting.line} again if you did mean to forget it.`,
+    )
+    setForgetting(null)
+    setLine('')
+  }, [forgetting, push, setLine])
 
   const submit = useCallback(
-    async (line: string) => {
+    async (line: string, confirmed = false) => {
       const trimmed = line.trim()
-      setLine('')
-      historyIndex.current = -1
-      if (!trimmed) return
-
-      setHistory((prev) => [...prev, trimmed])
-      push('prompt', `❯ ${trimmed}`)
+      // A confirmed command was echoed and recorded when it was first asked
+      // for; running it again is the same command, not a second one.
+      if (!confirmed) {
+        setLine('')
+        historyIndex.current = -1
+        if (!trimmed) return
+        setHistory((prev) => [...prev, trimmed])
+        push('prompt', `❯ ${trimmed}`)
+      }
       setBusy(true)
 
       try {
         const parsed = parseCommand(trimmed, [...connectors.keys()])
+        if (parsed && !confirmed) {
+          const target = forgets(parsed)
+          if (target && (await askToForget(trimmed, target.venue, target.ref, target.all))) return
+        }
         if (parsed) {
           const result = await dispatchCommand(
             session,
@@ -741,8 +1005,9 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
           )
           if (result.kind === 'connect') {
             const connector = connectors.get(result.venue)
-            if (connector) return setConnecting(connectable(connector))
-            return
+            if (!connector) return
+            setConnectExisting(await secrets.listCredentials(result.venue))
+            return setConnecting(connectable(connector))
           }
           if (result.kind === 'connect-price') {
             const provider = priceProvider(result.provider)
@@ -756,7 +1021,7 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
             if (result.action === 'login')
               return setCredentials({ mode: 'manage', source: await credentialSource() })
           } else {
-            push('output', result.output)
+            push('output', result.output, caveat(result))
             // Both commands that take credentials off disk, not just the one
             // spelled as a subcommand: /forget left the menu drawing a venue as
             // connected, and /<venue> status answering from the connected branch,
@@ -814,7 +1079,35 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
         setBusy(false)
       }
     },
-    [session, connectors, agent, exit, push, setLine, venueEntries, refreshConnected],
+    [
+      session,
+      connectors,
+      agent,
+      exit,
+      push,
+      setLine,
+      venueEntries,
+      refreshConnected,
+      caveat,
+      askToForget,
+    ],
+  )
+
+  /**
+   * Enter while a credential is waiting to be named. Anything but the name
+   * keeps it — an empty line included, which is what a second Enter after an
+   * overshoot is.
+   */
+  const confirmForget = useCallback(
+    (candidate: string) => {
+      if (!forgetting) return
+      if (candidate.trim().toLowerCase() !== forgetting.word) return keepCredential()
+      const { line } = forgetting
+      setForgetting(null)
+      setLine('')
+      void submit(line, true)
+    },
+    [forgetting, keepCredential, setLine, submit],
   )
 
   /**
@@ -829,13 +1122,13 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
     try {
       push('prompt', '❯ /exposure')
       const result = await dispatchCommand(session, connectors, parsed, venueEntries)
-      if (result.kind === 'output') push('output', result.output)
+      if (result.kind === 'output') push('output', result.output, caveat(result))
     } catch (err) {
       push('error', failureText(err))
     } finally {
       setBusy(false)
     }
-  }, [session, connectors, venueEntries, push])
+  }, [session, connectors, venueEntries, push, caveat])
 
   /** The front of a mouse report that arrived without its end. */
   const mouseCarry = useRef('')
@@ -901,7 +1194,7 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
   const truncated = useMemo(
     () =>
       entries.some(
-        (e) => e.kind !== 'prompt' && preview(e.text, bodyWidth, false).hidden > 0,
+        (e) => e.kind !== 'prompt' && preview(e.text, bodyWidth, false, e.pinned).hidden > 0,
       ),
     [entries, bodyWidth],
   )
@@ -1096,114 +1389,136 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
     askCursor(stdout)
   }, [menuOpen, stdout, input, viewport])
 
+  const onKey = (ch: string, key: Press): void => {
+    const answered = cursorRow(ch)
+    if (answered !== null) return setAnchor(answered)
+
+    if (key.ctrl && ch === 'c') {
+      if (palette) return setPalette(null)
+      if (forgetting) return keepCredential()
+      if (input.length > 0) return setLine('')
+      return exit()
+    }
+    if (key.ctrl && ch === 'd' && input.length === 0) return exit()
+    if (key.ctrl && ch === 'l') return clearScreen()
+
+    // Above the busy gate on purpose: reading what an earlier command
+    // returned is the natural thing to do while the next one is in flight.
+    if (key.ctrl && ch === 'o') {
+      setPalette(null)
+      return toggleExpanded()
+    }
+
+    if (busy) return
+
+    // Seeded from the line, so a half-typed command becomes the search
+    // rather than something to close the palette and go back to.
+    if (key.ctrl && ch === 'k') {
+      if (forgetting) return
+      if (palette) return setPalette(null)
+      return openPalette()
+    }
+
+    // The line is being used to name a credential, so the keys that would
+    // put something else on it are the ones that must not fire: an arrow
+    // recalling history, and Enter running whatever it recalled.
+    if (forgetting) {
+      if (key.escape) return keepCredential()
+      if (key.upArrow || key.downArrow || key.tab) return
+      if (key.return) return confirmForget(input)
+    } else if (palette) {
+      const chosen = paletteMatches[palette.index]
+      if (key.escape) return setPalette(null)
+      if (key.upArrow || key.downArrow) {
+        const last = paletteMatches.length - 1
+        const step = key.upArrow ? -1 : 1
+        return setPalette((p) => {
+          if (!p) return null
+          const index = Math.max(0, Math.min(last, p.index + step))
+          return { ...p, index, offset: offsetShowing(paletteRows, paletteLimit, p.offset, index) }
+        })
+      }
+      if (key.return || key.tab) {
+        if (chosen) runFromPalette(chosen, key.tab)
+        return
+      }
+      if (key.backspace || key.delete) {
+        return setPalette((p) => (p ? { query: p.query.slice(0, -1), index: 0, offset: 0 } : null))
+      }
+      if (key.ctrl || key.meta || !ch) return
+      const { text } = typed(ch)
+      if (!text) return
+      return setPalette((p) => (p ? { query: p.query + text, index: 0, offset: 0 } : null))
+    }
+
+    if (menu) {
+      if (key.upArrow || key.downArrow) {
+        const last = menu.items.length - 1
+        const step = key.upArrow ? -1 : 1
+        const index = Math.max(0, Math.min(last, menuIndex + step))
+        setMenuIndex(index)
+        return setMenuOffset((o) => offsetShowing(menuDisplayRows, menuRows, o, index))
+      }
+      if (key.tab) return completeFromMenu()
+      if (key.return) return runFromMenu()
+      if (key.escape) return setMenuDismissed(true)
+    } else {
+      if (key.upArrow) return recallHistory(-1)
+      if (key.downArrow) return recallHistory(1)
+      if (key.return) return void submit(input)
+    }
+
+    if (key.leftArrow) return setCursor((c) => Math.max(0, c - 1))
+    if (key.rightArrow) return setCursor((c) => Math.min(input.length, c + 1))
+    if (key.backspace || key.delete) {
+      if (cursor === 0) return
+      setInput(input.slice(0, cursor - 1) + input.slice(cursor))
+      setCursor(cursor - 1)
+      setMenuDismissed(false)
+      return
+    }
+    if (key.ctrl || key.meta || key.tab || key.escape) return
+    if (!ch) return
+
+    const { text, submits } = typed(ch)
+    const next = input.slice(0, cursor) + text + input.slice(cursor)
+    // A paste carries its own newline, so it reaches Enter here rather than
+    // above — including a pasted name confirming a credential deletion.
+    if (submits) return forgetting ? confirmForget(next) : void submit(next)
+    setInput(next)
+    setCursor(cursor + text.length)
+    setMenuDismissed(false)
+    setMenuIndex(0)
+    setMenuOffset(0)
+  }
+
   useInput(
     (ch, key) => {
       // Before everything, including the busy gate: a report that reaches the
-      // bottom of this handler is typed in as the punctuation it looks like.
+      // bottom of the handler is typed in as the punctuation it looks like.
       // Read as a stream rather than one report per chunk — mode 1003 reports
       // every movement, and a hand crossing the screen sends them faster than
       // stdin is drained, so they arrive several at a time and split across
       // chunk boundaries.
-      const { reports, partial } = mouseReports(mouseCarry.current + ch)
+      const { reports, rest, partial } = mouseReports(mouseCarry.current + ch)
       mouseCarry.current = partial
       if (reports.length > 0) {
         for (const report of reports) {
           if (palette) onPaletteMouse(report)
           else onMenuMouse(report)
         }
+        // What the same chunk held besides the reports is what the user typed.
+        // A hand resting on the trackpad puts a movement report in front of the
+        // next character, and dropping it turned `/shock ETH -20` into a
+        // scenario nobody asked for with nothing on screen to say a character
+        // had gone missing.
+        const also = alsoTyped(rest)
+        if (also) onKey(also, TEXT_ONLY)
         return
       }
       // A chunk that is nothing but the front of a report: wait for the rest.
       if (partial) return
-      const answered = cursorRow(ch)
-      if (answered !== null) return setAnchor(answered)
-
-      if (key.ctrl && ch === 'c') {
-        if (palette) return setPalette(null)
-        if (input.length > 0) return setLine('')
-        return exit()
-      }
-      if (key.ctrl && ch === 'd' && input.length === 0) return exit()
-      if (key.ctrl && ch === 'l') return clearScreen()
-
-      // Above the busy gate on purpose: reading what an earlier command
-      // returned is the natural thing to do while the next one is in flight.
-      if (key.ctrl && ch === 'o') {
-        setPalette(null)
-        return toggleExpanded()
-      }
-
-      if (busy) return
-
-      // Seeded from the line, so a half-typed command becomes the search
-      // rather than something to close the palette and go back to.
-      if (key.ctrl && ch === 'k') {
-        if (palette) return setPalette(null)
-        return openPalette()
-      }
-
-      if (palette) {
-        const chosen = paletteMatches[palette.index]
-        if (key.escape) return setPalette(null)
-        if (key.upArrow || key.downArrow) {
-          const last = paletteMatches.length - 1
-          const step = key.upArrow ? -1 : 1
-          return setPalette((p) => {
-            if (!p) return null
-            const index = Math.max(0, Math.min(last, p.index + step))
-            return { ...p, index, offset: offsetShowing(paletteRows, paletteLimit, p.offset, index) }
-          })
-        }
-        if (key.return || key.tab) {
-          if (chosen) runFromPalette(chosen, key.tab)
-          return
-        }
-        if (key.backspace || key.delete) {
-          return setPalette((p) => (p ? { query: p.query.slice(0, -1), index: 0, offset: 0 } : null))
-        }
-        if (key.ctrl || key.meta || !ch) return
-        const { text } = typed(ch)
-        if (!text) return
-        return setPalette((p) => (p ? { query: p.query + text, index: 0, offset: 0 } : null))
-      }
-
-      if (menu) {
-        if (key.upArrow || key.downArrow) {
-          const last = menu.items.length - 1
-          const step = key.upArrow ? -1 : 1
-          const index = Math.max(0, Math.min(last, menuIndex + step))
-          setMenuIndex(index)
-          return setMenuOffset((o) => offsetShowing(menuDisplayRows, menuRows, o, index))
-        }
-        if (key.tab) return completeFromMenu()
-        if (key.return) return runFromMenu()
-        if (key.escape) return setMenuDismissed(true)
-      } else {
-        if (key.upArrow) return recallHistory(-1)
-        if (key.downArrow) return recallHistory(1)
-        if (key.return) return void submit(input)
-      }
-
-      if (key.leftArrow) return setCursor((c) => Math.max(0, c - 1))
-      if (key.rightArrow) return setCursor((c) => Math.min(input.length, c + 1))
-      if (key.backspace || key.delete) {
-        if (cursor === 0) return
-        setInput(input.slice(0, cursor - 1) + input.slice(cursor))
-        setCursor(cursor - 1)
-        setMenuDismissed(false)
-        return
-      }
-      if (key.ctrl || key.meta || key.tab || key.escape) return
-      if (!ch) return
-
-      const { text, submits } = typed(ch)
-      const next = input.slice(0, cursor) + text + input.slice(cursor)
-      if (submits) return void submit(next)
-      setInput(next)
-      setCursor(cursor + text.length)
-      setMenuDismissed(false)
-      setMenuIndex(0)
-      setMenuOffset(0)
+      onKey(ch, key)
     },
     { isActive: !credentials && !connecting },
   )
@@ -1226,6 +1541,9 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
   ) : connecting ? (
     <ConnectFlow
       target={connecting}
+      // A price source holds one key and is not a venue, so it has no set to
+      // choose from and must never be shown one.
+      existing={pendingPrice ? [] : connectExisting}
       {...(pendingPrice
         ? {
             // A price source is not a venue: storing it under its own id would
@@ -1245,6 +1563,7 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
         // empty book at the exact moment the user has one.
         openedWith.current = true
         setConnecting(null)
+        setConnectExisting([])
         setPendingPrice(null)
         push(outcome.ok ? 'notice' : 'output', outcome.message)
         if (!outcome.ok) return
@@ -1269,6 +1588,12 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
             await session.refresh()
           }
           await showState()
+        } catch (err) {
+          // `onDone` is a void-typed prop, so a throw out of this async handler
+          // is an unhandled rejection rather than a line on screen — and the
+          // store read above throws on exactly the tampering it exists to
+          // refuse. The `finally` restored the spinner and let the crash run.
+          push('error', failureText(err))
         } finally {
           setBusy(false)
         }
@@ -1299,7 +1624,9 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
         value={input}
         cursor={cursor}
         dim={busy || inert}
-        placeholder={busy ? '' : 'ask anything · / for commands · ctrl+k to search them'}
+        placeholder={
+          busy || forgetting ? '' : 'ask anything · / for commands · ctrl+k to search them'
+        }
       />
     </Box>
   )
@@ -1403,6 +1730,18 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
             )}
 
             {renderInputBox(false)}
+
+            {/* One row, under the line the name is being typed on, so what
+                the question asked for is still on screen once the placeholder
+                has gone. Truncated: a hint that wraps is a row Ink counts as
+                one, and its next erase leaves the remainder standing. */}
+            {forgetting && (
+              <Box paddingLeft={1}>
+                <Text color={theme.notice} wrap="truncate">
+                  {`type ${forgetting.word} to confirm · Esc to keep ${forgetting.label}`}
+                </Text>
+              </Box>
+            )}
 
             {menu && (
               <SlashMenu

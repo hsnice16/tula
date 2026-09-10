@@ -27,8 +27,15 @@ export const host = (url: string): string => {
   }
 }
 
-const tooSlow = (url: string, timeoutMs: number = REQUEST_TIMEOUT_MS): TulaError =>
-  new TulaError(
+/**
+ * Its own class so a caller with a second node to try can say so in its own
+ * words — "the Base node did not answer" rather than a bare host — and still
+ * tell a timeout apart from a refusal without matching on the text.
+ */
+export class TooSlow extends TulaError {}
+
+const tooSlow = (url: string, timeoutMs: number = REQUEST_TIMEOUT_MS): TooSlow =>
+  new TooSlow(
     `${host(url)} did not answer within ${timeoutMs / 1000}s.\n` +
       '  It may be rate-limiting you, or down. Try /refresh in a moment.',
   )
@@ -62,9 +69,15 @@ const isRedirect = (err: unknown): boolean => {
  *
  * The runtime's own message is dropped: Bun's carries the whole URL, and a
  * self-set RPC endpoint holds its key in the path.
+ *
+ * Its own class so a caller with somewhere else to try does not try there. A
+ * chain rotating off an intercepted node would replace the one message that
+ * says the network is rewriting traffic with whatever the next node reports.
  */
-const redirected = (url: string): TulaError =>
-  new TulaError(
+export class Intercepted extends TulaError {}
+
+const redirected = (url: string): Intercepted =>
+  new Intercepted(
     `${host(url)} redirected the request, and tula does not follow redirects.\n` +
       '  Nothing was sent on. This is normal for a captive portal or a proxy\n' +
       '  that intercepts TLS; on a plain network it is worth treating as suspect.',

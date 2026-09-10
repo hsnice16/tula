@@ -1,0 +1,42 @@
+# Whether the loaded model follows a string a venue wrote. It is a conformance
+# check on the provider, not on this repository, and it spends real API credit —
+# so it is deliberately not on `pull_request`: `ci.yml` covers those, a fork has
+# no repository secret, and somebody without an API key still has to be able to
+# open one.
+name: Injection eval
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Monday morning UTC. The question is whether a model changed under us, and
+    # that is a thing to hear about at the start of a week, not on a release day.
+    - cron: '0 6 * * 1'
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.2.16
+      - run: bun install --frozen-lockfile
+
+      # A fork has no secret and never will. Saying so is the point: a run that
+      # failed here would read as a model that followed the payload.
+      - name: run the eval, or say why it did not
+        run: |
+          set -euo pipefail
+          if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+            echo "Skipped: no ANTHROPIC_API_KEY in this repository." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "Nothing was sent to the model, so nothing here says whether it holds." >>"$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          bun run src/agent/injection.eval.ts

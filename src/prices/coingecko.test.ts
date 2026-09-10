@@ -83,10 +83,77 @@ describe('CoinGeckoOracle', () => {
     expect(calls).toHaveLength(2)
   })
 
+  test('a quote is keyed by the spelling that was asked for', async () => {
+    // All four sources have to key their map the same way, or switching source
+    // silently unprices an asset a venue happens to spell in lower case.
+    const { oracle } = stub([TOP])
+    expect((await oracle.quoteMany(['eth'])).get('eth')?.price.toString()).toBe('4000')
+  })
+
+  test('a cached price is dated when the list arrived, not when it was read', async () => {
+    // Held for the full TTL and stamped `new Date()`, a minute-old price was
+    // reported as current under an AS OF the reader has no reason to doubt.
+    const { oracle } = stub([TOP])
+    const first = await oracle.quote('ETH')
+    await new Promise((r) => setTimeout(r, 5))
+    const second = await oracle.quote('ETH')
+    expect(second?.asOf.getTime()).toBe(first!.asOf.getTime())
+  })
+
   test('a rate limit says prices are gone, not that the portfolio is', async () => {
     const { oracle } = stub([TOP], 429)
     const err = await oracle.quoteMany(['BTC']).catch((e) => e)
     expect(err).toBeInstanceOf(TulaError)
     expect((err as Error).message).toContain('still correct')
+  })
+
+  describe('TULA_PRICE_PAGES', () => {
+    // `Number('')` is 0 and `Number('two')` is NaN, and either one left the page
+    // loop with nothing to run: an empty map was cached and nothing thrown, so
+    // the whole book reported "no price for any asset" and no failure anywhere
+    // named the variable that caused it.
+    const withEnv = async (value: string | undefined, run: () => Promise<unknown>) => {
+      const before = process.env['TULA_PRICE_PAGES']
+      if (value === undefined) delete process.env['TULA_PRICE_PAGES']
+      else process.env['TULA_PRICE_PAGES'] = value
+      try {
+        return await run().catch((e) => e)
+      } finally {
+        if (before === undefined) delete process.env['TULA_PRICE_PAGES']
+        else process.env['TULA_PRICE_PAGES'] = before
+      }
+    }
+    // No page count passed, so the oracle reads the variable, as a run does.
+    const fromEnv = () => {
+      const calls: string[] = []
+      const oracle = new CoinGeckoOracle(async (url) => {
+        calls.push(url)
+        const page = Number(new URL(url).searchParams.get('page') ?? '1')
+        return new Response(JSON.stringify(page === 1 ? TOP : []), { status: 200 })
+      }, 60_000)
+      return { oracle, calls }
+    }
+
+    for (const bad of ['two', '0', '-1', '1.5']) {
+      test(`${JSON.stringify(bad)} refuses by name instead of pricing nothing`, async () => {
+        const { oracle, calls } = fromEnv()
+        const err = await withEnv(bad, () => oracle.quoteMany(['BTC']))
+        expect(err).toBeInstanceOf(TulaError)
+        expect((err as Error).message).toContain('TULA_PRICE_PAGES')
+        expect(calls).toHaveLength(0)
+      })
+    }
+
+    test('a whole number widens the fetch; unset and cleared are both the default', async () => {
+      const three = fromEnv()
+      await withEnv('3', () => three.oracle.quoteMany(['BTC']))
+      expect(three.calls).toHaveLength(3)
+
+      for (const value of [undefined, '']) {
+        const { oracle, calls } = fromEnv()
+        expect(await withEnv(value, () => oracle.quoteMany(['BTC']))).not.toBeInstanceOf(TulaError)
+        expect(calls).toHaveLength(2)
+      }
+    })
   })
 })

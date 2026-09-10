@@ -9,14 +9,9 @@ import {
   priceEntries,
   type VenueEntry,
 } from './cli/registry.js'
-import { aaveConnector } from './connectors/aave.js'
-import { binanceConnector } from './connectors/binance.js'
-import { circleConnector } from './connectors/circle.js'
-import { coinbaseConnector } from './connectors/coinbase.js'
-import { hyperliquidConnector } from './connectors/hyperliquid.js'
-import { krakenConnector } from './connectors/kraken.js'
-import { stripeConnector } from './connectors/stripe.js'
-import { walletConnector } from './connectors/wallet.js'
+import { trigger } from './cli/commands.js'
+import { CONNECTORS as SHIPPED } from './connectors/registry.js'
+import { disclosure, list, unrankedVenues } from './core/coverage.js'
 import { netExposure, portfolioValue } from './core/exposure.js'
 import { holdings, pct, quantity, usd } from './core/format.js'
 import type { Position, PositionKind } from './core/position.js'
@@ -26,17 +21,8 @@ import { brandColor } from './ui/brand.js'
 import { displayRows } from './ui/Palette.js'
 import { menuDisplay } from './ui/SlashMenu.js'
 
-/** Every venue src/index.ts ships, which is every venue the `/` menu lists. */
-const CONNECTORS = [
-  walletConnector,
-  hyperliquidConnector,
-  aaveConnector,
-  krakenConnector,
-  coinbaseConnector,
-  binanceConnector,
-  stripeConnector,
-  circleConnector,
-]
+/** Every venue the build ships, which is every venue the `/` menu lists. */
+const CONNECTORS = [...SHIPPED.values()]
 
 /**
  * The front page publishes tula's output as its argument for the product, and
@@ -93,7 +79,10 @@ const BOOK: Position[] = [
   position('wallet', 'spot', 'USDC', '1200'),
   position('wallet', 'spot', 'ARB', '900'),
   position('kraken', 'spot', 'USDT', '480'),
-  position('wallet', 'spot', 'OP', '320'),
+  // Kraken, not the wallet: OP is on the default Token Lists feed for Optimism
+  // alone, and tula reads Ethereum, Arbitrum One and Base — so a wallet row for
+  // it was a picture of output this build cannot produce.
+  position('kraken', 'spot', 'OP', '320'),
   position('wallet', 'spot', 'UNI', '60'),
 ]
 
@@ -159,6 +148,23 @@ describe('the published example', () => {
     }
   })
 
+  test('publishes the trigger the tool renders, not the figure the venue sent', () => {
+    // `liq price 3412.00` stood on the front page for as long as this column was
+    // pinned by nothing: it is the spelling from before `format.ts` owned the
+    // rendering, and `price()` has printed `$3,412.00` since. Every other figure
+    // in that frame was recomputed here and stayed true, which is how a picture
+    // of output nothing produces survived a green suite.
+    const risks = whatBreaksFirst(BOOK, PRICES)
+    expect(risks.length).toBeGreaterThan(0)
+    for (const risk of risks) {
+      const shown = trigger(risk.position)
+      // A book whose triggers are all `unknown` would pass the loop below while
+      // testing nothing about the column.
+      expect(shown).not.toBe('unknown')
+      expect(QUOTED[0]).toContain(shown)
+    }
+  })
+
   test('shows a health factor next to the move it actually produces', () => {
     const aave = whatBreaksFirst(BOOK, PRICES).find((r) => r.position.venue === 'aave')
     const hf = aave!.position.liquidation!.healthFactor!
@@ -194,6 +200,49 @@ describe('the published example', () => {
     // claim about this book under this shock — not a safe thing to leave typed.
     expect(result.liquidated).toEqual([])
     expect(answer).toContain('nothing liquidates')
+  })
+
+  /**
+   * The exception, and the one this page got wrong: `what_breaks_first` and
+   * `run_scenario` do carry `unranked_liquidation_sources`, because a ranking
+   * with an unseen source in it is wrong rather than short. An answer to *this*
+   * question — what breaks first — published without it is a picture of output
+   * the tool does not produce.
+   */
+  test('names the venues whose unread areas the ranking could not see', () => {
+    const inBook = disclosure(SHIPPED, [...new Set(BOOK.map((p) => p.venue))])
+    const unseen = unrankedVenues(inBook, BOOK)
+    expect(unseen.length).toBeGreaterThan(0)
+    const answer = QUOTED[1]!.replace(/\s+/g, ' ')
+    expect(answer).toContain(list(unseen))
+    // After the figures, never before them: the question asked for a ranking.
+    expect(answer.indexOf(list(unseen))).toBeGreaterThan(answer.indexOf('Net long'))
+
+    // The `/breaks` frame in the transcript is the same claim drawn as a table,
+    // and it is a verbatim copy of what `unrankedNote()` prints — so it is the
+    // second copy this file exists to keep from drifting.
+    const shown = QUOTED[0]!.replace(/\s+/g, ' ')
+    expect(shown).toContain('Ranked over what tula reads')
+    expect(shown).toContain(list(unseen))
+  })
+
+  test('quotes no coverage caveat, because no tool result carries one', () => {
+    // The venues this book is held at do declare unread areas — the point is
+    // that nothing hands them to the model unasked any more. A preamble here
+    // would be output the tool cannot produce, which is the defect this file
+    // exists for; and a caveat on the front page is the same wallpaper the
+    // screen dropped, printed where the reader has the least context for it.
+    const d = disclosure(SHIPPED, [...new Set(BOOK.map((p) => p.venue))])
+    expect(d.areas.length).toBeGreaterThan(0)
+
+    const answer = QUOTED[1]!.replace(/\s+/g, ' ')
+    expect(answer).not.toContain('never asked for')
+    expect(answer).not.toContain('/venues names each')
+    // It opens on the figure it was asked for, rather than on what it is short
+    // of: `get_venue_status` is where a completeness question is answered. The
+    // quoted span starts at the tag, so the body is what has to be checked.
+    const body = QUOTED[1]!.slice(QUOTED[1]!.indexOf('{`') + 2)
+    expect(body.trimStart().startsWith('Net long')).toBe(true)
   })
 
   test('states the venue and position counts of this book', () => {
@@ -312,17 +361,6 @@ function quotes(table: string, rows: readonly (readonly [string, string])[]) {
 }
 
 describe('the frame quotes the command surface it claims to', () => {
-  test('it lists the venues this build ships', () => {
-    // The build's own list, as index.ts holds it. Imported connectors alone
-    // would let the two disagree, and the menu is a claim about that list.
-    const shipped = readFileSync('src/index.ts', 'utf8')
-    const block = shipped.slice(shipped.indexOf('const CONNECTORS'), shipped.indexOf('function fail'))
-    for (const connector of CONNECTORS) {
-      expect(block).toContain(`${connector.venue.id}Connector`)
-    }
-    expect([...block.matchAll(/^ {4}(\w+)Connector,$/gm)]).toHaveLength(CONNECTORS.length)
-  })
-
   test('the marks beside its rows are those venues own colours', () => {
     // src/ui/brand.ts restated, because the site is a separate package. A hue
     // that has drifted is a mark identifying a neighbouring brand, which is a

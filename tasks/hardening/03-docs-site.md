@@ -1,6 +1,7 @@
 # 03 · Docs site
 
 **Status**: done · Vercel at usetu.la
+**Covered by**: `src/site-claims.test.ts`, `src/site-example.test.ts`, `scripts/guard.sh`
 
 ## Goal
 
@@ -53,5 +54,8 @@ now. `scripts/guard.sh` holds `site/` to the same language rule as `src/`.
 
 The site did render `/changelog` and `/roadmap` from `CHANGELOG.md`, `ROADMAP.md`
 and the `**Status**:` lines under `tasks/`, which made drift impossible but tied
-every status edit to a Pages deploy. They were dropped rather than transcribed:
-GitHub already renders those files at the place they are edited.
+every status edit to a deploy — of Pages then, of Vercel now, and the coupling is
+the same either way. They were dropped rather than transcribed, and the reason
+that outlasts the host is the second one: GitHub already renders those files at
+the place they are edited, so the repository is where they are written and read
+as one file.

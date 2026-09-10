@@ -13,7 +13,26 @@ const PER_PAGE = 250
  * other. It is not a paid-plan switch: nothing here sends a key, so no plan
  * raises the ceiling — a paid CoinGecko key needs its own host and header.
  */
-const DEFAULT_PAGES = Number(process.env['TULA_PRICE_PAGES'] ?? '2')
+const DEFAULT_PAGES = 2
+
+/**
+ * Read per call rather than at import, and refused rather than coerced.
+ * `Number('')` is 0 and `Number('two')` is NaN, and either left the page loop
+ * with nothing to run: an empty map was cached and every asset came back
+ * unpriced with nothing thrown, so no failure reached `priceError` and the book
+ * reported "no price for any of N assets" about a list it never fetched.
+ */
+function pageCount(raw: string | undefined): number {
+  if (raw === undefined || raw.trim() === '') return DEFAULT_PAGES
+  const pages = Number(raw)
+  if (!Number.isInteger(pages) || pages < 1) {
+    throw new TulaError(
+      `TULA_PRICE_PAGES is "${raw}", which is not a number of pages, so nothing was priced.\n` +
+        `  Set it to a whole number of 1 or more, or unset it for the top ${DEFAULT_PAGES * PER_PAGE}.`,
+    )
+  }
+  return pages
+}
 
 /**
  * Symbols are not unique: several coins share one ticker. The list is fetched in
@@ -49,16 +68,17 @@ export class CoinGeckoOracle implements PriceOracle {
   constructor(
     private readonly fetcher: Fetcher = (url) => request(url),
     private readonly ttlMs = 60_000,
-    private readonly pages = DEFAULT_PAGES,
+    private readonly pages?: number,
   ) {}
 
-  private async load(): Promise<Map<string, Decimal>> {
-    if (this.cache && Date.now() - this.cache.at < this.ttlMs) return this.cache.prices
+  private async load(): Promise<{ at: number; prices: Map<string, Decimal> }> {
+    if (this.cache && Date.now() - this.cache.at < this.ttlMs) return this.cache
 
+    const pageCap = this.pages ?? pageCount(process.env['TULA_PRICE_PAGES'])
     const prices = new Map<string, Decimal>()
     const byId = new Map<string, Decimal>()
 
-    for (let page = 1; page <= this.pages; page++) {
+    for (let page = 1; page <= pageCap; page++) {
       const url = `${MARKETS}?vs_currency=usd&order=market_cap_desc&per_page=${PER_PAGE}&page=${page}`
       const res = await this.fetcher(url)
       if (!res.ok) {
@@ -87,7 +107,7 @@ export class CoinGeckoOracle implements PriceOracle {
     }
 
     this.cache = { at: Date.now(), prices }
-    return prices
+    return this.cache
   }
 
   async quote(asset: AssetId): Promise<Quote | null> {
@@ -104,12 +124,13 @@ export class CoinGeckoOracle implements PriceOracle {
     }
     if (wanted.length === 0) return out
 
-    const prices = await this.load()
-    // Receipt time, not request time: the list carries no per-coin timestamp, and
-    // dating a quote earlier than we can prove would overstate its freshness.
-    const received = new Date()
+    const cached = await this.load()
+    // When the list was received, not when it was read out of the cache. The
+    // list carries no per-coin timestamp, so receipt is the earliest time we
+    // can prove — and a price held for the full TTL was stamped a minute young.
+    const received = new Date(cached.at)
     for (const asset of wanted) {
-      const price = prices.get(asset.toUpperCase())
+      const price = cached.prices.get(asset.toUpperCase())
       if (price) out.set(asset, { price, asOf: received })
     }
     return out

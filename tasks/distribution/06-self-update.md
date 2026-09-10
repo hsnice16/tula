@@ -1,6 +1,7 @@
 # 06 · Release check and self-update
 
 **Status**: done
+**Covered by**: `src/update/check.test.ts`, `src/update/apply.test.ts`, `src/update/command.test.ts`, `src/update/channel.test.ts`
 
 ## Goal
 
@@ -14,10 +15,11 @@ shell — without ever moving a binary they did not ask to have moved.
   and `TULA_NO_UPDATE_CHECK=1` stops it.
 - `/update` prints what it would install and where to check it; `/update install`
   is a second word somebody had to mean to type before anything is downloaded.
-- The checks are `install.sh`'s, in `install.sh`'s order: an archive absent from
-  `checksums.txt`, a hash mismatch, and any version not newer than the running
-  one are each refused with nothing installed. `/releases/latest` skips
-  pre-releases, so a pre-release build is otherwise offered a silent downgrade.
+- An archive absent from `checksums.txt` and a hash mismatch are refused exactly
+  as `install.sh` refuses them, with nothing installed. Refused before either,
+  and not a check `install.sh` makes at all: a version not newer than the running
+  one. `/releases/latest` skips pre-releases, so a pre-release build would
+  otherwise be offered a silent downgrade.
 - Under Homebrew or npm it declines to move at all and names that channel's own
   command, so neither is left reporting a version that is not running.
 - Provenance is not checked on this path — that needs the GitHub CLI — and the

@@ -75,7 +75,21 @@ interface Restrictions {
   enableSpotAndMarginTrading?: boolean
   enableFutures?: boolean
   enableMargin?: boolean
+  enableInternalTransfer?: boolean
+  permitsUniversalTransfer?: boolean
 }
+
+/**
+ * Restrictions that move money without being called trading or withdrawal, and
+ * the checkbox each one is on Binance's own key page. `enableMargin` reads as a
+ * margin *view* permission and is not one: the box it belongs to says "Enable
+ * Margin Loan, Repay & Transfer".
+ */
+const MOVE_FUNDS: Array<[keyof Restrictions, string]> = [
+  ['enableMargin', 'Enable Margin Loan, Repay & Transfer'],
+  ['enableInternalTransfer', 'Enable Internal Transfer'],
+  ['permitsUniversalTransfer', 'Permits Universal Transfer'],
+]
 
 interface SpotAccount {
   balances?: Array<{ asset: string; free: string; locked: string }>
@@ -86,6 +100,35 @@ interface FuturesPosition {
   positionAmt: string
   liquidationPrice?: string
   leverage?: string
+}
+
+interface MarginAsset {
+  asset?: string
+  netAsset?: string
+}
+
+interface CrossMarginAccount {
+  userAssets?: MarginAsset[]
+}
+
+interface IsolatedMarginAccount {
+  assets?: Array<{
+    symbol?: string
+    enabled?: boolean
+    liquidatePrice?: string
+    baseAsset?: MarginAsset
+    quoteAsset?: MarginAsset
+  }>
+}
+
+/**
+ * The asset a contract tracks. `BTCUSDT_250926` is a quarterly on BTC and used
+ * to net against nothing at all, because the settlement date was read as part
+ * of the ticker: one book held BTC in three places and reported three assets.
+ */
+export function contractAsset(symbol: string): string {
+  const [pair = symbol] = symbol.split('_')
+  return pair.replace(/(USDT|USDC|FDUSD|BUSD|USD)$/, '')
 }
 
 export const binanceConnector: Connector = {
@@ -102,16 +145,73 @@ export const binanceConnector: Connector = {
     { label: 'API documentation', url: 'https://developers.binance.com/docs/binance-spot-api-docs' },
   ],
 
+  coverage: {
+    reads: [
+      'spot balances, free and locked stated apart',
+      'cross and isolated margin, where the key is allowed to read them',
+      'USD-M futures positions, where the key is allowed to read them',
+    ],
+    doesNotRead: [
+      {
+        what: 'the margin level a cross-margin account is liquidated at',
+        why:
+          'Binance publishes 1.1 for Cross Margin Classic and says its tiered accounts differ ' +
+          'without publishing theirs, so a distance computed from one number could be wrong in ' +
+          'the direction that matters',
+        hides: 'liquidation',
+        plan: 'tasks/breadth/13-binance-depth.md',
+      },
+      {
+        what: 'COIN-M futures and Portfolio Margin positions',
+        why: 'both are gated on trading-scoped key flags, which tula refuses to hold',
+        hides: 'liquidation',
+        plan: 'tasks/breadth/13-binance-depth.md',
+      },
+      {
+        what: 'the funding wallet, Simple Earn, ETH and SOL staking, Dual Investment and loans',
+        why: 'each is a further endpoint nobody has read yet; all are plain reads and none is refused by our rule',
+        hides: 'value',
+        plan: 'tasks/breadth/13-binance-depth.md',
+      },
+      {
+        what: 'balances frozen, withdrawing or locked for an IPO',
+        why: 'the spot account endpoint reports free and locked only; getUserAsset carries the other three',
+        hides: 'value',
+        plan: 'tasks/breadth/13-binance-depth.md',
+      },
+      {
+        what: 'sub-account balances',
+        why: 'a master account can list them and tula asks for one key, which may not be the master',
+        hides: 'value',
+        plan: 'tasks/breadth/13-binance-depth.md',
+      },
+    ],
+  },
+
   /**
    * Binance reports permissions directly, so every field here is proven —
-   * nothing is `unknown`, unlike Kraken. That difference is worth showing.
+   * nothing is `unknown`, unlike Kraken.
    */
   async verifyScope(creds: ConnectorCredentials): Promise<KeyScope> {
     const r = await signedGet<Restrictions>(SPOT, '/sapi/v1/account/apiRestrictions', creds)
+
+    // Refused by name rather than through the generic over-scope sentence: none
+    // of these is a trade or a withdrawal, so that sentence could not say what
+    // was wrong, and the user is looking at the page with the box on it.
+    const moving = MOVE_FUNDS.filter(([field]) => r[field] === true).map(([, label]) => label)
+    if (moving.length > 0) {
+      throw new TulaError(
+        `Refusing this key: it can move your funds. Turn off ${moving.join(' and ')}\n` +
+          '  on the key, or make a new one with Enable Reading only, then connect again.\n' +
+          '  "Enable Margin Loan, Repay & Transfer" is a borrowing power, not a way to read margin.',
+      )
+    }
+
     return {
       canRead: r.enableReading === true,
       canTrade: r.enableSpotAndMarginTrading === true || r.enableFutures === true,
       canWithdraw: r.enableWithdrawals === true,
+      canMoveFunds: false,
     }
   },
 
@@ -121,18 +221,27 @@ export const binanceConnector: Connector = {
     const positions: Position[] = []
 
     for (const balance of spot.balances ?? []) {
-      const total = new Decimal(balance.free).plus(balance.locked)
-      if (total.isZero()) continue
-      positions.push({
-        id: `binance:spot:${balance.asset}`,
-        venue: BINANCE.id,
-        kind: 'spot',
-        asset: balance.asset,
-        quantity: total,
-        delta: total,
-        asOf,
-      })
+      // Locked is exposure and is not yours to move, so it stays in the book as
+      // its own row. Summed into the free figure it answered the wrong question.
+      for (const [kind, raw] of [
+        ['spot', balance.free],
+        ['pending', balance.locked],
+      ] as const) {
+        const quantity = new Decimal(raw)
+        if (quantity.isZero()) continue
+        positions.push({
+          id: `binance:${kind}:${balance.asset}`,
+          venue: BINANCE.id,
+          kind,
+          asset: balance.asset,
+          quantity,
+          delta: quantity,
+          asOf,
+        })
+      }
     }
+
+    positions.push(...(await marginPositions(creds, asOf)))
 
     // A key without futures permission cannot read futures either, and that is
     // not a failure — it is a spot-only account, so the absence is not reported
@@ -144,20 +253,14 @@ export const binanceConnector: Connector = {
     // grants futures *trading*, so `verifyScope` reports canTrade and connect
     // refuses the key. Kept because the refusal is the thing that could
     // change — the permission split, or a read-only futures scope — and this
-    // is what would have to be right on the day it does. README says spot.
-    let futures: FuturesPosition[] = []
-    try {
-      futures = await signedGet<FuturesPosition[]>(FUTURES, '/fapi/v2/positionRisk', creds)
-    } catch (err) {
-      if (!(err instanceof BinanceApiError) || !NO_PERMISSION.has(err.code ?? 0)) throw err
-      futures = []
-    }
+    // is what would have to be right on the day it does. README's Status table
+    // says futures is not read while tula is read-only, and why.
+    const futures = await optional<FuturesPosition[]>(FUTURES, '/fapi/v2/positionRisk', creds)
 
-    for (const p of futures) {
+    for (const p of futures ?? []) {
       const size = new Decimal(p.positionAmt || '0')
       if (size.isZero()) continue
-      // Binance names perps by pair; the asset is what the pair is quoted in.
-      const asset = p.symbol.replace(/(USDT|USDC|BUSD|USD)$/, '')
+      const asset = contractAsset(p.symbol)
       const liquidation = p.liquidationPrice ? new Decimal(p.liquidationPrice) : null
 
       positions.push({
@@ -182,4 +285,67 @@ export const binanceConnector: Connector = {
 
     return positions
   },
+}
+
+/**
+ * Whether reading a margin account needs the borrow-and-transfer permission is
+ * undocumented in either direction — the endpoints are plain USER_DATA and
+ * carry no permission note, while the margin guide says only that "margin API
+ * calls will be rejected" without separating a read from a loan. So the call is
+ * made and a permission refusal is taken as an account with no margin on it;
+ * anything else is a venue that failed and has to say so.
+ */
+async function marginPositions(creds: ConnectorCredentials, asOf: Date): Promise<Position[]> {
+  const label = `${BINANCE.id}-margin`
+  const positions: Position[] = []
+
+  const row = (asset: string, raw: string | undefined, id: string, price?: Decimal) => {
+    const quantity = new Decimal(raw ?? '0')
+    if (quantity.isZero()) return
+    positions.push({
+      id,
+      venue: label,
+      kind: quantity.isNegative() ? 'debt' : 'collateral',
+      asset,
+      quantity,
+      delta: quantity,
+      asOf,
+      // Present even when empty: a margined asset can be liquidated, and a row
+      // with no liquidation at all is dropped from "what breaks first" rather
+      // than ranked last as unknown.
+      liquidation: price && !price.isZero() ? { price } : {},
+    })
+  }
+
+  const cross = await optional<CrossMarginAccount>(SPOT, '/sapi/v1/margin/account', creds)
+  for (const asset of cross?.userAssets ?? []) {
+    if (asset.asset) row(asset.asset, asset.netAsset, `${label}:cross:${asset.asset}`)
+  }
+
+  const isolated = await optional<IsolatedMarginAccount>(SPOT, '/sapi/v1/margin/isolated/account', creds)
+  for (const pair of isolated?.assets ?? []) {
+    if (pair.enabled === false || !pair.symbol) continue
+    const price = pair.liquidatePrice ? new Decimal(pair.liquidatePrice) : undefined
+    const base = pair.baseAsset?.asset
+    const quote = pair.quoteAsset?.asset
+    // The liquidation price is quoted in the quote asset and reached by the
+    // base asset moving, so it belongs to the base leg and nowhere else.
+    if (base) row(base, pair.baseAsset?.netAsset, `${label}:${pair.symbol}:${base}`, price)
+    if (quote) row(quote, pair.quoteAsset?.netAsset, `${label}:${pair.symbol}:${quote}`)
+  }
+
+  return positions
+}
+
+async function optional<T>(
+  base: string,
+  path: string,
+  creds: ConnectorCredentials,
+): Promise<T | null> {
+  try {
+    return await signedGet<T>(base, path, creds)
+  } catch (err) {
+    if (err instanceof BinanceApiError && NO_PERMISSION.has(err.code ?? 0)) return null
+    throw err
+  }
 }

@@ -25,6 +25,9 @@ jobs:
       - run: bun run build
       - name: binary runs
         run: ./dist/tula --version
+      # What ends up inside the binary is decided by what resolves at build
+      # time, not by what src/ imports, so nothing above this line can see it.
+      - run: bash scripts/binary-audit.sh dist/tula
 
       # The install path ships to users the same way the binary does, and it is
       # the one piece nothing else exercises until a tag is pushed.
@@ -54,18 +57,31 @@ jobs:
       # proves the page still renders.
       - run: bun run build
         working-directory: site
+      # Three claims can only be read off Next's output, so they are pinned
+      # against `site/out` and skip when it is absent — which is every other
+      # job. This is the one place the build exists, so it is the one place
+      # they are not silently skipped.
+      - run: bun install --frozen-lockfile
+      - run: bun test src/site-claims.test.ts
 
   no-execution-paths:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # guard.sh is greps; guard-test.sh is not. Whether venue text in a tool
+      # result carries its mark is a data-flow property, so the probe for it
+      # plants a field and runs the check that catches one.
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.2.16
+      - run: bun install --frozen-lockfile
       - run: bash scripts/guard.sh
       - run: bash scripts/guard-test.sh
 
-  # The commit hook is opt-in per clone and `--no-verify` skips it, so until now
-  # nothing looked at a contributor's branch at all. Staging the whole tree
-  # rather than a diff makes this the stronger check of the two: it fails on a
-  # credential already sitting in the files, not only on one being added.
+  # The commit hook is opt-in per clone and `--no-verify` skips it, so nothing
+  # else looks at a contributor's branch. Staging the whole tree rather than a
+  # diff makes this the stronger check of the two: it fails on a credential
+  # already sitting in the files, not only on one being added.
   no-credentials:
     runs-on: ubuntu-latest
     steps:
