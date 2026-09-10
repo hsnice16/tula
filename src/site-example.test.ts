@@ -217,6 +217,13 @@ describe('the published example', () => {
     expect(answer).toContain(list(unseen))
     // After the figures, never before them: the question asked for a ranking.
     expect(answer.indexOf(list(unseen))).toBeGreaterThan(answer.indexOf('Net long'))
+
+    // The `/breaks` frame in the transcript is the same claim drawn as a table,
+    // and it is a verbatim copy of what `unrankedNote()` prints — so it is the
+    // second copy this file exists to keep from drifting.
+    const shown = QUOTED[0]!.replace(/\s+/g, ' ')
+    expect(shown).toContain('Ranked over what tula reads')
+    expect(shown).toContain(list(unseen))
   })
 
   test('quotes no coverage caveat, because no tool result carries one', () => {

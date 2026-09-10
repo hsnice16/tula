@@ -536,14 +536,16 @@ venue in it.
    venue and refuse anything that can withdraw — permanently, trading or not.
    A key that can trade is refused too, wherever the venue will say so. Not
    documented — checked.
-4. **Bound every string somebody else writes.** Two kinds reach the screen and
+4. **Bound every string somebody else writes.** Three kinds reach the screen and
    the model: an asset symbol — as a venue's listing spells it, as the
    configured token list names it, or as an Aave reserve contract returns it —
-   and the error text of a venue or a price source. The symbol is capped in
+   the error text of a venue or a price source, and the error text of the model
+   provider. The symbol is capped in
    `src/cli/session.ts`, where every connector arrives; the error text is capped
    by `remote()` in `src/core/errors.ts` where it enters, at the connector or
    the price source that received it, which is the only place that can tell
-   tula's own words from somebody else's.
+   tula's own words from somebody else's — and by `explain()` in
+   `src/agent/agent.ts`, which is that place for the provider.
    Both are flattened to one line by the same filter. A symbol the cap or the
    filter changed is reported to the *reader* as well, on `LoadResult.altered`:
    the sidecar below tells the model, and every view here works without one.
@@ -593,11 +595,14 @@ The agent reads that task for goal and acceptance criteria, the milestone's
 - The caps in `decodeString` (`src/connectors/evm.ts`), `symbol()`
   (`src/cli/session.ts`) and `remote()` (`src/core/errors.ts`), and the one
   filter every one of them shares,
-  `visible()` in `src/core/untrusted.ts`. A decoded symbol and a venue's error
-  text are the two strings somebody else writes that are rendered *and* sent to
-  the model; both are capped and flattened to one line so neither can pose as an
-  instruction. `SECURITY.md` lists exactly these two, so a third has to be added
-  there in the same commit. The filter is one function because it was three
+  `visible()` in `src/core/untrusted.ts`. A decoded symbol, a venue's error text
+  and the model provider's are the strings somebody else writes that are
+  rendered *and* sent to the model; each is capped and flattened to one line so
+  none can pose as an instruction. A fourth has to reach `SECURITY.md` and the
+  `SOURCES` list in `src/site-claims.test.ts` in the same commit — that list is
+  what fails the build when a surface names fewer sources than the build has,
+  and the third got in without it, so two published surfaces disagreed about
+  how many there were. The filter is one function because it was three
   copies that had to agree.
 - The tri-state `KeyScope`. Collapsing it to booleans reintroduces the lie. It
   is also per-power on purpose: when trading ships, `isOverScoped` drops its

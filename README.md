@@ -97,11 +97,12 @@ proves that check still catches one.
   deterministic code and handed to it, already rounded and formatted by the same
   code that draws the tables. It has no raw value to re-round, so the sentence it
   writes and the row on screen cannot disagree.
-- **Text tula did not write is bounded.** Two kinds of string reach the screen
+- **Text tula did not write is bounded.** Three kinds of string reach the screen
   and the model from outside: an asset symbol — as a venue's listing spells it,
   as the configured token list names it, or as an Aave reserve contract returns
-  it — and the error text of a venue or a price source when one fails. Both are
-  capped and flattened to a single line, so neither can pose as an instruction,
+  it — the error text of a venue or a price source when one fails, and the error
+  text of the model provider. All three are
+  capped and flattened to a single line, so none can pose as an instruction,
   and every tool result names the paths they sit at — so what
   marks them as data is the payload rather than a sentence in a prompt the model
   has to keep. A name that had to be cleaned is said out loud too: an `ALTERED`

@@ -40,8 +40,12 @@ async function chooseEntry(
       : 'addresses'
     : `read-only key${held.length === 1 ? '' : 's'}`
   console.log(`${name} already holds ${held.length} ${noun}:`)
+  // Unnumbered where there is one, for the reason `src/ui/ConnectFlow.tsx`
+  // gives: the digit would label the entry and be the key that deletes it, in
+  // the same column. The same screen on the other surface, so the same rule.
   for (const [at, entry] of held.entries()) {
-    console.log(`  ${at + 1}  ${secrets.credentialLabel(entry)}`)
+    const key = held.length === 1 ? ' ' : at + 1
+    console.log(`  ${key}  ${secrets.credentialLabel(entry)}`)
   }
 
   if (!process.stdin.isTTY) {
@@ -68,7 +72,9 @@ async function chooseEntry(
   const chosen = Number.isInteger(at) && at >= 1 && at <= held.length ? held[at - 1] : undefined
   if (!chosen) {
     fail(
-      `"${answer}" is neither a nor a number between 1 and ${held.length}.\n` +
+      `"${answer}" is neither a nor ${
+        held.length === 1 ? '1' : `a number between 1 and ${held.length}`
+      }.\n` +
         `Nothing was changed. Run ${command} again.`,
     )
   }

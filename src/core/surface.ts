@@ -20,7 +20,9 @@ export function useSurface(next: Surface): void {
 }
 
 /** For the few remedies spelled per surface rather than merely prefixed. */
-export const isCli = (): boolean => surface === 'cli'
+export function isCli(): boolean {
+  return surface === 'cli'
+}
 
 /** A command as the reader would type it, on the surface they are reading. */
 export function typed(command: string): string {

@@ -633,6 +633,15 @@ describe('the security page names enforcement that exists', () => {
         evidence: ['src/prices/cryptocompare.ts', 'remote(body.Message)'],
         named: 'a venue or a price source',
       },
+      {
+        // The one that is nobody's venue. It went into the build with the cap
+        // and reached only two of the four surfaces below, because this list
+        // was not extended with it — which is the exact release shape the
+        // docstring above describes, happening again.
+        source: "the model provider's own error text",
+        evidence: ['src/agent/agent.ts', 'remote(err.message)'],
+        named: 'the model provider',
+      },
     ] as const
 
     for (const { source, evidence } of SOURCES) {
