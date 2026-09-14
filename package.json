@@ -26,11 +26,11 @@
     "@anthropic-ai/sdk": "0.122.0",
     "decimal.js": "10.6.0",
     "ink": "7.1.1",
-    "react": "19.2.8"
+    "react": "19.3.0"
   },
   "devDependencies": {
     "@types/bun": "1.4.0",
-    "@types/react": "19.2.18",
+    "@types/react": "19.3.0",
     "@xterm/headless": "6.0.0",
     "typescript": "7.0.2"
   },
