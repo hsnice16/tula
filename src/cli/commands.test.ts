@@ -274,9 +274,7 @@ describe('four states, and a reader never has to work out which', () => {
     const connectors = map(failing('binance'), holding('wallet', [at('wallet', 'spot', 'ETH', '1')]))
     const session = await sessionOver(connectors)
     expect((await commands.positions(session)).output).toContain('INCOMPLETE')
-    // On `/venues`, which is where the disclosure lives now: a venue named in
-    // both would be told that nothing failed, under the row saying it went down.
-    // The block itself, not everything below it: `/venues` also prints the
+    // On `/venues`, which is where the disclosure lives. The block itself, not everything below it: `/venues` also prints the
     // roster of connectors this build ships, which names binance either way.
     const { output } = await commands.venues(session, connectors)
     expect(disclosed(output)).not.toContain('binance')

@@ -1,4 +1,4 @@
-# 12 · Hardening and release
+# 13 · Hardening and release
 
 Read-only, non-custodial, complete. The bar for 1.0 is that the risk view is worth
 opening every day with no agent anywhere near it.

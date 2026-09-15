@@ -122,6 +122,8 @@ const borrowBit = (id: number): bigint => 1n << BigInt(id * 2)
 const USDC = reserve({
   id: 0,
   symbol: 'USDC',
+  // Circle's own, so it is USDC rather than a bridge's claim on it.
+  underlying: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
   decimals: 6n,
   supplied: 1000n * 10n ** 6n,
   borrowed: 500n * 10n ** 6n,
@@ -154,7 +156,14 @@ const MARKETS: Record<string, Market> = {
   // Supplied, but with nothing switched on as collateral, so every figure this
   // market reports about the account is zero.
   [ETHERFI.toLowerCase()]: {
-    reserves: [reserve({ id: 0, symbol: 'weETH', supplied: 3n * 10n ** 18n })],
+    reserves: [
+      reserve({
+        id: 0,
+        symbol: 'weETH',
+        underlying: '0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee',
+        supplied: 3n * 10n ** 18n,
+      }),
+    ],
     config: 0n,
     account: EMPTY_ACCOUNT,
   },
@@ -163,18 +172,39 @@ const MARKETS: Record<string, Market> = {
     config: 0n,
     account: EMPTY_ACCOUNT,
   },
-  // One market each, and the same USDC ticker as Ethereum Core: netting is by
-  // asset, so a supply on Arbitrum has to meet a supply on Ethereum in one row.
+  // One market each, and the same USDC ticker as Ethereum Core. Base's is
+  // Circle's contract there, so it nets with Core's; the rest are contracts no
+  // issuer list names, so each is its own chain's.
   [ARBITRUM.toLowerCase()]: {
     reserves: [reserve({ id: 0, symbol: 'USDC', decimals: 6n, supplied: 250n * 10n ** 6n })],
     config: collateralBit(0),
     account: accountReturn(250n * 10n ** 8n, 0n, MAX_UINT),
   },
   [BASE.toLowerCase()]: {
-    reserves: [reserve({ id: 0, symbol: 'USDC', decimals: 6n, supplied: 100n * 10n ** 6n })],
+    reserves: [
+      reserve({
+        id: 0,
+        symbol: 'USDC',
+        underlying: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
+        decimals: 6n,
+        supplied: 100n * 10n ** 6n,
+      }),
+    ],
     config: collateralBit(0),
     account: accountReturn(100n * 10n ** 8n, 0n, MAX_UINT),
   },
+  // Polygon, Optimism and Avalanche share Arbitrum's Pool address, so the entry
+  // above answers for all four; these three are Pools of their own.
+  ...Object.fromEntries(
+    (['gnosis', 'scroll', 'linea'] as const).map((id) => [
+      poolOf(id, 'Core').toLowerCase(),
+      {
+        reserves: [reserve({ id: 0, symbol: 'USDC', decimals: 6n, supplied: 50n * 10n ** 6n })],
+        config: collateralBit(0),
+        account: accountReturn(50n * 10n ** 8n, 0n, MAX_UINT),
+      },
+    ]),
+  ),
 }
 
 const original = globalThis.fetch
@@ -496,16 +526,18 @@ describe('aave on every chain it is deployed to, under one address', () => {
     expect(rows.find((p) => p.venue === 'aave-base')?.quantity.toString()).toBe('100')
   })
 
-  test('one asset nets across chains while each row keeps the chain it sits on', async () => {
+  test('one issue nets across chains, a bridge’s does not, and each row keeps the chain it sits on', async () => {
     stubNode()
-    const usdc = (await aaveConnector.fetchPositions(CREDS)).filter((p) => p.asset === 'USDC')
-    // One asset id, so the book states one USDC figure — and three venues, so
-    // `breaks` can still say which chain the collateral to act on is on.
-    expect(new Set(usdc.map((p) => p.asset)).size).toBe(1)
-    expect(new Set(usdc.map((p) => p.venue))).toEqual(
-      new Set(['aave', 'aave-arbitrum', 'aave-base']),
-    )
-    expect(new Set(usdc.map((p) => p.id)).size).toBe(usdc.length)
+    const rows = await aaveConnector.fetchPositions(CREDS)
+    // Circle's USDC on Ethereum and on Base is one asset — and a venue per
+    // chain, so `breaks` can still say which chain to act on.
+    expect(new Set(rows.filter((p) => p.asset === 'USDC').map((p) => p.venue))).toEqual(new Set(['aave', 'aave-base']))
+    // Polygon, Optimism and Avalanche answer from Arbitrum's Pool address, so a
+    // row each is also each chain read on its own node rather than skipped.
+    for (const chain of CHAINS.filter((c) => c.id !== 'ethereum' && c.id !== 'base')) {
+      expect(rows.find((p) => p.venue === `aave-${chain.id}`)?.asset).toBe(`${chain.id}:USDC`)
+    }
+    expect(new Set(rows.map((p) => p.id)).size).toBe(rows.length)
   })
 
   test('a chain that answered late does not date the chains that answered first', async () => {
@@ -630,8 +662,8 @@ describe('the gaps this connector declares are still gaps', () => {
     gap('HyperEVM')
     stubNode()
     await aaveConnector.fetchPositions(CREDS)
-    // Six markets over three chains: a fourth chain would be a fourth node, and
-    // there are exactly three because those are the only Pools in the build.
+    // One node per chain in the registry: a chain beyond it would be a node
+    // beyond them, and there is none because those are the only Pools in the build.
     expect(new Set(nodesUsed).size).toBe(CHAINS.length)
   })
 

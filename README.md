@@ -11,7 +11,7 @@ moving funds will not.
 The name is taken from Sanskrit: **tula**, the balance. The scale that weighs one
 side against the other, and the same object Latin calls *Libra*.
 
-Crypto and fiat: Hyperliquid, Aave, Kraken and Binance sit beside Stripe, because
+Crypto and fiat: Hyperliquid, Aave, Kraken, Binance and Coinbase sit beside Stripe, because
 a business's settled balance is part of the same picture as its positions.
 
 ## The idea
@@ -50,7 +50,7 @@ incumbents are structurally unable to.
   only venues that need real liquidation math, and cover the long tail with one
   portfolio-aggregator API. Not eliminated.
 - **Read-only limits how much we can help.** We can tell you your health factor
-  breaks in an hour; we cannot fix it. Execution is 2.0, and deliberately last.
+  breaks in an hour; we cannot fix it. Placing trades will come later, and deliberately last.
 - **The data is the risk.** An aggregated view of one person's entire net worth is
   valuable to an attacker even though it moves nothing. See
   [Security posture](#security-posture).
@@ -97,12 +97,14 @@ proves that check still catches one.
   deterministic code and handed to it, already rounded and formatted by the same
   code that draws the tables. It has no raw value to re-round, so the sentence it
   writes and the row on screen cannot disagree.
-- **Text tula did not write is bounded.** Three kinds of string reach the screen
+- **Text tula did not write is bounded.** Four kinds of string reach the screen
   and the model from outside: an asset symbol — as a venue's listing spells it,
   as the configured token list names it, or as an Aave reserve contract returns
-  it — the error text of a venue or a price source when one fails, and the error
-  text of the model provider. All three are
-  capped and flattened to a single line, so none can pose as an instruction,
+  it — the error text of a venue or a price source when one fails, the error
+  text of the model provider, and a Hyperliquid builder dex name, which its
+  deployer chooses and which labels every row on that dex. A dex whose name is
+  not a short run of lowercase letters and digits is reported as not read. The
+  rest are capped and flattened to a single line, so none can pose as an instruction,
   and every tool result names the paths they sit at — so what
   marks them as data is the payload rather than a sentence in a prompt the model
   has to keep. A name that had to be cleaned is said out loud too: an `ALTERED`
@@ -111,7 +113,8 @@ proves that check still catches one.
   talked into lying to you about a health factor.
 
 Network egress is the venues you connect, the price source you chose, a public
-node on each chain read — Ethereum, Arbitrum One and Base — and a token list for
+node on each chain read — Ethereum, Arbitrum One, Base, Polygon, Optimism,
+Avalanche, Gnosis, Scroll and Linea — and a token list for
 the on-chain venues, GitHub once a day from the interactive shell to see whether
 there is a newer release — and, only when you ask a question in plain English,
 Anthropic, which receives the computed figures and never a credential.
@@ -185,9 +188,9 @@ useful thing you can send.
 
 | Venue | Reads | Needs |
 |---|---|---|
-| **Wallet** (Ethereum, Arbitrum One and Base) | native ETH and ERC-20 balances off a token list, per chain | one or more public addresses |
-| **Hyperliquid** | perp positions with liquidation price, spot, the account's USDC | one or more public addresses |
-| **Aave v3** (Ethereum, Arbitrum One and Base) | collateral, debt, health factor, per asset, across six markets | one or more public addresses |
+| **Wallet** (Ethereum, Arbitrum One, Base, Polygon, Optimism, Avalanche, Gnosis, Scroll and Linea) | native and ERC-20 balances off a token list, per chain | one or more public addresses |
+| **Hyperliquid** | every account mode — standard, unified and portfolio margin — with balances as the venue states them; perps on the first-party dex and every builder-deployed dex, with the liquidation price or the account ratio the venue liquidates on; portfolio-margin borrowing; what each balance is held against; staked HYPE, vault equity and sub-accounts | one or more public addresses |
+| **Aave v3** (Ethereum, Arbitrum One, Base, Polygon, Optimism, Avalanche, Gnosis, Scroll and Linea) | collateral, debt, health factor, per asset, across twelve markets | one or more public addresses |
 | **Kraken** | spot, staked and held balances in every wallet, and open margin positions with the loan behind each | one or more query-only API keys |
 | **Binance** | spot balances with free and locked stated apart, and cross and isolated margin with the liquidation price each carries | one or more read-only API keys |
 | **Coinbase Advanced** | every account the key can list, free and held stated apart, and perpetual positions with liquidation price and leverage | one or more CDP API keys (view-only) |
@@ -199,7 +202,7 @@ useful thing you can send.
 | More than one account per venue — a hot wallet and a cold one, two exchange keys | working; every figure counts all of them, each row carries the account it came from, and `INCOMPLETE` names the account that failed rather than only the venue |
 | How much of a holding you can move, and what is holding the rest | working; a `FREE` and an `UNAVAILABLE` column where something is held, and an em dash where the venue reports too little to prove it |
 | What tula never asked for | working; `/venues` names every area a connector declares it does not read, with what each may hide, and every one of them is scheduled work in [ROADMAP.md](./ROADMAP.md) |
-| Interactive shell — slash commands, ctrl+k to search them, ctrl+o for long output, plain English | working; both command lists take the mouse as well as the keyboard |
+| Interactive shell — slash commands and arguments that complete, ctrl+s to search them, ctrl+r through saved history, Readline keys, questions over several lines (ctrl+j, or shift+Enter where the terminal sends it), opt-in vim editing, ctrl+o for long output, ? for every key, type and queue the next line while one runs with Esc to stop a question, plain English | working; both command lists take the mouse as well as the keyboard |
 | Prices — CoinGecko, CoinPaprika, CoinMarketCap, CryptoCompare | working; one active at a time, `/<source> use` switches |
 | Staying current — the shell checks once a day and says so in a line; `/update` checks there and then | working; nothing is installed until you type `/update install` |
 | Kraken's account margin level | planned — Kraken liquidates on an account-wide level and no position carries that figure, so those rows rank `unknown` until it is read |
@@ -207,11 +210,97 @@ useful thing you can send.
 | Solana | planned — a different RPC and account model, so a connector of its own rather than a registry entry ([`breadth/12`](./tasks/breadth/12-chain-reach.md)) |
 | Hyperliquid's own EVM chain (HyperEVM) | planned — both legs or neither. A balance there is a HyperCore spot balance and an EVM ERC-20 scaled against each other, so one leg alone is a number that is not the holding ([`breadth/12`](./tasks/breadth/12-chain-reach.md)) |
 | Aave V4 | planned — v4 is Hubs and Spokes rather than Pools, so no call the connector makes reaches it ([`breadth/08`](./tasks/breadth/08-aave-v4.md)) |
-| Execution | not in v1 — see [ROADMAP.md](./ROADMAP.md) |
+| Execution | later — see [ROADMAP.md](./ROADMAP.md) |
 
 On a Kraken margin account the positions are read, but the margin level Kraken
 would actually liquidate on is not, so those rows rank `unknown` rather than
 carrying a distance.
+
+## Keys
+
+<!-- keys:start — generated by `bun run keys:docs` from src/ui/keymap.ts; edit the keymap, not this -->
+
+### General
+
+| Keys | Does |
+|---|---|
+| `?` | Show or hide these keys, on an empty line |
+| `/` | Open the command menu |
+| `ctrl+s` | Search all commands; while searching history, go to a newer match |
+| `ctrl+o` | Show all of a long output, or shorten it again |
+| `ctrl+l` | Clear the screen |
+| `ctrl+c` | Clear the line; on an empty line, leave tula |
+| `ctrl+d` | Delete the character under the cursor; on an empty line, leave tula |
+| `Esc` | Close a list, the command search or these keys; cancel removing a venue |
+| `Enter` | While something is running, save what you typed to run next |
+| `Esc`, `ctrl+c` | Stop an answer while it is being written; ctrl+c clears what you typed first |
+| `↑` | On an empty line, bring back the last line waiting to run, to edit it |
+
+### Editing
+
+| Keys | Does |
+|---|---|
+| `ctrl+a`, `Home` | Go to the start of the line |
+| `ctrl+e`, `End` | Go to the end of the line |
+| `ctrl+b`, `←` | Move back one character |
+| `ctrl+f`, `→` | Move forward one character |
+| `alt+b`, `ctrl+←`, `alt+←` | Move back one word — alt needs Option as Meta on macOS |
+| `alt+f`, `ctrl+→`, `alt+→` | Move forward one word — alt needs Option as Meta on macOS |
+| `ctrl+w` | Delete back to the previous space |
+| `alt+backspace` | Delete the word before the cursor — alt needs Option as Meta on macOS |
+| `alt+d` | Delete the word after the cursor — alt needs Option as Meta on macOS |
+| `ctrl+u` | Delete to the start of the line |
+| `ctrl+k` | Delete to the end of the line; at its end, join the next line |
+| `ctrl+y` | Put back what was last deleted |
+| `Delete` | Delete the character under the cursor |
+| `ctrl+t` | Swap the two characters around the cursor |
+| `ctrl+_` | Undo the last edit |
+
+### History
+
+| Keys | Does |
+|---|---|
+| `↑`, `ctrl+p` | Move up a line; on the top line, show the line you sent before |
+| `↓`, `ctrl+n` | Move down a line; on the bottom line, show the next line you sent |
+| `ctrl+r` | Search what you sent before — ctrl+r for older, Enter to run, Esc to edit, ctrl+g to cancel |
+
+### Lists and suggestions
+
+| Keys | Does |
+|---|---|
+| `↑ ↓`, `ctrl+p ctrl+n` | Move through an open list |
+| `Enter` | Run the highlighted command; in a list of choices for a command, put the choice on the line |
+| `Tab` | Put the highlighted command on the line; with no list open, accept the suggestion |
+| `→`, `ctrl+f`, `ctrl+e` | At the end of the line, accept the suggestion shown after the cursor |
+| `alt+f` | Accept one word of the suggestion — alt needs Option as Meta on macOS |
+
+### More than one line
+
+| Keys | Does |
+|---|---|
+| `Enter` | Send what you typed |
+| `ctrl+j` | Start a new line — works in every terminal |
+| `shift+Enter` | Start a new line — needs a terminal that sends it — one with the kitty keyboard protocol, or tmux with extended-keys |
+| `alt+Enter`, `ctrl+Enter` | Start a new line — alt needs Option as Meta on macOS; ctrl+Enter needs a terminal that sends it |
+| `\ then Enter` | Start a new line; the backslash is removed |
+
+### Vim mode — after /vim
+
+| Keys | Does |
+|---|---|
+| `Esc` | Switch to NORMAL mode; if a list is open, the first Esc closes it |
+| `i a`, `I A`, `o O` | Switch to INSERT mode: before or after the cursor, at the start or end of the line, or on a new line below or above |
+| `h l`, `j k` | Left and right; up and down a line, and to earlier or later lines you sent from the top or bottom line |
+| `w e b`, `W E B` | Move by word; the capitals count everything between spaces as one word |
+| `0 ^ $`, `gg G` | Go to the start, the first character or the end of the line; to the first or last line |
+| `f F t T`, `; ,` | Jump to a character on the line; repeat the jump, or repeat it backwards |
+| `d c y`, `dd cc yy`, `D C` | Delete, change or copy as far as the next move goes; the whole line; to the end of the line |
+| `x r ~ J`, `p P` | Delete a character, replace it, switch its case, join lines; paste after or before |
+| `iw aw`, `i" a"`, `i( a(`, `i[ a[`, `i{ a{` | After d, c or y: inside or around a word, quotes or brackets |
+| `3dw`, `.`, `u` | Repeat a command a number of times; repeat the last change; undo |
+| `/`, `?` | Open the command menu; show these keys |
+
+<!-- keys:end -->
 
 ## Stack & rationale
 

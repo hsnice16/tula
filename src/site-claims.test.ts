@@ -4,6 +4,7 @@ import { DEPLOYMENTS } from './connectors/aave.js'
 import { CHAINS } from './connectors/chains.js'
 import { CONNECTORS } from './connectors/registry.js'
 import { RETIRED_VENUES } from './connectors/types.js'
+import { REPO_URL } from './version.js'
 
 /**
  * Every surface that tells a user what tula will not do, held to saying the same
@@ -131,7 +132,7 @@ describe('retracted wordings stay retracted', () => {
  * unpacks the attested archive and republishes the binary in a tarball of npm's
  * own. Offering both channels under one promise is a promise wrong about one.
  *
- * The page now puts each channel behind a tab, so the caveat is only ever read
+ * The page puts each channel behind a tab, so the caveat is only ever read
  * by somebody who chose npm — which is the argument for pinning it here rather
  * than trusting it to survive a rewrite of prose nobody else has to scroll past.
  */
@@ -150,20 +151,20 @@ describe('the install page keeps its channels apart', () => {
   test('npm is named as the channel the GitHub attestation does not cover', () => {
     expect(page).toContain('npm install -g @hsnice16/tula')
     expect(page).toContain(
-      'the GitHub attestation the other two channels carry does not cover this tarball',
+      'npm repackages the binary, so the GitHub attestation does not cover it',
     )
     expect(page).toContain('npm audit signatures')
     // The retracted version, by name: it read as "npm proves nothing".
     expect(page).not.toContain('No build attestation')
     expect(page).not.toContain('For proof of origin, use the install script or Homebrew')
-    // And the workflow has to keep doing what the page now says it does.
+    // And the workflow has to keep doing what the page says it does.
     const release = flat('.github/workflows/release.yml')
     expect(release).toContain('--provenance')
     expect(release).toContain('id-token: write')
   })
 
   /**
-   * tula now watches for releases and can replace its own binary, which is a
+   * tula watches for releases and can replace its own binary, which is a
    * pair of powers people are right to want a promise about. The promise is the
    * same on every channel and it is pinned here rather than trusted to prose:
    * the day it stops being true, three lines on the page become a lie about
@@ -405,13 +406,15 @@ describe('the docs publish the chains this build reads', () => {
   }
 
   /**
-   * Six, not four: Ethereum's Core, Prime, EtherFi and Horizon plus the Arbitrum
-   * One and Base deployments. The count is the part of the Aave claim a reader
-   * can check against their own account, and it was the last thing to be updated
-   * the previous two times a market was added.
+   * Ethereum's Core, Prime, EtherFi and Horizon, plus one deployment on every
+   * other chain. The count is the part of the Aave claim a reader can check
+   * against their own account, and the part that drifts when a market is added.
    */
   test('the market count is the number of deployments in the build', () => {
-    const WORDS: Record<number, string> = { 4: 'four', 5: 'five', 6: 'six', 7: 'seven', 8: 'eight' }
+    const WORDS: Record<number, string> = {
+      ...{ 4: 'four', 5: 'five', 6: 'six', 7: 'seven', 8: 'eight', 9: 'nine', 10: 'ten' },
+      ...{ 11: 'eleven', 12: 'twelve', 13: 'thirteen', 14: 'fourteen' },
+    }
     const word = WORDS[DEPLOYMENTS.length]
     expect({ markets: DEPLOYMENTS.length, word }).toEqual({
       markets: DEPLOYMENTS.length,
@@ -530,10 +533,9 @@ describe('the security page names enforcement that exists', () => {
   })
 
   /**
-   * `redact()` was accepted for the log and error paths and never written, and
-   * the file said so for four releases. What stands there now is the property
-   * rather than a helper, so what has to survive a rewording is the check —
-   * and that `guard-test.sh` still plants a leak it has to catch.
+   * A helper named in a promise can go unwritten while the promise stands, so
+   * what has to survive a rewording is the check the guard runs — and that
+   * `guard-test.sh` still plants a leak it has to catch.
    */
   test('the promise that a credential never reaches a log is a check, not a habit', () => {
     expect(read('SECURITY.md')).toContain(
@@ -581,6 +583,37 @@ describe('the security page names enforcement that exists', () => {
   test('the store promise matches the mode the store requires', () => {
     expect(page).toContain('mode 600')
     expect(read('src/secrets/store.ts')).toContain('REQUIRED_MODE = 0o600')
+  })
+
+  /**
+   * The history file is a second file of the reader's own words beside the
+   * keys, and every promise made about it is a check somewhere: the mode and
+   * the refusals in the module, the one caller and the store kept out of reach
+   * in the guard — planted against in guard-test.sh — and the lines never kept
+   * in tests that type them and read the file.
+   */
+  test('the history promise is the module, the guard and the tests behind it', () => {
+    const policy = flat('SECURITY.md')
+    expect(policy).toContain('What a stored line reveals is an address and questions about your book')
+    expect(policy).toContain('`TULA_NO_HISTORY=1` keeps nothing at all')
+    expect(flat('site/app/security/page.tsx')).toContain('TULA_NO_HISTORY=1 keeps nothing')
+
+    const history = read('src/history/history.ts')
+    expect(history).toContain('REQUIRED_MODE = 0o600')
+    expect(history).toContain('O_NOFOLLOW')
+    expect(history).toContain("process.env['TULA_NO_HISTORY'] === '1'")
+    expect(history).not.toMatch(/from '\.\.\/secrets\//)
+
+    expect(guard).toContain('reaches the history write, which only src/ui/app.tsx may call')
+    expect(guard).toContain('WALKING="src/history"')
+    const guardTest = read('scripts/guard-test.sh')
+    expect(guardTest).toContain("import { recordHistory } from '../history/history.js'")
+    expect(guardTest).toContain('the history writer importing the credential store')
+
+    expect(read('src/history/history.test.ts')).toContain('.githooks/scan-staged')
+    const screen = read('src/ui/screen.test.ts')
+    expect(screen).toContain("expect(lines).toEqual(['/noted connect', '/noted disconnect', '/help'])")
+    expect(read('src/cli/oneshot.test.ts')).toContain("existsSync(join(dir, 'history.jsonl'))")
   })
 
   // The page saying so is the whole mitigation: there is no encryption to point
@@ -641,6 +674,13 @@ describe('the security page names enforcement that exists', () => {
         source: "the model provider's own error text",
         evidence: ['src/agent/agent.ts', 'remote(err.message)'],
         named: 'the model provider',
+      },
+      {
+        // Its deployer chooses it, and it becomes the venue label on every row
+        // that dex holds — a label, so no symbol cap reaches it.
+        source: "a Hyperliquid builder dex's name",
+        evidence: ['src/connectors/hyperliquid.ts', 'DEX_NAME.test('],
+        named: 'Hyperliquid builder dex name',
       },
     ] as const
 
@@ -802,7 +842,7 @@ describe('the security page names enforcement that exists', () => {
 
   test('the attestation claim matches what install.sh does without the GitHub CLI', () => {
     expect(flat('site/app/security/page.tsx')).toContain(
-      'where it is not, it says plainly that provenance was not proven',
+      'without it, it says that was not proven',
     )
     expect(read('install.sh')).toContain('UNVERIFIED=1')
   })
@@ -819,6 +859,69 @@ describe('the security page names enforcement that exists', () => {
       expect(flat(path)).not.toMatch(/refus\w*[^.]{0,40}\b(rather than|instead of)\s+warn/i)
       expect(flat(path)).not.toMatch(/refus\w*[^.]{0,30}\bcannot verify/i)
     }
+  })
+})
+
+/**
+ * README sends a reader to SECURITY.md for every host tula contacts and what
+ * each sees. A host requested and not named there is the failure; one named and
+ * requested by nothing describes a build that does not exist.
+ *
+ * Every `https://` literal in a module that reaches the network is classed as
+ * requested or printed — a help link, a line of a message, a citation — and one
+ * that is neither fails, so a new kind of URL is a decision rather than a miss.
+ * The chain registry is read as data: its nodes sit in arrays, not constants.
+ */
+describe('SECURITY.md names every host the binary contacts', () => {
+  const hostOf = (url: string): string => new URL(url).host
+
+  const requested = new Set<string>()
+  const unclassed: string[] = []
+  for (const dir of ['src/connectors', 'src/prices', 'src/agent', 'src/update']) {
+    for (const file of readdirSync(dir)) {
+      const path = `${dir}/${file}`
+      if (!file.endsWith('.ts') || file.endsWith('.test.ts') || path === 'src/connectors/chains.ts') continue
+      const text = read(path)
+      const hosts = new Map([...text.matchAll(/^(?:export )?const (\w+) = '([a-z0-9.-]+)'$/gm)].map((m) => [m[1], m[2]]))
+      for (const [n, line] of text.split('\n').entries()) {
+        if (!line.includes('https://')) continue
+        const trimmed = line.trim()
+        if (/^(\*|\/\/|\/\*)/.test(trimmed) || /\burl: '/.test(line) || /^'\s{2,}/.test(trimmed)) continue
+        const constant = /^(?:export )?const \w+ = '(https:\/\/[^']+)'$/.exec(trimmed)?.[1]
+        const inline = /request\(['`](https:\/\/[^'`$]+)/.exec(line)?.[1]
+        const hosted = hosts.get(/request\(`https:\/\/\$\{(\w+)\}/.exec(line)?.[1] ?? '')
+        const url = constant ?? inline ?? (hosted ? `https://${hosted}` : undefined)
+        if (url) requested.add(hostOf(url))
+        else unclassed.push(`${path}:${n + 1}`)
+      }
+    }
+  }
+  for (const chain of CHAINS) {
+    for (const url of [...chain.defaultRpcs, chain.defaultTokenList]) requested.add(hostOf(url))
+  }
+  if (read('src/update/check.ts').includes('request(`${REPO_URL}')) requested.add(hostOf(REPO_URL))
+
+  const policy = read('SECURITY.md')
+  const egress = policy.slice(policy.indexOf('## Where your data goes'), policy.indexOf('## Verifying a release'))
+  const named = new Set([...egress.matchAll(/`https:\/\/([^/`\s]+)[^`]*`/g)].map((m) => m[1] ?? ''))
+
+  test('the sweep finds the hosts it has to, so an empty collector cannot pass', () => {
+    for (const host of ['api.hyperliquid.xyz', 'api.coinbase.com', 'api.anthropic.com', 'github.com', 'tokens.uniswap.org']) {
+      expect({ host, requested: requested.has(host) }).toEqual({ host, requested: true })
+    }
+    expect(egress).toContain('Everything tula contacts')
+  })
+
+  test('every https:// literal in those modules is either requested or printed', () => {
+    expect(unclassed).toEqual([])
+  })
+
+  test('every host requested is named', () => {
+    expect([...requested].filter((host) => !named.has(host)).sort()).toEqual([])
+  })
+
+  test('every host named is requested', () => {
+    expect([...named].filter((host) => !requested.has(host)).sort()).toEqual([])
   })
 })
 
@@ -864,7 +967,7 @@ describe('the release notes agree with the build they describe', () => {
       .filter((c) => c.coverage?.doesNotRead.some((gap) => gap.hides === 'availability'))
       .map((c) => c.venue.name)
       .sort()
-    expect(declared).toEqual(['Hyperliquid', 'Kraken'])
+    expect(declared).toEqual(['Kraken'])
 
     const claim = 'Where the venue does not report enough to prove a free figure'
     const start = unreleased.indexOf(claim)

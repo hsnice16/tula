@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { chmod, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import * as secrets from './store.js'
 
@@ -29,6 +29,13 @@ const path = () => join(dir, 'credentials.json')
 describe('the store', () => {
   test('a missing file is empty, not an error', async () => {
     expect(await secrets.listVenues()).toEqual([])
+  })
+
+  test('the location shown to the user names home as ~, not by the username', () => {
+    process.env['TULA_CONFIG_DIR'] = join(homedir(), '.config', 'tula')
+    expect(secrets.locationHint()).toBe('~/.config/tula/credentials.json')
+    process.env['TULA_CONFIG_DIR'] = dir
+    expect(secrets.locationHint().startsWith('~')).toBe(dir.startsWith(`${homedir()}/`))
   })
 
   test('round-trips a credential and leaves the file at 600', async () => {

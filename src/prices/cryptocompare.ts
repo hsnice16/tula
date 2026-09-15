@@ -3,6 +3,7 @@ import { remote, TulaError } from '../core/errors.js'
 import type { AssetId } from '../core/position.js'
 import { byTicker, UNITY, usablePrice, type PriceOracle, type Quote } from '../core/prices.js'
 import { request } from '../core/http.js'
+import { inShell } from '../core/surface.js'
 
 const PRICEMULTI = 'https://min-api.cryptocompare.com/data/pricemulti'
 
@@ -34,7 +35,9 @@ export class CryptoCompareOracle implements PriceOracle {
     for (const asset of assets) if (UNITY.has(asset)) out.set(asset, { price: new Decimal(1), asOf: now })
 
     const asked = byTicker(assets)
-    const wanted = [...asked.keys()]
+    // `chain:TICKER` and `dex:TICKER` name an issue no symbol quotes; sent as
+    // one, it could only be matched to the coin it is not.
+    const wanted = [...asked.keys()].filter((ticker) => !ticker.includes(':'))
     if (wanted.length === 0) return out
 
     for (let start = 0; start < wanted.length; start += CHUNK) {
@@ -50,7 +53,7 @@ export class CryptoCompareOracle implements PriceOracle {
       if (body.Response === 'Error') {
         throw new TulaError(
           `CryptoCompare: ${body.Message ? remote(body.Message) : 'request rejected'}\n` +
-            '  Replace the key with:  /cryptocompare connect\n' +
+            `  Replace the key with:  ${inShell('cryptocompare connect')}\n` +
             '  Keys are at:           https://developers.coindesk.com/settings/api-keys',
         )
       }
@@ -73,7 +76,7 @@ function failure(status: number): TulaError {
   if (status === 401 || status === 403) {
     return new TulaError(
       'CryptoCompare rejected the API key. Prices are unavailable; quantities are still correct.\n' +
-        '  Replace it with:  /cryptocompare connect\n' +
+        `  Replace it with:  ${inShell('cryptocompare connect')}\n` +
         '  Keys are at:      https://developers.coindesk.com/settings/api-keys',
     )
   }

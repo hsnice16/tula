@@ -217,6 +217,59 @@ describe('run_scenario', () => {
     expect(result.note).toContain('not safety')
   })
 
+  test('an account whose ratio the shock could not recompute is named as a gap, not as surviving', () => {
+    const account = 'perp:0xabc'
+    const engine = engineOver([
+      {
+        id: 'perp:spot:USDC',
+        venue: 'perp',
+        kind: 'spot',
+        asset: 'USDC',
+        quantity: new Decimal('10000'),
+        delta: new Decimal('10000'),
+        asOf: FIXTURE_TIME,
+        liquidation: {
+          ratio: {
+            name: 'Portfolio Margin Ratio',
+            value: new Decimal('0.2'),
+            threshold: new Decimal('0.95'),
+            account,
+            unshockable: 'the venue does not state the borrow offset',
+          },
+        },
+      },
+      {
+        id: 'perp:perp:ETH',
+        venue: 'perp',
+        kind: 'perp',
+        asset: 'ETH',
+        quantity: new Decimal('-4'),
+        delta: new Decimal('-4'),
+        equity: new Decimal('0'),
+        asOf: FIXTURE_TIME,
+        encumbers: ['perp:spot:USDC'],
+        liquidation: { price: new Decimal('9000'), mark: new Decimal('4000'), liquidatedWith: account },
+      },
+    ])
+    const result = call('run_scenario', { shocks: [{ asset: 'ETH', percent: -10 }] }, engine)
+    // In neither list that answers "what liquidates", so the note is all that
+    // stops the model reading the two empty lists as "nothing does".
+    expect(result.liquidated).toEqual([])
+    expect(result.could_not_be_evaluated).toEqual([])
+    expect(result.account_ratios).toEqual([
+      {
+        venue: 'perp',
+        name: 'Portfolio Margin Ratio',
+        before: '20.00%',
+        after: null,
+        liquidated_past: '95.00%',
+        not_recomputed_because: 'the venue does not state the borrow offset',
+      },
+    ])
+    expect(result.note).toContain('An account_ratios entry with after null is the same gap')
+    expect(result.note).toContain('not_recomputed_because')
+  })
+
   test('a spot balance is not reported as unevaluated; nothing can call it', () => {
     const engine = engineOver([{ ...FIXTURE_POSITIONS[0]! }])
     expect(

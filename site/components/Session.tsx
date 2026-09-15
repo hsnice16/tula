@@ -73,7 +73,7 @@ const MENU: readonly Row[] = [
 ]
 
 /** What the menu has below its window, which is what the binary counts there. */
-const MENU_REST = 38
+const MENU_REST = 41
 
 /**
  * The palette while nothing is typed: the same commands, plus every
@@ -96,15 +96,15 @@ const BROWSE: readonly Row[] = [
 ]
 
 /** Matches below the window, counted in matches rather than rows, as the dialog does. */
-const BROWSE_BELOW = 57
+const BROWSE_BELOW = 60
 
 /** Rows the whole browse list draws as — the headings and the blanks included. */
-const BROWSE_ROWS = 73
+const BROWSE_ROWS = 76
 
 /**
  * The same palette once `brea` is typed: ranked and flat, headings dropped. Four
  * venues answer to it and none of them had to be named — the reason to reach for
- * ctrl+k over `/` at all.
+ * ctrl+s over `/` at all.
  */
 const SEARCH: readonly Row[] = [
   ['/breaks', 'What gets liquidated first, and how far away that is'],
@@ -130,11 +130,11 @@ const MENU_ROWS = MENU.length + 1
  * rather than added under it, so opening one scrolls the session up a terminal's
  * worth instead of growing the page — which is the only thing a terminal can do.
  *
- * It counts the banner, so it moved with it: the working-directory line made
- * that block four rows rather than three, and the body being anchored to the
- * bottom meant the row it lost off the top was the one naming the tool.
+ * It counts every row the transcript fills, banner included: the body is
+ * anchored to the bottom, so a row added anywhere below and not counted here
+ * clips the banner off the top.
  */
-const BODY_ROWS = 28
+const BODY_ROWS = 32
 
 interface Beat {
   /** What is on the input line. */
@@ -145,7 +145,7 @@ interface Beat {
   ms: number
 }
 
-const KEYS = ['/', 'ctrl+k', 'ctrl+o'] as const
+const KEYS = ['/', 'ctrl+s', 'ctrl+o'] as const
 
 /** Nothing open. Where the loop starts, and where it stays under reduced motion. */
 const REST = { input: '', lit: 0, ms: 1600 } as const satisfies Beat
@@ -417,15 +417,17 @@ export function Session({ status, children }: { status: string; children: ReactN
     <Frame
       title="tula"
       aside={
-        <span className="ml-auto flex flex-none gap-1.5 font-mono text-[0.62rem] tracking-[0.04em]">
+        // Wraps within itself as well: at enlarged text on a phone the three
+        // chips alone are wider than the frame, even on a row of their own.
+        <span className="ml-auto flex min-w-0 flex-wrap justify-end gap-1.5 font-mono text-[0.75rem] leading-4">
           {KEYS.map((key, i) => (
             <span
               key={key}
-              className="rounded-[3px] border px-1.5 py-0.5 transition-colors duration-500"
+              className="rounded-[3px] border px-1 py-0.5 transition-colors duration-500"
               style={
                 i === beat.lit
                   ? { borderColor: TUI.accentSoft, color: TUI.accent, background: TUI.surface }
-                  : { borderColor: 'var(--color-rule)', color: 'var(--color-faint)' }
+                  : { borderColor: 'var(--color-rule)', color: 'var(--color-dim)' }
               }
             >
               {key}
@@ -464,7 +466,7 @@ export function Session({ status, children }: { status: string; children: ReactN
                   <>
                     <Cursor dim={palette} />
                     <span className="text-dim">
-                      {' ask anything · / for commands · ctrl+k to search them'}
+                      {' ask anything · / for commands · ctrl+s to search them · ? for shortcuts'}
                     </span>
                   </>
                 ) : (

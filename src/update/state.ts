@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { configDir } from '../core/paths.js'
 
@@ -32,11 +32,22 @@ export async function readState(): Promise<UpdateState> {
   }
 }
 
+/**
+ * Written beside the file, created exclusively and renamed over it, and never
+ * into a directory others can write to: `state.json` or its temp could
+ * otherwise be a link, and the write would land in whatever it points at.
+ */
 export async function writeState(next: UpdateState): Promise<void> {
+  const dir = configDir()
+  const temp = `${statePath()}.${process.pid}.tmp`
   try {
-    await mkdir(configDir(), { recursive: true, mode: 0o700 })
-    await writeFile(statePath(), `${JSON.stringify(next, null, 2)}\n`, { mode: 0o600 })
+    await mkdir(dir, { recursive: true, mode: 0o700 })
+    if ((await stat(dir)).mode & 0o022) return
+    await writeFile(temp, `${JSON.stringify(next, null, 2)}\n`, { mode: 0o600, flag: 'wx' })
+    await rename(temp, statePath())
   } catch {
     // Deliberately silent — see the note above.
+  } finally {
+    await rm(temp, { force: true }).catch(() => {})
   }
 }

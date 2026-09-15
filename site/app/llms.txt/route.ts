@@ -23,17 +23,21 @@ You are long ETH spot on one venue, short ETH perp on another, and holding ETH
 as collateral against a debt on a lending protocol. Each venue is right about its
 own piece and blind to the other two. tula reads all of them and answers the two
 questions none of them can: **what is my real exposure**, and **what breaks
-first**. Every figure is computed in plain code; a language model orchestrates
-and narrates, and never does the arithmetic.
+first**. Every figure is computed in plain code; a language model only explains
+the results and never does the arithmetic.
 
 ## What it reads
 
-Hyperliquid (perps with liquidation price, spot, and the perp account's own
-USDC), Aave v3 across six markets on Ethereum, Arbitrum One and Base (collateral,
-debt and health factor, each market's own), and a wallet's ETH and ERC-20
-balances on those same three chains — all three from one public address alone.
-Then Kraken, Binance, Coinbase
-Advanced and Stripe, each from a read-only key. A key proven to withdraw or trade
+Hyperliquid (every account mode, whether standard, unified or portfolio margin,
+with balances as the venue states them; perps on the first-party dex and every
+builder-deployed dex, with the liquidation price or the account ratio the venue
+liquidates on; portfolio-margin borrowing; what each balance is held against;
+staked HYPE, vault equity and sub-accounts), Aave v3 across twelve markets on
+Ethereum, Arbitrum One, Base, Polygon, Optimism, Avalanche, Gnosis, Scroll and
+Linea (collateral, debt and health factor, each market's own), and a wallet's
+native and ERC-20 balances on those same nine chains — all three from one public
+address alone. Then Kraken, Binance, Coinbase Advanced and Stripe, each from a
+read-only key. A key proven to withdraw or trade
 is turned away rather than warned about; where a venue exposes no way to check —
 Kraken for trading, Stripe for both — tula says so rather than calling it safe.
 A venue that publishes no read-only key at all is not offered: there is nothing
@@ -42,7 +46,7 @@ or key, and every figure counts all of them.
 
 tula states what it does not read, and states it where it is asked. Each
 connector declares its own gaps — Aave V4, the endpoints of each venue nothing
-here calls, the chains outside the three — and \`/venues\` names every one of
+here calls, the chains outside the nine — and \`/venues\` names every one of
 them, area by area, with what each may hide. A venue that answered holding
 nothing says so on the spot, since that is the case where a gap and an empty
 account look identical. Every one of those gaps is scheduled work in
@@ -53,10 +57,11 @@ ROADMAP.md, not a permanent shape.
 - \`/exposure\` — net exposure per asset across every venue, with notional and the venues that contributed
 - \`/breaks\` — everything that can be liquidated, nearest first, with the move required to get there
 - \`/shock <asset> <percent>\` — reprice the whole book and report what changes and what liquidates
+- \`/positions\` — every position, as each venue reports it
 - \`/venues\` — per-venue counts, freshness and failures
 
 A slash means a command; anything else is a question, answered in plain English
-over the same vocabulary. Every command still works without a model key.
+from the same figures. Every command works without signing in to a model.
 
 ## Install
 

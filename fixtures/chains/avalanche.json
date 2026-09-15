@@ -1,0 +1,65 @@
+{
+  "captured": "2026-09-15T13:37:33.668Z",
+  "nodes": [
+    {
+      "rpc": "https://avalanche-c-chain-rpc.publicnode.com",
+      "chainId": "0xa86a",
+      "batchAnswered": 40
+    },
+    {
+      "rpc": "https://api.avax.network/ext/bc/C/rpc",
+      "chainId": "0xa86a",
+      "batchAnswered": 40
+    },
+    {
+      "rpc": "https://avax.api.pocket.network",
+      "chainId": "0xa86a",
+      "batchAnswered": 40
+    }
+  ],
+  "sharedLedgers": [],
+  "tokenList": {
+    "url": "https://tokens.uniswap.org",
+    "name": "Uniswap Labs Default",
+    "tokens": 46,
+    "stablecoins": [
+      {
+        "symbol": "DAI.e",
+        "decimals": 18
+      },
+      {
+        "symbol": "USDC",
+        "decimals": 6
+      },
+      {
+        "symbol": "USDT",
+        "decimals": 6
+      }
+    ]
+  },
+  "aave": [
+    {
+      "market": "Core",
+      "reserves": [
+        "DAI.e",
+        "LINK.e",
+        "USDC",
+        "WBTC.e",
+        "WETH.e",
+        "USDt",
+        "AAVE.e",
+        "WAVAX",
+        "sAVAX",
+        "FRAX",
+        "MAI",
+        "BTC.b",
+        "AUSD",
+        "GHO",
+        "EURC",
+        "USDe",
+        "sUSDe",
+        "wrsETH"
+      ]
+    }
+  ]
+}

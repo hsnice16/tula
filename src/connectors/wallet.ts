@@ -21,8 +21,9 @@ import {
   toBigInt,
   words,
 } from './evm.js'
-import { canonical } from './symbols.js'
+import { assetOn, canonical } from './symbols.js'
 import { PartialRead, type Connector, type ConnectorCredentials, type KeyScope } from './types.js'
+import { typed } from '../core/surface.js'
 import { host, request } from '../core/http.js'
 
 export const WALLET: Venue = {
@@ -53,7 +54,54 @@ export interface TokenEntry {
  * connectors already report what they stand for. Counting both inflates net
  * worth silently, which is worse than the gap this connector closes.
  */
-const RECEIPT = /^(a|variableDebt|stableDebt)(Eth|Arb|Bas)?[A-Z]/
+const RECEIPT = /^(a|variableDebt|stableDebt)[A-Z]/
+
+/**
+ * The address some lists give the gas token, which holds no contract. The native
+ * balance is already read by `eth_getBalance`; asked `balanceOf` here, a node
+ * that answers the call with an error rather than `0x` fails the whole chain.
+ */
+const NATIVE_SENTINEL = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
+
+/**
+ * A legacy contract that answers for another's ledger, keyed `eip155:address`,
+ * with the contract it answers for. Monerium kept EURe's v1 address on Gnosis
+ * as a legacy frontend over v2 (smart-contracts `docs/migrating_V1_to_V2.md`),
+ * so it states v2's supply and every balance, and SmolDapp's list carries both:
+ * read together, one EURe balance counted twice. Only this known pair, not a rule
+ * of equal balances — two unrelated tokens holding the same airdropped amount
+ * would both be real.
+ */
+export const LEDGER_FRONTENDS: Readonly<Record<string, string>> = {
+  '100:0xcb444e90d8198415266c6a2724b7900fb12fc56e': '0x420ca0f9b9b604ce0fd9c18ef134c705e5fa3430',
+}
+
+/**
+ * A uint256 is below 10^78, so past 77 decimals every balance scales to zero;
+ * a negative count multiplies it instead.
+ */
+const MAX_DECIMALS = 77
+
+/**
+ * The list is a file on somebody else's server or branch, so an entry is only
+ * a shape until checked. One malformed entry is dropped rather than failing the
+ * chain over a token nobody may hold.
+ */
+const wellFormed = (t: unknown): t is TokenEntry => {
+  const e = t as Partial<Record<keyof TokenEntry, unknown>> | null
+  return (
+    typeof e === 'object' &&
+    e !== null &&
+    typeof e.chainId === 'number' &&
+    typeof e.address === 'string' &&
+    ADDRESS.test(e.address) &&
+    typeof e.symbol === 'string' &&
+    e.symbol.trim() !== '' &&
+    Number.isInteger(e.decimals) &&
+    (e.decimals as number) >= 0 &&
+    (e.decimals as number) <= MAX_DECIMALS
+  )
+}
 
 /**
  * A Token Lists feed carries every chain it covers in one array, so the chain
@@ -62,9 +110,14 @@ const RECEIPT = /^(a|variableDebt|stableDebt)(Eth|Arb|Bas)?[A-Z]/
  * no code, which answers `0x` rather than an error: a whole chain reported as
  * an empty wallet. `assertChain` is the other half of stopping that.
  */
-export function chainTokens(entries: TokenEntry[], chain: Chain): TokenEntry[] {
+export function chainTokens(entries: readonly unknown[], chain: Chain): TokenEntry[] {
   return entries.filter(
-    (t) => t.chainId === chain.eip155 && ADDRESS.test(t.address) && !RECEIPT.test(t.symbol),
+    (t): t is TokenEntry =>
+      wellFormed(t) &&
+      t.chainId === chain.eip155 &&
+      t.address.toLowerCase() !== NATIVE_SENTINEL &&
+      !(`${chain.eip155}:${t.address.toLowerCase()}` in LEDGER_FRONTENDS) &&
+      !RECEIPT.test(t.symbol),
   )
 }
 
@@ -89,10 +142,10 @@ export interface Holding {
  * neither will match a price and both are reported without one, which is the
  * admitted gap the standing rule asks for over a confident wrong answer.
  */
-export function assetName(holding: Holding): string {
-  const symbol = canonical(holding.symbol)
-  if (!holding.contested || !holding.address) return symbol
-  return `${symbol} (${holding.address.slice(0, 10)})`
+export function assetName(holding: Holding, chain: Chain = ETHEREUM): string {
+  const asset = assetOn(chain, holding.address, holding.symbol)
+  if (!holding.contested || !holding.address) return asset
+  return `${asset} (${holding.address.slice(0, 10)})`
 }
 
 /** Zero balances are not holdings; rendering them buries the rows that matter. */
@@ -104,7 +157,7 @@ export function toPositions(holdings: Holding[], asOf: Date, chain: Chain = ETHE
       id: `${venue}:${h.address ?? canonical(h.symbol)}`,
       venue,
       kind: 'spot' as const,
-      asset: assetName(h),
+      asset: assetName(h, chain),
       quantity: h.amount,
       delta: h.amount,
       asOf,
@@ -119,25 +172,37 @@ export function toPositions(holdings: Holding[], asOf: Date, chain: Chain = ETHE
  * the book would be contested and every one of them qualified into a row of its
  * own that nothing prices.
  */
-export function contested(tokens: TokenEntry[]): Set<string> {
+export function contested(tokens: TokenEntry[], chain: Chain = ETHEREUM): Set<string> {
   const seen = new Map<string, number>()
   for (const token of tokens) {
-    const key = canonical(token.symbol)
+    const key = assetOn(chain, token.address, token.symbol)
     seen.set(key, (seen.get(key) ?? 0) + 1)
   }
   return new Set([...seen].filter(([, n]) => n > 1).map(([symbol]) => symbol))
 }
 
 /**
- * One fetch per distinct list URL, not per chain: the default feed carries
- * every chain here in one array, and asking for it three times is three chances
- * to be rate-limited out of a book that needed one.
+ * One fetch per distinct list URL, not per chain: most chains here share one
+ * default feed, and asking for it once per chain is that many chances to be
+ * rate-limited out of a book that needed one.
  */
-async function loadList(url: string): Promise<TokenEntry[]> {
+async function loadList(url: string): Promise<unknown[]> {
   const res = await request(url, { headers: { 'User-Agent': 'tula' } })
   if (!res.ok) throw new TulaError(`the list at ${host(url)} returned HTTP ${res.status}`)
-  const body = (await res.json()) as { tokens?: TokenEntry[] }
-  return body.tokens ?? []
+  const body = (await res.json().catch(() => null)) as { tokens?: unknown } | null
+  if (!Array.isArray(body?.tokens)) throw new TulaError(`the list at ${host(url)} is not a token list`)
+  return body.tokens
+}
+
+function listFailure(chains: Chain[], list: PromiseSettledResult<unknown[]>): string {
+  const reason = list.status === 'rejected' && list.reason instanceof Error ? list.reason.message : 'the list did not load'
+  const names = chains.map((c) => c.name)
+  const on = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`
+  const env = chains.length === 1 ? chains[0]!.tokenListEnv[0] : chains[0]!.tokenListEnv[1]
+  return (
+    `tula cannot tell which ERC-20s to ask about on ${on}: ${reason}.\n` +
+    `  Set ${env} to another Token Lists URL, or retry with ${typed('refresh')}.`
+  )
 }
 
 async function readChain(chain: Chain, address: string, tokens: TokenEntry[]): Promise<Position[]> {
@@ -170,14 +235,38 @@ async function readChain(chain: Chain, address: string, tokens: TokenEntry[]): P
     )
   }
 
-  const ambiguous = contested(tokens)
+  const raw = tokens.map((_, i) => toBigInt(words(balances[i] ?? '')[0]))
+
+  // The list's decimals are somebody else's file; the contract's are the
+  // token's. Asked only of what is held, so an empty wallet costs no second
+  // round. A contract that does not answer — `decimals()` is optional in
+  // ERC-20 — keeps the list's figure, the only one there is. A disagreement is
+  // not reported: the figure shown is already the chain's, and nothing about
+  // the list is the reader's to fix.
+  const held = tokens.flatMap((_, i) => (raw[i]! > 0n ? [i] : []))
+  const answers =
+    held.length === 0
+      ? []
+      : await ethCallBatch(
+          chain,
+          held.map((i) => ({ to: tokens[i]!.address, data: SELECTOR.decimals })),
+        )
+  const decimals = tokens.map((token) => token.decimals)
+  held.forEach((i, at) => {
+    const word = words(answers[at] ?? '')[0]
+    if (word === undefined) return
+    const stated = toBigInt(word)
+    if (stated <= BigInt(MAX_DECIMALS)) decimals[i] = Number(stated)
+  })
+
+  const ambiguous = contested(tokens, chain)
   const holdings: Holding[] = [
     { symbol: chain.nativeSymbol, amount: scale(native, 18) },
     ...tokens.map((token, i) => ({
       symbol: token.symbol,
-      amount: scale(toBigInt(words(balances[i] ?? '')[0]), token.decimals),
+      amount: scale(raw[i]!, decimals[i]!),
       address: token.address.toLowerCase(),
-      contested: ambiguous.has(canonical(token.symbol)),
+      contested: ambiguous.has(assetOn(chain, token.address, token.symbol)),
     })),
   ]
 
@@ -189,9 +278,9 @@ export const walletConnector: Connector = {
 
   coverage: {
     reads: [
-      `native ETH on ${CHAINS.map((c) => c.name).join(', ')}, under one address`,
+      `the native gas token — ${[...new Set(CHAINS.map((c) => c.nativeSymbol))].join(', ')} — on ${CHAINS.map((c) => c.name).join(', ')}, under one address`,
       'the ERC-20s a Token Lists feed names for each of those chains',
-      'a bridged stablecoin as its own asset — USDC.e, USDbC and USDT0 do not net into USDC or USDT',
+      'a bridge’s token as an asset of its own, named for its chain — arbitrum:USDC.E and polygon:WETH net with neither the issuer’s token nor another bridge’s',
     ],
     doesNotRead: [
       {
@@ -211,7 +300,7 @@ export const walletConnector: Connector = {
         plan: 'tasks/breadth/01-aggregator-api.md',
       },
       {
-        what: `${UNCOVERED_CHAINS}, and every EVM chain outside the three above`,
+        what: `${UNCOVERED_CHAINS}, and every EVM chain not named above`,
         why:
           'Solana is a different RPC and token model, a second codebase’s worth of work rather ' +
           'than a chain added here; a HyperEVM balance ' +
@@ -273,30 +362,37 @@ export const walletConnector: Connector = {
     const read = await Promise.allSettled(
       CHAINS.map(async (chain) => {
         const list = lists.get(tokenListUrl(chain))!
-        if (list.status === 'rejected') {
-          throw new TulaError(
-            `tula cannot tell which ERC-20s to ask about on ${chain.name}: ` +
-              `${list.reason instanceof Error ? list.reason.message : String(list.reason)}.\n` +
-              `  Set ${chain.tokenListEnv[0]} to another Token Lists URL, or retry with /refresh.`,
-          )
-        }
+        if (list.status === 'rejected') throw list.reason
         return readChain(chain, address, chainTokens(list.value, chain))
       }),
     )
 
     const positions = read.flatMap((r) => (r.status === 'fulfilled' ? r.value : []))
-    // The chain is already inside each message, so nothing is prefixed here: a
-    // failure that opens "The Arbitrum One node…" says which endpoint to fix.
-    const failures = read.flatMap((r) =>
-      r.status === 'rejected'
-        ? [r.reason instanceof Error ? r.reason.message : String(r.reason)]
-        : [],
-    )
+    // The chain is already inside each node failure, so nothing is prefixed: a
+    // line that opens "The Arbitrum One node…" says which endpoint to fix. A list
+    // that did not load fails every chain reading it for one reason, so it is
+    // one line naming those chains — nine copies of it buried the rest.
+    const failures: (string | Chain[])[] = []
+    const unlisted = new Map<string, Chain[]>()
+    read.forEach((r, i) => {
+      if (r.status === 'fulfilled') return
+      const chain = CHAINS[i]!
+      const url = tokenListUrl(chain)
+      if (lists.get(url)?.status !== 'rejected') {
+        failures.push(r.reason instanceof Error ? r.reason.message : String(r.reason))
+        return
+      }
+      const group = unlisted.get(url)
+      if (group) return void group.push(chain)
+      unlisted.set(url, [chain])
+      failures.push(unlisted.get(url)!)
+    })
+    const lines = failures.map((f) => (typeof f === 'string' ? f : listFailure(f, lists.get(tokenListUrl(f[0]!))!)))
 
-    if (failures.length === 0) return positions
+    if (lines.length === 0) return positions
     // Nothing was read, so there is no partial book to keep — and an empty book
     // that reported itself complete is the failure this tool exists to close.
-    if (failures.length === CHAINS.length) throw new TulaError(failures.join(' '))
-    throw new PartialRead(positions, failures)
+    if (read.every((r) => r.status === 'rejected')) throw new TulaError(lines.join(' '))
+    throw new PartialRead(positions, lines)
   },
 }

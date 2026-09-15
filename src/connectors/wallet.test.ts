@@ -8,6 +8,7 @@ import {
   assetName,
   chainTokens,
   contested,
+  LEDGER_FRONTENDS,
   toPositions,
   walletConnector,
   type TokenEntry,
@@ -45,6 +46,61 @@ describe('token list filtering', () => {
 
   test('a token whose address is malformed is not asked about', () => {
     expect(chainTokens([token({ address: 'not-an-address' })], ETHEREUM)).toHaveLength(0)
+  })
+
+  test('receipt tokens are dropped under every chain tag Aave spells them with', () => {
+    // The SmolDapp lists Gnosis and Linea default to carry these by name, in the
+    // case Aave writes them — which is the whole of what `RECEIPT` matches on.
+    const gnosis = chainById('gnosis')
+    const linea = chainById('linea')
+    const polygon = chainById('polygon')
+    const list = [
+      token({ chainId: gnosis.eip155, symbol: 'aGnoWXDAI' }),
+      token({ chainId: linea.eip155, symbol: 'aLinUSDC' }),
+      token({ chainId: polygon.eip155, symbol: 'variableDebtPolWETH' }),
+    ]
+    for (const chain of [gnosis, linea, polygon]) expect(chainTokens(list, chain)).toHaveLength(0)
+  })
+
+  test('an entry whose decimals would inflate or zero a balance is dropped, and the rest are kept', () => {
+    const bad = [-1, 78, 1.5, Number.NaN, '18'].map((decimals) =>
+      token({ symbol: `BAD${String(decimals)}`, decimals: decimals as number }),
+    )
+    const kept = chainTokens([...bad, token({}), token({ symbol: 'ZERO', decimals: 0 })], ETHEREUM)
+    expect(kept.map((t) => t.symbol)).toEqual(['DAI', 'ZERO'])
+  })
+
+  test('an entry that is not the Token Lists shape is dropped rather than failing the chain', () => {
+    const malformed: unknown[] = [
+      null,
+      'DAI',
+      { ...token({}), symbol: 42 },
+      { ...token({}), symbol: '  ' },
+      { ...token({}), address: 0x6b175474 },
+      { ...token({}), address: `${token({}).address}00` },
+      { ...token({}), chainId: '1' },
+    ]
+    expect(chainTokens([...malformed, token({})], ETHEREUM).map((t) => t.symbol)).toEqual(['DAI'])
+  })
+
+  test('a legacy frontend is not read beside the contract whose ledger it shows, so one balance is not two', () => {
+    const gnosis = chainById('gnosis')
+    const list = [
+      token({ chainId: gnosis.eip155, symbol: 'EURe', address: '0x420CA0f9B9b604cE0fd9C18EF134C705e5Fa3430' }),
+      token({ chainId: gnosis.eip155, symbol: 'EURe', address: '0xcB444e90D8198415266c6a2724b7900fb12FC56E' }),
+    ]
+    expect(chainTokens(list, gnosis).map((t) => t.address.toLowerCase())).toEqual([
+      '0x420ca0f9b9b604ce0fd9c18ef134c705e5fa3430',
+    ])
+  })
+
+  test('the address a list gives the gas token is not asked for a balance', () => {
+    // Read by eth_getBalance already; asked balanceOf, it holds no contract.
+    const sentinel = `0x${'Ee'.repeat(20)}`
+    const scroll = chainById('scroll')
+    expect(
+      chainTokens([token({ chainId: scroll.eip155, symbol: 'ETH', address: sentinel })], scroll),
+    ).toHaveLength(0)
   })
 })
 
@@ -126,6 +182,21 @@ describe('positions', () => {
     )
     expect(position?.asset).toBe('ETH')
   })
+
+  test('each wrapped gas token nets with the native balance it wraps, on its own chain', () => {
+    const on = (id: ChainId, symbol: string) =>
+      toPositions([{ symbol, amount: new Decimal(1), address: token({}).address }], asOf, chainById(id))[0]?.asset
+    expect([on('polygon', 'WPOL'), on('polygon', 'WMATIC'), on('avalanche', 'WAVAX'), on('gnosis', 'WXDAI')]).toEqual(
+      ['POL', 'POL', 'AVAX', 'XDAI'],
+    )
+  })
+
+  test('a wrap on a chain where its token is not gas is a bridge’s, not the wrap', () => {
+    // WETH on Polygon is the PoS bridge's claim on ether, not ether wrapped.
+    const polygon = chainById('polygon')
+    const [row] = toPositions([{ symbol: 'WETH', amount: new Decimal(1), address: token({}).address }], asOf, polygon)
+    expect(row?.asset).toBe('polygon:WETH')
+  })
 })
 
 
@@ -153,8 +224,12 @@ interface Stub {
   down?: ChainId[]
   /** The list URL itself is unreachable. */
   listDown?: boolean
+  /** The list URL answers 200 with this body instead of the tokens. */
+  listBody?: string
   /** Balances, keyed by lower-cased contract. Anything unnamed answers 1e18. */
   balances?: Record<string, bigint>
+  /** What `decimals()` answers, keyed by lower-cased contract; null reverts. Unnamed, it answers like `balanceOf`. */
+  decimals?: Record<string, number | null>
   /** One chain's node answers this many ms behind the others. */
   slow?: { chain: ChainId; ms: number }
 }
@@ -176,6 +251,7 @@ function stubChains(stub: Stub): void {
   globalThis.fetch = (async (url: string, init?: { body?: string }) => {
     if (url === listUrl) {
       if (stub.listDown) return new Response('nope', { status: 503 })
+      if (stub.listBody !== undefined) return new Response(stub.listBody, { status: 200 })
       return new Response(JSON.stringify({ tokens: stub.tokens }), { status: 200 })
     }
     if (down.has(url)) return new Response('slow down', { status: 429 })
@@ -200,7 +276,14 @@ function stubChains(stub: Stub): void {
     }
     const out = body.map((call: { id: number; params: [{ to: string; data: string }] }) => {
       const to = call.params[0].to.toLowerCase()
-      asked.push({ node: url, to, selector: call.params[0].data.slice(0, 10) })
+      const selector = call.params[0].data.slice(0, 10)
+      asked.push({ node: url, to, selector })
+      if (selector === SELECTOR.decimals && stub.decimals && to in stub.decimals) {
+        const stated = stub.decimals[to]
+        return stated === null || stated === undefined
+          ? { id: call.id, error: { message: 'execution reverted' } }
+          : { id: call.id, result: `0x${stated.toString(16).padStart(64, '0')}` }
+      }
       const balance = stub.balances?.[to]
       if (balance === undefined && stub.balances && to in stub.balances) {
         return { id: call.id, error: { message: 'execution reverted' } }
@@ -224,6 +307,19 @@ afterEach(() => {
 
 const ADDRESS = '0x0000000000000000000000000000000000000abc'
 
+/** Circle's own USDC, from its contract-address page; it issues none on Gnosis or Scroll. */
+const CIRCLE: Record<number, string> = {
+  1: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+  42161: '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
+  8453: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
+  137: '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359',
+  10: '0x0b2c639c533813f4aa9d7837caf62653d097ff85',
+  43114: '0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e',
+  59144: '0x176211869ca2b568f2a7d4ee941e073a821ee1ff',
+}
+
+const ARBITRUM_BRIDGED_USDC = '0xff970a61a04b1ca14834a43f5de4533ebddb5cc8'
+
 /** The same contract on three chains is three contracts; built, never written out. */
 const at = (chainId: number, n: number): string =>
   `0x${chainId.toString(16).padStart(8, '0')}${n.toString(16).padStart(32, '0')}`
@@ -243,7 +339,7 @@ describe('one address, every chain', () => {
     stubChains({ tokens: everywhere('USDC') })
     const rows = await read()
     expect(new Set(rows.map((p) => p.venue))).toEqual(
-      new Set(['wallet', 'wallet-arbitrum', 'wallet-base']),
+      new Set(['wallet', ...CHAINS.slice(1).map((c) => `wallet-${c.id}`)]),
     )
   })
 
@@ -252,7 +348,9 @@ describe('one address, every chain', () => {
     await read()
     for (const chain of CHAINS) {
       const theirs = chainTokens(everywhere('USDC'), chain).map((t) => t.address.toLowerCase())
-      const reached = asked.filter((a) => a.node === nodeOf.get(chain.id)).map((a) => a.to)
+      const reached = asked
+        .filter((a) => a.node === nodeOf.get(chain.id) && a.selector === SELECTOR.balanceOf)
+        .map((a) => a.to)
       expect(reached).toEqual(theirs)
     }
   })
@@ -265,7 +363,7 @@ describe('one address, every chain', () => {
       tokens: [{ chainId: base.eip155, address: at(base.eip155, 9), symbol: 'CBETH', decimals: 18 }],
     })
     await read()
-    const onBase = asked.filter((a) => a.node === nodeOf.get('base'))
+    const onBase = asked.filter((a) => a.node === nodeOf.get('base') && a.selector === SELECTOR.balanceOf)
     expect(onBase).toHaveLength(1)
     for (const other of ['ethereum', 'arbitrum'] as const) {
       expect(asked.filter((a) => a.node === nodeOf.get(other))).toHaveLength(0)
@@ -274,13 +372,19 @@ describe('one address, every chain', () => {
 })
 
 describe('one asset nets across chains; one position keeps its chain', () => {
-  test('the same stablecoin on three chains is one asset, not three rows that never cancel', async () => {
-    stubChains({ tokens: everywhere('USDC') })
+  test('the issuer’s own stablecoin on every chain it issues on is one asset, not rows that never cancel', async () => {
+    stubChains({
+      tokens: Object.entries(CIRCLE).map(([chainId, address]) => ({
+        chainId: Number(chainId),
+        address,
+        symbol: 'USDC',
+        decimals: 6,
+      })),
+    })
     const rows = (await read()).filter((p) => p.asset === 'USDC')
-    expect(rows).toHaveLength(3)
     // One asset id, so `netExposure` buckets them together and the book states
-    // one USDC figure rather than three that each read as a separate holding.
-    expect(new Set(rows.map((p) => p.asset)).size).toBe(1)
+    // one USDC figure rather than one per chain that each read as a holding.
+    expect(rows).toHaveLength(Object.keys(CIRCLE).length)
   })
 
   test('a symbol on one chain per chain is not treated as contested', async () => {
@@ -293,17 +397,29 @@ describe('one asset nets across chains; one position keeps its chain', () => {
   })
 
   test('each row still says which chain it came from, or breaks cannot say what to act on', async () => {
-    stubChains({ tokens: everywhere('USDC') })
-    const rows = (await read()).filter((p) => p.asset === 'USDC')
-    expect(new Set(rows.map((p) => p.venue)).size).toBe(3)
+    stubChains({ tokens: everywhere('UNI') })
+    const rows = (await read()).filter((p) => p.asset === 'UNI')
+    expect(new Set(rows.map((p) => p.venue)).size).toBe(CHAINS.length)
     // And the ids stay distinct, or one chain's row overwrites another's.
-    expect(new Set(rows.map((p) => p.id)).size).toBe(3)
+    expect(new Set(rows.map((p) => p.id)).size).toBe(CHAINS.length)
   })
 
-  test('native ETH on every chain is ETH, since all three settle gas in it', async () => {
+  test('a native balance is that chain’s gas token, not ETH wherever it is read', async () => {
+    // Filed under ETH, a Polygon balance of POL is priced as ether — a figure
+    // thousands of times too large with nothing about the row to say so.
     stubChains({ tokens: [] })
     const rows = await read()
-    expect(rows.map((p) => p.asset)).toEqual(['ETH', 'ETH', 'ETH'])
+    expect(Object.fromEntries(rows.map((p) => [p.venue, p.asset]))).toEqual({
+      wallet: 'ETH',
+      'wallet-arbitrum': 'ETH',
+      'wallet-base': 'ETH',
+      'wallet-polygon': 'POL',
+      'wallet-optimism': 'ETH',
+      'wallet-avalanche': 'AVAX',
+      'wallet-gnosis': 'XDAI',
+      'wallet-scroll': 'ETH',
+      'wallet-linea': 'ETH',
+    })
   })
 })
 
@@ -315,13 +431,27 @@ describe('a bridged token is not the token it is named after', () => {
     const arb = chainById('arbitrum')
     stubChains({
       tokens: [
-        { chainId: arb.eip155, address: at(arb.eip155, 1), symbol: 'USDC', decimals: 6 },
-        { chainId: arb.eip155, address: at(arb.eip155, 2), symbol: 'USDC.e', decimals: 6 },
+        { chainId: arb.eip155, address: CIRCLE[arb.eip155]!, symbol: 'USDC', decimals: 6 },
+        { chainId: arb.eip155, address: ARBITRUM_BRIDGED_USDC, symbol: 'USDC.e', decimals: 6 },
       ],
     })
     const assets = (await read()).map((p) => p.asset)
     expect(assets).toContain('USDC')
-    expect(assets).toContain('USDC.E')
+    expect(assets).toContain('arbitrum:USDC.E')
+  })
+
+  test('two bridges’ USDC.e are two assets, so one bridge failing is not averaged into the other', async () => {
+    const arb = chainById('arbitrum')
+    const polygon = chainById('polygon')
+    stubChains({
+      tokens: [
+        { chainId: arb.eip155, address: ARBITRUM_BRIDGED_USDC, symbol: 'USDC.e', decimals: 6 },
+        { chainId: polygon.eip155, address: '0x2791bca1f2de4661ed88a30c99a7a9449aa84174', symbol: 'USDC.e', decimals: 6 },
+      ],
+    })
+    const assets = (await read()).map((p) => p.asset)
+    expect(assets).toContain('arbitrum:USDC.E')
+    expect(assets).toContain('polygon:USDC.E')
   })
 
   test('two spellings of one bridge are two assets, not one contested symbol', () => {
@@ -342,10 +472,11 @@ describe('a chain that fails takes only itself off the book', () => {
     stubChains({ tokens: everywhere('USDC'), down: ['arbitrum'] })
     const err = (await read().catch((e: unknown) => e)) as PartialRead
     expect(err).toBeInstanceOf(PartialRead)
-    expect([...new Set(err.positions.map((p) => p.venue))].sort()).toEqual([
-      'wallet',
-      'wallet-base',
-    ])
+    expect([...new Set(err.positions.map((p) => p.venue))].sort()).toEqual(
+      CHAINS.filter((c) => c.id !== 'arbitrum')
+        .map((c) => (c.id === ETHEREUM.id ? 'wallet' : `wallet-${c.id}`))
+        .sort(),
+    )
   })
 
   test('the failure names the chain that went, not the one that answered', async () => {
@@ -362,7 +493,7 @@ describe('a chain that fails takes only itself off the book', () => {
   test('every chain failing is a failure, not a book that reads as empty', async () => {
     // Answered as an empty wallet it is `$0.00` about an account nobody read,
     // which is the failure the whole tool exists to close.
-    stubChains({ tokens: everywhere('USDC'), down: ['ethereum', 'arbitrum', 'base'] })
+    stubChains({ tokens: everywhere('USDC'), down: CHAINS.map((c) => c.id) })
     const err = (await read().catch((e: unknown) => e)) as Error
     expect(err).not.toBeInstanceOf(PartialRead)
     for (const chain of CHAINS) expect(err.message).toContain(chain.name)
@@ -374,6 +505,38 @@ describe('a chain that fails takes only itself off the book', () => {
     for (const chain of CHAINS) expect(err.message).toContain(chain.name)
   })
 
+  test('chains a list failed for the same reason are one line naming them, not one each', async () => {
+    stubChains({ tokens: everywhere('USDC'), listDown: true })
+    const own = `https://own-list-${run}.invalid/list.json`
+    process.env['TULA_ETHEREUM_TOKEN_LIST'] = own
+    const stubbed = globalThis.fetch
+    globalThis.fetch = (async (url: string, init?: RequestInit) =>
+      url === own
+        ? new Response(JSON.stringify({ tokens: everywhere('USDC') }), { status: 200 })
+        : stubbed(url, init)) as unknown as typeof fetch
+    const err = (await read().catch((e: unknown) => e)) as PartialRead
+    expect(err).toBeInstanceOf(PartialRead)
+    const rest = CHAINS.filter((c) => c.id !== 'ethereum').map((c) => c.name)
+    expect(err.failures).toEqual([
+      `tula cannot tell which ERC-20s to ask about on ${rest.slice(0, -1).join(', ')} and ${rest.at(-1)}: ` +
+        `the list at tokens-${run}.invalid returned HTTP 503.\n` +
+        '  Set TULA_TOKEN_LIST to another Token Lists URL, or retry with /refresh.',
+    ])
+    // Ethereum is the chain a row names by leaving `chain` off.
+    expect(err.positions.length).toBeGreaterThan(0)
+    expect(err.positions.every((p) => p.chain === undefined)).toBe(true)
+  })
+
+  test('a list that is not a token list is named as that, never read as an empty wallet', async () => {
+    for (const body of ['<html>', '{"tokens":{}}', '{}']) {
+      stubChains({ tokens: [], listBody: body })
+      const err = (await read().catch((e: unknown) => e)) as Error
+      expect(err).not.toBeInstanceOf(PartialRead)
+      expect(err.message).toContain('is not a token list')
+      for (const chain of CHAINS) expect(err.message).toContain(chain.name)
+    }
+  })
+
   test('a balance that failed to read fails its chain rather than vanishing', async () => {
     const eth = at(1, 1)
     stubChains({
@@ -382,6 +545,45 @@ describe('a chain that fails takes only itself off the book', () => {
     })
     const err = (await read().catch((e: unknown) => e)) as PartialRead
     expect(err.failures[0]).toMatch(/Ethereum node did not return balances/)
+  })
+})
+
+describe('a held token is scaled by its own decimals, not the list’s', () => {
+  const eth = at(1, 1)
+
+  test('where the list is wrong the contract wins, and the read is still complete', async () => {
+    // 6-decimal USDC listed at 18 reads 1,000 USDC as 0.000000001. The figure
+    // is the chain's either way, so no failure is raised about the list.
+    stubChains({
+      tokens: [{ chainId: 1, address: eth, symbol: 'TKN', decimals: 18 }],
+      balances: { [eth]: 1000n * 10n ** 6n },
+      decimals: { [eth]: 6 },
+    })
+    expect((await read()).find((p) => p.asset === 'TKN')?.quantity.toString()).toBe('1000')
+  })
+
+  test('a contract that agrees, or that does not answer, changes nothing and reports nothing', async () => {
+    const other = at(1, 2)
+    stubChains({
+      tokens: [
+        { chainId: 1, address: eth, symbol: 'TKN', decimals: 6 },
+        { chainId: 1, address: other, symbol: 'OLD', decimals: 6 },
+      ],
+      balances: { [eth]: 5n * 10n ** 6n, [other]: 7n * 10n ** 6n },
+      decimals: { [eth]: 6, [other]: null },
+    })
+    const rows = await read()
+    expect(rows.find((p) => p.asset === 'TKN')?.quantity.toString()).toBe('5')
+    expect(rows.find((p) => p.asset === 'OLD')?.quantity.toString()).toBe('7')
+  })
+
+  test('an answer past what a uint256 can be scaled by is not taken over the list', async () => {
+    stubChains({
+      tokens: [{ chainId: 1, address: eth, symbol: 'TKN', decimals: 6 }],
+      balances: { [eth]: 5n * 10n ** 6n },
+      decimals: { [eth]: 200 },
+    })
+    expect((await read()).find((p) => p.asset === 'TKN')?.quantity.toString()).toBe('5')
   })
 })
 
@@ -444,6 +646,22 @@ describe('the list tula ships really does cover every chain tula reads', () => {
     expect(base).toContain('USDC')
     expect(base).toContain('USDbC')
   })
+
+  for (const chain of CHAINS) {
+    test(`${chain.name}: every frontend skipped states the supply of the contract it answers for`, () => {
+      // The day Monerium splits the ledgers, skipping the frontend drops a
+      // balance, and this is what says so.
+      const pairs = Object.keys(LEDGER_FRONTENDS).filter((at) => at.startsWith(`${chain.eip155}:`))
+      const { sharedLedgers } = captured(chain.id) as unknown as {
+        sharedLedgers: { frontendSupply: string; currentSupply: string }[]
+      }
+      expect(sharedLedgers).toHaveLength(pairs.length)
+      for (const ledger of sharedLedgers) {
+        expect(BigInt(ledger.currentSupply)).toBeGreaterThan(0n)
+        expect(ledger.frontendSupply).toBe(ledger.currentSupply)
+      }
+    })
+  }
 })
 
 // Written to be broken by progress: reading one of these means deleting its
@@ -472,20 +690,25 @@ describe('the gaps this connector declares are still gaps', () => {
     expect(rows.filter((p) => p.venue === 'wallet').map((p) => p.asset)).toEqual(['ETH', 'UNI-V2'])
   })
 
-  test('anything that is not an ERC-20 is declared unread, and only balanceOf goes out', async () => {
+  test('anything that is not an ERC-20 is declared unread, and only balanceOf goes out beside decimals', async () => {
     gap('NFTs')
-    stubChains({ tokens: everywhere('DAI', 18) })
+    const tokens = everywhere('DAI', 18)
+    const empty = tokens[0]!.address.toLowerCase()
+    stubChains({ tokens, balances: { [empty]: 0n } })
     await read()
-    expect(new Set(asked.map((a) => a.selector))).toEqual(new Set([SELECTOR.balanceOf]))
+    expect(new Set(asked.map((a) => a.selector))).toEqual(new Set([SELECTOR.balanceOf, SELECTOR.decimals]))
+    // Decimals are asked of what is held, never of every token on the list.
+    expect(asked.some((a) => a.selector === SELECTOR.decimals && a.to === empty)).toBe(false)
   })
 
-  test('Solana and HyperEVM are declared unread, and no node outside the three is reached', async () => {
+  test('Solana and HyperEVM are declared unread, and no node outside the registry is reached', async () => {
     gap('Solana')
     gap('HyperEVM')
     stubChains({ tokens: everywhere('DAI', 18) })
     await read()
     const nodes = new Set(asked.map((a) => a.node))
     expect(nodes.size).toBe(CHAINS.length)
-    expect(CHAINS.map((c) => c.eip155)).toEqual([1, 42161, 8453])
+    // HyperEVM is 999. It is not here, and the day it is, the gap above goes.
+    expect(CHAINS.map((c) => c.eip155)).toEqual([1, 42161, 8453, 137, 10, 43114, 100, 534352, 59144])
   })
 })

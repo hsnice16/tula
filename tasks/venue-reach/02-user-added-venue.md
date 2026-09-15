@@ -34,6 +34,6 @@ drift there reads to a user as a bad key — that is the failure a hand-written
 manifest invites, and the closed scheme set is what bounds it. Exchanges cluster
 into a few families because they copied each other, so the set can be small.
 
-The execution refusal is written here rather than in 13 because that is the
+The execution refusal is written here rather than in 14 because that is the
 release where it would quietly go. A manifest pasted from a forum must not be
 able to build an order, and the rule is cheapest to keep while nothing can.

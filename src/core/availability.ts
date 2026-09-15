@@ -1,5 +1,5 @@
 import Decimal from 'decimal.js'
-import { belongsToVenue, type Position, type VenueId, type VenueKind } from './position.js'
+import { belongsToVenue, type HoldReason, type Position, type VenueId, type VenueKind } from './position.js'
 
 /**
  * How much of a holding can actually be moved, and what is holding the rest.
@@ -7,10 +7,9 @@ import { belongsToVenue, type Position, type VenueId, type VenueKind } from './p
  * A separate function from `netExposure` rather than fields on `NetExposure`,
  * because they answer different questions: exposure is sensitivity to a price
  * move, and a pledged asset moves with its price exactly as an unpledged one
- * does. The two were conflated once already — `Net value` became `Net notional`
- * when "value" counted a leveraged perp's whole position — and a `free` field
- * inside a record about price sensitivity invites it back. Nothing here reaches
- * `delta`.
+ * does. Merging them counts a leveraged perp's whole position as value, and a
+ * `free` field inside a record about price sensitivity invites that. Nothing
+ * here reaches `delta`.
  *
  * It is also where the `encumbers` graph is inverted exactly once. `encumbers`
  * is set on the *debt* leg and points at the collateral, so a collateral
@@ -45,7 +44,9 @@ export interface VenueFacts {
 /** Why a quantity cannot move. The words a row prints. */
 export type Reason =
   | 'securing a debt'
+  | 'securing a borrow'
   | 'margining a perp'
+  | 'posted to an isolated perp'
   | 'pledged elsewhere'
   | 'on hold for an order'
   | 'not settled yet'
@@ -64,7 +65,11 @@ export type Reason =
 export const RELEASES: Readonly<Record<Reason, string>> = {
   'securing a debt':
     'repay the debt. The lender releases collateral only down to health factor 1.00, which is the level it liquidates at.',
+  // Hyperliquid's own sentence for it. Aave's above is about a health factor a
+  // portfolio-margin account does not have.
+  'securing a borrow': 'repay the borrow — in the venue’s words, "Repay borrows to withdraw collateral."',
   'margining a perp': 'close or reduce the perp it is margining.',
+  'posted to an isolated perp': 'close the isolated position, or remove margin from it.',
   'pledged elsewhere': 'close the position it is pledged to.',
   'on hold for an order': 'cancel the order holding it.',
   'not settled yet': 'wait for it to settle. Nothing you do at the venue moves it sooner.',
@@ -125,8 +130,19 @@ function holdReason(kind: VenueKind | undefined): Reason {
   return kind === 'payments' ? 'not settled yet' : 'on hold for an order'
 }
 
+const borrows = (p: Position): boolean => p.borrowing !== undefined && p.borrowing.borrowed.gt(0)
+
+/** The words each venue-stated hold is released by. */
+const HOLD: Readonly<Record<HoldReason, Reason>> = {
+  order: 'on hold for an order',
+  margin: 'margining a perp',
+  isolated: 'posted to an isolated perp',
+  wait: 'not settled yet',
+}
+
 /** What the positions pointing at this one are, worst first. */
 function reasonFor(holders: readonly Position[]): Reason {
+  if (holders.some(borrows)) return 'securing a borrow'
   if (holders.some((h) => h.kind === 'debt')) return 'securing a debt'
   if (holders.some((h) => h.kind === 'perp')) return 'margining a perp'
   return 'pledged elsewhere'
@@ -205,6 +221,25 @@ export function availability(
       continue
     }
 
+    const holders = holdersOf.get(position.id) ?? []
+    // A borrow claims its collateral whole whatever the venue says of the hold:
+    // an order hold beside a loan would offer the rest as free. Short of a
+    // borrow, the venue's own statement is finer than anything inferred below —
+    // a perp pointing at the row can only claim all of it, and a pending row can
+    // only guess which kind of wait it is.
+    const held = holders.some((h) => h.kind === 'debt' || borrows(h)) ? undefined : position.held
+    if (held) {
+      if ('unprovable' in held) {
+        out.push({ position, free: null, claims: [], unprovable: held.unprovable })
+        continue
+      }
+      const claims = held.claims
+        .filter((c) => c.quantity.gt(0))
+        .map((c) => ({ reason: HOLD[c.reason], quantity: c.quantity }))
+      out.push({ position, free: position.quantity.minus(sum(claims)), claims, unprovable: null })
+      continue
+    }
+
     // Kinds the model already defines as money that is yours and not yours to
     // move. The whole row is the claim; there is no split left to prove.
     if (position.kind === 'pending' || position.kind === 'staked') {
@@ -218,17 +253,16 @@ export function availability(
       continue
     }
 
-    const holders = holdersOf.get(position.id) ?? []
     if (holders.length > 0) {
       // One claim, not one per holder: a health factor already covers every
       // debt in the market, and a claim per debt would subtract the same
       // collateral twice.
       //
       // With no health factor there is nothing to size the claim with: Kraken
-      // publishes a margin level for the account rather than the position, and
-      // Hyperliquid's per-position margin is discarded. The whole row is
-      // claimed there — it is an asset bought on margin or a shared margin
-      // pool, and offering part of it as cash is the answer that costs money.
+      // publishes a margin level for the account rather than the position. The
+      // whole row is claimed there — it is an asset bought on margin or a
+      // shared margin pool, and offering part of it as cash is the answer that
+      // costs money.
       const factor = position.liquidation?.healthFactor
       const free =
         factor && factor.isFinite() && factor.gt(0)

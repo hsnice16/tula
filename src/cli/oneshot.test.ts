@@ -1,9 +1,19 @@
 import { describe, expect, test } from 'bun:test'
 import { spawnSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { chmod, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import Decimal from 'decimal.js'
+import { CONNECTORS } from '../connectors/registry.js'
+import type { Connector } from '../connectors/types.js'
+import { TulaError } from '../core/errors.js'
+import type { Position } from '../core/position.js'
+import type { PriceOracle, Quote } from '../core/prices.js'
+import * as secrets from '../secrets/store.js'
+import { streams } from './commands.js'
+import { Session } from './session.js'
+import { dispatchCommand, parseCommand } from './shell.js'
 
 /**
  * The one-shot CLI, run as a process, because the thing under test is what a
@@ -88,7 +98,7 @@ const named = async (dir: string, venue: string): Promise<(string | undefined)[]
 }
 
 /**
- * A venue may now hold several accounts, and both of the acts that touch one of
+ * A venue may hold several accounts, and both of the acts that touch one of
  * them have to say which. Connecting is the path that could quietly overwrite;
  * forgetting is the path that could quietly take more than was asked for.
  */
@@ -153,7 +163,7 @@ describe('a command line is not the shell', () => {
     const { stdout, stderr } = run(dir, ['exposure'])
     const out = stdout + stderr
     expect(out).toContain('REMOVED')
-    expect(out).not.toContain('venue(s) failed')
+    expect(out).not.toMatch(/venues? failed/)
   })
 
   test('and the way out of it is typed here, not pasted as a slash command', async () => {
@@ -167,6 +177,63 @@ describe('a command line is not the shell', () => {
     // imports), so the caller hands the spelling in.
     expect(out).toContain('tula forget circle')
     expect(out).not.toContain('/forget circle')
+  })
+
+  /**
+   * The line is already in the calling shell's own history, and a second copy
+   * is a second place somebody has to know to clear.
+   */
+  test('a one-shot command records nothing in tula’s history', async () => {
+    const dir = await configWith({})
+    run(dir, ['help'])
+    run(dir, ['exposure'])
+    const { stdout, stderr, status } = run(dir, ['history', 'clear'])
+    expect(status).toBe(1)
+    expect(stdout + stderr).toContain('only works inside the shell')
+    expect(existsSync(join(dir, 'history.jsonl'))).toBe(false)
+  })
+
+  test('help lists no command that refuses to run from the command line', async () => {
+    const dir = await configWith({})
+    const { stdout } = run(dir, ['help'])
+    for (const name of ['clear', 'exit', 'history', 'login', 'vim']) {
+      expect(stdout).not.toContain(`tula ${name}`)
+      expect(run(dir, [name]).status).toBe(1)
+    }
+    expect(stdout).toContain('Only inside the shell: /clear, /exit, /history, /login, /vim')
+  })
+
+  test('a remedy is spelled for the command line', async () => {
+    const dir = await configWith({})
+    const { stdout } = run(dir, ['coingecko', 'connect'])
+    expect(stdout).toContain('Use it with:  tula coingecko use')
+    expect(stdout).not.toContain('/coingecko')
+    expect(run(dir, ['wallet', 'bogus']).stderr).toContain('tula wallet has no "bogus"')
+  })
+
+  test('a command quoted as one word keeps its arguments', async () => {
+    const dir = await configWith({})
+    const { stderr, status } = run(dir, ['shock ETH'])
+    expect(status).toBe(1)
+    expect(stderr).toContain('"ETH" has no percentage after it')
+  })
+})
+
+describe('the shell draws before it reads a venue', () => {
+  /** Awaiting the load before drawing leaves a blank, echoing, cooked tty for the whole deadline. */
+  test('nothing between opening the shell and handing it the terminal waits on a venue', () => {
+    const source = readFileSync('src/index.ts', 'utf8')
+    const from = source.indexOf('if (command === undefined) {')
+    const to = source.indexOf('await runApp(', from)
+    expect(from).toBeGreaterThan(-1)
+    expect(to).toBeGreaterThan(from)
+    const code = source
+      .slice(from, to)
+      .split('\n')
+      .filter((line) => !line.trim().startsWith('//'))
+      .join('\n')
+    expect(code).not.toContain('ensureLoaded')
+    expect(code).not.toContain('.refresh(')
   })
 })
 
@@ -223,5 +290,125 @@ describe('a secret is never piped in', () => {
     // Read, and refused on what it was: the address, not the terminal.
     expect(out).not.toContain('interactive terminal')
     expect(out.toLowerCase()).toContain('address')
+    // Nothing here is a key, so there is no key scope to verify.
+    expect(out).toContain('Checking the address')
+    expect(out).not.toContain('key scope')
+  })
+})
+
+/**
+ * `tula exposure > book.txt` is a script keeping the table; the warnings are for
+ * whoever is at the terminal. In-process where a venue has to answer, because a
+ * spawned run would read a real one.
+ */
+describe('a one-shot command keeps its data on stdout and its warnings on stderr', () => {
+  const eth = (venue: string): Position => ({
+    id: `${venue}:spot:ETH`,
+    venue,
+    kind: 'spot',
+    asset: 'ETH',
+    quantity: new Decimal(2),
+    delta: new Decimal(2),
+    asOf: new Date(Date.now() - 4000),
+  })
+  const priced: PriceOracle = {
+    source: 'test',
+    quote: async () => null,
+    quoteMany: async (assets) =>
+      new Map(assets.map((a): [string, Quote] => [a, { price: new Decimal(4000), asOf: new Date() }])),
+  }
+  const rateLimited: PriceOracle = {
+    source: 'test',
+    quote: async () => null,
+    quoteMany: async () => {
+      throw new TulaError('CoinGecko rate limit reached. Prices are unavailable; quantities are still correct.')
+    },
+  }
+  const holding: Connector = { ...CONNECTORS.get('wallet')!, fetchPositions: async () => [eth('wallet')] }
+  const failing: Connector = {
+    ...CONNECTORS.get('hyperliquid')!,
+    fetchPositions: async () => {
+      throw new Error('the venue did not answer')
+    },
+  }
+
+  const exposure = async (connectors: Connector[], oracle: PriceOracle) => {
+    process.env['TULA_CONFIG_DIR'] = await mkdtemp(join(tmpdir(), 'tula-streams-'))
+    for (const c of connectors) await secrets.put(c.venue.id, { address: '0xabc' })
+    const map = new Map(connectors.map((c) => [c.venue.id, c]))
+    const parsed = parseCommand('/exposure', [...map.keys()])
+    if (!parsed) throw new Error('/exposure did not parse')
+    const result = await dispatchCommand(new Session(map, oracle), map, parsed)
+    if (result.kind !== 'output') throw new Error('/exposure did not answer with output')
+    return { ...streams(result), output: result.output, incomplete: result.incomplete }
+  }
+
+  test('a complete book writes nothing to stderr', async () => {
+    const { stdout, stderr, incomplete } = await exposure([holding], priced)
+    expect(stdout).toContain('Equity  $8,000.00')
+    expect(stderr).toBe('')
+    expect(incomplete).toBe(false)
+  })
+
+  test('a venue that failed is named on stderr, under a table that stays on stdout', async () => {
+    const { stdout, stderr, output, incomplete } = await exposure([holding, failing], priced)
+    expect(stdout).toContain('Equity')
+    expect(stdout).not.toContain('INCOMPLETE')
+    expect(stderr).toStartWith('INCOMPLETE')
+    expect(stderr).toContain('hyperliquid: the venue did not answer')
+    expect(incomplete).toBe(true)
+    // Both on one terminal read exactly as the shell prints the one block.
+    expect(`${stdout}\n${stderr}`).toBe(output)
+  })
+
+  test('a price source that did not answer is said on stderr, with what it left unpriced', async () => {
+    const { stdout, stderr, incomplete } = await exposure([holding], rateLimited)
+    expect(stdout).toContain('ETH')
+    expect(stdout).not.toContain('Prices are unavailable')
+    expect(stdout).not.toContain('No price for any')
+    expect(stderr).toContain('CoinGecko rate limit reached. Prices are unavailable')
+    expect(stderr).toContain('No price for any of 1 asset')
+    expect(incomplete).toBe(true)
+  })
+
+  test('an unknown command prints nothing on stdout', async () => {
+    const dir = await configWith({})
+    const { stdout, stderr, status } = run(dir, ['exposre'])
+    expect(status).toBe(1)
+    expect(stdout).toBe('')
+    expect(stderr).toContain('Unknown command "exposre"')
+  })
+
+  test('a command that is not usable as written prints nothing on stdout', async () => {
+    const dir = await configWith({})
+    const { stdout, stderr, status } = run(dir, ['shock', 'ETH'])
+    expect(status).toBe(1)
+    expect(stdout).toBe('')
+    expect(stderr).toContain('Usage: shock')
+  })
+
+  test('a shell-only command prints nothing on stdout', async () => {
+    const dir = await configWith({})
+    const { stdout, stderr, status } = run(dir, ['clear'])
+    expect(status).toBe(1)
+    expect(stdout).toBe('')
+    expect(stderr).toContain('only works inside the shell')
+  })
+
+  test('a venue that is not connected is said on stderr, and the exit is unchanged', async () => {
+    const dir = await configWith({})
+    const { stdout, stderr, status } = run(dir, ['stripe', 'positions'])
+    expect(status).toBe(0)
+    expect(stdout).toBe('')
+    expect(stderr).toContain('tula connect stripe')
+  })
+
+  test('the process itself sends them there', async () => {
+    const dir = await configWith({ circle: { apiKey: 'x' } })
+    const { stdout, stderr, status } = run(dir, ['exposure'])
+    expect(status).toBe(1)
+    expect(stdout).toContain('Nothing is connected that this build still reads')
+    expect(stdout).not.toContain('REMOVED')
+    expect(stderr).toContain('REMOVED')
   })
 })

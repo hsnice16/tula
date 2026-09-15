@@ -1,3 +1,5 @@
+import { whenLeaving } from './terminal.js'
+
 /**
  * Turning this on takes the mouse away from the terminal: no drag-selecting
  * text, no scrolling the terminal's own scrollback. That is why it is on only
@@ -12,23 +14,13 @@ const ON = '\x1b[?1003h\x1b[?1006h'
 const OFF = '\x1b[?1006l\x1b[?1003l'
 
 /**
- * Signals whose default action is to end the process without unwinding
- * anything. React's cleanup does not run for these, and neither does `exit`.
- */
-const FATAL: NodeJS.Signals[] = ['SIGINT', 'SIGTERM', 'SIGHUP', 'SIGQUIT']
-
-/**
  * Returns the undo, which has to run: a terminal left in mouse mode stays there
  * after tula exits — moving the pointer writes escape codes at the user's shell
  * prompt and selecting text stops working, until they know to type
  * `printf '\x1b[?1006l\x1b[?1003l'`.
  *
- * A React cleanup alone was not enough to promise that. It covers unmounting
- * and nothing else: closing the window sends SIGHUP, a `kill` sends SIGTERM,
- * and both end the process where it stands. So the undo is also registered with
- * the process — on `exit`, which an uncaught exception reaches too, and on each
- * signal, which does not. The signal handlers re-raise after cleaning up rather
- * than exiting themselves, so the exit code is still the one the signal means.
+ * A React cleanup alone cannot promise that, so the undo is also
+ * registered with the process — `whenLeaving` in `terminal.ts` says why.
  */
 export function trackMouse(stdout: NodeJS.WriteStream): () => void {
   stdout.write(ON)
@@ -46,36 +38,10 @@ export function trackMouse(stdout: NodeJS.WriteStream): () => void {
     }
   }
 
-  const onSignal = FATAL.map((signal) => {
-    const handler = (): void => {
-      off()
-      process.removeListener(signal, handler)
-      process.kill(process.pid, signal)
-    }
-    process.on(signal, handler)
-    return [signal, handler] as const
-  })
-
-  // Node reaches `exit` from an uncaught throw; Bun does not, and Bun is what
-  // the binary is compiled with. Each handler removes itself before re-raising,
-  // so the crash still prints and still sets the exit code it would have —
-  // restoring the terminal must not also swallow the error that got us here.
-  const onCrash = (err: unknown): never => {
-    off()
-    process.removeListener('uncaughtException', onCrash)
-    process.removeListener('unhandledRejection', onCrash)
-    throw err
-  }
-  process.on('uncaughtException', onCrash)
-  process.on('unhandledRejection', onCrash)
-  process.on('exit', off)
-
+  const unregister = whenLeaving(off)
   return () => {
     off()
-    process.removeListener('exit', off)
-    process.removeListener('uncaughtException', onCrash)
-    process.removeListener('unhandledRejection', onCrash)
-    for (const [signal, handler] of onSignal) process.removeListener(signal, handler)
+    unregister()
   }
 }
 

@@ -1,6 +1,7 @@
 # 12 · Chain reach
 
-**Status**: planned
+**Status**: planned, less the six Aave v3 chains; HyperEVM and Solana are still unread
+**Covered by**: `src/connectors/aave.test.ts`, `src/connectors/wallet.test.ts`, `src/connectors/evm.test.ts`, `src/site-claims.test.ts`, `scripts/conformance.live.ts`
 
 ## Goal
 
@@ -12,13 +13,12 @@ list is an entry in it, and only two are anything more.
 
 ## Acceptance
 
-- **The rest of the EVM chains Aave v3 is deployed on** — Polygon, Optimism,
-  Avalanche, Gnosis, Scroll, Linea. A chain here is a `CHAINS` entry, three
+- **Landed: the rest of the EVM chains Aave v3 is deployed on** — Polygon,
+  Optimism, Avalanche, Gnosis, Scroll, Linea. Each is a `CHAINS` entry, three
   public nodes verified the way [`03`](./03-chain-coverage.md) requires, and a
   Pool address confirmed to carry code on that chain and nowhere else. Nothing
-  else in the read changes: `wallet.ts` and `aave.ts` already loop the registry
-  and fail per chain. This is the cheapest coverage in the tree and it hides a
-  liquidation, so it goes first.
+  else in the read changed: `wallet.ts` and `aave.ts` already looped the
+  registry and failed per chain.
 - **HyperEVM**, read as one holding rather than two. A balance there is a
   HyperCore spot balance and an EVM ERC-20 scaled against each other per token,
   so the acceptance is both legs and the scaling, or nothing: a number from one
@@ -40,7 +40,11 @@ list is an entry in it, and only two are anything more.
 
 ## Notes
 
-Ordered by what a chain hides rather than by how well known it is. The six EVM
-chains are a config change that closes a liquidation gap; Solana is a codebase
-that closes the same kind of gap; HyperEVM is neither, and is the only one here
+Aave v3's other deployments — BNB Chain, zkSync, Metis, Celo, Sonic, Mantle,
+Soneium, Plasma and the rest of bgd-labs/aave-address-book — are still declared
+unread under this task, and are not in the acceptance above: each is the same
+registry entry and node test the six were.
+
+Ordered by what a chain hides rather than by how well known it is. Solana is a
+codebase that closes a liquidation gap; HyperEVM is not, and is the only one here
 whose blocker is a correctness question rather than an amount of work.

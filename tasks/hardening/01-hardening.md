@@ -20,6 +20,8 @@ Everything that must be true before strangers paste keys into this.
   review.
 - Rate-limit and backoff behaviour verified against each venue.
 - No panic path leaves the terminal in raw mode. **Holds on both surfaces** —
-  `trackMouse` (`src/ui/mouse.ts`) undoes itself on `exit`, on each fatal signal
-  and on an uncaught throw, because Bun does not reach `exit` from one; the
+  `trackMouse` (`src/ui/mouse.ts`) and the hold on the kitty keyboard protocol
+  and bracketed paste (`holdInputModes`, `src/ui/terminal.ts`) each undo themselves on `exit`, on each
+  fatal signal and on an uncaught throw, through the one `whenLeaving`, because
+  Bun does not reach `exit` from one; the
   one-shot prompt (`src/cli/prompt.ts`) restores on both ways out of the read.

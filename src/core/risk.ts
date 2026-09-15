@@ -7,7 +7,8 @@ import {
   type PortfolioValue,
   type PriceMap,
 } from './exposure.js'
-import type { AssetId, NetExposure, Position, VenueId } from './position.js'
+import { list } from './coverage.js'
+import type { AssetId, MarginRatio, NetExposure, Position, VenueId } from './position.js'
 
 const ZERO = new Decimal(0)
 const ONE = new Decimal(1)
@@ -28,6 +29,12 @@ export interface LiquidationRisk {
    * the safest rows on screen. This is the one row a reader must not miss.
    */
   liquidatable: boolean
+  /**
+   * On an account a venue liquidates as a whole, the positions that go with it.
+   * They are listed here rather than ranked by their own prices, which lie past
+   * the account's trigger.
+   */
+  members?: Position[]
 }
 
 /**
@@ -55,7 +62,16 @@ export function liquidationRisk(position: Position, prices: PriceMap): Liquidati
     }
   }
 
-  const mark = priceOf(prices, position.asset)
+  // `ratio / threshold − 1` is the share of what backs the account that can go
+  // before the trigger — the quantity `1 / HF − 1` measures for a health factor,
+  // so the two rank in one column without being averaged.
+  if (params.ratio !== undefined) {
+    const { value, threshold } = params.ratio
+    const liquidatable = !value.isFinite() || value.gte(threshold)
+    return { position, move: liquidatable ? ZERO : value.div(threshold).minus(ONE), liquidatable }
+  }
+
+  const mark = priceOf(prices, position.asset) ?? params.mark
   if (params.price !== undefined && mark !== undefined && !mark.isZero()) {
     return {
       position,
@@ -92,10 +108,42 @@ function rankable(position: Position): boolean {
   return position.liquidation !== undefined || position.kind === 'perp'
 }
 
+/** The accounts in this book that carry a ratio, by the id `liquidatedWith` names. */
+function ratioAccounts(positions: readonly Position[]): Set<string> {
+  return new Set(positions.flatMap((p) => p.liquidation?.ratio?.account ?? []))
+}
+
+/**
+ * One row per account a venue liquidates on a ratio, and every position that
+ * goes with it held under it. A position naming an account the book holds no
+ * ratio for ranks on its own, because dropping it would take it off the table.
+ */
+function entries(positions: readonly Position[]): Position[] {
+  const accounts = ratioAccounts(positions)
+  const seen = new Set<string>()
+  return positions.filter((p) => {
+    const account = p.liquidation?.ratio?.account
+    if (account !== undefined) {
+      if (seen.has(account)) return false
+      seen.add(account)
+      return true
+    }
+    const withAccount = p.liquidation?.liquidatedWith
+    return withAccount === undefined || !accounts.has(withAccount)
+  })
+}
+
+const membersOf = (positions: readonly Position[], account: string): Position[] =>
+  positions.filter((p) => p.liquidation?.liquidatedWith === account)
+
 /** Nearest to liquidation first. Unknowns sort last: they cannot be ranked, not "safe". */
 export function whatBreaksFirst(positions: Position[], prices: PriceMap): LiquidationRisk[] {
-  return positions
-    .map((p) => liquidationRisk(p, prices))
+  return entries(positions)
+    .map((p) => {
+      const risk = liquidationRisk(p, prices)
+      const account = p.liquidation?.ratio?.account
+      return account === undefined ? risk : { ...risk, members: membersOf(positions, account) }
+    })
     .filter((r) => rankable(r.position))
     .sort((a, b) => {
       // Already past the trigger sorts first, ahead of the distance comparison.
@@ -310,6 +358,84 @@ function liquidatesUnder(
   return risk.move.isNegative() ? shock.pct.lte(risk.move) : shock.pct.gte(risk.move)
 }
 
+export interface ShockedRatio {
+  /** The row the account ranks under in what breaks first. */
+  position: Position
+  ratio: MarginRatio
+  /** Null where it cannot be recomputed; `why` says what is missing. */
+  after: Decimal | null
+  why: string | null
+  /**
+   * Said wherever the shock moved a leg of the account: maintenance is scaled
+   * at the rate the venue states today, and a move into another margin tier
+   * changes that rate, which no response states for any size but the current one.
+   */
+  tiered: boolean
+}
+
+const ZERO_SHOCK_WHY = 'the venue does not state what this ratio is computed from'
+
+/**
+ * Each account ratio after the shocks, recomputed from the figures the venue
+ * states — every pool's balance, isolated margin and maintenance, and each
+ * leg's own maintenance at the venue's mark. A leg's maintenance moves with its
+ * notional and the pool's balance with its PnL, so a zero shock returns the
+ * ratio stated today.
+ *
+ * Moves are percentages of the venue's mark, never of an oracle price: the
+ * ratio is the venue's arithmetic, and a builder-dex leg has no oracle price at
+ * all.
+ */
+export function shockedRatios(positions: readonly Position[], shocks: Shock[]): ShockedRatio[] {
+  const out: ShockedRatio[] = []
+  for (const position of entries(positions)) {
+    const ratio = position.liquidation?.ratio
+    if (ratio === undefined) continue
+    if (ratio.pools === undefined) {
+      out.push({ position, ratio, after: null, why: ratio.unshockable ?? ZERO_SHOCK_WHY, tiered: false })
+      continue
+    }
+    // Today's figure is a floor, but a move is not: an unread leg's PnL can
+    // lower the ratio as well as raise it.
+    if (ratio.unread?.length) {
+      out.push({
+        position,
+        ratio,
+        after: null,
+        why: `${list(ratio.unread)} did not load, so how the positions there move is unknown`,
+        tiered: false,
+      })
+      continue
+    }
+    const legs = membersOf(positions, ratio.account)
+    let after = ZERO
+    let why: string | null = null
+    let tiered = false
+    for (const pool of ratio.pools) {
+      let maintenance = pool.maintenance
+      let backing = pool.balance.minus(pool.isolated)
+      for (const leg of legs) {
+        if (!(leg.encumbers ?? []).includes(pool.row)) continue
+        const shock = shockFor(shocks, leg.asset)
+        if (!shock || !usableShock(shock.pct) || shock.pct.isZero()) continue
+        const { maintenance: owed, mark } = leg.liquidation ?? {}
+        if (owed === undefined || mark === undefined) {
+          why = `${leg.asset} states no maintenance margin to move`
+          break
+        }
+        tiered = true
+        maintenance = maintenance.plus(owed.times(shock.pct))
+        backing = backing.plus(leg.delta.times(mark).times(shock.pct))
+      }
+      if (why !== null) break
+      const poolRatio = maintenance.isZero() ? ZERO : backing.lte(0) ? new Decimal(Infinity) : maintenance.div(backing)
+      if (poolRatio.gt(after)) after = poolRatio
+    }
+    out.push({ position, ratio, after: why === null ? after : null, why, tiered })
+  }
+  return out
+}
+
 export interface Scenario {
   shocks: Shock[]
   before: PortfolioValue
@@ -317,6 +443,8 @@ export interface Scenario {
   change: Decimal | null
   exposures: NetExposure[]
   liquidated: Position[]
+  /** Every account liquidated on a ratio, before and after. */
+  ratios: ShockedRatio[]
 }
 
 export function scenario(
@@ -324,11 +452,17 @@ export function scenario(
   prices: PriceMap,
   shocks: Shock[],
 ): Scenario {
-  const before = portfolioValue(netExposure(positions, prices))
+  const before = portfolioValue(positions, prices)
   const shocked = shockPrices(prices, shocks)
   const exposures = netExposure(positions, shocked)
-  const after = portfolioValue(exposures)
+  const after = portfolioValue(positions, shocked, prices)
   const collateral = collateralMoveUnder(positions, prices, shocks)
+  const ratios = shockedRatios(positions, shocks)
+  const breaking = new Set(
+    ratios
+      .filter((r) => r.after !== null && (!r.after.isFinite() || r.after.gte(r.ratio.threshold)))
+      .map((r) => r.position.id),
+  )
 
   return {
     shocks,
@@ -336,10 +470,15 @@ export function scenario(
     after,
     change: before.total === null || after.total === null ? null : after.total.minus(before.total),
     exposures,
-    liquidated: positions
+    liquidated: entries(positions)
       .map((p) => liquidationRisk(p, prices))
-      .filter((r) => liquidatesUnder(r, shocks, collateral))
+      .filter((r) =>
+        r.position.liquidation?.ratio !== undefined
+          ? r.liquidatable || breaking.has(r.position.id)
+          : liquidatesUnder(r, shocks, collateral),
+      )
       .map((r) => r.position),
+    ratios,
   }
 }
 

@@ -1,0 +1,493 @@
+{
+  "captured": "2026-09-14T14:05:59.976Z",
+  "endpoint": "https://api.hyperliquid.xyz/info",
+  "found": "recentTrades users",
+  "request": {
+    "user": "<address>",
+    "types": [
+      "userAbstraction",
+      "spotClearinghouseState",
+      "clearinghouseState (every dex)",
+      "frontendOpenOrders",
+      "delegatorSummary",
+      "userVaultEquities",
+      "subAccounts",
+      "borrowLendUserState"
+    ]
+  },
+  "userAbstraction": "default",
+  "spot": {
+    "balances": [
+      {
+        "coin": "USDC",
+        "token": 0,
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      }
+    ]
+  },
+  "perps": {
+    "marginSummary": {
+      "accountValue": "9696485.6648140325",
+      "totalNtlPos": "43810426.827367639",
+      "totalRawUsd": "53506912.4921816736",
+      "totalMarginUsed": "3370032.8328741789"
+    },
+    "crossMarginSummary": {
+      "accountValue": "9696485.6648140325",
+      "totalNtlPos": "43810426.827367639",
+      "totalRawUsd": "53506912.4921816736",
+      "totalMarginUsed": "3370032.8328741789"
+    },
+    "crossMaintenanceMarginUsed": "547630.3353420955",
+    "withdrawable": "5221918.8393453388",
+    "assetPositions": [
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "BTC",
+          "szi": "-559.6130497703",
+          "leverage": {
+            "type": "cross",
+            "value": 13
+          },
+          "entryPx": "77617.7",
+          "positionValue": "43810426.827367639",
+          "unrealizedPnl": "-374530.7195670671",
+          "returnOnEquity": "-0.1120939083",
+          "liquidationPx": "94433.7044093285",
+          "marginUsed": "3370032.8328741789",
+          "maxLeverage": 40,
+          "cumFunding": {
+            "allTime": "-871144.5149853545",
+            "sinceOpen": "-5014.7117128957",
+            "sinceChange": "0.0"
+          }
+        }
+      }
+    ],
+    "time": 1789394999392
+  },
+  "dexes": {
+    "xyz": {
+      "marginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMarginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMaintenanceMarginUsed": "0.0",
+      "withdrawable": "0.0",
+      "assetPositions": [],
+      "time": 1789394999851
+    },
+    "flx": {
+      "marginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMarginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMaintenanceMarginUsed": "0.0",
+      "withdrawable": "0.0",
+      "assetPositions": [],
+      "time": 1789395000051
+    },
+    "vntl": {
+      "marginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMarginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMaintenanceMarginUsed": "0.0",
+      "withdrawable": "0.0",
+      "assetPositions": [],
+      "time": 1789395000378
+    },
+    "hyna": {
+      "marginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMarginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMaintenanceMarginUsed": "0.0",
+      "withdrawable": "0.0",
+      "assetPositions": [],
+      "time": 1789395000657
+    },
+    "km": {
+      "marginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMarginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMaintenanceMarginUsed": "0.0",
+      "withdrawable": "0.0",
+      "assetPositions": [],
+      "time": 1789395000952
+    },
+    "abcd": {
+      "marginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMarginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMaintenanceMarginUsed": "0.0",
+      "withdrawable": "0.0",
+      "assetPositions": [],
+      "time": 1789395001268
+    },
+    "cash": {
+      "marginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMarginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMaintenanceMarginUsed": "0.0",
+      "withdrawable": "0.0",
+      "assetPositions": [],
+      "time": 1789395001489
+    },
+    "para": {
+      "marginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMarginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMaintenanceMarginUsed": "0.0",
+      "withdrawable": "0.0",
+      "assetPositions": [],
+      "time": 1789395001974
+    },
+    "mkts": {
+      "marginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMarginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMaintenanceMarginUsed": "0.0",
+      "withdrawable": "0.0",
+      "assetPositions": [],
+      "time": 1789395002380
+    },
+    "io": {
+      "marginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMarginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMaintenanceMarginUsed": "0.0",
+      "withdrawable": "0.0",
+      "assetPositions": [],
+      "time": 1789395002721
+    }
+  },
+  "openOrders": [
+    {
+      "coin": "BTC",
+      "side": "A",
+      "limitPx": "78343.0",
+      "sz": "2.8216682735",
+      "origSz": "2.8216682735",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "A",
+      "limitPx": "78335.0",
+      "sz": "2.3180365741",
+      "origSz": "2.3180365741",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "B",
+      "limitPx": "78267.0",
+      "sz": "2.3200039717",
+      "origSz": "2.3200039717",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "A",
+      "limitPx": "78330.0",
+      "sz": "2.0661986188",
+      "origSz": "2.0661986188",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "B",
+      "limitPx": "78287.0",
+      "sz": "1.0588689031",
+      "origSz": "1.0588689031",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "A",
+      "limitPx": "78338.0",
+      "sz": "2.569896635",
+      "origSz": "2.569896635",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "A",
+      "limitPx": "78326.0",
+      "sz": "1.8143164523",
+      "origSz": "1.8143164523",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "A",
+      "limitPx": "78322.0",
+      "sz": "1.5624011274",
+      "origSz": "1.5624011274",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "A",
+      "limitPx": "78318.0",
+      "sz": "1.3104747497",
+      "origSz": "1.3104747497",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "A",
+      "limitPx": "78314.0",
+      "sz": "1.0585152136",
+      "origSz": "1.0585152136",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "B",
+      "limitPx": "78270.0",
+      "sz": "2.067757063",
+      "origSz": "2.067757063",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "B",
+      "limitPx": "78271.0",
+      "sz": "1.815576471",
+      "origSz": "1.815576471",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "B",
+      "limitPx": "78275.0",
+      "sz": "1.5633295622",
+      "origSz": "1.5633295622",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "B",
+      "limitPx": "78276.0",
+      "sz": "1.311160023",
+      "origSz": "1.311160023",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "B",
+      "limitPx": "78248.0",
+      "sz": "2.5727924675",
+      "origSz": "2.5727924675",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "B",
+      "limitPx": "78243.0",
+      "sz": "2.825216221",
+      "origSz": "2.825216221",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    }
+  ],
+  "delegatorSummary": {
+    "delegated": "0.0",
+    "undelegated": "0.0",
+    "totalPendingWithdrawal": "0.0",
+    "nPendingWithdrawals": 0
+  },
+  "userVaultEquities": [],
+  "subAccounts": null,
+  "borrowLendUserState": {
+    "tokenToState": [],
+    "health": "healthy",
+    "healthFactor": null
+  }
+}

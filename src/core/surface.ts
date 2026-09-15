@@ -37,3 +37,8 @@ export function typed(command: string): string {
 export function connectCommand(venueId: string): string {
   return surface === 'cli' ? `tula connect ${venueId}` : `/${venueId} connect`
 }
+
+/** A command only the shell runs, spelled for the reader to reach it from where they are. */
+export function inShell(command: string): string {
+  return surface === 'cli' ? `run tula, then /${command}` : `/${command}`
+}

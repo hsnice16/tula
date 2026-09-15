@@ -1,4 +1,4 @@
-# 11 · Model neutrality
+# 12 · Model neutrality
 
 The agent layer names what it needs from a model; a provider says what it can do.
 The Anthropic client is the shape of what shipped first, not the interface — where

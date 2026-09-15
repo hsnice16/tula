@@ -1,0 +1,65 @@
+{
+  "captured": "2026-09-15T13:37:33.668Z",
+  "nodes": [
+    {
+      "rpc": "https://gnosis-rpc.publicnode.com",
+      "chainId": "0x64",
+      "batchAnswered": 40
+    },
+    {
+      "rpc": "https://rpc.gnosischain.com",
+      "chainId": "0x64",
+      "batchAnswered": 40
+    },
+    {
+      "rpc": "https://gnosis.api.pocket.network",
+      "chainId": "0x64",
+      "batchAnswered": 40
+    }
+  ],
+  "sharedLedgers": [
+    {
+      "frontendSupply": "19444809400090521784118887",
+      "currentSupply": "19444809400090521784118887"
+    }
+  ],
+  "tokenList": {
+    "url": "https://raw.githubusercontent.com/SmolDapp/tokenLists/main/lists/100.json",
+    "name": "Gnosis",
+    "tokens": 96,
+    "stablecoins": [
+      {
+        "symbol": "DAI",
+        "decimals": 18
+      },
+      {
+        "symbol": "USDC",
+        "decimals": 6
+      },
+      {
+        "symbol": "USDC.e",
+        "decimals": 6
+      },
+      {
+        "symbol": "USDT",
+        "decimals": 6
+      }
+    ]
+  },
+  "aave": [
+    {
+      "market": "Core",
+      "reserves": [
+        "WETH",
+        "wstETH",
+        "GNO",
+        "USDC",
+        "WXDAI",
+        "EURe",
+        "sDAI",
+        "USDC.e",
+        "GHO"
+      ]
+    }
+  ]
+}

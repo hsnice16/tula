@@ -56,9 +56,11 @@ export function ScrollToTop() {
 export function BackToTop() {
   const [show, setShow] = useState(false)
   const [lift, setLift] = useState(0)
+  const wrapper = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const footer = document.querySelector('footer')
+    const header = document.querySelector('header')
     let frame = 0
 
     const measure = () => {
@@ -71,10 +73,21 @@ export function BackToTop() {
       // not at all under half a screen of scrolling, which is no journey back.
       const range = document.documentElement.scrollHeight - window.innerHeight
       const past = Math.min(window.innerHeight, range * 0.4)
-      setShow(range > window.innerHeight / 2 && window.scrollY > past)
 
       const top = footer?.getBoundingClientRect().top ?? Number.POSITIVE_INFINITY
-      setLift(Math.max(0, window.innerHeight - top))
+      const raised = Math.max(0, window.innerHeight - top)
+
+      // Enlarged text on a phone makes the footer most of a screen, and the
+      // lift alone would carry the button over the header's links or off the
+      // top. With no room between the two, it goes rather than covering either.
+      const box = wrapper.current
+      const inset = box ? Number.parseFloat(getComputedStyle(box).bottom) : 0
+      const ceiling = Math.max(0, header?.getBoundingClientRect().bottom ?? 0)
+      const fits =
+        window.innerHeight - raised - inset - (box?.offsetHeight ?? 0) >= ceiling + inset / 2
+
+      setShow(range > window.innerHeight / 2 && window.scrollY > past && fits)
+      setLift(raised)
     }
 
     // One measurement per painted frame: a scroll handler that reads a rect on
@@ -102,6 +115,7 @@ export function BackToTop() {
     // button, and left clickable it would swallow every click in that corner
     // even on the pages where the button never appears.
     <div
+      ref={wrapper}
       className="pointer-events-none fixed right-8 bottom-8 z-20"
       style={{ transform: `translateY(${-lift}px)` }}
     >

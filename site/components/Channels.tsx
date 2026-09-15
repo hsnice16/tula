@@ -92,7 +92,9 @@ export function Channels({ channels }: { channels: Channel[] }) {
             // Until the travelling underline has been measured — the static
             // HTML, before hydration — the selected tab draws its own, so a cold
             // load is never a strip with nothing marked on it.
-            className={`-mb-px cursor-pointer border-b py-3 text-left font-mono text-[0.74rem] uppercase tracking-[0.09em] transition-colors duration-200 ${
+            // The `after` widens a short label like npm to a 44px target; the
+            // strip's gap-x-7 is what keeps two of them from overlapping.
+            className={`relative -mb-px min-w-0 max-w-full cursor-pointer border-b py-3 text-left after:absolute after:inset-y-0 after:-inset-x-2.5 after:content-[''] font-mono text-[0.75rem] uppercase tracking-[0.09em] transition-colors duration-200 ${
               i === at
                 ? `text-accent ${mark ? 'border-transparent' : 'border-accent'}`
                 : 'border-transparent text-dim hover:text-ink'
@@ -100,6 +102,9 @@ export function Channels({ channels }: { channels: Channel[] }) {
             onClick={() => show(i)}
           >
             {name}
+            {/* The name and note meet with no space, so without this they are one
+                unbreakable word wider than a phone at enlarged text. */}
+            <wbr />
             {note && <span className="ml-1.5 text-dim">{note}</span>}
           </button>
         ))}

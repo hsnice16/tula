@@ -41,8 +41,69 @@ function pageCount(raw: string | undefined): number {
  *
  * These overrides exist for the assets where a wrong price would be most costly,
  * so they never depend on that ordering holding.
+ *
+ * A pinned coin no page lists is asked for by id, and only once somebody holds
+ * it. xDAI is Gnosis's gas token and has no market-cap rank on CoinGecko, so no
+ * number of pages reaches it — `TULA_PRICE_PAGES` included.
+ *
+ * A bridge's token is priced by its own coin, never by the coin it is named
+ * after: that price is exactly the claim a depeg breaks. Each id is the coin
+ * CoinGecko files that contract under, keyed by the name `assetOn` gives it.
  */
-const PINNED: Readonly<Record<string, string>> = {
+export const PINNED: Readonly<Record<string, string>> = {
+  XDAI: 'xdai',
+  USDT0: 'usdt0',
+  'ARBITRUM:USDC.E': 'usd-coin-ethereum-bridged',
+  'POLYGON:USDC.E': 'bridged-usdc-polygon-pos-bridge',
+  'OPTIMISM:USDC.E': 'bridged-usd-coin-optimism',
+  'AVALANCHE:USDC.E': 'usd-coin-avalanche-bridged-usdc-e',
+  'GNOSIS:USDC.E': 'bridged-usdc-gnosis',
+  'GNOSIS:USDC': 'gnosis-xdai-bridged-usdc-gnosis',
+  'SCROLL:USDC': 'bridged-usd-coin-scroll',
+  'BASE:USDBC': 'bridged-usd-coin-base',
+  'OPTIMISM:USDT': 'bridged-usdt',
+  'GNOSIS:USDT': 'gnosis-xdai-bridged-usdt-gnosis',
+  'SCROLL:USDT': 'bridged-tether-scroll',
+  'LINEA:USDT': 'bridged-tether-linea',
+  'ARBITRUM:DAI': 'makerdao-arbitrum-bridged-dai-arbitrum-one',
+  'OPTIMISM:DAI': 'makerdao-optimism-bridged-dai-optimism',
+  'BASE:DAI': 'l2-standard-bridged-dai-base',
+  'POLYGON:DAI': 'polygon-pos-bridged-dai-polygon-pos',
+  'GNOSIS:DAI': 'omnibridge-bridged-dai-gnosis-chain',
+  'LINEA:DAI': 'bridged-dai-stablecoin-linea',
+  'AVALANCHE:DAI.E': 'avalanche-bridged-dai-avalanche',
+  'ARBITRUM:WBTC': 'arbitrum-bridged-wbtc-arbitrum-one',
+  'POLYGON:WBTC': 'polygon-bridged-wbtc-polygon-pos',
+  'GNOSIS:WBTC': 'gnosis-xdai-bridged-wbtc-gnosis-chain',
+  'SCROLL:WBTC': 'bridged-wrapped-bitcoin-scroll',
+  'LINEA:WBTC': 'linea-bridged-wbtc-linea',
+  'AVALANCHE:WBTC.E': 'avalanche-old-bridged-wbtc-avalanche',
+  'POLYGON:WETH': 'polygon-pos-bridged-weth-polygon-pos',
+  'GNOSIS:WETH': 'gnosis-xdai-bridged-weth-gnosis-chain',
+  'AVALANCHE:WETH.E': 'avalanche-bridged-weth-avalanche',
+  'LINEA:WAVAX': 'celer-bridged-wavax-linea',
+  'ARBITRUM:WSTETH': 'arbitrum-bridged-wsteth-arbitrum',
+  'BASE:WSTETH': 'superbridge-bridged-wsteth-base',
+  'POLYGON:WSTETH': 'polygon-bridged-wsteth-polygon',
+  'OPTIMISM:WSTETH': 'superbridge-bridged-wsteth-optimism',
+  'GNOSIS:WSTETH': 'bridged-wrapped-steth-gnosis',
+  'SCROLL:WSTETH': 'bridged-wrapped-lido-staked-ether-scroll',
+  'LINEA:WSTETH': 'linea-bridged-wsteth-linea',
+  'ARBITRUM:WEETH': 'arbitrum-bridged-wrapped-eeth',
+  'OPTIMISM:BUSD': 'binance-peg-busd',
+  'AVALANCHE:BUSD': 'binance-peg-busd',
+  'GNOSIS:BUSD': 'bridged-busd',
+  'LINEA:BUSD': 'binance-usd-linea',
+  'LINEA:GNO': 'linea-bridged-gno-linea',
+  'LINEA:LDO': 'linea-bridged-ldo-linea',
+  'LINEA:LINK': 'linea-bridged-link-linea',
+  'LINEA:UNI': 'linea-bridged-uni-linea',
+  'LINEA:MATIC': 'wmatic',
+  'AVALANCHE:MIM': 'magic-internet-money-avalanche',
+  'OPTIMISM:MAI': 'mai-optimism',
+  'AVALANCHE:MAI': 'mai-avalanche',
+  'GNOSIS:SDAI': 'savings-xdai',
+  'SCROLL:SKY': 'skydrome',
   BTC: 'bitcoin',
   ETH: 'ethereum',
   USDC: 'usd-coin',
@@ -61,9 +122,22 @@ interface MarketRow {
 
 type Fetcher = (url: string) => Promise<Response>
 
+/**
+ * `asked` maps every id a request covers to that request, so a pinned coin is
+ * fetched once per list and a second caller waits on the first rather than
+ * reading the cache before the price lands.
+ */
+interface Cache {
+  at: number
+  prices: Map<string, Decimal>
+  asked: Map<string, Promise<void>>
+}
+
+const ANSWERED = Promise.resolve()
+
 export class CoinGeckoOracle implements PriceOracle {
   readonly source = 'coingecko'
-  private cache: { at: number; prices: Map<string, Decimal> } | null = null
+  private cache: Cache | null = null
 
   constructor(
     private readonly fetcher: Fetcher = (url) => request(url),
@@ -71,7 +145,7 @@ export class CoinGeckoOracle implements PriceOracle {
     private readonly pages?: number,
   ) {}
 
-  private async load(): Promise<{ at: number; prices: Map<string, Decimal> }> {
+  private async load(): Promise<Cache> {
     if (this.cache && Date.now() - this.cache.at < this.ttlMs) return this.cache
 
     const pageCap = this.pages ?? pageCount(process.env['TULA_PRICE_PAGES'])
@@ -106,8 +180,42 @@ export class CoinGeckoOracle implements PriceOracle {
       if (pinned) prices.set(symbol, pinned)
     }
 
-    this.cache = { at: Date.now(), prices }
+    this.cache = { at: Date.now(), prices, asked: new Map([...byId.keys()].map((id) => [id, ANSWERED])) }
     return this.cache
+  }
+
+  private async reachPinned(cached: Cache, assets: AssetId[]): Promise<void> {
+    const wanted = [
+      ...new Set(assets.map((asset) => PINNED[asset.toUpperCase()]).filter((id): id is string => id !== undefined)),
+    ]
+    const ids = wanted.filter((id) => !cached.asked.has(id))
+    if (ids.length > 0) {
+      const fetched = this.fetchPinned(cached, ids)
+      for (const id of ids) cached.asked.set(id, fetched)
+    }
+    await Promise.all(wanted.map((id) => cached.asked.get(id)))
+  }
+
+  private async fetchPinned(cached: Cache, ids: string[]): Promise<void> {
+    // The pages already priced everything else. Failing here — a status, a
+    // deadline, a body that is not JSON — would take all of that away over one
+    // coin, which is left unpriced and named by the caller.
+    let rows: unknown
+    try {
+      const res = await this.fetcher(`${MARKETS}?vs_currency=usd&ids=${ids.join(',')}`)
+      if (!res.ok) return
+      rows = await res.json()
+    } catch {
+      return
+    }
+    if (!Array.isArray(rows)) return
+    for (const row of rows as MarketRow[]) {
+      const price = usablePrice(row?.current_price)
+      if (!price) continue
+      // One coin can stand behind two names: Binance-Peg BUSD is one contract
+      // on Optimism and on Avalanche.
+      for (const [symbol, id] of Object.entries(PINNED)) if (id === row?.id) cached.prices.set(symbol, price)
+    }
   }
 
   async quote(asset: AssetId): Promise<Quote | null> {
@@ -125,6 +233,7 @@ export class CoinGeckoOracle implements PriceOracle {
     if (wanted.length === 0) return out
 
     const cached = await this.load()
+    await this.reachPinned(cached, wanted)
     // When the list was received, not when it was read out of the cache. The
     // list carries no per-coin timestamp, so receipt is the earliest time we
     // can prove — and a price held for the full TTL was stamped a minute young.

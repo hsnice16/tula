@@ -1,5 +1,5 @@
 import Decimal from 'decimal.js'
-import type { AssetId, NetExposure, Position } from './position.js'
+import type { AssetId, NetExposure, Position, VenueId } from './position.js'
 
 export type PriceMap = ReadonlyMap<AssetId, Decimal>
 
@@ -87,30 +87,83 @@ export function netExposure(
 
 export interface PortfolioValue {
   /**
-   * Null when the book holds something but nothing in it could be priced.
-   * Summing no prices gives zero, and `$0.00` beside a live book reads as an
-   * empty account rather than as a price source that did not answer — the one
+   * Equity. Null when the book holds something but nothing in it could be
+   * valued. Summing no prices gives zero, and `$0.00` beside a live book reads as
+   * an empty account rather than as a price source that did not answer — the one
    * thing the security page promises a missing price never becomes. An empty
    * book is genuinely worth zero and still says so.
    */
   total: Decimal | null
   /** Assets excluded from `total` for want of a price. A total that quietly
-   *  omits them understates exposure, so callers must show this. */
+   *  omits them understates the book, so callers must show this. */
   unpriced: AssetId[]
+  /** Venues holding a derivative they state no equity for, excluded from
+   *  `total` for the same reason and shown beside it the same way. */
+  unstated: VenueId[]
 }
 
-export function portfolioValue(exposures: NetExposure[]): PortfolioValue {
+/**
+ * What the book is worth: a holding at its price, a debt subtracted, and a
+ * derivative at the equity its venue states — never its notional, which stays
+ * in `netExposure` where it measures exposure.
+ *
+ * A perp's notional in the total would mean the same short moved it by a different
+ * amount at each venue, depending on whether that connector also emitted the
+ * cash leg that cancels it. Every venue and library surveyed keeps balance,
+ * equity and positions apart; `tasks/field-report/04-one-headline-total.md`
+ * cites them.
+ *
+ * `base` is the price a derivative's stated equity was true at. A scenario
+ * passes today's prices there and shocked ones as `prices`, so a perp moves by
+ * `delta × (shocked − today)`, which is its PnL changing, and not by its
+ * notional.
+ */
+export function portfolioValue(
+  positions: readonly Position[],
+  prices: PriceMap = new Map(),
+  base: PriceMap = prices,
+): PortfolioValue {
   let total = ZERO
-  let priced = 0
-  const unpriced: AssetId[] = []
-  for (const e of exposures) {
-    if (e.notional === null) unpriced.push(e.asset)
-    else {
-      total = total.plus(e.notional)
-      priced++
+  let valued = 0
+  const unpriced = new Set<AssetId>()
+  const unstated = new Set<VenueId>()
+  for (const p of positions) {
+    const price = priceOf(prices, p.asset)
+    if (p.kind === 'perp') {
+      if (p.equity === undefined) {
+        unstated.add(p.venue)
+        continue
+      }
+      const then = priceOf(base, p.asset)
+      // Priced today and not after: the move took the asset out of the range
+      // where it has a price, so its PnL under the move is unknown rather than
+      // unchanged.
+      if (then !== undefined && price === undefined) {
+        unpriced.add(canonicalAsset(p.asset))
+        continue
+      }
+      const contributes =
+        then === undefined || price === undefined ? p.equity : p.equity.plus(p.delta.times(price.minus(then)))
+      total = total.plus(contributes)
+      // A zero whose PnL lives in a balance row says nothing about the book on
+      // its own. Counted as a value, a book whose balances all went unpriced
+      // summed to `$0.00` rather than having no total.
+      if (!contributes.isZero()) valued++
+      continue
     }
+    if (price === undefined) {
+      unpriced.add(canonicalAsset(p.asset))
+      continue
+    }
+    total = total.plus(p.quantity.times(price))
+    valued++
   }
-  return { total: priced === 0 && unpriced.length > 0 ? null : total, unpriced }
+  const missing = unpriced.size > 0 || unstated.size > 0
+  return {
+    total: valued === 0 && missing ? null : total,
+    unpriced: [...unpriced].sort(),
+    unstated: [...unstated].sort(),
+  }
 }
 
 /**

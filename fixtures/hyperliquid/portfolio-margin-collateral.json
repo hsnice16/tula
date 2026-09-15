@@ -1,0 +1,1132 @@
+{
+  "captured": "2026-09-14T14:05:59.976Z",
+  "endpoint": "https://api.hyperliquid.xyz/info",
+  "found": "recentTrades users",
+  "request": {
+    "user": "<address>",
+    "types": [
+      "userAbstraction",
+      "spotClearinghouseState",
+      "clearinghouseState (every dex)",
+      "frontendOpenOrders",
+      "delegatorSummary",
+      "userVaultEquities",
+      "subAccounts",
+      "borrowLendUserState"
+    ]
+  },
+  "userAbstraction": "portfolioMargin",
+  "spot": {
+    "portfolioMarginEnabled": true,
+    "balances": [
+      {
+        "coin": "USDC",
+        "token": 0,
+        "total": "342974.0291651194",
+        "hold": "-410374.9252310904",
+        "entryNtl": "0.0",
+        "spotHold": "75058.9066046688",
+        "ltv": "0.0",
+        "supplied": "267817.6052236683"
+      },
+      {
+        "coin": "HYPE",
+        "token": 150,
+        "total": "9240.1694073654",
+        "hold": "0.0",
+        "entryNtl": "0.0",
+        "ltv": "0.65",
+        "supplied": "9240.1694073654"
+      },
+      {
+        "coin": "UBTC",
+        "token": 197,
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0",
+        "ltv": "0.5"
+      },
+      {
+        "coin": "USDE",
+        "token": 235,
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "USDT0",
+        "token": 268,
+        "total": "0.0",
+        "hold": "-352850.0058727388",
+        "entryNtl": "0.0",
+        "spotHold": "0.0",
+        "ltv": "0.0"
+      },
+      {
+        "coin": "USDH",
+        "token": 360,
+        "total": "0.0",
+        "hold": "0.0",
+        "entryNtl": "0.0",
+        "ltv": "0.0"
+      }
+    ],
+    "portfolioMarginRatio": "0.0389075208",
+    "tokenToPortfolioBorrowRatio": [
+      [
+        0,
+        "0.0"
+      ]
+    ],
+    "tokenToPortfolioSupplyRatio": [
+      [
+        150,
+        "0.0261872446"
+      ]
+    ],
+    "tokenToAvailableAfterMaintenance": [
+      [
+        0,
+        "921785.3201320133"
+      ],
+      [
+        150,
+        "9240.1694073654"
+      ],
+      [
+        197,
+        "0.0"
+      ],
+      [
+        268,
+        "352850.0058727388"
+      ],
+      [
+        360,
+        "0.0"
+      ]
+    ]
+  },
+  "perps": {
+    "marginSummary": {
+      "accountValue": "74786.5067713333",
+      "totalNtlPos": "746325.2964964793",
+      "totalRawUsd": "821111.8032678125",
+      "totalMarginUsed": "74632.5296496479"
+    },
+    "crossMarginSummary": {
+      "accountValue": "74786.5067713333",
+      "totalNtlPos": "746325.2964964793",
+      "totalRawUsd": "821111.8032678125",
+      "totalMarginUsed": "74632.5296496479"
+    },
+    "crossMaintenanceMarginUsed": "37316.264824824",
+    "withdrawable": "98.076344344",
+    "assetPositions": [
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "HYPE",
+          "szi": "-9234.5962861982",
+          "leverage": {
+            "type": "cross",
+            "value": 10
+          },
+          "entryPx": "75.6799",
+          "positionValue": "746325.2964964793",
+          "unrealizedPnl": "-47451.6543281497",
+          "returnOnEquity": "-0.6789733003",
+          "liquidationPx": "175.8838207219",
+          "marginUsed": "74632.5296496479",
+          "maxLeverage": 10,
+          "cumFunding": {
+            "allTime": "-3353.252132007",
+            "sinceOpen": "-3353.252132007",
+            "sinceChange": "0.0"
+          }
+        }
+      }
+    ],
+    "time": 1789395137386
+  },
+  "dexes": {
+    "xyz": {
+      "marginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMarginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMaintenanceMarginUsed": "0.0",
+      "withdrawable": "0.0",
+      "assetPositions": [],
+      "time": 1789395137710
+    },
+    "flx": {
+      "marginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMarginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMaintenanceMarginUsed": "0.0",
+      "withdrawable": "0.0",
+      "assetPositions": [],
+      "time": 1789395137983
+    },
+    "vntl": {
+      "marginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMarginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMaintenanceMarginUsed": "0.0",
+      "withdrawable": "0.0",
+      "assetPositions": [],
+      "time": 1789395138243
+    },
+    "hyna": {
+      "marginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMarginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMaintenanceMarginUsed": "0.0",
+      "withdrawable": "0.0",
+      "assetPositions": [],
+      "time": 1789395138596
+    },
+    "km": {
+      "marginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMarginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMaintenanceMarginUsed": "0.0",
+      "withdrawable": "0.0",
+      "assetPositions": [],
+      "time": 1789395138787
+    },
+    "abcd": {
+      "marginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMarginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMaintenanceMarginUsed": "0.0",
+      "withdrawable": "0.0",
+      "assetPositions": [],
+      "time": 1789395139129
+    },
+    "cash": {
+      "marginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMarginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMaintenanceMarginUsed": "0.0",
+      "withdrawable": "0.0",
+      "assetPositions": [],
+      "time": 1789395139463
+    },
+    "para": {
+      "marginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMarginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMaintenanceMarginUsed": "0.0",
+      "withdrawable": "0.0",
+      "assetPositions": [],
+      "time": 1789395139738
+    },
+    "mkts": {
+      "marginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMarginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMaintenanceMarginUsed": "0.0",
+      "withdrawable": "0.0",
+      "assetPositions": [],
+      "time": 1789395139942
+    },
+    "io": {
+      "marginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMarginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMaintenanceMarginUsed": "0.0",
+      "withdrawable": "0.0",
+      "assetPositions": [],
+      "time": 1789395140270
+    }
+  },
+  "openOrders": [
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "80.925",
+      "sz": "0.2152385036",
+      "origSz": "0.2152385036",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@107",
+      "side": "B",
+      "limitPx": "80.729",
+      "sz": "0.0352850006",
+      "origSz": "0.2152385036",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@107",
+      "side": "B",
+      "limitPx": "80.681",
+      "sz": "0.2152385036",
+      "origSz": "0.2152385036",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@107",
+      "side": "B",
+      "limitPx": "80.649",
+      "sz": "0.2152385036",
+      "origSz": "0.2152385036",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@107",
+      "side": "B",
+      "limitPx": "80.626",
+      "sz": "0.2187670036",
+      "origSz": "0.2187670036",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@107",
+      "side": "B",
+      "limitPx": "80.53",
+      "sz": "0.2187670036",
+      "origSz": "0.2187670036",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@107",
+      "side": "B",
+      "limitPx": "79.105",
+      "sz": "0.2222955037",
+      "origSz": "0.2222955037",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@107",
+      "side": "B",
+      "limitPx": "78.988",
+      "sz": "0.2222955037",
+      "origSz": "0.2222955037",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@107",
+      "side": "B",
+      "limitPx": "78.922",
+      "sz": "0.2222955037",
+      "origSz": "0.2222955037",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@107",
+      "side": "B",
+      "limitPx": "78.909",
+      "sz": "0.2222955037",
+      "origSz": "0.2222955037",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@107",
+      "side": "B",
+      "limitPx": "78.847",
+      "sz": "0.2222955037",
+      "origSz": "0.2222955037",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@107",
+      "side": "B",
+      "limitPx": "78.801",
+      "sz": "0.2222955037",
+      "origSz": "0.2222955037",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@107",
+      "side": "B",
+      "limitPx": "78.795",
+      "sz": "0.2222955037",
+      "origSz": "0.2222955037",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@107",
+      "side": "B",
+      "limitPx": "78.577",
+      "sz": "0.2222955037",
+      "origSz": "0.2222955037",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@107",
+      "side": "B",
+      "limitPx": "78.555",
+      "sz": "0.2222955037",
+      "origSz": "0.2222955037",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@107",
+      "side": "B",
+      "limitPx": "78.487",
+      "sz": "0.2222955037",
+      "origSz": "0.2222955037",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@107",
+      "side": "B",
+      "limitPx": "78.469",
+      "sz": "0.2222955037",
+      "origSz": "0.2222955037",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@107",
+      "side": "B",
+      "limitPx": "78.437",
+      "sz": "0.2222955037",
+      "origSz": "0.2222955037",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@107",
+      "side": "B",
+      "limitPx": "78.384",
+      "sz": "0.2222955037",
+      "origSz": "0.2222955037",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@107",
+      "side": "B",
+      "limitPx": "78.346",
+      "sz": "0.2222955037",
+      "origSz": "0.2222955037",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@107",
+      "side": "B",
+      "limitPx": "78.346",
+      "sz": "0.2222955037",
+      "origSz": "0.2222955037",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@107",
+      "side": "B",
+      "limitPx": "78.346",
+      "sz": "0.2222955037",
+      "origSz": "0.2222955037",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@107",
+      "side": "B",
+      "limitPx": "76.923",
+      "sz": "0.2258240038",
+      "origSz": "0.2258240038",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "82.074",
+      "sz": "0.2117100035",
+      "origSz": "0.2117100035",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "82.093",
+      "sz": "0.2117100035",
+      "origSz": "0.2117100035",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "82.536",
+      "sz": "0.2117100035",
+      "origSz": "0.2117100035",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "82.582",
+      "sz": "0.0176425003",
+      "origSz": "0.2117100035",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "83.188",
+      "sz": "0.2117100035",
+      "origSz": "0.2117100035",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "83.23",
+      "sz": "0.2117100035",
+      "origSz": "0.2117100035",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "83.294",
+      "sz": "0.2117100035",
+      "origSz": "0.2117100035",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "83.406",
+      "sz": "0.2081815035",
+      "origSz": "0.2081815035",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "83.462",
+      "sz": "0.2081815035",
+      "origSz": "0.2081815035",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "83.483",
+      "sz": "0.0423420007",
+      "origSz": "0.2081815035",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "83.498",
+      "sz": "0.2081815035",
+      "origSz": "0.2081815035",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "83.545",
+      "sz": "0.2081815035",
+      "origSz": "0.2081815035",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "83.862",
+      "sz": "0.2081815035",
+      "origSz": "0.2081815035",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "83.877",
+      "sz": "0.2081815035",
+      "origSz": "0.2081815035",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "83.889",
+      "sz": "0.2081815035",
+      "origSz": "0.2081815035",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "83.956",
+      "sz": "0.2081815035",
+      "origSz": "0.2081815035",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "83.968",
+      "sz": "0.1587825026",
+      "origSz": "0.2081815035",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "83.98",
+      "sz": "0.2081815035",
+      "origSz": "0.2081815035",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "84.0",
+      "sz": "0.2081815035",
+      "origSz": "0.2081815035",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "84.014",
+      "sz": "0.2081815035",
+      "origSz": "0.2081815035",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "84.061",
+      "sz": "0.1587825026",
+      "origSz": "0.2081815035",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "84.365",
+      "sz": "0.2081815035",
+      "origSz": "0.2081815035",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "86.669",
+      "sz": "0.2011245033",
+      "origSz": "0.2011245033",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "86.76",
+      "sz": "0.2011245033",
+      "origSz": "0.2011245033",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "86.769",
+      "sz": "0.2011245033",
+      "origSz": "0.2011245033",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "86.884",
+      "sz": "0.0917410015",
+      "origSz": "0.2011245033",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "86.899",
+      "sz": "0.2011245033",
+      "origSz": "0.2011245033",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "86.927",
+      "sz": "0.2011245033",
+      "origSz": "0.2011245033",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "86.933",
+      "sz": "0.2011245033",
+      "origSz": "0.2011245033",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "86.987",
+      "sz": "0.2011245033",
+      "origSz": "0.2011245033",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "87.025",
+      "sz": "0.1517255025",
+      "origSz": "0.2011245033",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    }
+  ],
+  "delegatorSummary": {
+    "delegated": "0.0",
+    "undelegated": "0.0",
+    "totalPendingWithdrawal": "0.0",
+    "nPendingWithdrawals": 0
+  },
+  "userVaultEquities": [],
+  "subAccounts": null,
+  "borrowLendUserState": {
+    "tokenToState": [
+      [
+        0,
+        {
+          "borrow": {
+            "basis": "0.0",
+            "value": "0.0"
+          },
+          "supply": {
+            "basis": "268041.0829697422",
+            "value": "268041.0843285358"
+          }
+        }
+      ],
+      [
+        150,
+        {
+          "borrow": {
+            "basis": "0.0",
+            "value": "0.0"
+          },
+          "supply": {
+            "basis": "9240.1694073654",
+            "value": "9240.1694073654"
+          }
+        }
+      ]
+    ],
+    "health": "healthy",
+    "healthFactor": null
+  }
+}

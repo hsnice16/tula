@@ -5,6 +5,18 @@ const respond = (body: unknown, status = 200) =>
   async () => new Response(JSON.stringify(body), { status }) as Response
 
 describe('CoinMarketCap', () => {
+  test('a chain-scoped name is never asked for as a symbol', async () => {
+    const urls: string[] = []
+    const oracle = new CoinMarketCapOracle('k', async (url) => {
+      urls.push(url)
+      return new Response(JSON.stringify({ data: {} }))
+    })
+    await oracle.quoteMany(['arbitrum:USDC.E'])
+    expect(urls).toEqual([])
+    await oracle.quoteMany(['ETH', 'arbitrum:USDC.E'])
+    expect(urls.join(' ')).not.toContain('ARBITRUM')
+  })
+
   test('sends the key as a header, never in the query string', async () => {
     const seen: { url?: string; key?: string | null } = {}
     const oracle = new CoinMarketCapOracle('secret-key', async (url, init) => {

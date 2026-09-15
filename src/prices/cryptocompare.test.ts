@@ -5,6 +5,18 @@ const respond = (body: unknown, status = 200) =>
   async () => new Response(JSON.stringify(body), { status }) as Response
 
 describe('CryptoCompare', () => {
+  test('a chain-scoped name is never asked for as a symbol', async () => {
+    const urls: string[] = []
+    const oracle = new CryptoCompareOracle('k', async (url) => {
+      urls.push(url)
+      return new Response(JSON.stringify({ ETH: { USD: 2400 } }))
+    })
+    await oracle.quoteMany(['arbitrum:USDC.E'])
+    expect(urls).toEqual([])
+    await oracle.quoteMany(['ETH', 'arbitrum:USDC.E'])
+    expect(urls.join(' ')).not.toContain('ARBITRUM')
+  })
+
   test('sends the key as an Authorization header, never in the query string', async () => {
     const seen: { url?: string; auth?: string | null } = {}
     const oracle = new CryptoCompareOracle('secret-key', async (url, init) => {

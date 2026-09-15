@@ -20,6 +20,7 @@
     "prepare-hooks": "git config core.hooksPath .githooks",
     "conformance": "bun run scripts/conformance.live.ts",
     "release:cut": "bash scripts/release-cut.sh",
+    "keys:docs": "bun run scripts/keys-doc.ts",
     "eval:injection": "bun run src/agent/injection.eval.ts"
   },
   "dependencies": {

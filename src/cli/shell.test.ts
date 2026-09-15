@@ -245,6 +245,28 @@ describe('dispatchCommand', () => {
     }
   })
 
+  // The argument list offers the loaded book's assets; a typed asset outside it
+  // must be refused by the same rule, or "nothing liquidates" answers about an
+  // asset the book never held.
+  test('shock refuses an asset the book does not hold, and names what it holds', async () => {
+    session = await freshSession('emptyvenue')
+    await secrets.put('spotonly', { apiKey: 'k' })
+    const spotOnly: Connector = {
+      ...testConnector,
+      venue: { id: 'spotonly', kind: 'cex', name: 'Spot Only' },
+      async fetchPositions(): Promise<Position[]> {
+        return [testPosition('spotonly', 'spot', 'ETH', '2')]
+      },
+    }
+    const connectors = new Map<string, Connector>([['spotonly', spotOnly]])
+    const only = new Session(connectors, oracle)
+    const result = await dispatchCommand(only, connectors, parseCommand('/shock BTC -20')!)
+    if (result.kind !== 'output') throw new Error('expected output')
+    expect(result.output).toContain('BTC is not in this book')
+    expect(result.output).toContain('Held: ETH')
+    expect(result.output).not.toContain('Nothing liquidates at this level')
+  })
+
   // A venue that is connected and holds only spot is the case the old message
   // was written for, and it still has to say it.
   test('breaks still says so when a connected book has nothing to liquidate', async () => {
@@ -370,6 +392,25 @@ describe('dispatchCommand', () => {
     'The Arbitrum One node at rpc.invalid did not answer.\n' +
     '  Retry with /refresh, or set TULA_ARBITRUM_RPC to another Arbitrum One node.'
 
+  test('/venues says why under the table, every line of it, and its rule fits 80 columns', async () => {
+    const LIST_DOWN =
+      'tula cannot tell which ERC-20s to ask about on Base, Polygon and Linea: the list at tokens.invalid returned HTTP 503.\n' +
+      '  Set TULA_TOKEN_LIST to another Token Lists URL, or retry with /refresh.'
+    const connectors = partial([NODE_DOWN, LIST_DOWN])
+    const session = await sessionOf(connectors)
+    const result = await dispatchCommand(session, connectors, parseCommand('/venues')!)
+    if (result.kind !== 'output') throw new Error('expected output')
+    const lines = result.output.split('\n')
+    const table = lines.slice(0, lines.findIndex((l) => l === ''))
+
+    expect(table.find((l) => l.startsWith('multichain'))).toContain('answered in part — see below')
+    expect(Math.max(...table.map((l) => l.length))).toBeLessThanOrEqual(80)
+    // The session keeps each failure on one line.
+    const flat = (text: string) => text.replace(/\n\s*/g, ' ')
+    expect(result.output).toContain(`  multichain: ${flat(NODE_DOWN)}`)
+    expect(result.output).toContain(`  multichain: ${flat(LIST_DOWN)}`)
+  })
+
   test("one chain failing leaves the other chains' rows on the book", async () => {
     const connectors = partial([NODE_DOWN])
     const session = await sessionOf(connectors)
@@ -401,6 +442,29 @@ describe('dispatchCommand', () => {
     // And the two chains that answered are what the reader is looking at.
     expect(result.output).toContain('ETH')
     expect(result.output).toContain('USDC')
+  })
+
+  test('a venue that answered in part is counted once, with one remedy, and its status is not FAILED', async () => {
+    const connectors = partial([
+      'the xyz dex did not load (HTTP 502); its positions are left out',
+      'staking did not load (HTTP 502); staked HYPE and the unstaking queue are left out',
+    ])
+    const session = await sessionOf(connectors)
+    const exposure = await dispatchCommand(session, connectors, parseCommand('/exposure')!)
+    if (exposure.kind !== 'output') throw new Error('expected output')
+    expect(exposure.incomplete).toBe(true)
+    expect(exposure.output).toContain('INCOMPLETE — 1 venue answered in part. This is not your full exposure.')
+    expect(exposure.output).not.toMatch(/venues? failed/)
+    expect(exposure.output.split('Run /refresh to try again.')).toHaveLength(2)
+
+    const status = await dispatchCommand(session, connectors, parseCommand('/multichain status', ['multichain'])!, [
+      { id: 'multichain', connected: true, detail: '1' },
+    ])
+    if (status.kind !== 'output') throw new Error('expected output')
+    expect(status.output).not.toContain('FAILED')
+    expect(status.output).toContain('Answered in part')
+    expect(status.output).toContain('staking did not load')
+    expect(status.incomplete).toBe(true)
   })
 
   // Every chain down is not a partial read: `wallet.ts` and `aave.ts` both
@@ -861,7 +925,7 @@ describe('a stored venue that is no longer in the build', () => {
   test('is not counted among the venues that failed', async () => {
     const session = await freshSession('circle')
     const out = outputOf(await dispatchCommand(session, CONNECTORS, parseCommand('/exposure')!))
-    expect(out).not.toContain('venue(s) failed')
+    expect(out).not.toMatch(/venues? failed/)
     expect(out).toContain('REMOVED')
     expect(out).toContain('Circle Mint was removed')
   })
@@ -882,7 +946,7 @@ describe('a stored venue that is no longer in the build', () => {
     const session = await sessionOf(both)
     await secrets.put('circle', { apiKey: 'x' })
     const out = outputOf(await dispatchCommand(session, both, parseCommand('/exposure')!))
-    expect(out).toContain('INCOMPLETE — 1 venue(s) failed')
+    expect(out).toContain('INCOMPLETE — 1 venue failed')
     expect(out).toContain('REMOVED')
   })
 
@@ -1521,7 +1585,7 @@ describe('the reader is told which venue sent a name tula could not print', () =
 
   test('a name that was entirely invisible is counted, never listed as a blank', async () => {
     const { output } = await view(nodeVenue('\u200b\u200b'), '/positions')
-    expect(output).toContain('node  1 name(s) with nothing printable in them')
+    expect(output).toContain('node  1 name with nothing printable in them')
   })
 
   test('the venue overview says it, since that is where venue state is the subject', async () => {

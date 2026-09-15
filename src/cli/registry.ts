@@ -36,9 +36,33 @@ export const GROUP_LABELS: Readonly<Record<CommandGroup, string>> = {
   session: 'session',
 }
 
+/** One thing that can be typed where an argument goes, and what it is. */
+export interface Candidate {
+  name: string
+  summary: string
+}
+
+/**
+ * Where one argument's candidates come from, declared beside the command so
+ * the list and what the command takes are one edit apart — fish's `complete -a`
+ * per subcommand, prompt_toolkit's `NestedCompleter`.
+ */
+export type ArgumentSource =
+  | { kind: 'venues' }
+  | { kind: 'stored-venues' }
+  | { kind: 'assets' }
+  | { kind: 'accounts' }
+  | { kind: 'words'; words: readonly Candidate[] }
+  /** Nothing to pick from, only a shape to type — a percentage. */
+  | { kind: 'free'; hint: string }
+
 export interface SlashCommand {
   name: string
   args?: string
+  /** One per word of `args`, in order. */
+  arguments?: readonly ArgumentSource[]
+  /** The arguments come round again: `/shock ETH -20 BTC -10`. */
+  repeats?: boolean
   summary: string
   group?: CommandGroup
   /** Runnable, but kept out of the menu. */
@@ -47,6 +71,8 @@ export interface SlashCommand {
   venue?: boolean
   /** A price source rather than a fixed command. */
   price?: boolean
+  /** Means something only inside the shell, so `tula <name>` refuses it. */
+  shellOnly?: boolean
 }
 
 export interface VenueSubcommand {
@@ -54,6 +80,7 @@ export interface VenueSubcommand {
   summary: string
   /** Hidden until the venue has credentials stored. */
   needsConnection: boolean
+  arguments?: readonly ArgumentSource[]
 }
 
 /** Everything you can do to one venue, reached as `/<venue> <sub>`. */
@@ -63,7 +90,12 @@ export const VENUE_SUBCOMMANDS: readonly VenueSubcommand[] = [
   { name: 'breaks', summary: 'What can be liquidated here', needsConnection: true },
   { name: 'status', summary: 'Freshness, key scope, last error', needsConnection: true },
   { name: 'docs', summary: 'Official links for this venue', needsConnection: false },
-  { name: 'disconnect', summary: 'Forget this venue’s credentials', needsConnection: true },
+  {
+    name: 'disconnect',
+    summary: 'Forget this venue’s credentials',
+    needsConnection: true,
+    arguments: [{ kind: 'accounts' }],
+  },
 ]
 
 export interface PriceSubcommand extends VenueSubcommand {
@@ -163,23 +195,154 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
   { name: 'breaks', group: 'risk', summary: 'What gets liquidated first, and how far away that is' },
   { name: 'exposure', group: 'risk', summary: 'Net exposure per asset, across every venue' },
   { name: 'positions', group: 'risk', summary: 'Every position, as each venue reports it' },
-  { name: 'shock', group: 'risk', args: '<asset> <percent>', summary: 'Reprice everything and see what survives' },
+  {
+    name: 'shock',
+    group: 'risk',
+    args: '<asset> <percent>',
+    arguments: [{ kind: 'assets' }, { kind: 'free', hint: 'a move in percent, e.g. -20 — another asset may follow it' }],
+    repeats: true,
+    summary: 'Reprice everything and see what survives',
+  },
 
   { name: 'about', group: 'session', summary: 'What tula is, what it will not do, and where your keys live' },
-  { name: 'clear', group: 'session', summary: 'Clear the screen' },
-  { name: 'exit', group: 'session', summary: 'Leave tula' },
+  { name: 'clear', group: 'session', summary: 'Clear the screen', shellOnly: true },
+  { name: 'exit', group: 'session', summary: 'Leave tula', shellOnly: true },
   { name: 'help', group: 'session', summary: 'Show this list' },
-  { name: 'login', group: 'session', summary: 'See or change how you sign in to Anthropic' },
+  { name: 'keys', group: 'session', summary: 'Every key the shell answers to' },
+  {
+    name: 'history',
+    group: 'session',
+    args: '[clear]',
+    arguments: [{ kind: 'words', words: [{ name: 'clear', summary: 'Empty the history file' }] }],
+    summary: 'Where what you typed is kept; clear empties it',
+    shellOnly: true,
+  },
+  { name: 'login', group: 'session', summary: 'See or change how you sign in to Anthropic', shellOnly: true },
   { name: 'refresh', group: 'session', summary: 'Refetch from every venue now' },
-  { name: 'update', group: 'session', args: '[install]', summary: 'Check for a newer release, and switch to it' },
+  { name: 'vim', group: 'session', summary: 'Vim editing on the input line, on or off — it stays set', shellOnly: true },
+  {
+    name: 'update',
+    group: 'session',
+    args: '[install]',
+    arguments: [{ kind: 'words', words: [{ name: 'install', summary: 'Download the newer release and switch to it' }] }],
+    summary: 'Check for a newer release, and switch to it',
+  },
 
   // Runnable, out of the menu. `/venues` is what the menu already shows, and
   // `/forget` is the recovery path session.ts names when a stored venue is not
   // in this build — an error that points at a command it must still be able to run.
-  { name: 'connect', args: '<venue>', summary: 'Connect a venue — a public address, or a read-only key', hidden: true },
+  {
+    name: 'connect',
+    args: '<venue>',
+    arguments: [{ kind: 'venues' }],
+    summary: 'Connect a venue — a public address, or a read-only key',
+    hidden: true,
+  },
   { name: 'venues', summary: 'Connected venues, freshness, failures', hidden: true },
-  { name: 'forget', args: '<venue>', summary: 'Remove a stored venue', hidden: true },
+  {
+    name: 'forget',
+    args: '<venue>',
+    arguments: [{ kind: 'stored-venues' }],
+    summary: 'Remove a stored venue',
+    hidden: true,
+  },
 ]
+
+/** What the candidates are read from. Every field is already in hand: nothing here loads. */
+export interface CandidateContext {
+  /** Every venue in the build, as the menu lists them. */
+  venues: readonly VenueEntry[]
+  /** Whatever the store holds a credential for, a venue this build dropped included. */
+  stored: readonly Candidate[]
+  /** The assets of the loaded book, or null before a load. */
+  assets: readonly Candidate[] | null
+  /** The entries a venue holds, named the way a command takes them back; null until read. */
+  accounts: (venue: string) => readonly Candidate[] | null
+}
+
+export interface ArgumentList {
+  /** The line up to the word being completed; a chosen candidate goes after it. */
+  prefix: string
+  /** The command and the argument the list is for, as `/shock <asset>`. */
+  heading: string
+  candidates: Candidate[]
+  /** Why nothing is offered, where nothing is. */
+  empty?: string
+}
+
+/**
+ * The candidates for the argument the cursor is in, filtered by what has been
+ * typed of it. Null where there is no list to show: before the command's first
+ * space, past its last argument, or where nothing offered starts with what is
+ * typed — which is when Enter sends the line as it stands.
+ */
+export function argumentList(line: string, context: CandidateContext): ArgumentList | null {
+  if (!line.startsWith('/')) return null
+  const fragment = /\S*$/.exec(line)?.[0] ?? ''
+  const prefix = line.slice(0, line.length - fragment.length)
+  const words = prefix.slice(1).split(/\s+/).filter(Boolean)
+  const head = words[0]?.toLowerCase()
+  if (!head || !/\s$/.test(prefix)) return null
+
+  let source: ArgumentSource | undefined
+  let heading: string
+  const command = SLASH_COMMANDS.find((c) => c.name === (ALIASES[head] ?? head))
+  if (command?.arguments) {
+    const at = words.length - 1
+    const index = command.repeats ? at % command.arguments.length : at
+    source = command.arguments[index]
+    heading = `/${command.name} ${command.args?.split(' ')[index] ?? ''}`.trimEnd()
+  } else {
+    const venue = context.venues.find((v) => v.id === head)
+    const sub = VENUE_SUBCOMMANDS.find((s) => s.name === words[1]?.toLowerCase())
+    if (!venue?.connected || !sub?.arguments) return null
+    source = sub.arguments[words.length - 2]
+    heading = `/${venue.id} ${sub.name} <name>`
+  }
+  if (!source) return null
+
+  const matching = (all: readonly Candidate[]): ArgumentList | null => {
+    const needle = fragment.toLowerCase()
+    const candidates = all.filter((c) => c.name.toLowerCase().startsWith(needle))
+    return candidates.length === 0 ? null : { prefix, heading, candidates }
+  }
+  const offered = (all: readonly Candidate[], empty: string): ArgumentList | null =>
+    all.length === 0 ? { prefix, heading, candidates: [], empty } : matching(all)
+
+  switch (source.kind) {
+    case 'free':
+      return { prefix, heading, candidates: [], empty: source.hint }
+    case 'words':
+      return matching(source.words)
+    case 'venues':
+      return offered(
+        context.venues.map((v) => ({ name: v.id, summary: v.detail })),
+        'no venue is in this build',
+      )
+    case 'stored-venues':
+      return offered(context.stored, 'nothing is stored — type / and pick a venue to connect one')
+    case 'assets':
+      // Offered off a book already read and never by reading one: a space
+      // typed after `/shock` is not a request to call every venue.
+      if (context.assets === null) {
+        return {
+          prefix,
+          heading,
+          candidates: [],
+          empty:
+            context.stored.length === 0
+              ? 'nothing is connected, so there is no asset to shock — type / and pick a venue'
+              : 'nothing is read yet — /refresh reads the book, and its assets are listed here',
+        }
+      }
+      return offered(context.assets, 'the book holds no asset to shock')
+    case 'accounts': {
+      // One entry needs no name to say which: `/<venue> disconnect` alone takes it.
+      const held = context.accounts(head)
+      return held && held.length > 1 ? matching(held) : null
+    }
+  }
+}
 
 const ALIASES: Readonly<Record<string, string>> = {
   ls: 'positions',
@@ -249,7 +412,7 @@ export function buildCommands(
 
 /**
  * The menu list: the commands, with a connected venue's subcommands opened out
- * under it, in the order and wording ctrl+k already shows them. An unconnected
+ * under it, in the order and wording ctrl+s already shows them. An unconnected
  * venue stays one row — the two subs it has are `connect`, which its own row
  * runs, and `docs`, and every venue in the build opened out for those is a list
  * nobody can read down.
@@ -313,7 +476,10 @@ export function helpText(
   connected: VenueEntry[] = [],
   prices: PriceEntry[] = [],
 ): string {
-  const all = buildCommands(connected, prices)
+  // `tula clear` refuses to run, so help on the command line names those
+  // commands as the shell spells them rather than listing them as runnable.
+  const all = buildCommands(connected, prices).filter((c) => !(isCli() && c.shellOnly))
+  const shellOnly = SLASH_COMMANDS.filter((c) => c.shellOnly).map((c) => `/${c.name}`)
   const label = (c: SlashCommand) => `${typed(c.name)} ${c.args ?? ''}`.trimEnd()
   const width = Math.max(...all.map((c) => label(c).length))
 
@@ -333,8 +499,12 @@ export function helpText(
       : 'Type / for commands, or just ask a question in plain English.',
     '',
     ...sections,
+    ...(isCli() ? [`Only inside the shell: ${shellOnly.join(', ')}`, ''] : []),
     `Venues in this build: ${venues.join(', ')}`,
     'Every number carries when it was true. A venue that fails is named, never hidden.',
+    isCli()
+      ? 'Every key the shell answers to: tula keys — or ? on an empty line inside it.'
+      : 'Every key the shell answers to: ? on an empty line, or /keys.',
   ].join('\n')
 }
 

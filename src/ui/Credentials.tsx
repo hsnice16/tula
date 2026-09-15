@@ -4,7 +4,14 @@ import { ambientFingerprint } from '../agent/agent.js'
 import { startSignIn } from '../agent/signin.js'
 import { credentialSummary, type CredentialSource } from '../cli/commands.js'
 import * as secrets from '../secrets/store.js'
+import { terminalReply } from './anchor.js'
+import { editingCommand, enterKey, isLineCommand, typed } from './keys.js'
+import { edit, insert, lineEditor, type LineEditor } from './line.js'
+import { InputLine } from './TextInput.js'
 import { theme } from './theme.js'
+
+/** Dots drawn for the key at most, so a long paste does not wrap the box. */
+const MASK_CELLS = 48
 
 /**
  * `first-run` is someone who has nothing and has not seen the tool yet;
@@ -84,7 +91,7 @@ export function Credentials({ mode, source, onDone }: Props) {
   const [choice, setChoice] = useState(0)
   const [entering, setEntering] = useState(false)
   const [waiting, setWaiting] = useState<string | null>(null)
-  const [key, setKey] = useState('')
+  const [key, setKey] = useState<LineEditor>(() => lineEditor('', { secret: true }))
   const [error, setError] = useState<string | null>(null)
   /**
    * Selecting "Sign out" does not sign you out. The list is arrowed through and
@@ -112,6 +119,8 @@ export function Credentials({ mode, source, onDone }: Props) {
   }, [waiting, onDone])
 
   useInput((input, keyEvent) => {
+    // A terminal's reply to a question the shell asked it: never part of a key.
+    if (terminalReply(input)) return
     // First, and before every early return below. This is the first screen
     // anyone sees, and Ink holds raw mode, so a ctrl+c nothing handles is not
     // passed to the terminal either: the tool reads as hung at its own opening
@@ -147,23 +156,30 @@ export function Credentials({ mode, source, onDone }: Props) {
     if (entering) {
       if (keyEvent.escape) {
         setEntering(false)
-        setKey('')
+        setKey(lineEditor('', { secret: true }))
         setError(null)
         return
       }
-      if (keyEvent.return || /[\r\n]$/.test(input)) {
-        const candidate = (key + input).replace(/[\r\n]+/g, '').trim()
+      const pasted = typed(input)
+      const enter = enterKey(input, keyEvent)
+      if (enter === 'ignore') return
+      if (enter || pasted.submits) {
+        const candidate = insert(key, pasted.text).text.trim()
         if (!candidate.startsWith('sk-ant-')) {
           setError('That does not look like an Anthropic key — they start with sk-ant-.')
-          setKey('')
+          setKey(lineEditor('', { secret: true }))
           return
         }
         onDone({ kind: 'key', apiKey: candidate })
         return
       }
-      if (keyEvent.backspace || keyEvent.delete) return setKey((k) => k.slice(0, -1))
+      const command = editingCommand(input, keyEvent)
+      if (command) {
+        if (!isLineCommand(command)) return
+        return setKey((k) => edit(k, command))
+      }
       if (keyEvent.ctrl || keyEvent.meta || keyEvent.tab) return
-      if (input) setKey((k) => k + input.replace(/[\r\n]+/g, ''))
+      if (pasted.text) setKey((k) => insert(k, pasted.text))
       return
     }
 
@@ -269,8 +285,10 @@ export function Credentials({ mode, source, onDone }: Props) {
             paddingX={1}
           >
             <Text color={theme.accent}>{'❯ '}</Text>
-            <Text>{'•'.repeat(Math.min(key.length, 48))}</Text>
-            <Text inverse> </Text>
+            <InputLine
+              value={'•'.repeat(Math.min(key.text.length, MASK_CELLS))}
+              cursor={Math.max(0, key.cursor - Math.max(0, key.text.length - MASK_CELLS))}
+            />
           </Box>
           <Text dimColor>{`  saved in ${secrets.locationHint()}, mode 600, sent only to Anthropic`}</Text>
           {error && <Text color={theme.danger}>{`  ${error}`}</Text>}

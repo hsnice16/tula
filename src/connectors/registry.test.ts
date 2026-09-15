@@ -7,6 +7,16 @@ import { CONNECTORS } from './registry.js'
  * reaches the `NOT READ` line and reads as a venue nothing was missed on —
  * the same silence as an undeclared gap, arriving as an omission instead.
  */
+/** Without it the refusal falls back to a remedy that names no box on the venue's key page. */
+describe('a venue that takes a key says how to make a read-only one', () => {
+  for (const [id, connector] of CONNECTORS) {
+    if (!connector.fields.some((f) => f.secret)) continue
+    test(`${id} names its own read-only permission`, () => {
+      expect(connector.readOnlyKey ?? '').not.toBe('')
+    })
+  }
+})
+
 describe('a venue added to the build without saying what it cannot see', () => {
   for (const [id, connector] of CONNECTORS) {
     test(`${id} would otherwise read as answered in full`, () => {

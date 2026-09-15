@@ -70,6 +70,8 @@ export const stripeConnector: Connector = {
     },
   ],
 
+  readOnlyKey: 'Create a restricted key (rk_) with Read access only.',
+
   help: [
     { label: 'Create a restricted key', url: 'https://docs.stripe.com/keys#limit-access' },
     { label: 'Your API keys', url: 'https://dashboard.stripe.com/apikeys' },
@@ -103,8 +105,8 @@ export const stripeConnector: Connector = {
   /**
    * Stripe does not report what a restricted key may do, so trade and withdraw
    * stay unproven. What it does expose is the key's *class*, and a secret key
-   * can create payouts and transfers — so that one is refused outright rather
-   * than reported as an unknown.
+   * has every permission, payouts included — so that one is refused in Stripe's
+   * own terms rather than as a key that can "trade".
    */
   async verifyScope(creds: ConnectorCredentials): Promise<KeyScope> {
     const apiKey = creds['apiKey']?.trim()
@@ -116,7 +118,9 @@ export const stripeConnector: Connector = {
       )
     }
     if (apiKey.startsWith('sk_')) {
-      return { canRead: true, canTrade: true, canWithdraw: true }
+      throw new TulaError(
+        'Refused: a secret key (sk_) can move money. tula only holds a restricted key (rk_) with read access.',
+      )
     }
     if (!apiKey.startsWith('rk_')) {
       throw new TulaError('That does not look like a Stripe key. Restricted keys start with rk_.')

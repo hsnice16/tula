@@ -39,7 +39,7 @@ build could not draw is named on screen, with what was done and the bounded name
 It was milestone 2's to close, not this one's.
 
 The aggregator was never this milestone's — it completes a total rather than
-repairing one, and it waits for 10.
+repairing one, and it waits for 11.
 
 ## Done means
 
@@ -54,5 +54,5 @@ until the feature landed.
 
 ## Not here
 
-The venue handle, user-added venues and the MCP adapter are milestone 10. Those
+The venue handle, user-added venues and the MCP adapter are milestone 11. Those
 are reach beyond what we build; this is finishing what we started.

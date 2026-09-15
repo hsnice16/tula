@@ -1,5 +1,5 @@
 import { TulaError } from '../core/errors.js'
-import { typed } from '../core/surface.js'
+import { inShell, typed } from '../core/surface.js'
 import type {
   Connectable,
   ConnectorCredentials,
@@ -88,8 +88,8 @@ function requireKey(creds: ConnectorCredentials | undefined, name: string): stri
   if (!key) {
     throw new TulaError(
       `${name} needs an API key and none is stored.\n` +
-        `  Add one with:  /${name.toLowerCase()} connect\n` +
-        `  Or switch back to a source that needs none:  /coingecko use`,
+        `  Add one with:  ${inShell(`${name.toLowerCase()} connect`)}\n` +
+        `  Or switch back to a source that needs none:  ${typed('coingecko use')}`,
     )
   }
   return key

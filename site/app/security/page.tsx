@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import { Code } from '@/components/Code'
 import { Ext } from '@/components/Ext'
 import { breadcrumb, JsonLd } from '@/components/JsonLd'
 import { Link } from '@/components/Link'
@@ -7,7 +6,7 @@ import { NAME, OG, REPO, TWITTER } from '@/lib/site'
 
 const TITLE = 'Security model — non-custodial, and read-only'
 const SUMMARY =
-  'What tula promises about your credentials and your funds, and what enforces each in the build: no code path can move funds off a venue, a key that can withdraw is refused rather than warned about, and your keys never reach the model.'
+  'What tula promises about your keys and your funds, and what enforces each promise: no code path can move funds off a venue, a key that can withdraw is turned away, and your keys never reach the model.'
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -35,31 +34,35 @@ const PROMISES = [
 const NOTES = [
   [
     'Never a seed phrase',
-    'Reading on-chain takes a public address, nothing more. No box on any screen asks for a seed phrase, and anything that does is not tula. The one private key it ever loads is a Coinbase CDP key, which signs read requests and cannot move funds \u2014 the build fails if key handling shows up in any other file.',
+    'On-chain, a public address is all tula needs. No screen asks for a seed phrase. The only private key it loads is a Coinbase CDP key, used only to read.',
   ],
   [
     'Not encrypted at rest',
-    'Your keys are plain JSON in one file, mode 600. Locking it would mean keeping the key to the lock right beside it, which protects nothing, or asking you for a passphrase, which breaks any command that runs on its own. So: safe from other people on the machine, not from a backup or from anything already running as you.',
+    'Your keys sit in one plain file only you can read (mode 600). Other users on the machine cannot open it; a backup or software running as you can.',
+  ],
+  [
+    'What you type',
+    'Lines you send are saved with the same protection, so ↑ reaches past sessions. Keys, seed phrases, connect screens and lines starting with a space are never saved. TULA_NO_HISTORY=1 keeps nothing.',
   ],
   [
     'Unknown is a value',
-    'Kraken proves a key cannot withdraw, but every endpoint that would prove it cannot trade also places an order — so tula says unknown rather than safe. A missing price means no value shown, never a zero. A key that can trade is turned away today as well; the one that will never be let through is withdraw.',
+    'Kraken proves a key cannot withdraw, not that it cannot trade, so tula says unknown rather than safe. A missing price shows as missing, never as zero.',
   ],
   [
     'The model never computes',
-    'Every number on screen is worked out in plain code and rounded before the model sees it. The model asks one interface for answers, and cannot reach a venue or your keys.',
+    'Every number is worked out in code first. The model only reads the results; it cannot reach a venue or your keys.',
   ],
   [
-    'The install path is checked',
-    'The installer stops if the published checksum does not match. Where the GitHub CLI is present and signed in it also checks a sigstore attestation and stops if that fails; where it is not, it says plainly that provenance was not proven. TULA_REQUIRE_ATTESTATION=1 makes that a refusal too.',
+    'The install is checked',
+    'The installer stops if the checksum does not match. With the GitHub CLI signed in, it also checks who built the binary; without it, it says that was not proven.',
   ],
   [
     'Text tula did not write',
-    'Three kinds of text reach the screen and the model from outside: an asset symbol \u2014 as a venue\u2019s listing spells it, as the configured token list names it, or as an Aave reserve contract returns it \u2014 the error text of a venue or a price source when one fails, and the error text of the model provider. All three are cut to a length limit on the way in, and stripped of every codepoint that is invisible or moves what is drawn \u2014 so none can pose as an instruction, forge a line, or hide bytes in the gaps of one. No memo, NFT metadata or protocol description is read at all.',
+    'Some text comes from outside tula: a Hyperliquid builder dex name, a token name as the configured token list names it or as an Aave reserve contract returns it, and errors from a venue or a price source or the model provider. All of it is cut short and cleaned before it reaches the screen or the model.',
   ],
   [
-    'Network egress',
-    'The venues you connect, a public RPC on each chain read — Ethereum, Arbitrum One and Base — the price source, the token list. Each chain ships three public nodes and moves to the next when one rate-limits it or goes down, so a busy node costs a retry rather than the chain, and a chain that has moved has shown the address to a second operator; SECURITY.md lists every node by name. Anthropic only when you ask a question, and only the numbers already worked out \u2014 never a key. The interactive shell also asks GitHub whether there is a newer release, once a day at most and carrying nothing about you — a one-shot command never does; TULA_NO_UPDATE_CHECK=1 stops even that. Nothing is downloaded until you run /update install, which fetches the archive and its checksums. Beyond that the binary sends nothing about how you use it. This site is measured with Google Analytics; the binary is not.',
+    'What tula connects to',
+    'The venues you connect, your price source, token lists, and public nodes for Ethereum, Arbitrum One, Base, Polygon, Optimism, Avalanche, Gnosis, Scroll and Linea. If a node is down tula tries the next one, which then also sees your address. Anthropic gets only finished numbers, and only when you ask a question. The shell checks GitHub for a new release once a day. The binary tracks nothing; this site uses Google Analytics.',
   ],
 ] as const
 
@@ -82,11 +85,12 @@ export default function Page() {
       <div className="mb-step-3 max-w-[46rem] rounded-r border border-l-2 border-rule border-l-accent-dim bg-panel px-5 py-4 shadow-lift">
         <p>
           <strong className="font-semibold text-white">Every copy comes from here.</strong> tula is
-          built by <Ext href={REPO}>github.com/hsnice16/tula</Ext> and published to{' '}
-          <Link href="/install">its install page</Link>, Homebrew and npm — one binary, built once.
-          The attestation covers the release archive, so that is what{' '}
-          <Code>gh attestation verify</Code> reads; npm repacks the same binary and cannot be
-          checked that way. An archive it turns down did not come from this project.
+          built from{' '}
+          <Ext href={REPO} className="[overflow-wrap:anywhere]">
+            github.com/hsnice16/tula
+          </Ext>{' '}
+          and published on <Link href="/install">its install page</Link>, Homebrew and npm — the
+          same binary everywhere.
         </p>
       </div>
 
@@ -103,8 +107,8 @@ export default function Page() {
         ))}
       </dl>
 
-      <h2 className="label mb-8">Where the edges are</h2>
-      <div className="grid gap-px overflow-hidden rounded border border-rule bg-rule md:grid-cols-2">
+      <h2 className="label mb-8">Limits</h2>
+      <div className="grid gap-px overflow-hidden rounded border border-rule bg-rule [overflow-wrap:anywhere] md:grid-cols-2">
         {NOTES.map(([title, body], i) => (
           // An odd count leaves a visible empty cell; the last one takes the row.
           <div

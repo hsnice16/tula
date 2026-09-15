@@ -139,6 +139,8 @@ export const binanceConnector: Connector = {
     { name: 'apiSecret', label: 'API secret', secret: true },
   ],
 
+  readOnlyKey: 'Create a key with only Enable Reading turned on.',
+
   help: [
     { label: 'Create an API key', url: 'https://www.binance.com/en/support/faq/detail/360002502072' },
     { label: 'API key restrictions', url: 'https://www.binance.com/en/support/faq/detail/360016547311' },
@@ -245,10 +247,9 @@ export const binanceConnector: Connector = {
 
     // A key without futures permission cannot read futures either, and that is
     // not a failure — it is a spot-only account, so the absence is not reported
-    // as a broken venue. Only that, and only when Binance said so by code: the
-    // catch used to take everything, so a timeout or a 5xx loaded the account
-    // with spot balances and no INCOMPLETE — a book with open perps in it
-    // answering "nothing can be liquidated".
+    // as a broken venue. Only that, and only when Binance says so by code: a
+    // catch-all loads a timeout or a 5xx as spot balances with no INCOMPLETE —
+    // a book with open perps in it answering "nothing can be liquidated".
     // Unreachable with any key tula will store: Binance's futures permission
     // grants futures *trading*, so `verifyScope` reports canTrade and connect
     // refuses the key. Kept because the refusal is the thing that could

@@ -14,7 +14,7 @@ import { CONNECTORS } from './connectors/registry.js'
  * which is the shape this defect takes every time: prose about the tree,
  * drifting in the same silence as the thing it describes.
  *
- * The declaration and the plan are now one edit. What this cannot check is
+ * The declaration and the plan are one edit. What this cannot check is
  * whether the plan is any good; what it removes is the gap nobody had to put
  * anything behind, which is the failure that actually happened.
  */
