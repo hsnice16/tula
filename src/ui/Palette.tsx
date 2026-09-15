@@ -3,10 +3,13 @@ import type { ReactNode } from 'react'
 import type { PaletteEntry } from '../cli/registry.js'
 import { BRAND_MARK, brandColor } from './brand.js'
 import { windowStart } from './scroll.js'
+import { InputLine } from './TextInput.js'
 import { theme } from './theme.js'
 
 interface Props {
   query: string
+  /** Where in the query the cursor is: it takes the same editing keys as the input line. */
+  cursor: number
   matches: PaletteEntry[]
   selected: number
   /** First display row on screen. The app owns it: the wheel moves it directly. */
@@ -122,7 +125,7 @@ export function paletteGeometry(columns: number, rows: number): Geometry {
  *
  * Presentational only: the app owns every key.
  */
-export function Palette({ query, matches, selected, offset, columns, rows, behind }: Props) {
+export function Palette({ query, cursor, matches, selected, offset, columns, rows, behind }: Props) {
   const label = (entry: PaletteEntry) => `/${entry.path} ${entry.args ?? ''}`.trimEnd()
   // Measured across every match, not the visible window: padding to whatever
   // happens to be on screen moves the summary column sideways as you scroll.
@@ -179,8 +182,9 @@ export function Palette({ query, matches, selected, offset, columns, rows, behin
 
         <Box marginBottom={1}>
           <Text dimColor>{query.length > 0 ? '' : 'search  '}</Text>
-          <Text color={theme.accent}>{query}</Text>
-          <Text inverse> </Text>
+          <Text color={theme.accent}>
+            <InputLine value={query} cursor={cursor} />
+          </Text>
         </Box>
 
         <Box flexDirection="row">

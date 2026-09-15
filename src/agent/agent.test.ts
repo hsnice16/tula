@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import Anthropic from '@anthropic-ai/sdk'
 import { TulaError } from '../core/errors.js'
-import { Agent, explain } from './agent.js'
+import { Agent, explain, StoppedError } from './agent.js'
 import { fixtureEngine } from './fixture.js'
 
 type Block = Record<string, unknown>
@@ -14,17 +14,33 @@ const text = (t: string) => message('end_turn', [{ type: 'text', text: t }])
 const toolCall = (name: string, input: unknown) =>
   message('tool_use', [{ type: 'tool_use', id: 'tu_1', name, input }])
 
-/** A null in `responses` is a request that fails, the way an overloaded API does. */
-function stubClient(responses: (Anthropic.Message | null)[]) {
+/**
+ * A null in `responses` is a request that fails, the way an overloaded API does.
+ * `'hang'` is a stream that never finishes until its signal aborts it.
+ */
+function stubClient(responses: (Anthropic.Message | null | 'hang')[]) {
   const calls: Record<string, any>[] = []
   let index = 0
   const client = {
     messages: {
-      stream(params: Record<string, any>) {
+      stream(params: Record<string, any>, options?: { signal?: AbortSignal }) {
         // Snapshot: the agent reuses one history array, so a stored reference
         // would show later turns rather than what this call actually sent.
         calls.push({ ...params, messages: structuredClone(params['messages']) })
         const msg = responses[index++]
+        if (msg === 'hang') {
+          return {
+            on() {
+              return this
+            },
+            finalMessage: () =>
+              new Promise<never>((_, reject) => {
+                const stop = () => reject(new Error('Request was aborted.'))
+                if (options?.signal?.aborted) stop()
+                options?.signal?.addEventListener('abort', stop, { once: true })
+              }),
+          }
+        }
         if (!msg) throw new Error('stub ran out of responses')
         return {
           on(event: string, cb: (t: string) => void) {
@@ -209,6 +225,47 @@ describe('Agent', () => {
 
     const sent = calls.at(-1)!['messages'].map((m: any) => m.content)
     expect(sent).toEqual(['one', [{ type: 'text', text: 'first' }], 'three'])
+  })
+
+  describe('a stopped question', () => {
+    const historyOf = (agent: Agent): number => (agent as unknown as { history: unknown[] }).history.length
+
+    test('is never sent when the stop came first', async () => {
+      const { client, calls } = stubClient([text('first')])
+      const agent = new Agent(fixtureEngine, { client })
+      await agent.ask('one', collect().events)
+      const before = historyOf(agent)
+      const stop = new AbortController()
+      stop.abort()
+      await expect(agent.ask('two', collect().events, stop.signal)).rejects.toBeInstanceOf(StoppedError)
+      expect(calls).toHaveLength(1)
+      expect(historyOf(agent)).toBe(before)
+    })
+
+    test('ends the stream in flight and leaves no half-turn', async () => {
+      const { client, calls } = stubClient([text('first'), 'hang'])
+      const agent = new Agent(fixtureEngine, { client })
+      await agent.ask('one', collect().events)
+      const before = historyOf(agent)
+      const stop = new AbortController()
+      const asked = agent.ask('two', collect().events, stop.signal)
+      expect(calls).toHaveLength(2)
+      stop.abort()
+      await expect(asked).rejects.toBeInstanceOf(StoppedError)
+      expect(historyOf(agent)).toBe(before)
+    })
+
+    test('starts no request after the tool round it was stopped in', async () => {
+      const { client, calls } = stubClient([text('first'), toolCall('get_net_exposure', {}), text('never')])
+      const agent = new Agent(fixtureEngine, { client })
+      await agent.ask('one', collect().events)
+      const before = historyOf(agent)
+      const stop = new AbortController()
+      const events = { ...collect().events, onTool: () => stop.abort() }
+      await expect(agent.ask('two', events, stop.signal)).rejects.toBeInstanceOf(StoppedError)
+      expect(calls).toHaveLength(2)
+      expect(historyOf(agent)).toBe(before)
+    })
   })
 })
 

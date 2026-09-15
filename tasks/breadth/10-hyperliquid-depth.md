@@ -1,15 +1,66 @@
 # 10 · Hyperliquid depth
 
-**Status**: planned
+**Status**: done, except ranking the borrow/lend health factor, which the venue says does not liquidate
+**Covered by**: `src/connectors/hyperliquid.test.ts`, `src/core/availability.test.ts`, `src/consistency.test.ts`
 
 ## Goal
 
-Read the rest of a Hyperliquid account. Six declared gaps, and every one of them
+Read the rest of a Hyperliquid account. Five declared gaps, and every one of them
 is a public `info` endpoint that answers without a credential — the address is
 the whole of what any of them takes.
 
-Three of the six hide a liquidation, which is what puts this in **4** rather
+Two of the five hide a liquidation, which is what puts this in **4** rather
 than with the aggregator: nothing that can be called in is bought in.
+
+The builder-deployed dexes were a sixth, and moved to
+[`field-report/06`](../field-report/06-builder-dexes.md) when a tester met them
+as missing markets.
+
+## Decided before building
+
+- **The spot hold is reconciled per row, as the acceptance below asks.** A hold
+  equal to the resting spot orders that trade the token — sells by size, buys by
+  quote notional — is an order hold; on a unified or portfolio-margin account the
+  margin every dex draws on that collateral token counts beside them; anything
+  else, and any negative hold, is unprovable with the reason. What
+  [`field-report/01`](../field-report/01-capture-every-account-mode.md) measured
+  is why no marker decides it: 29 of 40 standard USDC holds and 28 of 41 unified
+  ones reconciled exactly, the rest by amounts no order explains.
+- **The borrow/lend health factor is not a liquidation.** Hyperliquid's
+  portfolio-margin FAQ says so in terms: "Health Factor <100% does not directly
+  imply liquidation risk, but the account won't be able to borrow more"
+  (`support/faq/portfolio-margin`), and the app's own explanation of it is "If this
+  number is below 100%, the account cannot borrow more". Ranked in what breaks
+  first it would claim an order the venue does not liquidate in, so it is stated
+  on the account's entry beside the ratio that does liquidate it, and in
+  `/hyperliquid status`, and never ranked. The declaration saying it hides a
+  liquidation was wrong about what it hid.
+- **The borrow/lend book is added only where the spot state does not already
+  hold it.** On the captured portfolio-margin borrower every token in
+  `borrowLendUserState` matches the spot state's `borrowed` and `supplied`; no
+  account outside portfolio margin in a sample of 42 had anything in the book.
+  So the book is read on every refresh and reconciled against the spot state,
+  and a token it states that the spot state does not fails that part of the read
+  by name rather than being added or dropped.
+- **Staked HYPE is `staked`, and so is the staking balance.** The app names the
+  account "Staking Balance + Total Staked"; both leave only through the 7-day
+  unstaking queue ("Transfers from staking account to spot account have a 7 day
+  unstaking queue", `hypercore/staking`). What is already in that queue,
+  `totalPendingWithdrawal`, is `pending`: waiting is the only thing that moves it.
+- **A vault equity counts toward the total and is not netted as USDC.** The venue
+  states it in USD and pays a withdrawal in USDC less the leader's profit share
+  (`hypercore/vaults/for-vault-depositors-legacy`), so it is value; but it is a
+  claim on a pool whose positions the depositor does not hold, so it adds nothing
+  to any asset's exposure. It lands as `lp` with no delta, and until
+  `lockedUntilTimestamp` it is held — "Withdrawals are disabled for a lockup
+  period after each of your deposits", in the app's words.
+- **A sub-account is read as its own account**, through the same read as the
+  master, under the label `hyperliquid-sub-<n>`: `subAccounts` names each one's
+  own address, and each answers its own mode, dexes and ratio.
+- **An isolated position's margin is carved out of its dex's balance** as its own
+  claim beside the cross margin, and its liquidation price stays the venue's —
+  never derived from the cross pool, which reports a stated isolated price wrong
+  by 22%.
 
 ## Acceptance
 
@@ -33,17 +84,12 @@ than with the aggregator: nothing that can be called in is bought in.
   orders do not account for is a hold whose reason is unproven, which
   `Availability.unprovable` already renders as an em dash with the reason
   beside it.
-  Closing the non-USDC half alone is worth doing on its own and is the smaller
-  piece. It does not retire the declaration, because the declaration is about
-  the USDC row.
-- **Recapture before any of the above.** `spotClearinghouseState` now returns
-  `spotHold`, `borrowed`, `supplied`, `ltv` per balance and
-  `portfolioMarginEnabled`, `portfolioMarginRatio`,
-  `tokenToAvailableAfterMaintenance` and `tokenToPortfolioBorrowRatio` on the
-  account. None is in `fixtures/hyperliquid/*.json`, so no test here can see the
-  regime that decides what `hold` means. `scale()` in the capture throws on a
-  numeric field it does not classify, so each has to be filed under `AMOUNT` or
-  `KEPT` deliberately — which is the check working, not an obstacle.
+- **The captures come first**, and they are
+  [`field-report/01`](../field-report/01-capture-every-account-mode.md): every
+  account mode, portfolio margin's per-balance and account fields, and the new
+  numeric fields filed under `AMOUNT` or `KEPT`. The account mode itself is read
+  by [`field-report/02`](../field-report/02-balances-per-account-mode.md), so the
+  USDC half above reconciles against a stated mode rather than inferring one.
 - **The isolated-position margin split.** The fixture blocker is gone:
   `fixtures/hyperliquid/perp-isolated.json` holds an isolated BTC leg beside two
   cross ones, and `hyperliquid.test.ts` pins the arithmetic —
@@ -73,11 +119,19 @@ than with the aggregator: nothing that can be called in is bought in.
 - **The borrow/lend book** — `borrowLendUserState`, which returns its own
   `healthFactor`. That makes it risk-engine work, not a balance: a second health
   factor under one venue has to reach `whatBreaksFirst` and be ranked beside the
-  perp book, never averaged with it.
-- **Builder-deployed dexes.** `perpDexs` lists them and `clearinghouseState`
-  takes a `dex` parameter. The list grows without bound and is one call each, so
-  the design question is the fan-out per refresh — read only the dexes an
-  account has touched, or bound it — not whether the data is reachable.
+  perp book, never averaged with it. Whether a portfolio-margin borrow also
+  appears here is settled by
+  [`field-report/03`](../field-report/03-portfolio-margin-borrowing.md) first,
+  so the two are never counted twice.
+- **Not met.** The borrow/lend health factor ranked in `whatBreaksFirst`. It is
+  read and stated on the account's entry, in `/hyperliquid status` and to the
+  model, and it is not ranked: Hyperliquid says "Health Factor <100% does not
+  directly imply liquidation risk, but the account won't be able to borrow more"
+  (`support/faq/portfolio-margin`), so a rank would place a borrowing limit among
+  liquidations. The bullet above asks for what the venue says is not there, and
+  wants re-arguing rather than building. A borrow/lend balance outside portfolio
+  margin — none was found in 42 accounts sampled — fails that part of the read
+  by name rather than being added.
 - Each gap closed removes its `doesNotRead` entry and the test in
   `hyperliquid.test.ts` holding it open, in the same change.
 

@@ -73,7 +73,10 @@ export function riskEngineFor(session: Session): RiskEngine {
         // `get_positions` and in every total. Reporting it as `0` here would
         // hand the model two answers about one venue and no way to tell that
         // the rows it can see are the previous read.
-        const text = failure ? failure.split(': ').slice(1).join(': ') : ''
+        const text = failures
+          .filter((f) => f.startsWith(`${venue}: `))
+          .map((f) => f.split(': ').slice(1).join(': '))
+          .join(' · ')
         rows.push(
           failure
             ? {
@@ -82,7 +85,9 @@ export function riskEngineFor(session: Session): RiskEngine {
                 asOf: held?.asOf ?? null,
                 status: kept.has(venue)
                   ? `failed: ${text} — the positions counted here are its previous read, not this one`
-                  : `failed: ${text}`,
+                  : held
+                    ? `answered in part: ${text} — every position counted here is from what did load`
+                    : `failed: ${text}`,
               }
             : { venue, positions: held?.count ?? 0, asOf: held?.asOf ?? null, status: 'ok' },
         )

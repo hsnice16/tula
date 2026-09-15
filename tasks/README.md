@@ -12,7 +12,7 @@ release its work shipped in.
 ```text
 tasks/
   README.md               <- this file
-  <theme>/                <- one folder per milestone, except execution/ (13-16)
+  <theme>/                <- one folder per milestone, except execution/ (14-17)
     README.md             <- milestone scope
     NN-<slug>.md          <- one task per file, numbered by intended order
 ```

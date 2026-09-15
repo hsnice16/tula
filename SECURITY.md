@@ -45,6 +45,23 @@ Highest severity first:
    deliberately not encrypted — a key beside the ciphertext protects nothing and
    a passphrase breaks unattended commands — so its permissions are the whole
    defence, and a hole in them is a real finding.
+
+   Beside it, `history.jsonl` keeps the lines submitted on the shell's input
+   line, so ↑ and ctrl+r reach them in a later session. What a stored line
+   reveals is an address and questions about your book — your positions, in
+   your own words — so it is held to the same three refusals: mode 600, never
+   through a link, never in a directory anyone else can write to. It is written
+   by a module that imports nothing from `src/secrets/`, and from the shell's
+   screen alone: `scripts/guard.sh` fails the build on any other caller, and on
+   the writer reaching the store. Never recorded: anything typed while
+   connecting a venue, secret or not; the name typed to confirm a deletion; a
+   line starting with a space; a one-shot `tula` command; and any line shaped
+   like a credential by the patterns the commit hook refuses. `/history clear`
+   empties it, and `TULA_NO_HISTORY=1` keeps nothing at all.
+
+   `preferences.json` holds preferences only, such as the vim toggle: no secret,
+   written at mode 600 in the same directory, and read as the defaults when it
+   cannot be read.
 5. **Prompt injection through venue-supplied text** that changes what tula
    reports or where it sends data. The surface is small and worth knowing
    exactly, because every one of them is drawn on screen *and* returned to the
@@ -79,6 +96,11 @@ Highest severity first:
      one source of outside text that is not a venue's, and it went unbounded
      while the other two were capped: the argument `remote()` makes about what
      an escape sequence can repaint does not stop at the venue boundary.
+   - A Hyperliquid builder dex name, which the dex's deployer chooses and which
+     becomes the venue label on every row that dex holds. Only a name of 1 to
+     16 lowercase letters and digits is read (`DEX_NAME` in
+     `src/connectors/hyperliquid.ts`); any other dex is reported as not read,
+     with its name bounded by `remote()`.
 
    No memo, NFT metadata or protocol description is read at all.
 
@@ -160,20 +182,45 @@ If you observe any of these, treat the binary as compromised and report it:
   cannot move funds.)
 - Send a credential anywhere except the venue it belongs to.
 - Move funds off a venue.
-- Place, modify or cancel an order — until trading ships, which will be
-  announced, opt-in, and confirmed by you per trade. A build that does it
-  silently is compromised.
+- Place, modify or cancel an order, for the moment — placing trades will come
+  later. A build that does it now is compromised.
 - Send your positions anywhere you did not ask it to.
 
 ## Where your data goes
 
 Everything tula contacts, and nothing else:
 
-- **The venues you connect, and the price source you chose.**
+- **The venues you connect, and the price source you chose** — no venue you
+  did not connect, and one price source a run. Each venue sees the account
+  being read, and an exchange is sent what it issued you to read with: the key,
+  or a request signed with it.
+
+  - Kraken — `https://api.kraken.com`
+  - Binance — `https://api.binance.com`, and `https://fapi.binance.com`, asked
+    for futures positions on every read
+  - Coinbase — `https://api.coinbase.com`
+  - Stripe — `https://api.stripe.com`
+  - Hyperliquid — `https://api.hyperliquid.xyz`, asked about the address and
+    each sub-account it lists. Aave and a wallet address go to the chain nodes
+    below.
+
+  A price source is sent no quantity, address or venue key:
+
+  - CoinGecko, the default — `https://api.coingecko.com`. The pages of its
+    market list carry nothing about you; one request after them names the
+    CoinGecko ids of assets tula pins to an id that your book holds and the
+    pages did not price.
+  - CoinMarketCap — `https://pro-api.coinmarketcap.com`, sent your key and the
+    symbols your book holds.
+  - CryptoCompare — `https://min-api.cryptocompare.com`, sent your key and the
+    symbols your book holds.
+  - CoinPaprika — `https://api.coinpaprika.com`, asked for every ticker at
+    once, so nothing about what you hold.
 - **A public RPC on each chain read, and a token list**, for the on-chain
-  venues. Three chains are read — Ethereum, Arbitrum One and Base — and each
-  node sees the address you are reading. These are defaults rather than
-  choices, and they are every node any chain may reach:
+  venues. Nine chains are read — Ethereum, Arbitrum One, Base, Polygon,
+  Optimism, Avalanche, Gnosis, Scroll and Linea — and each node sees the
+  address you are reading. These are defaults rather than choices, and they are
+  every node any chain may reach:
 
   - Ethereum — `https://ethereum-rpc.publicnode.com`,
     `https://eth.rpc.blxrbdn.com`, `https://rpc.mevblocker.io`
@@ -181,17 +228,35 @@ Everything tula contacts, and nothing else:
     `https://arb1.arbitrum.io/rpc`, `https://arbitrum-one.public.blastapi.io`
   - Base — `https://base-rpc.publicnode.com`,
     `https://base-mainnet.public.blastapi.io`, `https://base.rpc.thirdweb.com`
+  - Polygon — `https://polygon-bor-rpc.publicnode.com`,
+    `https://poly.api.pocket.network`, `https://matic.rpc.sentio.xyz`
+  - Optimism — `https://optimism-rpc.publicnode.com`,
+    `https://op.api.pocket.network`, `https://optimism.rpc.sentio.xyz`
+  - Avalanche — `https://avalanche-c-chain-rpc.publicnode.com`,
+    `https://api.avax.network/ext/bc/C/rpc`, `https://avax.api.pocket.network`
+  - Gnosis — `https://gnosis-rpc.publicnode.com`,
+    `https://rpc.gnosischain.com`, `https://gnosis.api.pocket.network`
+  - Scroll — `https://scroll-rpc.publicnode.com`,
+    `https://scroll.api.pocket.network`, `https://scroll.rpc.sentio.xyz`
+  - Linea — `https://linea-rpc.publicnode.com`, `https://rpc.linea.build`,
+    `https://linea.api.pocket.network`
 
   The first of each is the one a read starts on, and it is the only one
   contacted while it answers. A chain moves to the next when that node
   rate-limits it or goes down, and stays there for the rest of the run — so a
   busy node costs a retry rather than the chain, at the cost of a second
-  operator on that chain seeing the address. Setting `TULA_ETHEREUM_RPC`,
-  `TULA_ARBITRUM_RPC` or `TULA_BASE_RPC` replaces that chain's list outright,
-  including with your own node: nothing here is contacted as a fallback to a
-  node you named. Several may be given, comma-separated, and then those are the
-  whole list. The token list is `https://tokens.uniswap.org`, and
-  `TULA_TOKEN_LIST` points it elsewhere.
+  operator on that chain seeing the address. Setting that chain's own variable
+  — `TULA_ETHEREUM_RPC`, `TULA_ARBITRUM_RPC`, `TULA_BASE_RPC`,
+  `TULA_POLYGON_RPC`, `TULA_OPTIMISM_RPC`, `TULA_AVALANCHE_RPC`,
+  `TULA_GNOSIS_RPC`, `TULA_SCROLL_RPC` or `TULA_LINEA_RPC` — replaces its list
+  outright, including with your own node: nothing here is contacted as a
+  fallback to a node you named. Several may be given, comma-separated, and then
+  those are the whole list. The token list is `https://tokens.uniswap.org`,
+  which carries nothing for Gnosis, Scroll or Linea; those three read SmolDapp's
+  list for their chain, under
+  `https://raw.githubusercontent.com/SmolDapp/tokenLists/main/lists/`.
+  `TULA_TOKEN_LIST` points every chain elsewhere, and a chain's own
+  `TULA_<CHAIN>_TOKEN_LIST` points that one.
 - **Anthropic — `https://api.anthropic.com`, and only when you ask a question in
   plain English.** The host is stated in the binary rather than taken from the
   environment, so nothing outside tula can redirect it. Answering one
@@ -200,7 +265,7 @@ Everything tula contacts, and nothing else:
   among them, by construction. Every command works without a model and sends
   nothing to Anthropic; if you never ask a question, tula never talks to it.
 
-- **GitHub, to see whether there is a newer release.** The check that runs on
+- **GitHub — `https://github.com` — to see whether there is a newer release.** The check that runs on
   its own does so once a day at most and only in the interactive shell;
   `TULA_NO_UPDATE_CHECK=1` stops it. Asking directly — `/update`, or
   `tula update` — checks there and then, because you asked. Either way it is a
@@ -223,7 +288,7 @@ keyless, so there is no signing key for this project to generate, publish, rotat
 or lose.
 
 ```bash
-gh attestation verify tula-v0.2.0-darwin-arm64.tar.gz --repo hsnice16/tula \
+gh attestation verify tula-v0.3.0-darwin-arm64.tar.gz --repo hsnice16/tula \
   --signer-workflow hsnice16/tula/.github/workflows/release.yml
 ```
 

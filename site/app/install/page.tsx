@@ -10,7 +10,7 @@ import { INSTALL_COMMAND, NAME, OG, REPO, SITE, TWITTER } from '@/lib/site'
 
 const TITLE = 'Install — one command, and every download checked'
 const SUMMARY =
-  'Install tula on macOS or Linux with one command. Every release carries a published checksum and a sigstore-backed build attestation, and the installer stops on a download that does not match. Also on Homebrew and npm.'
+  'Install tula on macOS or Linux with one command. Every download is checked, and the installer stops on one that does not match. Also on Homebrew and npm.'
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -21,15 +21,12 @@ export const metadata: Metadata = {
 }
 
 const CHECKS = [
-  ['Published checksum', 'Always. The install stops if the download does not match it.'],
+  ['Checksum', 'Always checked. The install stops if it does not match.'],
   [
     'Build attestation',
-    'GitHub signs it as the release is built. Checking it needs the GitHub CLI, which most people do not have \u2014 see \u201cProving who built it\u201d below.',
+    'GitHub signs each release as it is built. Checking it needs the GitHub CLI.',
   ],
-  [
-    'Versioned installs',
-    'Every release keeps a name of its own, so an older build is still there after a newer one arrives.',
-  ],
+  ['Versioned installs', 'Every release stays installable, so you can always go back.'],
 ] as const
 
 /**
@@ -42,24 +39,22 @@ const PATH_FIXES: [string, ReactNode][] = [
   [
     'Install script',
     <>
-      Near the end it printed one of three. <Code>added to</Code> or <Code>already in</Code> means
-      the PATH line is in a profile already, and this shell started before it — open a new one.{' '}
-      <Code>add it yourself</Code> means it changed nothing, and the <Code>export</Code> line beside
-      it is yours to add.
+      If it printed <Code>added to</Code> or <Code>already in</Code>, open a new terminal. If it
+      printed <Code>add it yourself</Code>, add the <Code>export</Code> line it showed.
     </>,
   ],
   [
     'Homebrew',
     <>
-      A pinned <Code>tula@&lt;version&gt;</Code> is <Code>keg_only</Code>, so it is installed and
-      deliberately not on your PATH until you <Code>brew link</Code> it.
+      A pinned <Code>tula@&lt;version&gt;</Code> is <Code>keg_only</Code>. Run{' '}
+      <Code>brew link</Code> on it.
     </>,
   ],
   [
     'npm',
     <>
-      Its launcher goes to npm&rsquo;s global bin directory, which has to be on your PATH.{' '}
-      <Code>npm prefix -g</Code> names the folder that <Code>bin</Code> sits in.
+      npm&rsquo;s global bin folder must be on your PATH. <Code>npm prefix -g</Code> shows the
+      folder that holds it.
     </>,
   ],
 ]
@@ -82,7 +77,7 @@ const SYSTEMS = [
   ['macOS', 'Yes', 'Intel and ARM, 64-bit.'],
   ['Linux', 'Yes', 'Intel and ARM, 64-bit. Needs glibc.'],
   ['Alpine, or any musl Linux', 'No', 'The installer says so and stops.'],
-  ['Windows', 'Through WSL', 'Install inside WSL, where it is Linux. There is no native build.'],
+  ['Windows', 'Through WSL', 'Install inside WSL. There is no native build.'],
 ] as const
 
 /** A step within one channel's panel, under that panel's own heading. */
@@ -111,7 +106,7 @@ const CHANNELS: Channel[] = [
         <Terminal title="install">{INSTALL_COMMAND}</Terminal>
         {/* A legend for the command directly above, so it sits tight under it —
             justified across the full column reads as two unrelated lists. */}
-        <dl className="mt-5 grid grid-cols-[auto_1fr] gap-x-7 gap-y-1.5 text-[0.82rem]">
+        <dl className="mt-5 grid grid-cols-[auto_1fr] gap-x-7 gap-y-1.5 text-[0.82rem] [overflow-wrap:anywhere]">
           {FLAGS.map(([flag, why]) => (
             <div key={flag} className="contents">
               <dt className="font-mono text-notice">{flag}</dt>
@@ -120,63 +115,45 @@ const CHANNELS: Channel[] = [
           ))}
         </dl>
         <p className="mt-5 mb-6 text-[0.9rem] text-dim">
-          This pipes a script into your shell, so read it before you run it.{' '}
-          <Ext href={`${SITE}/install.sh`}>install.sh</Ext> is the file the command fetches, copied
-          from <Ext href={`${REPO}/blob/main/install.sh`}>the one in the repo</Ext>, and the one
-          every test runs against.
+          It runs a script in your shell, so read <Ext href={`${SITE}/install.sh`}>install.sh</Ext>{' '}
+          first. It is the same file as{' '}
+          <Ext href={`${REPO}/blob/main/install.sh`}>the one in the repo</Ext>.
         </p>
         <Aside>
-          The tula shell checks for a new release once a day and says so in a line. It never
-          installs one without asking: <Code>/update</Code> shows what it would install and where to
-          check it, and <Code>/update install</Code> installs it.
+          The tula shell checks for a new release once a day. It never installs one without asking:
+          run <Code>/update install</Code>.
         </Aside>
 
         <Step title="Where it puts things">
           <p className="mb-4 text-dim">
-            Everything goes under <Code>~/.tula</Code>. Each version gets its own folder, and{' '}
-            <Code>~/.tula/bin/tula</Code> is a link to the one you run. The installer refuses a tree
-            somebody else owns or can write to — mode 600 on your keys buys nothing if another
-            account can replace the binary that opens them — and <Code>TULA_INSTALL_DIR</Code> puts
-            it somewhere you do own.
+            Everything goes in <Code>~/.tula</Code>, one folder per version. It will not use a
+            folder other users can write to. <Code>TULA_INSTALL_DIR</Code> picks another folder.
           </p>
           <p className="text-dim">
-            If <Code>~/.tula/bin</Code> is not on your PATH, the installer adds a line to your zsh,
-            bash or fish profile and tells you which file it changed. On any other shell it prints
-            the line and changes nothing. Set <Code>TULA_NO_MODIFY_PATH=1</Code> to make it print
-            rather than edit, whatever your shell.
+            If <Code>~/.tula/bin</Code> is not on your PATH, it adds it to your zsh, bash or fish
+            profile. <Code>TULA_NO_MODIFY_PATH=1</Code> prints the line instead.
           </p>
         </Step>
 
         <Step title="One exact version">
           <p className="text-dim">
-            Set <Code>TULA_VERSION</Code> to install a version instead of the newest. It also takes{' '}
-            <Code>latest</Code>, which is what you get anyway. In CI, add{' '}
-            <Code>TULA_REQUIRE_ATTESTATION=1</Code> to stop the install when the build attestation
-            cannot be checked, rather than warn about it.
+            Set <Code>TULA_VERSION</Code> to pick a version. In CI,{' '}
+            <Code>TULA_REQUIRE_ATTESTATION=1</Code> stops the install if who built it cannot be
+            checked.
           </p>
         </Step>
 
         <Step title="Update">
           <p className="mb-4 text-dim">
-            <Code>/update install</Code> from inside tula updates without leaving it. Running the
-            install command again does the same, and is the one that still works when tula will not
-            start.
-          </p>
-          <p className="mb-4 text-dim">
-            It downloads nothing when the version you already have is the one it was going to
-            install <em>and</em> that build still hashes to what was checked when it landed — it
-            says so and relinks, which takes about a second. Anything else, a tree an older
-            installer left without that record included, is downloaded and verified again.{' '}
-            <Code>TULA_FORCE=1</Code> fetches and checks that same version again anyway.
+            Run <Code>/update install</Code> in tula, or the install command again — that works even
+            if tula will not start. A version you already have is not downloaded twice;{' '}
+            <Code>TULA_FORCE=1</Code> downloads it anyway.
           </p>
           <Terminal title="update">{INSTALL_COMMAND}</Terminal>
         </Step>
 
         <Step title="Go back">
-          <p className="mb-4 text-dim">
-            Old versions stay on disk, so going back is a change of link rather than another
-            download.
-          </p>
+          <p className="mb-4 text-dim">Old versions stay on disk, so going back is one link:</p>
           <Command label="go back">
             {'ln -sf ~/.tula/versions/<version>/tula ~/.tula/bin/tula'}
           </Command>
@@ -184,8 +161,7 @@ const CHANNELS: Channel[] = [
 
         <Step title="Remove">
           <p className="mb-4 text-dim">
-            Delete the folder, and the line the installer added to your shell profile. Your keys are
-            kept elsewhere, so this leaves them alone.
+            Delete the folder and the PATH line in your profile. Your keys are kept elsewhere.
           </p>
           <Command label="remove">{'rm -rf ~/.tula'}</Command>
         </Step>
@@ -198,32 +174,22 @@ const CHANNELS: Channel[] = [
       <>
         <Terminal title="homebrew">{'brew install hsnice16/tap/tula'}</Terminal>
         <p className="mt-5 text-dim">
-          That names the tap and the formula together, which is the only way to do it in one
-          command. For the short name instead, tap once with <Code>brew tap hsnice16/tap</Code>;{' '}
-          <Code>brew install tula</Code> then works on that machine.
+          Or run <Code>brew tap hsnice16/tap</Code> once, then <Code>brew install tula</Code>.
         </p>
         <p className="mt-4 text-dim">
-          Homebrew downloads the archive from the same GitHub release the install script uses, and
-          checks it against the checksum written into the formula. It keeps the binary in its own
-          prefix, not under <Code>~/.tula</Code>.
+          Homebrew checks the download against the checksum in the formula.
         </p>
         <p className="mt-4 mb-6 text-dim">
-          There are three names to install from. <Code>tula</Code> takes stable releases only, so a
-          build found to be wrong is skipped by promoting the next one. <Code>tula-latest</Code>{' '}
-          takes every release, pre-releases included.
+          <Code>tula</Code> gets stable releases; <Code>tula-latest</Code> gets every release.
         </p>
         <Aside>
-          The tula shell checks for a new release once a day and says so in a line. It never
-          installs one without asking, and on Homebrew it does not install one at all — that is{' '}
-          <Code>brew upgrade tula</Code>, so brew is never left naming a version that is not
-          running.
+          The tula shell checks for a new release once a day. It never installs one without asking,
+          and on Homebrew it does not install one at all: run <Code>brew upgrade tula</Code>.
         </Aside>
 
         <Step title="One exact version">
           <p className="mb-4 text-dim">
-            Every release also gets a formula of its own, and the tap keeps them. A pinned formula
-            is <Code>keg_only</Code>: installing it does not put it on your PATH, so linking it is
-            the step that says which tula you mean.
+            Every release has a pinned formula. It is <Code>keg_only</Code>, so link it to use it:
           </p>
           <Terminal title="homebrew, one version">
             {
@@ -237,16 +203,12 @@ const CHANNELS: Channel[] = [
         </Step>
 
         <Step title="Go back">
-          <p className="text-dim">
-            Install and link a pinned formula from above. A Homebrew formula holds one version, so
-            those pinned names are what makes an older build reachable.
-          </p>
+          <p className="text-dim">Install and link an older pinned formula, as above.</p>
         </Step>
 
         <Step title="Remove">
           <p className="mb-4 text-dim">
-            Uninstalling leaves the tap behind, which is a few lines of text and nothing else.{' '}
-            <Code>brew untap hsnice16/tap</Code> drops it too.
+            <Code>brew untap hsnice16/tap</Code> also removes the tap.
           </p>
           <Command label="remove">{'brew uninstall tula'}</Command>
         </Step>
@@ -266,43 +228,29 @@ const CHANNELS: Channel[] = [
         <div className="mt-5 mb-6">
           <Aside>
             <strong className="font-semibold text-ink">Checked a different way.</strong> npm
-            repackages the release instead of serving it, so the GitHub attestation the other two
-            channels carry does not cover this tarball. It is published with npm&rsquo;s own
-            sigstore provenance — <Code>npm audit signatures</Code> checks it, and npmjs.com shows
-            which workflow and commit built it. What npm&rsquo;s integrity hash proves is only that
-            the file arrived intact, which is a different question again.
+            repackages the binary, so the GitHub attestation does not cover it. Check npm&rsquo;s
+            own provenance with <Code>npm audit signatures</Code>.
           </Aside>
         </div>
-        <p className="mb-6 text-dim">
-          You need Node to install it. You do not need Node to run it: the install puts the same
-          binary the other channels serve in place of its own launcher. It does not install under{' '}
-          <Code>~/.tula</Code>.
-        </p>
+        <p className="mb-6 text-dim">Node is needed to install it, not to run it.</p>
         <Aside>
-          The tula shell checks for a new release once a day and says so in a line. It never
-          installs one without asking, and on npm it does not install one at all — that is{' '}
-          <Code>npm update</Code>, so npm is never left naming a version that is not running.
+          The tula shell checks for a new release once a day. It never installs one without asking,
+          and on npm it does not install one at all: run <Code>npm update</Code>.
         </Aside>
 
         <Step title="One exact version">
           <p className="mb-4 text-dim">
-            npm keeps every version it has published, so naming one is all it takes. It is not a
-            pin, though: <Code>npm update</Code> moves you off it to the newest release, however far
-            away that is.
+            Name the version. <Code>npm update</Code> moves you back to the newest.
           </p>
           <Command label="npm, one version">{'npm install -g @hsnice16/tula@<version>'}</Command>
         </Step>
 
         <Step title="Update">
-          <p className="mb-4 text-dim">Installing again without a version does the same thing.</p>
           <Command label="update">{'npm update -g @hsnice16/tula'}</Command>
         </Step>
 
         <Step title="Go back">
-          <p className="text-dim">
-            Name the older version, the same command as above. npm keeps what it has published, so
-            an old build is a download, not something you had to keep.
-          </p>
+          <p className="text-dim">Install the older version, as above.</p>
         </Step>
 
         <Step title="Remove">
@@ -321,8 +269,7 @@ export default function Page() {
         Install
       </h1>
       <p className="mb-10 max-w-[36rem] text-[1.05rem] text-dim">
-        One file, and nothing else to install beside it. Three ways to get it, and the same binary
-        at the end of all of them.
+        One file, nothing else to install. Three ways to get it, and the same binary from each.
       </p>
 
       <Channels channels={CHANNELS} />
@@ -331,8 +278,7 @@ export default function Page() {
       <div className="mb-step-3 max-w-[46rem]">
         <Command label="confirm">{'tula --version'}</Command>
         <p className="mt-4 text-dim">
-          It prints the version. If your shell says it cannot find tula, it is on disk and your PATH
-          does not reach it. The fix differs by channel:
+          It prints the version. If your shell cannot find tula, your PATH does not include it:
         </p>
         {/* Rows rather than the three columns the checks above take: the answers
             are uneven, and side by side the longest sets the height of the two
@@ -390,45 +336,36 @@ export default function Page() {
       <h2 className="label mb-8">Proving who built it</h2>
       <div className="mb-step-3 max-w-[46rem]">
         <p className="mb-4 text-dim">
-          A checksum proves the file arrived whole. It does not prove who made it: the checksum is
-          published beside the file, so whoever could swap one could swap the other. The build
-          attestation proves origin — GitHub signs it as the release is built, and nobody who gets
-          hold of the files afterwards can reissue it.
+          A checksum proves the file arrived whole, not who made it. The build attestation does:
+          GitHub signs it while building the release, and no one can sign it again later.
         </p>
         <p className="mb-6 text-dim">
-          Checking one needs the GitHub CLI, signed in with <Code>gh auth login</Code>. It will not
-          fetch an attestation without a token, even for a public repository.
+          Checking it needs the GitHub CLI, signed in with <Code>gh auth login</Code>.
         </p>
         <div className="mb-6">
           <Aside warn>
-            Most people do not have the GitHub CLI, and nothing here requires it. Without it you
-            still get an HTTPS-only download and a checksum the installer will not skip — but
-            nothing has proved who built the binary, and the installer says so in as many words when
-            it finishes.
+            Most people do not have the GitHub CLI, and nothing here requires it. You still get an
+            HTTPS-only download and a checksum check, just no proof of who built it. The installer
+            tells you when that is the case.
           </Aside>
         </div>
         <Terminal title="verify">
           {
-            "curl --proto '=https' --tlsv1.2 -fLO https://github.com/hsnice16/tula/releases/download/v0.2.0/tula-v0.2.0-darwin-arm64.tar.gz\ngh attestation verify tula-v0.2.0-darwin-arm64.tar.gz --repo hsnice16/tula --signer-workflow hsnice16/tula/.github/workflows/release.yml"
+            "curl --proto '=https' --tlsv1.2 -fLO https://github.com/hsnice16/tula/releases/download/v0.3.0/tula-v0.3.0-darwin-arm64.tar.gz\ngh attestation verify tula-v0.3.0-darwin-arm64.tar.gz --repo hsnice16/tula --signer-workflow hsnice16/tula/.github/workflows/release.yml"
           }
         </Terminal>
         <p className="mt-4 text-dim">
-          The download is the first step, not a repeat of one: the attestation covers the archive
-          rather than the binary inside it, and the installer keeps no copy of the archive.
+          The attestation covers the archive, not the binary inside, so this downloads it again.
         </p>
       </div>
 
       <h2 className="label mb-8">Your keys are kept apart</h2>
       <div className="max-w-[46rem]">
         <p className="mb-4 text-dim">
-          Whichever way you installed it, your keys live in <Code>~/.config/tula</Code>, away from
-          the binary. Reinstalling does not touch it, updating does not touch it, and removing tula
-          leaves it where it is.
+          Your keys live in <Code>~/.config/tula</Code>. Reinstalling, updating or removing tula
+          never touches them.
         </p>
-        <p className="mb-4 text-dim">
-          So deleting it is a separate step, and a deliberate one. Run this when you are done with
-          tula, not when you are reinstalling it.
-        </p>
+        <p className="mb-4 text-dim">Delete them only when you are done with tula:</p>
         <Command label="remove your keys">{'rm -rf ~/.config/tula'}</Command>
       </div>
     </main>

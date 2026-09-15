@@ -1,0 +1,69 @@
+{
+  "captured": "2026-09-15T13:37:33.668Z",
+  "nodes": [
+    {
+      "rpc": "https://optimism-rpc.publicnode.com",
+      "chainId": "0xa",
+      "batchAnswered": 40
+    },
+    {
+      "rpc": "https://op.api.pocket.network",
+      "chainId": "0xa",
+      "batchAnswered": 40
+    },
+    {
+      "rpc": "https://optimism.rpc.sentio.xyz",
+      "chainId": "0xa",
+      "batchAnswered": 40
+    }
+  ],
+  "sharedLedgers": [],
+  "tokenList": {
+    "url": "https://tokens.uniswap.org",
+    "name": "Uniswap Labs Default",
+    "tokens": 64,
+    "stablecoins": [
+      {
+        "symbol": "DAI",
+        "decimals": 18
+      },
+      {
+        "symbol": "USDC",
+        "decimals": 6
+      },
+      {
+        "symbol": "USDC.e",
+        "decimals": 6
+      },
+      {
+        "symbol": "USDT",
+        "decimals": 6
+      },
+      {
+        "symbol": "USDT0",
+        "decimals": 6
+      }
+    ]
+  },
+  "aave": [
+    {
+      "market": "Core",
+      "reserves": [
+        "DAI",
+        "LINK",
+        "USDC",
+        "WBTC",
+        "WETH",
+        "USDT",
+        "AAVE",
+        "sUSD",
+        "OP",
+        "wstETH",
+        "LUSD",
+        "MAI",
+        "rETH",
+        "USDC"
+      ]
+    }
+  ]
+}

@@ -1,10 +1,11 @@
+import { streams } from './cli/commands.js'
 import { ask, askFields } from './cli/prompt.js'
 import { useSurface } from './core/surface.js'
 import { forgetCommand, nearestCommand } from './cli/registry.js'
 import { Session } from './cli/session.js'
 import { dispatchCommand, parseCommand } from './cli/shell.js'
 import { CONNECTORS } from './connectors/registry.js'
-import { isOverScoped, overScopedPowers, retired, unverified } from './connectors/types.js'
+import { isOverScoped, overScopedRefusal, retired, unverified } from './connectors/types.js'
 import { remote, TulaError } from './core/errors.js'
 import { buildOracle } from './prices/providers.js'
 import { envApiKey } from './agent/agent.js'
@@ -115,7 +116,7 @@ async function connect(venueId: string | undefined): Promise<void> {
   // at all, so this advice does not merely not apply there — it describes a key
   // they will never be asked for.
   if (connector.fields.some((f) => f.secret)) {
-    console.log('Use a read-only key: query permissions only, no trading, no withdrawals.')
+    console.log(connector.readOnlyKey ?? 'Use a key that can only read.')
   }
   console.log('tula never asks for a seed phrase or private key.\n')
 
@@ -132,7 +133,7 @@ async function connect(venueId: string | undefined): Promise<void> {
 
   const creds = await askFields(connector.fields, { command })
 
-  process.stdout.write('\nVerifying key scope... ')
+  process.stdout.write(addressOnly ? '\nChecking the address... ' : '\nVerifying key scope... ')
 
   let scope
   try {
@@ -145,11 +146,7 @@ async function connect(venueId: string | undefined): Promise<void> {
 
   if (!scope.canRead) fail('This key cannot read balances. Enable read access and try again.')
   if (isOverScoped(scope)) {
-    fail(
-      `Refusing this key: it can ${overScopedPowers(scope).join(' and ')}.\n` +
-        'tula is read-only and will not hold a key that can move your funds.\n' +
-        'Create a new key with query permissions only, then run this again.',
-    )
+    fail(overScopedRefusal(scope, connector.readOnlyKey))
   }
 
   if (replacing) {
@@ -290,7 +287,11 @@ async function main(): Promise<void> {
       console.log(usage())
       return
     }
-    await session.ensureLoaded()
+    // No load here. The shell reads the book as it opens, behind a busy row that
+    // names the venue being read. Awaited here instead, a venue slow to answer
+    // left the terminal blank and still in cooked mode for as long as it took:
+    // nothing said what it was waiting on, the tty echoed what was typed, and
+    // the keys reached the shell as one run of text rather than commands.
     // The environment wins over the stored key, so a shell export can override
     // what is on disk without editing the file.
     const apiKey = envApiKey() ?? (await secrets.getProviderKey())
@@ -337,7 +338,7 @@ async function main(): Promise<void> {
     // would answer a venue this build dropped by not mentioning it at all.
     const gone = parsed && retired(parsed.name, forgetCommand(parsed.name))
     if (gone) {
-      console.log(gone)
+      console.error(gone)
       process.exitCode = 1
       return
     }
@@ -346,7 +347,7 @@ async function main(): Promise<void> {
     // offered the nearest match since the first release; this path printed a
     // wall of text and exited 1, which reads as the command having run.
     const guess = parsed && nearestCommand(parsed.name)
-    console.log(
+    console.error(
       `Unknown command "${command}".` +
         (guess ? ` Did you mean:  tula ${guess}` : '') +
         `\n\n${usage()}`,
@@ -367,22 +368,24 @@ async function main(): Promise<void> {
       addressOnly: !CONNECTORS.get(id)?.fields.some((f) => f.secret),
       detail: 'connected',
     }))
-  const target = forgets(parsed.name, args)
+  // `tula "shock ETH -20"` arrives as one word, which the parse has already split.
+  const words = args.length > 0 ? args : parsed.args
+  const target = forgets(parsed.name, words)
   if (target && storedVenues.includes(target.venue) && !confirmed) {
     await confirmForget(
       target.venue,
-      `tula ${command} ${args.join(' ')}`.trimEnd(),
+      `tula ${parsed.name} ${words.join(' ')}`.trimEnd(),
       target.ref,
       target.all,
     )
   }
-  const result = await dispatchCommand(session, CONNECTORS, { ...parsed, args }, venueEntries)
+  const result = await dispatchCommand(session, CONNECTORS, { ...parsed, args: words }, venueEntries)
   if (result.kind === 'connect') {
     await connect(result.venue)
     return
   }
   if (result.kind === 'connect-price') {
-    console.log(
+    console.error(
       `Setting an API key for ${result.provider} only works inside the shell, so it is never\n` +
         'typed where a shell history or a process list could keep it. Run: tula',
     )
@@ -391,11 +394,13 @@ async function main(): Promise<void> {
   }
   if (result.kind === 'ui') {
     // /login, /clear and /exit only mean something inside the shell.
-    console.log(`/${parsed.name} only works inside the shell. Run: tula`)
+    console.error(`/${parsed.name} only works inside the shell. Run: tula`)
     process.exitCode = 1
     return
   }
-  console.log(result.output)
+  const { stdout, stderr } = streams(result)
+  if (stdout !== '') console.log(stdout)
+  if (stderr !== '') console.error(stderr)
   if (result.incomplete || result.usageError) process.exitCode = 1
 }
 

@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, test } from 'bun:test'
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -9,6 +9,7 @@ import { riskEngineFor } from './cli/engine-adapter.js'
 import { parseCommand, SLASH_COMMANDS } from './cli/registry.js'
 import { Session } from './cli/session.js'
 import { dispatchCommand } from './cli/shell.js'
+import { hyperliquidConnector } from './connectors/hyperliquid.js'
 import type { Connector, KeyScope } from './connectors/types.js'
 import type { Position, PositionKind } from './core/position.js'
 import type { PriceOracle, Quote } from './core/prices.js'
@@ -342,6 +343,146 @@ describe('what breaks and what a shock breaks are one answer', () => {
   })
 })
 
+/**
+ * One short, read the two ways a derivatives venue states it: its PnL on the
+ * position beside a cash row, or inside a balance that already carries it. The
+ * total moves by the PnL at both.
+ */
+describe('the headline total is equity, whichever way a venue states a short', () => {
+  const onThePosition = connector('cb', 'CB', 'cex', async () => [
+    at('cb', 'spot', 'USDC', '1000'),
+    at('cb', 'perp', 'ETH', '-3', { equity: new Decimal('500') }),
+  ])
+  const inTheBalance = connector('hl', 'HL', 'perp-dex', async () => [
+    at('hl', 'collateral', 'USDC', '1500'),
+    at('hl', 'perp', 'ETH', '-3', { equity: new Decimal('0') }),
+  ])
+  let stated: Book
+  let carried: Book
+
+  beforeAll(async () => {
+    stated = await book(['cb'], new Map([['cb', onThePosition]]))
+    carried = await book(['hl'], new Map([['hl', inTheBalance]]))
+  })
+
+  test('the same short moves the total by the same amount at either venue', async () => {
+    for (const b of [stated, carried]) {
+      expect((await b.run('/exposure')).output).toContain('Equity  $1,500.00')
+      const shocked = await b.run('/shock ETH -10')
+      expect(shocked.output).toContain('Before   $1,500.00')
+      // -3 ETH through a 400 fall is 1,200 of PnL, never 1,200 of notional lost.
+      expect(shocked.output).toContain('After    $2,700.00')
+    }
+  })
+
+  test('/exposure, /shock and the tools state one total', async () => {
+    for (const b of [stated, carried]) {
+      const exposure = b.tool('get_net_exposure')
+      const scenario = b.tool('run_scenario', { shocks: [{ asset: 'ETH', percent: 0 }] })
+      expect(exposure['equity_usd']).toBe('$1,500.00')
+      expect(scenario['value_before_usd']).toBe(exposure['equity_usd'])
+      expect((await b.run('/exposure')).output).toContain(`Equity  ${exposure['equity_usd']}`)
+    }
+  })
+
+  test('a derivative whose venue states no equity is named beside the total on both surfaces', async () => {
+    const silent = connector('bn', 'BN', 'cex', async () => [
+      at('bn', 'spot', 'USDC', '1000'),
+      at('bn', 'perp', 'ETH', '-3'),
+    ])
+    const b = await book(['bn'], new Map([['bn', silent]]))
+    const { output } = await b.run('/exposure')
+    expect(output).toContain('Equity  $1,000.00')
+    expect(output).toContain('bn states no equity for a derivative held there')
+    expect((b.tool('get_net_exposure')['excluded_from_equity'] as { no_equity_stated: string[] }).no_equity_stated).toEqual(['bn'])
+  })
+})
+
+/**
+ * An account a venue liquidates on a ratio: one entry ranked beside the rest,
+ * the positions that go with it held under it, and one figure for the ratio on
+ * both surfaces before and after a move.
+ */
+describe('an account liquidated on a ratio is one entry on every surface', () => {
+  const pooled = connector('pl', 'PL', 'perp-dex', async () => [
+    at('pl', 'spot', 'USDC', '10000', {
+      liquidation: {
+        ratio: {
+          name: 'Unified Account Ratio',
+          value: new Decimal('0.2'),
+          threshold: new Decimal('0.95'),
+          account: 'pl:0xabc',
+          pools: [{ row: 'pl:spot:USDC', balance: new Decimal('10000'), isolated: new Decimal('0'), maintenance: new Decimal('2000') }],
+        },
+      },
+    }),
+    at('pl', 'perp', 'ETH', '-10', {
+      equity: new Decimal('0'),
+      encumbers: ['pl:spot:USDC'],
+      liquidation: {
+        price: new Decimal('4900'),
+        mark: new Decimal('4000'),
+        maintenance: new Decimal('2000'),
+        liquidatedWith: 'pl:0xabc',
+      },
+    }),
+  ])
+  let account: Book
+
+  beforeAll(async () => {
+    account = await book(['pl'], new Map([['pl', pooled]]))
+  })
+
+  test('breaks ranks the account once and holds the perp under it, on screen and in the tool', async () => {
+    const { output } = await account.run('/breaks')
+    const screen = tableRows(output, 6).map((r) => `${r[0]}:${r[1]}:${r[2]}`)
+    const risks = rowsOf(account.tool('what_breaks_first'), 'risks')
+    expect(risks.map((r) => `${label(r)}:${r['asset']}:${r['kind']}`)).toEqual(screen)
+    expect(screen).toEqual(['pl:USDC:spot'])
+    expect(output).toContain('Unified Account Ratio 20.00%')
+    expect(output).toContain('liquidated past 95.00%: ETH perp')
+    expect((risks[0]?.['liquidated_with_this_account'] as { asset: string }[]).map((p) => p.asset)).toEqual(['ETH'])
+    expect((risks[0]?.['account_ratio'] as { value: string })['value']).toBe('20.00%')
+  })
+
+  test('a shock states one recomputed ratio on screen and to the model', async () => {
+    // -10 ETH through a 25% rise: maintenance 2000 → 2500, backing 10000 − 10,000 = 0.
+    const { output } = await account.run('/shock ETH 25')
+    const ratios = rowsOf(account.tool('run_scenario', { shocks: [{ asset: 'ETH', percent: 25 }] }), 'account_ratios')
+    expect(ratios.map((r) => `${r['before']} -> ${r['after']}`)).toEqual(['20.00% -> —'])
+    expect(output).toContain('Unified Account Ratio 20.00% -> —')
+    expect(output).toContain('LIQUIDATED:')
+    expect(rowsOf(account.tool('run_scenario', { shocks: [{ asset: 'ETH', percent: 25 }] }), 'could_not_be_evaluated')).toEqual([])
+  })
+
+  test('a ratio the shock cannot recompute is a gap on screen and to the model alike', async () => {
+    const why = 'the venue does not state the borrow offset'
+    const portfolio = connector('pm', 'PM', 'perp-dex', async () => [
+      at('pm', 'spot', 'USDC', '10000', {
+        liquidation: {
+          ratio: { name: 'Portfolio Margin Ratio', value: new Decimal('0.2'), threshold: new Decimal('0.95'), account: 'pm:0xdef', unshockable: why },
+        },
+      }),
+      at('pm', 'perp', 'ETH', '-10', {
+        equity: new Decimal('0'),
+        encumbers: ['pm:spot:USDC'],
+        liquidation: { price: new Decimal('4900'), mark: new Decimal('4000'), liquidatedWith: 'pm:0xdef' },
+      }),
+    ])
+    const pm = await book(['pm'], new Map([['pm', portfolio]]))
+    const { output } = await pm.run('/shock ETH -10')
+    const result = pm.tool('run_scenario', { shocks: [{ asset: 'ETH', percent: -10 }] })
+    const ratios = rowsOf(result, 'account_ratios')
+    expect(ratios.map((r) => [r['after'], r['not_recomputed_because']])).toEqual([[null, why]])
+    expect(output).toContain(`Not recomputed: ${why}.`)
+    expect(result['liquidated']).toEqual([])
+    // Neither surface may turn the withheld ratio into "nothing liquidates".
+    expect(output).not.toContain('Nothing liquidates at this level.')
+    expect(output).toContain('whether that account survives the move is unknown')
+    expect(result['note']).toContain('An account_ratios entry with after null is the same gap')
+  })
+})
+
 describe('a venue has one name', () => {
   test('a sub-account label folds back to the connected venue everywhere', () => {
     const status = rowsOf(whole.tool('get_venue_status'), 'venues').map((v) => v['venue'])
@@ -370,12 +511,11 @@ describe('a venue has one name', () => {
   })
 
   /**
-   * Live when this suite was written: `riskEngineFor` built its venue rows by
-   * walking positions, so a venue that returned none had no row at all — while
-   * `/venues` listed it as "connected, holding nothing", and `get_venue_status`
-   * reads an empty list as nothing being connected at all. The model was told a
-   * venue the reader was looking at did not exist. The adapter is handed the
-   * connected ids now rather than inferring them from what came back.
+   * `riskEngineFor` is handed the connected ids rather than building venue rows
+   * by walking positions: a venue that returns none would have no row at all,
+   * while `/venues` lists it as "connected, holding nothing" and
+   * `get_venue_status` reads an empty list as nothing connected — telling the
+   * model a venue the reader is looking at does not exist.
    */
   test('a venue connected and holding nothing is on screen and in the tool alike', async () => {
     const { output } = await whole.run('/venues')
@@ -389,13 +529,11 @@ describe('one health factor per market, whoever is asking', () => {
   const SHOCK = { shocks: [{ asset: 'ETH', percent: -10 }] }
 
   /**
-   * The disagreement this describes was live when the suite was written:
-   * `commands.shock` weighted the shock by the shocked *leg*, one line per leg,
-   * while `run_scenario` weighted it by that leg's share of the market's whole
-   * collateral base, one row per market. Over gamma's two legs the screen said
-   * 1.42 -> 1.28 and the model was handed 1.42 -> 1.34 — two answers about the
-   * number this product exists to state, with nothing to choose between them.
-   * Both now read `shockedHealthFactors`.
+   * A shock over a market with two collateral legs weighs either by the shocked
+   * *leg*, one line per leg, or by that leg's share of the market's whole
+   * collateral base, one row per market. Over gamma's two legs those are
+   * 1.42 -> 1.28 and 1.42 -> 1.34 — two answers about the number this product
+   * exists to state. Both surfaces read `shockedHealthFactors`.
    */
   test('the factor on screen is the factor the model is handed', async () => {
     const { output } = await whole.run('/shock ETH -10')
@@ -653,8 +791,8 @@ describe('what was never asked for is answered on demand, and on neither surface
     const areas = partly.tool('get_venue_status')['never_asked_for'] as { area: string }[]
     const shown = (await partly.run('/venues')).output
     expect(shown).toContain('Never asked for')
-    // Every one of them, not a count: the command is now the whole of the
-    // disclosure rather than the place a count sent the reader.
+    // Every one of them, not a count: the command is the whole of the
+    // disclosure, not the place a count sends the reader.
     for (const { area } of areas) expect(shown).toContain(area)
   })
 
@@ -797,6 +935,74 @@ describe('a name the venue did not spell that way is said to both readers', () =
   })
 })
 
+/**
+ * The real connector answering in part: the account arrives and one area of it
+ * does not. That is one book on the screen and to the model, short by the same
+ * line, and a refresh keeps no previous row beside the fresh ones.
+ */
+describe('a venue that answered in part is one book on both surfaces', () => {
+  const original = globalThis.fetch
+  const empty = { accountValue: '0.0', totalNtlPos: '0.0', totalRawUsd: '0.0', totalMarginUsed: '0.0' }
+  const ANSWERS: Record<string, unknown> = {
+    userAbstraction: 'disabled',
+    spotClearinghouseState: { balances: [{ coin: 'USDC', token: 0, total: '1000.0', hold: '0.0' }] },
+    perpDexs: [null],
+    allPerpMetas: [{ collateralToken: 0 }],
+    spotMeta: { tokens: [{ index: 0, name: 'USDC' }], universe: [] },
+    clearinghouseState: {
+      marginSummary: empty,
+      crossMarginSummary: empty,
+      crossMaintenanceMarginUsed: '0.0',
+      withdrawable: '0.0',
+      assetPositions: [],
+      time: AS_OF.getTime(),
+    },
+    frontendOpenOrders: [],
+    subAccounts: null,
+    userVaultEquities: [{ vaultAddress: '0x0000000000000000000000000000000000000abc', equity: '500.0' }],
+    borrowLendUserState: { tokenToState: [], healthFactor: null },
+  }
+  let partial: Book
+
+  beforeAll(async () => {
+    // Staking is the one area left out of ANSWERS, so it is the one that fails.
+    globalThis.fetch = (async (_url: string, init?: { body?: string }) => {
+      const type = String((JSON.parse(init?.body ?? '{}') as { type?: unknown }).type)
+      return type in ANSWERS
+        ? new Response(JSON.stringify(ANSWERS[type]), { status: 200 })
+        : new Response('down', { status: 502 })
+    }) as unknown as typeof fetch
+    partial = await book(['hyperliquid'], new Map([['hyperliquid', hyperliquidConnector]]))
+  })
+
+  afterAll(() => {
+    globalThis.fetch = original
+  })
+
+  test('the unread area is the same line on every view and in every tool, and every view exits non-zero', async () => {
+    const [line] = partial.tool('get_venue_status')['failed_venues'] as string[]
+    expect(line).toContain('staked HYPE')
+    for (const view of ['/refresh', '/exposure', '/positions', '/breaks']) {
+      const { output, incomplete } = await partial.run(view)
+      expect({ view, incomplete, named: output.includes(line ?? '') }).toEqual({ view, incomplete: true, named: true })
+    }
+    for (const name of TOOLS.map((t) => t.name).filter((n) => n !== 'get_venue_status')) {
+      const result = partial.tool(name, { shocks: [{ asset: 'ETH', percent: -10 }] })
+      const failed = (result['incomplete'] as Record<string, unknown>)['failed_venues']
+      expect({ name, failed }).toEqual({ name, failed: [line] })
+    }
+  })
+
+  test('what answered is on both surfaces, and a refresh keeps nothing previous beside it', async () => {
+    await partial.run('/refresh')
+    expect(partial.session.current.stale).toEqual([])
+    const rows = rowsOf(partial.tool('get_positions'), 'positions')
+    expect(rows.map((r) => r['asset'])).toEqual(['USDC', 'USDC'])
+    const { output } = await partial.run('/positions')
+    for (const row of rows) expect(output).toContain(row['quantity'] as string)
+  })
+})
+
 describe('the surfaces this suite claims to cover are all of them', () => {
   test('a new command or tool is put through this book, not merely added', () => {
     // The suite is only worth what it covers. A command added without a line
@@ -806,6 +1012,7 @@ describe('the surfaces this suite claims to cover are all of them', () => {
       // No book of their own: they answer about the build, the config or the
       // shell rather than about the positions this fixture holds.
       'about', 'clear', 'exit', 'help', 'login', 'update', 'connect', 'forget',
+      'history', 'vim', 'keys',
     ])
     expect(SLASH_COMMANDS.map((c) => c.name).filter((n) => !covered.has(n))).toEqual([])
 

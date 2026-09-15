@@ -16,15 +16,16 @@ Per-milestone tasks in [`tasks/`](./tasks). Shipped work in [CHANGELOG.md](./CHA
 | **5** | ✅ Distribution — install script, attestations, Homebrew, npm · [`distribution`](./tasks/distribution) | The install path is part of the security product, not logistics |
 | **6** | ✅ Risk engine — liquidation distance, shocks, what breaks first · [`risk-engine`](./tasks/risk-engine) | The feature people tell friends about |
 | **7** | ✅ The open pieces — the gaps left in 2, 3, 4 and 6 · [`open-pieces`](./tasks/open-pieces) | None of it was new scope, and two of the gaps were live in the shipped product |
-| **8** | ○ Trust surface — `doctor`, staleness, scope audit · [`trust-surface`](./tasks/trust-surface) | Keys are stored today, so the obligation to prove what we do with them is already incurred |
-| **9** | ○ Watch mode and alerts · [`watch-and-alerts`](./tasks/watch-and-alerts) | "Tell me before my health factor breaks 1.3" is why someone opens this daily |
-| **10** | ○ Venue reach — the venue handle, user-added venues, MCP, the aggregator · [`venue-reach`](./tasks/venue-reach) | Reach past what we build ourselves, now that 7 has finished what we started |
-| **11** | ○ Model neutrality — provider interface, conformance gate · [`model-neutrality`](./tasks/model-neutrality) | A weaker model costs prose, not numbers. What it does cost is a rule only a good model keeps |
-| **12** | ◐ Hardening, and the release that stops being a pre-release · [`hardening`](./tasks/hardening) | Read-only, non-custodial, complete |
-| **13** | ○ The trade diff, with no way to send it · [trade diff](./tasks/execution/01-trade-diff.md), [policy file](./tasks/execution/02-policy-file.md) | The primitive nobody in trading has, and nothing in it can move money |
-| **14** | ○ Execution — signing authority that is never ours · [plan, paper, live](./tasks/execution/04-plan-paper-live.md) | The venue's scoped key, the user's own wallet, or a capped grant. tula holds none of them |
-| **15** | ○ Defensive autonomy · [session keys](./tasks/execution/03-session-keys.md) | A defensive action has a right answer. "Trade for me" is gambling with extra steps |
-| **16** | ○ Strategies · [the artifact](./tasks/execution/05-strategy-artifact.md) | No-code plus autonomous means the user cannot read what will run |
+| **8** | ◐ Field report — Hyperliquid as the venue states it, and the input line every shell has · [`field-report`](./tasks/field-report) | The first outside read of a real account found a wrong number in a shipped view, and a wrong number outranks new scope |
+| **9** | ○ Trust surface — `doctor`, staleness, scope audit · [`trust-surface`](./tasks/trust-surface) | Keys are stored today, so the obligation to prove what we do with them is already incurred |
+| **10** | ○ Watch mode and alerts · [`watch-and-alerts`](./tasks/watch-and-alerts) | "Tell me before my health factor breaks 1.3" is why someone opens this daily |
+| **11** | ○ Venue reach — the venue handle, user-added venues, MCP, the aggregator · [`venue-reach`](./tasks/venue-reach) | Reach past what we build ourselves, now that 7 has finished what we started |
+| **12** | ○ Model neutrality — provider interface, conformance gate · [`model-neutrality`](./tasks/model-neutrality) | A weaker model costs prose, not numbers. What it does cost is a rule only a good model keeps |
+| **13** | ◐ Hardening, and the release that stops being a pre-release · [`hardening`](./tasks/hardening) | Read-only, non-custodial, complete |
+| **14** | ○ The trade diff, with no way to send it · [trade diff](./tasks/execution/01-trade-diff.md), [policy file](./tasks/execution/02-policy-file.md) | The primitive nobody in trading has, and nothing in it can move money |
+| **15** | ○ Execution — signing authority that is never ours · [plan, paper, live](./tasks/execution/04-plan-paper-live.md) | The venue's scoped key, the user's own wallet, or a capped grant. tula holds none of them |
+| **16** | ○ Defensive autonomy · [session keys](./tasks/execution/03-session-keys.md) | A defensive action has a right answer. "Trade for me" is gambling with extra steps |
+| **17** | ○ Strategies · [the artifact](./tasks/execution/05-strategy-artifact.md) | No-code plus autonomous means the user cannot read what will run |
 
 ✅ shipped · ◐ partly done · ○ not started. The `**Status**:`
 line in each task file is the record; this column is the summary of it. A record
@@ -32,13 +33,17 @@ is only worth the check behind it, so a task marked `done` names the tests
 covering its acceptance and `src/tasks.test.ts` fails on one that does not —
 [`tasks/README.md`](./tasks/README.md) has the convention.
 
-Two milestones are ◐ — **4** and **12** — and every open piece is named here
-rather than left to the reader. Neither holds a bullet marked `**Not met.**`:
-that spelling and no other, so `grep -rn 'Not met' tasks/*/` finds none — the
-directories, not `tasks/README.md`, which documents the marker and so contains
-it — and this paragraph can be checked rather than believed. What is left of each is work
-nobody has started rather than work that missed. 4 is the aggregator, which
-waits for 10, and Aave V4, which does not — the two are split below. 12 is ◐ the
+Three milestones are ◐ — **4**, **8** and **13** — and every open piece is named
+here rather than left to the reader. A bullet that did not land is marked
+`**Not met.**`, that spelling and no other, so `grep -rn 'Not met' tasks/*/`
+lists every one — the directories, not `tasks/README.md`, which documents the
+marker and so contains it — and this paragraph can be checked rather than
+believed. 8's open pieces are bullets that missed, each saying why in its own
+task; so is the one in 4's [`breadth/10`](./tasks/breadth/10-hyperliquid-depth.md),
+which the venue's own documentation argues against doing. The rest of 4 and 13
+is open work rather than work that missed. 4's is the aggregator, which waits
+for 11; Aave V4, which does not; [`breadth/12`](./tasks/breadth/12-chain-reach.md),
+part-shipped; and the per-venue depth tasks 09, 11 and 13–16. 13 is ◐ the
 other way round from every other row: the docs site shipped, and of the
 hardening pass two bullets already hold on their own — no panic path leaves the
 terminal in raw mode, on both the shell and the one-shot prompt, and every
@@ -73,11 +78,11 @@ balance away. Labelling venue text *to the model* was 7's item; saying
 so on screen was 2's, and both now hold — `ALTERED` is the fifth thing a view
 says about itself.
 
-4's two open pieces are scheduled in different places, and the same rule puts
+The aggregator and Aave V4 are scheduled in different places, and one rule puts
 each where it is: everything uncovered that *can* be liquidated is hand-built,
 and the aggregator takes what cannot.
 
-The aggregator is the larger of the two and it waits for **10**. What it would
+The aggregator is the larger of the two and it waits for **11**. What it would
 add is exposure nobody can be liquidated on, and it could not supply a health
 factor for it anyway. It completes a total rather than repairing one, which is
 the line 7 was drawn on.
@@ -100,11 +105,15 @@ The risk engine (6) landed alongside breadth and distribution rather than after
 them, and that reordering is why this table stopped naming versions: it used to,
 and a plan that moves makes a published number wrong.
 
-8 and 9 come before any of 10 through 16, as 7 did. A gap inside something
+8, 9 and 10 come before any of 11 through 17, as 7 did. A gap inside something
 shipped outranks new scope — a wrong number and a rule only a good model keeps
-are both shipped, in a product that already stores exchange keys. 9 is there
-rather than later because a risk tool you have to remember to open is a tool you
-forget.
+are both shipped, in a product that already stores exchange keys. 8 led
+because it was the wrong number: 0.2.0 overstated the USDC row of a Hyperliquid
+unified or portfolio-margin account by the account's whole value, after a fix
+that did not remove it. Its input-line half
+is not a gap in a figure, and [`field-report`](./tasks/field-report) orders it
+behind every task that changes one. 10 is there rather than later because a
+risk tool you have to remember to open is a tool you forget.
 
 One rule cuts across that order, and it is as much the decision this table
 exists to record: **work that is cheap while the product is read-only and a
@@ -116,30 +125,30 @@ of, and [`venue-reach/01`](./tasks/venue-reach/01-venue-handle.md), the venue
 handle, an optional field nothing reads today and a schema change across every
 connector once a trade is built from a position. Neither drags its milestone
 with it: the conformance gate, the second provider, user-added venues, MCP and
-the aggregator all wait for 8 and 9 as before.
+the aggregator all wait for 9 and 10 as before.
 
-11 is a refactor before it is a feature: the Anthropic client is the shape of
+12 is a refactor before it is a feature: the Anthropic client is the shape of
 what shipped first, not an argument for what the interface should be. The gate
 and the second provider wait for a reason to ship one.
 [`hardening/02-first-user`](./tasks/hardening/02-first-user.md) is
 the other thing that could reorder this — if the answer to who this is for names
-a venue we do not read, 10 moves ahead of 8.
+a venue we do not read, 11 moves ahead of 9.
 
 ## Where the lines are
 
 Two releases carry a promise rather than a number, and everything above is
 ordered around them.
 
-**1.0 is 12.** Read-only, non-custodial, complete, and worth opening without a
-model. Nothing left in 8–11 changes that: a second model provider, a venue read
-over MCP, and a user-added venue are all still reads.
+**1.0 is 13.** Read-only, non-custodial, complete, and worth opening without a
+model. Nothing left in 8–12 changes that: a corrected figure, a second model
+provider, a venue read over MCP, and a user-added venue are all still reads.
 
-**2.0 is 14**, because that is where signing authority enters the product and
+**2.0 is 15**, because that is where signing authority enters the product and
 the read-only promise is retracted by plan. Retracting it is one commit across
 the nine surfaces `src/site-claims.test.ts` pins the caveat to, which is what
 makes it one commit rather than nine.
 
-**13 sits between them on purpose.** A diff that states a proposed change in
+**14 sits between them on purpose.** A diff that states a proposed change in
 exposure terms — fees, slippage, the resulting move in liquidation distance,
 every policy breach listed before the prompt — is the most useful thing in the
 execution work and the only part of it that cannot move money. Shipping it
@@ -155,8 +164,8 @@ the list. That declaration exists so a half-read account is never served as a
 whole one — it was never meant to be a standing statement about the product, and
 a count of it beside every figure was one, so the count came off the view.
 
-The obligation it creates is answered here instead. Thirty areas are declared
-across seven venues, and each one names the task that would close it in the
+The obligation it creates is answered here instead. Twenty-four areas are
+declared across seven venues, and each one names the task that would close it in the
 manifest itself: `src/coverage-plan.test.ts` fails the build on a gap whose
 plan is not a real task, on one filed under a task already finished, on one
 hiding a liquidation filed under the aggregator, and on any plan this table
@@ -168,9 +177,8 @@ of them mentioned in no file at all.
 |---|---|
 | Aave V4 — the Hubs on Ethereum | [`breadth/08`](./tasks/breadth/08-aave-v4.md) |
 | The Safety Module, isolation mode, stable-rate debt | [`breadth/09`](./tasks/breadth/09-aave-depth.md) |
-| Hyperliquid's spot hold, isolated margin, staking, vaults, sub-accounts, borrow/lend, builder dexes | [`breadth/10`](./tasks/breadth/10-hyperliquid-depth.md) |
 | Staking and yield-bearing tokens, NFTs | [`breadth/11`](./tasks/breadth/11-wallet-depth.md) |
-| The EVM chains outside the three, HyperEVM, Solana | [`breadth/12`](./tasks/breadth/12-chain-reach.md) |
+| The EVM chains outside the nine, HyperEVM, Solana | [`breadth/12`](./tasks/breadth/12-chain-reach.md) |
 | Binance's cross-margin liquidation level, COIN-M and Portfolio Margin, earn products, held balances, sub-accounts | [`breadth/13`](./tasks/breadth/13-binance-depth.md) |
 | Coinbase's other portfolios and its CFTC-regulated futures | [`breadth/14`](./tasks/breadth/14-coinbase-depth.md) |
 | Kraken's account margin level, Kraken Futures, the two free/held splits, drawn credit lines | [`breadth/15`](./tasks/breadth/15-kraken-depth.md) |
@@ -212,7 +220,7 @@ dist-tag from it, so there is nothing to keep in step by hand.
 
 The folders under [`tasks/`](./tasks) are named for their milestone;
 [`tasks/README.md`](./tasks/README.md) says why none is named for a version.
-Milestones 13–16 draw on [`tasks/execution/`](./tasks/execution), which was
+Milestones 14–17 draw on [`tasks/execution/`](./tasks/execution), which was
 written when execution was one release.
 
 ## What v1 is not
@@ -230,7 +238,7 @@ written when execution was one release.
 ## What custody means after 1.0
 
 Execution needs something to sign, and the answer is never a key of ours. Stated
-here because it is the one thing in 14–15 that cannot be revisited later without
+here because it is the one thing in 15–16 that cannot be revisited later without
 withdrawing the promise the rest of this file makes.
 
 | Authority lives with | tula does | For |
@@ -246,7 +254,7 @@ and the withdraw refusal stands unchanged.
 ## What does not change
 
 **No compromise on user experience and security.** Every milestone above is held
-to it, execution included — the guardrails in 14–15 are the same promise as the
+to it, execution included — the guardrails in 15–16 are the same promise as the
 read-only refusals in 1, made about a larger surface. `AGENTS.md` states the rule
 and the conventions that carry it. A version ships when both are true of it, and
 the plan moves rather than the standard.

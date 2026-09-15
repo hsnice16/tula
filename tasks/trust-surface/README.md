@@ -1,4 +1,4 @@
-# 8 · Trust surface
+# 9 · Trust surface
 
 Asking for exchange keys obliges us to prove what we do with them. This version is
 where that proof becomes a command the user can run.

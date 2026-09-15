@@ -102,8 +102,11 @@ would:
 
 The rest change what a run reads:
 
-- `TULA_ETHEREUM_RPC`, `TULA_ARBITRUM_RPC`, `TULA_BASE_RPC` — the nodes each of
-  Ethereum, Arbitrum One and Base is read against, one chain each. Each ships
+- `TULA_ETHEREUM_RPC`, `TULA_ARBITRUM_RPC`, `TULA_BASE_RPC`, `TULA_POLYGON_RPC`,
+  `TULA_OPTIMISM_RPC`, `TULA_AVALANCHE_RPC`, `TULA_GNOSIS_RPC`,
+  `TULA_SCROLL_RPC`, `TULA_LINEA_RPC` — the nodes each of Ethereum, Arbitrum
+  One, Base, Polygon, Optimism, Avalanche, Gnosis, Scroll and Linea is read
+  against, one chain each. Each ships
   three public defaults and moves to the next when one rate-limits it or goes
   down; a variable replaces that chain's list outright, and may name several
   comma-separated. Nothing is appended to a list somebody set: which nodes see
@@ -115,6 +118,8 @@ The rest change what a run reads:
   `src/connectors/chains.ts` is the registry all of them come from.
 - `TULA_NO_UPDATE_CHECK=1` — stops the release lookup, which is what keeps a
   test suite off the network.
+- `TULA_NO_HISTORY=1` — keeps no history file. Without it the shell writes
+  `history.jsonl` under `TULA_CONFIG_DIR`, which is one more reason to set that.
 - `TULA_PRICE_PAGES` — widens price coverage beyond the top 500, at the cost of
   tripping CoinGecko's rate limit, which loses every price rather than a few. No
   CoinGecko key is sent, so no plan raises that ceiling. Anything but a whole
@@ -180,11 +185,14 @@ scripts/
   npm-pack.sh           # stages @hsnice16/tula and its per-platform packages
   homebrew-formula.sh   # renders a formula from a built release
   binary-audit.sh       # refuses a built binary carrying a debug listener
+  keys-doc.ts           # writes README's keys section and site/lib/keys.json from the keymap; --check is what keymap.test.ts runs
   conformance.live.ts   # re-checks what we believe about each venue against the live venue
   capture-onchain.ts    # re-captures the chain and Hyperliquid fixtures — address dropped,
                         # amounts scaled by a per-account factor it records nowhere. Run it,
                         # never edit a fixture: a hand-typed figure is arithmetic the venue
-                        # never stated.
+                        # never stated. `--hyperliquid`, `--chains` and `--only` re-capture
+                        # one set without rewriting the other; `--account` tries a
+                        # named address first, `--scan` more accounts per source.
 src/
   index.ts              # command dispatch; catches TulaError for clean exits
   version.ts            # APP_NAME, APP_VERSION, IS_PRE_RELEASE, REPO_URL, SITE_URL,
@@ -192,7 +200,7 @@ src/
   core/
     position.ts         # canonical schema: Position, NetExposure, LiquidationParams
     untrusted.ts        # visible() — the one filter over text somebody else wrote
-    exposure.ts         # netExposure, portfolioValue, oldest
+    exposure.ts         # netExposure, portfolioValue — equity, never a perp's notional; oldest
     risk.ts             # liquidation distance, scenario shocks, what breaks first
     availability.ts     # how much of a holding can move, and what is holding the rest
     coverage.ts         # what a connected venue was never asked for, from the connectors' own manifests; read on demand, never beside a figure
@@ -211,9 +219,9 @@ src/
     kraken.ts           # HMAC over the payload digest; scope partly unprovable
     binance.ts          # HMAC over the query string; scope fully provable
     coinbase.ts         # CDP keys over JWT (ES256 / EdDSA); scope fully provable
-    hyperliquid.ts      # public address, no credential — perps + spot
+    hyperliquid.ts      # public address — every account mode, every dex, borrowing, holds, staking, vaults, sub-accounts
     aave.ts             # public address over RPC — collateral, debt, health factor
-    wallet.ts           # public address — native ETH and ERC-20s off a token list
+    wallet.ts           # public address, on every chain in chains.ts: the native gas token and ERC-20s off a token list
     stripe.ts           # restricted key; fiat balances, per-currency minor units
     evm.ts              # ABI encode/decode, batched eth_call, EIP-55 addresses, the node
     keccak.ts           # keccak-256, for those checksums; no runtime has it
@@ -226,6 +234,11 @@ src/
     state.ts            # last check, last version announced — its own file, not credentials.json
     apply.ts            # download, verify, unpack, flip the link — or install nothing
     command.ts          # /update and /update install
+  history/
+    history.ts          # submitted lines kept across sessions; never a connect field, never a line that looks like a key
+    bip39.ts            # BIP-39's English wordlist, so a pasted seed phrase is never kept
+  prefs/
+    prefs.ts            # preferences.json — vim mode and whatever preference follows; unreadable means default
   agent/
     engine.ts           # RiskEngine — the ONLY thing the agent layer may see
     tools.ts            # tool definitions + executor; figures leave here rendered
@@ -247,17 +260,21 @@ src/
     shell.ts            # dispatchCommand over the registry
     engine-adapter.ts   # Session -> RiskEngine; the only bridge to the agent
   ui/
-    app.tsx             # Ink surface: owns ALL key handling, output, status line
+    app.tsx             # Ink surface: owns the shell's key dispatch, output, status line
     Credentials.tsx     # sign-in: asked once at first run, and again from /login
     ConnectFlow.tsx     # in-app venue connect; masks secret fields
     SlashMenu.tsx       # filtered menu, grouped; fixed height, below the input
-    Palette.tsx         # ctrl+k: the same surface flattened and ranked, floated over the screen
+    Palette.tsx         # ctrl+s: the same surface flattened and ranked, floated over the screen
     theme.ts            # the palette; no colour literal belongs anywhere else
     brand.ts            # the venues' and price sources' own colours, sampled from their artwork
     TextInput.tsx       # presentational input line; no key handling
-    keys.ts             # paste vs. keystroke; what a trailing newline means
+    line.ts             # one line being edited, as a value — Readline's commands by Readline's names
+    vim.ts              # vim NORMAL mode over that same line model; INSERT is the readline line
+    keys.ts             # paste vs. keystroke; what a trailing newline means; which Readline command a keypress is
+    keymap.ts           # every key, once — the ? panel, /keys, README's keys section and the site's /keys page render from it
     mouse.ts            # wheel and pointer reports; why tracking is on only while a list is up
-    anchor.ts           # asks the terminal where its cursor is, to place the inline menu on screen
+    terminal.ts         # hands the terminal back — kitty keyboard protocol, bracketed paste — on exit, a fatal signal or a crash
+    anchor.ts           # asks the terminal where its cursor is and whether it speaks the kitty protocol, and recognises the answers
     scroll.ts           # windowing a list longer than its rows; shared by the menu and the palette
     wrap.ts             # rows, not lines — what truncation counts
     run.tsx             # render + waitUntilExit
@@ -350,9 +367,10 @@ Two rules, and they are the reason the architecture exists:
   things, so neither volunteers it. The one exception is `breaks` and `shock`,
   and it is the rule rather than a hole in it: those two claim what can be
   called in *in order*, so a venue in the book with an unread area that hides a
-  liquidation makes the order wrong rather than short, and they say so. Nor does `ALTERED`, the fifth of these
-  and the only one about text rather than holdings: a venue spelled an asset in
-  characters this build could not print, so the block names the venue, what was
+  liquidation makes the order wrong rather than short, and they say so.
+  `ALTERED`, the fifth thing a view says about itself, is the only one about
+  text rather than holdings: a venue spelled an asset in characters this build
+  could not print, so the block names the venue, what was
   done and the *bounded* name — never what the venue sent, which is the string
   the bound exists to keep off a terminal. `LoadResult.altered` carries it, and
   the first line says nothing is missing, or a reader has five states to tell
@@ -374,7 +392,8 @@ Two rules, and they are the reason the architecture exists:
   import of anything under `ui/` there fails `src/cli/oneshot.test.ts`.
 - **Every network call goes through `request()` in `src/core/http.ts`**, never a
   bare `fetch` — `guard.sh` fails the build on one. Nothing else bounds how long
-  a call takes, and a venue that never answers has to fail in order to be named.
+  a call takes or how much it reads, and a venue that never answers has to fail
+  in order to be named. `body` is left uncapped for the update download.
   The deadline is a raced timer, not `AbortSignal` alone: the signal bounds the
   wait for a response, not for a connection, so against an unreachable host it
   fires only after the OS connect timeout.
@@ -404,12 +423,21 @@ Two rules, and they are the reason the architecture exists:
   `dispatchCommand` — the menu, palette, help text and one-shot CLI all follow.
 - **Browsing and searching want opposite orders.** `/` is grouped and
   alphabetical, because that is the only order somebody can predict before they
-  have learned the list. ctrl+k is flat and ranked, and reaches every
+  have learned the list. ctrl+s is flat and ranked, and reaches every
   `/<venue> <sub>` — including the venues you have not connected — without your
   naming the venue at all. Neither is the other's fallback, which is why they
-  are two components over one `registry.ts`.
+  are two components over one `registry.ts`. The palette is not on ctrl+k:
+  that is Readline's kill-line in every terminal tool with a line editor, and
+  `tasks/field-report/07-readline-keys.md` has the sources.
 - **A key a terminal cannot receive is not a binding.** `cmd` never reaches a
-  TTY — the terminal emulator consumes it — so every shortcut here is `ctrl+`.
+  TTY — the terminal emulator consumes it — so no shortcut here is `cmd+`. A key
+  only some terminals send says so on its row: alt needs Option as Meta on
+  macOS, and shift+Enter needs a terminal that reports it, so ctrl+j is the
+  newline key claimed to work everywhere.
+- **A key is in `src/ui/keymap.ts` or it does not exist.** The `?` panel, `/keys`,
+  README's keys section and the site's `/keys` page are rendered from it, and
+  `src/ui/keymap.test.ts` fails on a key named in prose that it does not hold —
+  the hand-kept copies of the keys drifted once already.
 - **Nothing under the cursor may move on its own.** The menu sits *below* the
   input and holds a fixed height, so filtering never resizes the block the line
   you are typing on rests against. Motion for its own sake is the other failure:
@@ -466,7 +494,7 @@ Two rules, and they are the reason the architecture exists:
   own box, so three rows tile in a terminal and come apart in a line box, which
   is why the palette's scrollbar there is a rule too.
 - **A third party is named with its mark.** Every venue and price source carries
-  a `●` in its own colour in the `/` menu, ctrl+k and the connect screen. The
+  a `●` in its own colour in the `/` menu, ctrl+s and the connect screen. The
   gutter is at the head of the summary, not of the row: the names are the column
   being read down, so a mark in front of them would indent the ones that have it.
   It is the one thing an unselected row may light up — a mark is identity, not
@@ -479,25 +507,56 @@ Two rules, and they are the reason the architecture exists:
   agree on who won. The two modal panels — `ConnectFlow` and `Credentials` — own
   their own `useInput`, and `app.tsx` disables its own for as long as one is up:
   a modal is the one case where there is no competition to arbitrate.
-- **Enter runs, tab completes** — in the `/` menu and in ctrl+k alike. Completing
+  `keys.ts` names the Readline command a keypress is, and `line.ts` and `vim.ts`
+  apply it; neither handles input, which is what lets a word motion mean the
+  same thing on the shell line, in both lists and on a connect field.
+  `holdInputModes` in `terminal.ts` hands back the kitty keyboard protocol and
+  bracketed paste on every way out — exit, a fatal signal, an uncaught throw —
+  because a shell left in either turns every later keystroke into escape codes.
+- **Enter runs, tab completes** — in the `/` menu and in ctrl+s alike. Completing
   on both is what cost every command a second Enter, the first spent closing a
   menu. The one exception is a command with arguments left to supply: those
   cannot be guessed, so Enter puts it on the line with the cursor where the
-  first one goes.
+  first one goes, and opens that argument's list. In an argument list Enter
+  inserts and closes, and the next Enter runs — fish's pager and zsh's
+  `complist` behave the same. A suggestion after the cursor is taken with →,
+  ctrl+f, ctrl+e, alt+f for a word, or Tab where no list is open, and never
+  with Enter. `tasks/field-report/09-argument-completion.md` has the sources
+  for each. Enter sends; shift+Enter, alt+Enter, ctrl+Enter, ctrl+j and `\` then
+  Enter insert a newline, and a command still takes one line.
 - **A wait says what it is waiting on, for the whole of the wait.** `Session`
   reports each venue as it reads it and the spinner counts the seconds off.
-  Behind a fetch that is a 15s deadline per *request* — and a venue reading
-  three chains issues many — a bare "working" is indistinguishable from a hang
-  — and the session is the only layer that knows
-  which venue it is on, because a command reaches `ensureLoaded` several layers
-  below the UI. The row stays up under a part-written answer for the same
-  reason: an answer that stops to read a tool spends most of its time with
+  Behind a fetch that is a 15s deadline per *request*, and a venue reading
+  several chains issues many, so a bare "working" looks like a hang. The
+  session is the only layer that knows which venue it is on, because a command
+  reaches `ensureLoaded` several layers below the UI. The row stays up under a
+  part-written answer for the same reason: an answer that stops to read a tool
+  spends most of its time with
   prose already on screen, and taking the row away at the first token left the
   tool round and the request after it running under a screen that had stopped
   moving. `AgentEvents.onTurn` is what puts a label back on it — after a batch,
   the tool named there has already finished — and it is also the only seam the
   deltas carry, so it is where one turn's prose is ended before the next
-  begins.
+  begins. A stop asked of a running command is answered on that same row: a
+  command is not stopped, and each read ends at its deadline.
+- **The shell takes keys while it works.** Enter queues a line; queued lines run
+  one at a time, oldest first, and a queued line is echoed and recorded in
+  history only when it runs, so one taken back and cleared is never recorded.
+  Esc stops a question through `Agent.ask`'s signal, and the conversation rolls
+  back to before it. A command is not stopped: that would mean a signal through
+  `src/core/http.ts` and every connector. `tasks/field-report/13` has the
+  sources and the splits between tools.
+- **The shell draws before it reads a venue.** `src/index.ts` hands the terminal
+  to the app first and the book is read behind the busy row: until Ink holds the
+  terminal it is in cooked mode, echoing every key and turning each Enter into
+  text that arrives later as one chunk. `src/cli/oneshot.test.ts` fails on a load
+  before `runApp`.
+- **A terminal's answer is never a keystroke.** The replies to the two questions
+  tula asks — `CSI ? u` and `CSI 6n` — are recognised by `terminalReply` in
+  `src/ui/anchor.ts`, whenever they arrive, and dropped by every input handler,
+  modal ones included. Ink's own `kittyKeyboard` detection is not used: under Bun
+  it handed one reply to the input over and over, and a late one was typed into
+  the line.
 - **Comments say why.** A comment that restates the code is a second copy that drifts.
 - **The model's failures are ours to translate.** `explain()` in `src/agent/agent.ts`
   turns an API error into a sentence with a next step. A raw `overloaded_error`
@@ -543,11 +602,12 @@ venue in it.
    venue and refuse anything that can withdraw — permanently, trading or not.
    A key that can trade is refused too, wherever the venue will say so. Not
    documented — checked.
-4. **Bound every string somebody else writes.** Three kinds reach the screen and
+4. **Bound every string somebody else writes.** Four kinds reach the screen and
    the model: an asset symbol — as a venue's listing spells it, as the
    configured token list names it, or as an Aave reserve contract returns it —
-   the error text of a venue or a price source, and the error text of the model
-   provider. The symbol is capped in
+   the error text of a venue or a price source, the error text of the model
+   provider, and a Hyperliquid builder dex name, which is a venue label and so
+   is refused unless it matches `DEX_NAME` rather than capped. The symbol is capped in
    `src/cli/session.ts`, where every connector arrives; the error text is capped
    by `remote()` in `src/core/errors.ts` where it enters, at the connector or
    the price source that received it, which is the only place that can tell
@@ -559,10 +619,16 @@ venue in it.
    They are data, never instructions — and they are marked as such in the tool
    result, by path; a new field carrying outside text without that mark fails
    `bun test`. No memo, NFT metadata or protocol
-   description is read — a fourth source has to be bounded there, listed in
+   description is read — a fifth source has to be bounded there, listed in
    `SECURITY.md`, and added to the `SOURCES` list in `src/site-claims.test.ts`
    in the same commit. That list is the one that fails the build: the third got
    in without it, and two published surfaces then disagreed about the count.
+
+The shell's history file is the one other file written beside the key store,
+and it holds what somebody typed on the same keyboard that pastes keys. It is
+written from `app.tsx` alone, its module imports nothing from `src/secrets/`,
+and it never records a connect field or a line shaped like a credential.
+`guard.sh` fails on any other caller, and `guard-test.sh` plants one.
 
 Never add a code path that can place an order, and never import a venue's order
 endpoint — including "validate only" variants. The absence is the product.
@@ -607,7 +673,8 @@ The agent reads that task for goal and acceptance criteria, the milestone's
   `visible()` in `src/core/untrusted.ts`. A decoded symbol, a venue's error text
   and the model provider's are the strings somebody else writes that are
   rendered *and* sent to the model; each is capped and flattened to one line so
-  none can pose as an instruction. A fourth has to reach `SECURITY.md` and the
+  none can pose as an instruction. A Hyperliquid builder dex name is the fourth,
+  held to `DEX_NAME` because a venue label cannot be cut. A fifth has to reach `SECURITY.md` and the
   `SOURCES` list in `src/site-claims.test.ts` in the same commit — that list is
   what fails the build when a surface names fewer sources than the build has,
   and the third got in without it, so two published surfaces disagreed about
@@ -716,7 +783,7 @@ bun run build              # -> site/out, static
   fixed-width grid, and wrong for anything a reader has to read.
 - **Seven client component files, and each one earns it by needing something
   CSS cannot read.** `Session.tsx` draws the front page's frame and works `/`,
-  ctrl+k and ctrl+o on a loop because a transcript cannot show a keystroke —
+  ctrl+s and ctrl+o on a loop because a transcript cannot show a keystroke —
   every state it passes through is one the binary draws, in the binary's own
   palette (`src/ui/theme.ts`, not the site tokens) and down to the counts under
   each list. Opening the menu takes its rows out of the transcript rather than
@@ -751,8 +818,9 @@ bun run build              # -> site/out, static
   `display: none`, so find-in-page and a reader with no JavaScript reach only
   the open one. Each panel carries an `sr-only` h2 naming its channel: without
   it, three identical runs of "One exact version / Update / Go back / Remove"
-  sit in the outline with nothing saying which channel they belong to. `Scroll.tsx` scrolls the next page to the top, and sits out a
-  back or forward, where the reader is returning to a place they already had;
+  sit in the outline with nothing saying which channel they belong to.
+  `Scroll.tsx` scrolls the next page to the top, and sits out a back or forward,
+  where the reader is returning to a place they already had;
   it also holds the back-to-top button, which rides above the footer rather
   than over it — the moment somebody most wants that button is the moment they
   have reached the site's other set of links, so the footer's visible height is
@@ -776,8 +844,9 @@ bun run build              # -> site/out, static
 - **`lib/site.ts` holds every string more than one file states**: the name, the
   one-sentence description, the keyword list, the nav routes with the blurb each
   one is summarised by, and the preview card's dimensions and alt text. The nav
-  blurbs feed the header, the sitemap and `llms.txt` from one place, so a fourth
-  page cannot ship unindexed or unsummarised. `src/site-claims.test.ts` reads
+  routes feed the footer, the sitemap and `llms.txt` from one place, so a new
+  page cannot ship unindexed or unsummarised; the header shows only the ones
+  marked `inHeader`. `src/site-claims.test.ts` reads
   this file rather than `layout.tsx` for the trading caveat — the description is
   written here and rendered there.
 - **`metadataBase` is the deployed URL.** Next resolves every canonical,
@@ -832,7 +901,7 @@ bun run build              # -> site/out, static
   the engine computes. A link pasted into a chat is the whole of the site for
   most people, and nobody scrolls past a picture to a correction.
 - **The rows the frame's two lists draw are pinned by the same file.** `/` and
-  ctrl+k can only be published as a picture, so `Session.tsx` holds their rows
+  ctrl+s can only be published as a picture, so `Session.tsx` holds their rows
   as literal tables — a second copy of the command surface, which drifts. The
   test rebuilds them from `src/cli/registry.ts` against the same book, checks
   each table's order, and checks the counts the lists owe the reader — what the

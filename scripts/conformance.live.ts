@@ -30,10 +30,14 @@ import { readFileSync } from 'node:fs'
 import Decimal from 'decimal.js'
 import { DEPLOYMENTS } from '../src/connectors/aave.js'
 import { CHAINS, tokenListUrl, UNCOVERED_CHAINS, type Chain } from '../src/connectors/chains.js'
-import { unscale } from '../src/connectors/hyperliquid.js'
+import { DEX_NAME, unscale } from '../src/connectors/hyperliquid.js'
 import { normalizeAsset, type AssetNames } from '../src/connectors/kraken.js'
+import { assetOn, ISSUED } from '../src/connectors/symbols.js'
 import { chainTokens, contested, type TokenEntry } from '../src/connectors/wallet.js'
+import type { ChainId } from '../src/core/position.js'
+import { PINNED } from '../src/prices/coingecko.js'
 import { request } from '../src/core/http.js'
+import { paced } from './capture-onchain.js'
 
 /**
  * `holds` — the belief in the code is still the venue's behaviour.
@@ -65,12 +69,15 @@ async function getJson<T>(url: string, init: RequestInit = {}): Promise<T> {
   return (await res.json()) as T
 }
 
-const postInfo = <T,>(body: unknown): Promise<T> =>
-  getJson<T>('https://api.hyperliquid.xyz/info', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  })
+/** Sampling thirty traders is several hundred weight of Hyperliquid's budget a minute. */
+const postInfo = <T,>(body: Record<string, unknown>): Promise<T> =>
+  paced<T>(body, (json) =>
+    request(
+      'https://api.hyperliquid.xyz/info',
+      { method: 'POST', headers: { 'content-type': 'application/json' }, body: json },
+      DEADLINE_MS,
+    ),
+  )
 
 /**
  * GitHub answers a 301 for this repository and `request()` refuses a redirect by
@@ -280,28 +287,122 @@ async function hyperliquid(): Promise<Finding[]> {
   const findings: Finding[] = []
 
   // The leading entry is null — the first-party book, which has no builder.
-  const dexes = (await postInfo<(PerpDex | null)[]>({ type: 'perpDexs' })).filter(
-    (d): d is PerpDex => d !== null,
-  )
+  const everyDex = await postInfo<(PerpDex | null)[]>({ type: 'perpDexs' })
+  const dexes = everyDex.filter((d): d is PerpDex => d !== null)
   const live = dexes.map((d) => d.name ?? '?')
   const captured = JSON.parse(
     readFileSync(new URL('../fixtures/hyperliquid/perp-dexs.json', import.meta.url), 'utf8'),
   ) as { builders?: PerpDex[] }
   const known = new Set((captured.builders ?? []).map((b) => b.name))
   const added = live.filter((n) => !known.has(n))
+  // The connector refuses a name outside `DEX_NAME` rather than print it, so such
+  // a dex is named as not read on every account's refresh.
+  const refused = dexes.filter((d) => typeof d.name !== 'string' || !DEX_NAME.test(d.name)).map((d) => JSON.stringify(d.name ?? null))
 
   findings.push({
-    verdict: dexes.length === 0 ? 'drifted' : added.length > 0 ? 'drifted' : 'holds',
-    belief: 'builder-deployed perp dexes exist and tula reads none of them',
+    verdict: refused.length > 0 ? 'contradicted' : added.length > 0 ? 'drifted' : 'holds',
+    belief: 'tula reads every builder-deployed perp dex perpDexs lists',
     lines: [
       `${dexes.length} builder dexes now; the fixture captured ${known.size}.`,
       added.length > 0
-        ? `New since capture: ${some(added)}. Re-capture fixtures/hyperliquid/perp-dexs.json.`
+        ? `New since capture: ${some(added)}. The connector asks every dex the list names, so each ` +
+          'is read — but no test has seen one. Re-capture fixtures/hyperliquid/perp-dexs.json.'
         : 'No dex has been added since the fixture was captured.',
-      dexes.length === 0
-        ? 'The list is empty, so the declared gap describes nothing. Re-argue it.'
-        : 'clearinghouseState is never sent a dex parameter, so a position on any of these is ' +
-          'invisible — declared in hyperliquid.ts as hiding a liquidation.',
+      refused.length > 0
+        ? `NOT read, because the name is not spelled like a dex name: ${some(refused)}. Every ` +
+          'account refresh reports each as a dex not read.'
+        : 'Every listed name is one the connector reads.',
+    ],
+  })
+
+  // A position on a dex margined in something other than USDC is the one shape
+  // no fixture holds: every such market was delisted when the capture looked.
+  // This is the re-check `tasks/field-report/01` names, so a dex that lists again
+  // is reported the day it does.
+  const metas = await postInfo<Array<{ collateralToken?: number; universe?: Array<{ name: string; isDelisted?: boolean }> }>>({
+    type: 'allPerpMetas',
+  })
+  const spotTokens = new Map(
+    ((await postInfo<{ tokens?: Array<{ index: number; name: string }> }>({ type: 'spotMeta' })).tokens ?? []).map((t) => [
+      t.index,
+      t.name,
+    ]),
+  )
+  const otherCollateral = everyDex.map((d) => d?.name ?? '').flatMap((name, i) => {
+    const token = spotTokens.get(metas[i]?.collateralToken ?? -1)
+    if (!name || token === undefined || token === 'USDC') return []
+    return [{ name, token, live: (metas[i]?.universe ?? []).filter((u) => !u.isDelisted).map((u) => u.name) }]
+  })
+  const holders: string[] = []
+  for (const dex of otherCollateral) {
+    const users = new Set<string>()
+    for (const coin of dex.live) {
+      for (const trade of await postInfo<Array<{ users?: string[] }>>({ type: 'recentTrades', coin })) {
+        for (const user of trade.users ?? []) users.add(user.toLowerCase())
+      }
+    }
+    for (const user of users) {
+      const state = await postInfo<{ assetPositions?: unknown[] }>({ type: 'clearinghouseState', user, dex: dex.name })
+      if ((state.assetPositions ?? []).length > 0) {
+        holders.push(dex.name)
+        break
+      }
+    }
+  }
+  const listed = otherCollateral.filter((d) => d.live.length > 0)
+  findings.push({
+    verdict: holders.length > 0 ? 'drifted' : 'holds',
+    belief: 'no builder dex margined in anything but USDC has a live market with a position on it',
+    lines: [
+      `${otherCollateral.map((d) => `${d.name} (${d.token}) ${d.live.length} live`).join(', ') || 'No dex is margined in anything but USDC.'}.`,
+      holders.length > 0
+        ? `A position is held on ${some(holders)}. Capture it: bun scripts/capture-onchain.ts --hyperliquid --only builder-dex-other-collateral`
+        : listed.length > 0
+          ? `Markets are live on ${some(listed.map((d) => d.name))}, and no recent trader there holds a position yet.`
+          : 'Every market on each of them is delisted, so there is no position to capture.',
+    ],
+  })
+
+  // Who is in which account mode, and whether each still states its balances
+  // where the connector reads them. Traders on the majors, because that is who
+  // connects; the mode decides which of two states holds the USDC.
+  const traders = new Set<string>()
+  for (const coin of ['BTC', 'ETH', 'HYPE']) {
+    for (const trade of await postInfo<Array<{ users?: string[] }>>({ type: 'recentTrades', coin })) {
+      for (const user of trade.users ?? []) traders.add(user.toLowerCase())
+    }
+  }
+  const spread = new Map<string, number>()
+  const misplaced: string[] = []
+  for (const user of [...traders].slice(0, 30)) {
+    const mode = await postInfo<string>({ type: 'userAbstraction', user })
+    spread.set(mode, (spread.get(mode) ?? 0) + 1)
+    const spot = await postInfo<{ tokenToAvailableAfterMaintenance?: unknown; portfolioMarginEnabled?: boolean }>({
+      type: 'spotClearinghouseState',
+      user,
+    })
+    const pooled = mode === 'unifiedAccount' || mode === 'portfolioMargin'
+    if (pooled !== (spot.tokenToAvailableAfterMaintenance !== undefined)) misplaced.push(mode)
+  }
+  const unknownModes = [...spread.keys()].filter((m) => !['disabled', 'default', 'unifiedAccount', 'portfolioMargin'].includes(m))
+  findings.push({
+    verdict: unknownModes.length > 0 ? 'contradicted' : 'holds',
+    belief: 'every trader is in an account mode the connector reads',
+    lines: [
+      `${[...spread].map(([m, n]) => `${m} ${n}`).join(', ')} of ${[...spread.values()].reduce((a, b) => a + b, 0)} recent traders.`,
+      unknownModes.length > 0
+        ? `NOT read: ${unknownModes.join(', ')}. Such an account fails by name and shows no balance.`
+        : 'Each is standard, unified account or portfolio margin.',
+    ],
+  })
+  findings.push({
+    verdict: misplaced.length > 0 ? 'contradicted' : 'holds',
+    belief: 'unified and portfolio-margin accounts state their balances in the spot state, and standard ones do not',
+    lines: [
+      misplaced.length > 0
+        ? `${misplaced.length} account(s) stated balances the way another mode does (${some(misplaced)}). ` +
+          'The connector refuses such an account rather than place its USDC in the wrong mode.'
+        : 'On every trader sampled, the pooled figure is present exactly where the mode says the spot state holds the balances.',
     ],
   })
 
@@ -391,9 +492,7 @@ async function tokenList(): Promise<Finding[]> {
   // The front page publishes a wallet holding per row, and which tokens a wallet
   // read can produce is a fact about somebody else's feed — so it belongs here
   // rather than in `src/site-example.test.ts`, which may not reach the network.
-  // The failure it catches has happened: `OP` stood as a wallet row while the
-  // default feed carries OP on Optimism alone, which is a chain tula does not
-  // read. Every figure in that block was recomputed by a passing test.
+  // A passing test recomputes those figures; only this sees a symbol no feed carries.
   const symbols = new Set(CHAINS.flatMap((c) => chainTokens(lists.get(tokenListUrl(c)) ?? [], c)).map((t) => t.symbol.toUpperCase()))
   const page = readFileSync('site/app/page.tsx', 'utf8')
   const block = page.slice(page.indexOf('ASSET'), page.indexOf('</Session>'))
@@ -426,7 +525,7 @@ async function tokenList(): Promise<Finding[]> {
   // A symbol is not an identity. Two mainnet tokens called LIT — Litentry and
   // Lighter — is the case wallet.ts qualifies rather than nets.
   const perChain = CHAINS.map((chain) => {
-    const clashes = [...contested(chainTokens(lists.get(tokenListUrl(chain)) ?? [], chain))].sort()
+    const clashes = [...contested(chainTokens(lists.get(tokenListUrl(chain)) ?? [], chain), chain)].sort()
     return `${chain.name}: ${clashes.length === 0 ? 'none' : clashes.join(' ')}`
   })
   const any = perChain.some((line) => !line.endsWith('none'))
@@ -443,7 +542,94 @@ async function tokenList(): Promise<Finding[]> {
     ],
   })
 
+  // A bridge's issue is told from the issuer's by the CoinGecko coin each
+  // contract is filed under. One filed under another coin and named by no table
+  // in symbols.ts nets into the issuer's asset, where a depeg averages away.
+  // One request for the whole list.
+  const coins = await getJson<Array<{ id: string; platforms?: Record<string, string | null> }>>(
+    'https://api.coingecko.com/api/v3/coins/list?include_platform=true',
+  )
+  const coinAt = new Map<string, string>()
+  for (const coin of coins) {
+    for (const [platform, address] of Object.entries(coin.platforms ?? {})) {
+      if (address) coinAt.set(`${platform}:${address.toLowerCase()}`, coin.id)
+    }
+  }
+  const ethereum = CHAINS.find((c) => c.id === 'ethereum')
+  const unnamed: string[] = []
+  const unanchored: string[] = []
+  for (const family of AUDITED) {
+    const issuerAddress =
+      [...(ISSUED[family] ?? [])].find((k) => k.startsWith('1:'))?.slice(2) ??
+      (ethereum ? chainTokens(lists.get(tokenListUrl(ethereum)) ?? [], ethereum) : []).find(
+        (t) => t.symbol.toUpperCase() === family,
+      )?.address
+    const issuer = issuerAddress ? coinAt.get(`ethereum:${issuerAddress.toLowerCase()}`) : undefined
+    if (!issuer) {
+      unanchored.push(family)
+      continue
+    }
+    for (const chain of CHAINS) {
+      for (const token of chainTokens(lists.get(tokenListUrl(chain)) ?? [], chain)) {
+        if (token.symbol.toUpperCase().replace(/\.E$/, '') !== family) continue
+        const filed = coinAt.get(`${COINGECKO_PLATFORM[chain.id]}:${token.address.toLowerCase()}`)
+        if (filed === undefined || filed === issuer) continue
+        // Only what still nets as the issuer's ticker: a scoped name, USDT0, or
+        // a wrap netting with its chain's gas token is already its own asset, and
+        // a contract in ISSUED is there on the issuer's own word over CoinGecko's.
+        if (assetOn(chain, token.address, token.symbol) !== family) continue
+        if (ISSUED[family]?.has(`${chain.eip155}:${token.address.toLowerCase()}`)) continue
+        unnamed.push(`${chain.name} ${token.symbol} ${token.address} (${filed})`)
+      }
+    }
+  }
+  findings.push({
+    verdict:
+      unanchored.length === AUDITED.length ? 'unreachable' : unnamed.length > 0 ? 'contradicted' : 'holds',
+    belief: `every bridge's ${AUDITED.join(', ')} on a list tula reads is named as its own asset`,
+    lines: [
+      unnamed.length > 0
+        ? `CoinGecko files these under a coin other than the issuer's, and no table in ` +
+          `src/connectors/symbols.ts names them, so each nets into the issuer's asset: ${some(unnamed)}. ` +
+          'Add each to BRIDGED, or to ISSUED where the issuer lists the contract as its own.'
+        : 'Every contract CoinGecko files under a bridge’s coin is named as its own asset.',
+      ...(unanchored.length > 0
+        ? [`No issuer coin was found for ${unanchored.join(', ')}, so those were not checked.`]
+        : []),
+    ],
+  })
+
+  const ids = new Set(coins.map((c) => c.id))
+  const gone = Object.entries(PINNED)
+    .filter(([, id]) => !ids.has(id))
+    .map(([asset, id]) => `${asset} -> ${id}`)
+  findings.push({
+    verdict: gone.length > 0 ? 'contradicted' : 'holds',
+    belief: 'every CoinGecko id src/prices/coingecko.ts pins an asset to still exists',
+    lines: [
+      gone.length > 0
+        ? `No longer on CoinGecko: ${some(gone)}. Each of those assets goes unpriced until its id is corrected.`
+        : `All ${Object.keys(PINNED).length} pinned ids resolve.`,
+    ],
+  })
+
   return findings
+}
+
+/** The token families `src/connectors/symbols.ts` was audited for. */
+const AUDITED = ['USDC', 'USDT', 'DAI', 'WBTC', 'WETH', 'WSTETH', 'WEETH', 'BUSD']
+
+/** Each chain as CoinGecko's `coins/list?include_platform=true` names its platform. */
+const COINGECKO_PLATFORM: Readonly<Record<ChainId, string>> = {
+  ethereum: 'ethereum',
+  arbitrum: 'arbitrum-one',
+  base: 'base',
+  polygon: 'polygon-pos',
+  optimism: 'optimistic-ethereum',
+  avalanche: 'avalanche',
+  gnosis: 'xdai',
+  scroll: 'scroll',
+  linea: 'linea',
 }
 
 // --------------------------------------------------------------- the run

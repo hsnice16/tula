@@ -16,6 +16,9 @@ AGENT_PROBE=src/agent/guard-probe.ts
 # holding every credential at once is allowed to reach, so a probe outside it
 # proves nothing about it.
 SECRETS_PROBE=src/secrets/guard-probe.ts
+# Inside the history writer's own directory, for the reason the store's probe
+# sits inside the store's.
+HISTORY_PROBE=src/history/guard-probe.ts
 # The boundary check's subject is the directory itself, so one probe below moves
 # it. Restored on an interrupt as well: leaving src/agent under another name is
 # a broken checkout, not a failed test.
@@ -38,7 +41,7 @@ LAYOUT_GONE=src/connectors/registry.ts
 LAYOUT_SAVED=$(mktemp)
 cp "$LAYOUT_GONE" "$LAYOUT_SAVED"
 restore() {
-  rm -f "$PROBE" "$AGENT_PROBE" "$SECRETS_PROBE"
+  rm -f "$PROBE" "$AGENT_PROBE" "$SECRETS_PROBE" "$HISTORY_PROBE"
   [ -d "$RENAMED" ] && mv "$RENAMED" src/agent
   cp "$CHANGELOG_SAVED" CHANGELOG.md
   cp "$TOOLS_SAVED" "$TOOLS"
@@ -184,6 +187,13 @@ STORE_OUT="src/secrets can log, spawn or reach the network; the store that holds
 expect_secrets "$STORE_OUT" "export const trace = (v: string) => console.log(v)"
 expect_secrets "$STORE_OUT" "export const send = (v: string) => fetch('https://example.invalid', { body: v })"
 expect_secrets "$STORE_OUT" "import { spawn } from 'node:child_process'"
+
+echo "guard-test: the history write reached from where a key is held"
+expect "src/connectors/guard-probe.ts reaches the history write, which only src/ui/app.tsx may call" \
+  "import { recordHistory } from '../history/history.js'"
+printf '%s\n' "import * as secrets from '../secrets/store.js'" > "$HISTORY_PROBE"
+reports "src/history reaches src/secrets/store.ts" "the history writer importing the credential store"
+rm -f "$HISTORY_PROBE"
 
 echo "guard-test: the agent layer under another name"
 mv src/agent "$RENAMED"

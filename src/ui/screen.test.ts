@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type Anthropic from '@anthropic-ai/sdk'
@@ -17,6 +17,7 @@ import { APP_VERSION } from '../version.js'
 import type { Position } from '../core/position.js'
 import type { PriceOracle } from '../core/prices.js'
 import * as secrets from '../secrets/store.js'
+import { historyPath } from '../history/history.js'
 import { App } from './app.js'
 import { cells } from './wrap.js'
 import { guardResize } from './resize.js'
@@ -38,8 +39,8 @@ import { guardResize } from './resize.js'
 /**
  * Every test in this file drives the real app, and a command it runs writes
  * where the real one would — a click on a price source in the menu switched the
- * developer's own stored source, from a test. Only the sign-in test used to
- * isolate itself; the store is out of reach for all of them now.
+ * developer's own stored source, from a test. So the store is out of reach for
+ * every test, not only the ones that mean to write.
  */
 let sandbox = ''
 beforeAll(async () => {
@@ -49,9 +50,14 @@ beforeAll(async () => {
   // terminal draws, and a live request to GitHub inside them is a suite that
   // fails on a plane and reaches a third party to assert on a grid of cells.
   process.env['TULA_NO_UPDATE_CHECK'] = '1'
+  // The sandbox is shared, so a line one test submits would be the next test's
+  // suggestion after the cursor. `credentialEnv` turns it back on in a directory
+  // of the test's own, which is where the tests about history run.
+  process.env['TULA_NO_HISTORY'] = '1'
 })
 afterAll(async () => {
   delete process.env['TULA_NO_UPDATE_CHECK']
+  delete process.env['TULA_NO_HISTORY']
   await rm(sandbox, { recursive: true, force: true })
 })
 
@@ -79,6 +85,8 @@ interface Screen {
   mouseMode(): string
   /** Whether the app has left. Ctrl+C is the only thing here that ends one. */
   exited(): boolean
+  /** Every byte the app has written, escapes included. */
+  written(): string
   stop(): void
 }
 
@@ -127,14 +135,30 @@ interface Options {
   connectors?: Map<string, Connector>
   /** What `src/index.ts` reads out of the store before the shell opens. */
   initialVenues?: string[]
+  /** Ask the terminal about the kitty keyboard protocol, as `run.tsx` has the app do. */
+  keyboardProtocol?: boolean
+  /**
+   * Answer that question as a terminal that speaks the protocol would, this
+   * long after it is asked. xterm's emulator answers the cursor position itself
+   * and this one not at all, so the harness answers for it.
+   */
+  answerKeyboard?: { reply: string; afterMs: number }
 }
 
 async function open(columns: number, rows: number, options: Options = {}): Promise<Screen> {
   const term = new Terminal({ cols: columns, rows, allowProposedApi: true })
   // Everything Ink writes goes to the emulator before anything is asserted, so
   // a pending write can never be mistaken for a frame that was never drawn.
+  const stdin = stdinStub()
   let pending: Promise<void> = Promise.resolve()
+  let all = ''
   const write = (chunk: string) => {
+    all += chunk
+    const answer = options.answerKeyboard
+    if (answer && chunk.includes('\x1b[?u')) {
+      if (answer.afterMs === 0) queueMicrotask(() => stdin.type(answer.reply))
+      else setTimeout(() => stdin.type(answer.reply), answer.afterMs)
+    }
     // What the tty line discipline does on the way out (`onlcr`). Feeding the
     // emulator raw would leave every line starting where the last one ended.
     const onlcr = chunk.replace(/(?<!\r)\n/g, '\r\n')
@@ -142,7 +166,6 @@ async function open(columns: number, rows: number, options: Options = {}): Promi
   }
 
   const stdout = stdoutStub(columns, rows, write)
-  const stdin = stdinStub()
   // A terminal answers some of what is written to it — where its cursor is,
   // which is the only way the app can place an inline block on the screen. The
   // answer comes back on stdin, so the loop has to be closed here or the test
@@ -161,6 +184,7 @@ async function open(columns: number, rows: number, options: Options = {}): Promi
       initialApiKey: 'initialApiKey' in options ? options.initialApiKey : '',
       initialVenues: options.initialVenues ?? [],
       ...(options.agent ? { agent: options.agent } : {}),
+      ...(options.keyboardProtocol ? { keyboardProtocol: true } : {}),
     }),
     {
       stdout: stdout as any,
@@ -224,6 +248,7 @@ async function open(columns: number, rows: number, options: Options = {}): Promi
     },
     mouseMode: () => term.modes.mouseTrackingMode,
     exited: () => left,
+    written: () => all,
     resize: async (nextColumns: number, nextRows: number, waitMs = 250) => {
       term.resize(nextColumns, nextRows)
       stdout.columns = nextColumns
@@ -242,7 +267,7 @@ async function open(columns: number, rows: number, options: Options = {}): Promi
 const isRule = (row: string) => row.trim().startsWith('─'.repeat(10))
 // Singular included, because the count is of venues connected and a session
 // with one draws `1 venue` — and anchored on the separator that follows it, or
-// the REMOVED block's own `1 venue(s)` is read as a second status line.
+// the REMOVED block's own `1 venue` is read as a second status line.
 const isStatus = (row: string) => /\d+ venues?\s+·/.test(row)
 
 function ruleRows(screen: Screen) {
@@ -351,6 +376,32 @@ test('enter runs the highlighted command, and tab is what completes it', async (
   }
 })
 
+/**
+ * Enter completing `/history` into `/history clear` and running that on the
+ * third press is a deletion nobody typed. A command whose arguments are all
+ * optional runs as it stands, and an argument typed out whole runs rather than
+ * being inserted over itself.
+ */
+test('enter runs a command whose arguments are optional, and an argument already typed whole', async () => {
+  const restore = await credentialEnv({ profile: false })
+  const screen = await open(120, 33)
+  try {
+    await screen.press('/history')
+    await screen.press('\r')
+    expect(screen.rows().join('\n')).toContain('to recall from')
+    expect(typedText(screen)).toBe('')
+
+    await screen.press('/history clear')
+    await screen.press('\r')
+    // The line that asked is recorded before it runs, so it is counted too.
+    expect(screen.rows().join('\n')).toContain('Cleared 2 lines')
+    expect(typedText(screen)).toBe('')
+  } finally {
+    screen.stop()
+    await restore()
+  }
+})
+
 test('a menu taller than a short viewport does not leave the frame under it', async () => {
   const screen = await open(195, 20)
   try {
@@ -409,12 +460,12 @@ test('narrowing with the command menu open', async () => {
 })
 
 /**
- * ctrl+k used to fill the viewport with a panel and nothing else, which pushed
- * the transcript over the top of the screen — where nothing can hand it back.
- * Closing left the status line alone on a blank screen, and the answer you
- * opened the search from was gone for good.
+ * A palette that fills the viewport with a panel and nothing else pushes the
+ * transcript over the top of the screen, where nothing can hand it back.
+ * Closing it leaves the status line alone on a blank screen, and the answer the
+ * search was opened from is gone for good.
  */
-test('ctrl+k floats over the transcript, and closing puts the screen back', async () => {
+test('ctrl+s floats the palette over the transcript, and closing puts the screen back', async () => {
   const screen = await open(120, 24)
   try {
     await screen.press('/help\r')
@@ -422,7 +473,7 @@ test('ctrl+k floats over the transcript, and closing puts the screen back', asyn
     const answered = () => screen.visible().some((row) => row.includes('your book'))
     expect([asked(), answered()]).toEqual([true, true])
 
-    await screen.press('\x0b')
+    await screen.press('\x13')
     // The dialog is a box with rows of transcript still standing either side of
     // it — which is the whole claim, and the one a full-height panel fails.
     const framed = screen.visible().filter((row) => row.includes('│'))
@@ -456,7 +507,7 @@ test('opening and closing the palette does not stack copies of the transcript', 
     for (let at = 0; at < 4; at++) await screen.press('/help\r')
     expect(written()).toBe(4)
     for (let at = 0; at < 5; at++) {
-      await screen.press('\x0b')
+      await screen.press('\x13')
       await screen.press('\x1b')
     }
     expect(written()).toBe(4)
@@ -475,7 +526,7 @@ test('the backdrop behind the palette reaches the input box', async () => {
   const screen = await open(120, 30)
   try {
     for (let at = 0; at < 5; at++) await screen.press('/help\r')
-    await screen.press('\x0b')
+    await screen.press('\x13')
     const rows = screen.visible()
     const rule = rows.findIndex(isRule)
     expect(rule).toBeGreaterThan(0)
@@ -502,7 +553,7 @@ test('the backdrop behind the palette reaches the input box', async () => {
 test('the palette count runs out at the bottom of the list', async () => {
   const screen = await open(120, 30)
   try {
-    await screen.press('\x0b')
+    await screen.press('\x13')
     const footer = () => screen.visible().find((row) => row.includes('esc closes')) ?? ''
     const opened = footer().match(/(\d+) more below/)?.[1]
     expect(opened).toBeDefined()
@@ -528,7 +579,7 @@ test('the wheel scrolls the palette, and the terminal gets the mouse back', asyn
   const screen = await open(120, 30)
   try {
     expect(screen.mouseMode()).toBe('none')
-    await screen.press('\x0b')
+    await screen.press('\x13')
     expect(screen.mouseMode()).toBe('any')
 
     // One notch, one row. Moving the cursor and letting the window follow it
@@ -566,7 +617,7 @@ test('the wheel scrolls the palette, and the terminal gets the mouse back', asyn
 test('the palette answers the pointer', async () => {
   const screen = await open(120, 30)
   try {
-    await screen.press('\x0b')
+    await screen.press('\x13')
     const rowOf = (text: string) => screen.visible().findIndex((row) => row.includes(text))
     const footer = () => screen.visible().find((row) => row.includes('enter ')) ?? ''
     // /shock is the one entry that cannot be run outright, so the footer says
@@ -587,7 +638,7 @@ test('the palette answers the pointer', async () => {
 
     // And a click on the screen the dialog is floating over closes it, running
     // nothing — which is what every other dialog does.
-    await screen.press('\x0b')
+    await screen.press('\x13')
     await screen.press('\x1b[<0;2;2M')
     expect(screen.visible().some((row) => row.includes('esc'))).toBe(false)
     expectOneInputBox(screen)
@@ -607,8 +658,10 @@ test('the / menu answers the pointer, wherever the frame ended up', async () => 
   const screen = await open(120, 45)
   try {
     await screen.press('/')
-    const markedRow = () => screen.visible().findIndex((row) => /❯\s+\/\w/.test(row))
-    const rowOf = (text: string) => screen.visible().findIndex((row) => row.includes(text))
+    // Indented past the input box's own `❯`, which the suggestion fills
+    // with the highlighted command's name.
+    const markedRow = () => screen.visible().findIndex((row) => /^ {2,}❯ \/\w/.test(row))
+    const rowOf = (text: string) => screen.visible().findIndex((row) => row.includes(text) && !row.startsWith('❯'))
     expect(screen.visible()[markedRow()]).toContain('/breaks')
 
     // 35 is movement with no button held. Terminal coordinates are 1-based.
@@ -629,6 +682,47 @@ test('the / menu answers the pointer, wherever the frame ended up', async () => 
     screen.stop()
   }
 }, 120_000)
+
+/**
+ * The menu stays up while a command runs, and the command's output landing
+ * above it and the busy row going move the frame with no key pressed. A click
+ * read against where the cursor was before that runs a row the pointer is not on.
+ */
+test('a click on the / menu runs the row under it after a command ends beneath it', async () => {
+  const restore = await credentialEnv({ profile: false })
+  const slow = fakeVenue('slowclick', 'Slow Click', async () => {
+    await new Promise((r) => setTimeout(r, 1500))
+    return []
+  })
+  const screen = await open(120, 80, { connectors: new Map([['slowclick', slow]]) })
+  // The last match: /help's output above the menu can name the same command.
+  const rowOf = (text: string) =>
+    screen
+      .visible()
+      .map((row) => row.includes(text) && !row.startsWith('❯'))
+      .lastIndexOf(true)
+  const busyRow = () => screen.visible().some((row) => SPINNING.test(row))
+  try {
+    await secrets.put('slowclick', { address: '0xabc' })
+    await screen.press('/refresh\r')
+    await screen.press('/help\r')
+    await screen.press('/')
+    expect([busyRow(), queuedRows(screen)]).toEqual([true, ['/help']])
+    await until(screen, 'Type / for commands', 80)
+    await screen.press('')
+    expect(busyRow()).toBe(false)
+
+    const about = rowOf('/about')
+    await screen.press(`\x1b[<0;10;${about + 1}M`)
+    const ran = await until(screen, 'What tula is')
+    if (!ran.some((row) => row.includes('❯ /about'))) dump(screen)
+    expect(ran.some((row) => row.includes('❯ /about'))).toBe(true)
+  } finally {
+    await secrets.remove('slowclick')
+    screen.stop()
+    await restore()
+  }
+}, 60_000)
 
 test('the wheel scrolls the / menu, and a click away puts it down', async () => {
   // Short enough that the menu cannot draw every command it has.
@@ -655,7 +749,7 @@ test('narrowing with a panel open, then closing it', async () => {
   const screen = await open(195, 33)
   try {
     await screen.press('/help\r')
-    await screen.press('\x0b')
+    await screen.press('\x13')
     await screen.resize(100, 30, 40)
     await screen.press('\x1b')
     expectOneInputBox(screen)
@@ -802,8 +896,8 @@ test('a drag faster than the repaint, against a full screen', async () => {
 })
 
 /**
- * What the gap looked like: the frame adrift with blank rows between it and the
- * transcript, or below it, depending on which way the rows were lost. A screen
+ * The gap is the frame adrift with blank rows between it and the transcript, or
+ * below it, depending on which way the rows are lost. A screen
  * with a transcript longer than it has no room for empty rows anywhere.
  */
 test('a drag leaves no blank band on a screen that was full', async () => {
@@ -916,6 +1010,7 @@ async function credentialEnv({ profile }: { profile: boolean }) {
   const saved = { ...process.env }
   process.env['ANTHROPIC_CONFIG_DIR'] = anthropic
   process.env['TULA_CONFIG_DIR'] = store
+  delete process.env['TULA_NO_HISTORY']
   delete process.env['ANTHROPIC_API_KEY']
   delete process.env['ANTHROPIC_AUTH_TOKEN']
   return async () => {
@@ -1066,8 +1161,8 @@ test('an answer that stops for a tool still says it is working', async () => {
   try {
     await screen.press('what is my eth exposure\r')
 
-    // The defect: the row went out with the first token, so the tool round and
-    // the request after it ran under a screen that had stopped moving.
+    // A row that goes out with the first token leaves the tool round and the
+    // request after it running under a screen that has stopped moving.
     const held = screen.visible()
     const preamble = held.findIndex((row) => row.includes(PREAMBLE))
     expect(preamble).toBeGreaterThan(-1)
@@ -1160,8 +1255,16 @@ test('a venue mark takes a gutter, and both columns still line up', async () => 
     // `/c` leaves one filter holding both kinds: the price sources, which the
     // menu lists with no venue connected, and `/clear`, which is nobody's brand.
     await screen.press('/c')
-    const marked = screen.visible().find((row) => row.includes('/coingecko'))
-    const plain = screen.visible().find((row) => row.includes('/clear'))
+    // Below the input box: the suggestion fills the line itself with the
+    // highlighted row's name, and the menu's own selected row carries a `❯` too.
+    const below = () => {
+      const rows = screen.visible()
+      const top = rows.findIndex(isRule)
+      return rows.slice(rows.findIndex((row, at) => at > top && isRule(row)) + 1)
+    }
+    const menuRow = (name: string) => below().find((row) => row.includes(name))
+    const marked = menuRow('/coingecko')
+    const plain = menuRow('/clear')
     if (!marked || !plain) dump(screen)
     expect(marked).toMatch(/● CoinGecko/)
     expect(plain).not.toMatch(/●/)
@@ -1393,7 +1496,7 @@ test('a venue this build dropped is neither connected nor failed', async () => {
 
 /**
  * `disconnect` is a row under every connected venue in `/` and a runnable entry
- * in ctrl+k, so arrowing one row past `status` and pressing Enter — or one
+ * in the palette, so arrowing one row past `status` and pressing Enter — or one
  * stray click in the menu band, where tracking is live for as long as the menu
  * is up — used to delete the venue's credential outright. An exchange shows a
  * secret key once, so that is the same cost as losing it.
@@ -1901,3 +2004,1240 @@ test('signing out asks first, and Enter on the question keeps the key', async ()
     await restore()
   }
 })
+
+/** Each key as the terminal sends it. One press is one chunk, as one keystroke is. */
+const KEY = {
+  ctrlA: '\x01',
+  ctrlB: '\x02',
+  ctrlD: '\x04',
+  ctrlE: '\x05',
+  ctrlF: '\x06',
+  ctrlG: '\x07',
+  ctrlK: '\x0b',
+  ctrlL: '\x0c',
+  ctrlN: '\x0e',
+  ctrlP: '\x10',
+  ctrlR: '\x12',
+  ctrlS: '\x13',
+  ctrlT: '\x14',
+  ctrlU: '\x15',
+  ctrlW: '\x17',
+  ctrlY: '\x19',
+  undo: '\x1f',
+  altB: '\x1bb',
+  altF: '\x1bf',
+  altD: '\x1bd',
+  altBackspace: '\x1b\x7f',
+  ctrlLeft: '\x1b[1;5D',
+  ctrlRight: '\x1b[1;5C',
+  home: '\x1b[H',
+  end: '\x1b[F',
+  delete: '\x1b[3~',
+} as const
+
+/**
+ * The line being typed on, whole: every row between the input box's two rules,
+ * prompt taken off. A line long enough to wrap is several rows, and Ink breaks
+ * them at a space it then does not draw, so callers compare with the blanks out.
+ */
+function typedText(screen: Screen): string {
+  const rows = screen.visible()
+  const top = rows.findIndex(isRule)
+  const bottom = rows.findIndex((row, at) => at > top && isRule(row))
+  const text = rows
+    .slice(top + 1, bottom)
+    .map((row) => row.trim())
+    .join(' ')
+    .replace(/^❯\s?/, '')
+    .trim()
+  // An empty line draws its placeholder, idle or busy, which is not anything typed.
+  return text.startsWith('ask anything ·') || text.startsWith('type the next one ·') ? '' : text
+}
+
+const bare = (text: string) => text.replace(/\s+/g, '')
+
+for (const columns of WIDTHS) {
+  /**
+   * Every binding in `tasks/field-report/07-readline-keys.md`, driven through
+   * the emulator on a line that wraps. The positions are the line model's to
+   * get right, and `src/ui/line.test.ts` pins them; what only this file can see
+   * is a key reaching the line at all, and a cursor moving across a wrapped row
+   * — the redraw that leaves Ink's erase short.
+   */
+  test(`every editing key reaches the line, on a line that wraps at ${columns} columns`, async () => {
+    const restore = await credentialEnv({ profile: false })
+    const screen = await open(columns, 33)
+    const keys = async (...sequence: string[]) => {
+      for (const k of sequence) await screen.press(k)
+    }
+    try {
+      // History first, while the line is short enough to read back exactly.
+      await screen.press('nothing to see here\r')
+      await keys(KEY.ctrlP)
+      expect(typedText(screen)).toBe('nothing to see here')
+      await keys(KEY.ctrlN)
+      expect(typedText(screen)).toBe('')
+
+      const words = Math.ceil(columns / 3)
+      const tail = Array.from({ length: words }, (_, at) => `w${at}`).join(' ')
+      const shorter = Array.from({ length: words - 1 }, (_, at) => `w${at}`).join(' ')
+      await screen.press(`one two three ${tail}`)
+      const rows = screen.visible()
+      const top = rows.findIndex(isRule)
+      expect(rows.findIndex((row, at) => at > top && isRule(row)) - top - 1).toBeGreaterThan(1)
+
+      await keys(KEY.ctrlA, '[', KEY.altF, '1', KEY.ctrlRight, '2', KEY.altB, '(')
+      await keys(KEY.ctrlLeft, ')', KEY.ctrlF, KEY.ctrlB, '#', KEY.home, '{', KEY.end, '}')
+      expect(bare(typedText(screen))).toBe(bare(`{[)#one1 (two2 three ${tail}}`))
+
+      await keys(KEY.ctrlA, KEY.delete, KEY.ctrlD)
+      expect(bare(typedText(screen))).toBe(bare(`)#one1 (two2 three ${tail}}`))
+
+      await keys(KEY.altD, KEY.ctrlE, KEY.ctrlY)
+      expect(bare(typedText(screen))).toBe(bare(`(two2 three ${tail}})#one1`))
+
+      // ctrl+w's word runs to whitespace, so the punctuation goes with it.
+      await keys(KEY.ctrlW)
+      expect(bare(typedText(screen))).toBe(bare(`(two2 three ${shorter}`))
+      // alt+backspace joins the kill before it, so one yank puts both back.
+      await keys(KEY.altBackspace, KEY.ctrlY)
+      expect(bare(typedText(screen))).toBe(bare(`(two2 three ${tail}})#one1`))
+
+      await keys(KEY.ctrlT)
+      expect(bare(typedText(screen))).toBe(bare(`(two2 three ${tail}})#on1e`))
+      await keys(KEY.undo)
+      expect(bare(typedText(screen))).toBe(bare(`(two2 three ${tail}})#one1`))
+
+      await keys(KEY.ctrlU)
+      expect(typedText(screen)).toBe('')
+      await keys(KEY.ctrlY, KEY.ctrlA, KEY.ctrlK)
+      expect(typedText(screen)).toBe('')
+      // Option+b without Option-as-Meta is a character, and reaches the line as one.
+      await keys(KEY.ctrlY, '∫')
+      expect(bare(typedText(screen))).toBe(bare(`(two2 three ${tail}})#one1∫`))
+
+      expect(screen.wrapped()).toEqual([])
+      expectOneInputBox(screen)
+    } finally {
+      screen.stop()
+      await restore()
+    }
+  }, 120_000)
+
+  test(`ctrl+r says what it searches for, and when nothing matched, at ${columns} columns`, async () => {
+    const restore = await credentialEnv({ profile: false })
+    const screen = await open(columns, 33)
+    const hint = () =>
+      screen.visible().find((row) => /search history|nothing in history/.test(row))?.trim() ?? ''
+    try {
+      for (const line of ['/shock ETH -21', 'what about btc', '/shock BTC -11']) {
+        await screen.press(`${line}\r`)
+      }
+
+      await screen.press(KEY.ctrlR)
+      expect(hint()).toContain('type part of an earlier line')
+      await screen.press('shock')
+      expect(typedText(screen)).toBe('/shock BTC -11')
+      expect(hint()).toContain('“shock”')
+      await screen.press(KEY.ctrlR)
+      expect(typedText(screen)).toBe('/shock ETH -21')
+
+      // A query that stops matching leaves the last match up, so the row has
+      // to say it is not one.
+      await screen.press('zz')
+      expect(hint()).toContain('nothing in history matches “shockzz”')
+      expect(typedText(screen)).toBe('/shock ETH -21')
+      await screen.press('\x7f')
+      await screen.press('\x7f')
+      expect(hint()).toContain('“shock”')
+
+      // ctrl+g puts back the line the search started from, which was empty.
+      await screen.press(KEY.ctrlG)
+      expect([hint(), typedText(screen)]).toEqual(['', ''])
+
+      // Esc takes the match onto the line to edit, and runs nothing.
+      await screen.press(KEY.ctrlR)
+      await screen.press('ETH')
+      await screen.press('\x1b')
+      expect([hint(), typedText(screen)]).toEqual(['', '/shock ETH -21'])
+
+      await screen.press(KEY.ctrlU)
+      await screen.press(KEY.ctrlR)
+      await screen.press('about')
+      await screen.press('\r')
+      expect(screen.rows().filter((row) => row.includes('❯ what about btc'))).toHaveLength(2)
+
+      expect(screen.wrapped()).toEqual([])
+      expectOneFrame(screen)
+    } finally {
+      screen.stop()
+      await restore()
+    }
+  }, 120_000)
+}
+
+/** Digits and a percent sign break the run of short words a seed phrase is refused on. */
+const LONG_QUESTION = `what breaks first if ${'eth drops 20% and btc drops 10% '.repeat(9)}`.trim()
+
+for (const columns of WIDTHS) {
+  /**
+   * Enter on a command that takes arguments puts it on the line and opens the
+   * list for the first one; Enter in that list inserts and closes it, and the
+   * Enter after that runs the line — the split fish and zsh's `complist` keep.
+   */
+  test(`an argument list opens from Enter on /shock, inserts on Enter, and runs on the next, at ${columns} columns`, async () => {
+    const restore = await credentialEnv({ profile: false })
+    const book = fakeVenue('book', 'Book Wallet', async () => [
+      holding('book', 'ETH', '2'),
+      holding('book', 'BTC', '1'),
+    ])
+    const screen = await open(columns, 40, { connectors: new Map([['book', book]]) })
+    const showing = (text: string) => screen.visible().some((row) => row.includes(text))
+    try {
+      await screen.press('/book connect\r')
+      await screen.press('0xabc\r')
+      await until(screen, 'Connected Book Wallet')
+      await until(screen, 'book')
+
+      await screen.press('/sho')
+      await screen.press('\r')
+      // The highlighted candidate is suggested after the cursor as well.
+      expect(typedText(screen).replace(/\s+/g, ' ')).toBe('/shock BTC')
+      expect([showing('/shock <asset>'), showing('/shock BTC'), showing('/shock ETH')]).toEqual([
+        true,
+        true,
+        true,
+      ])
+      expect(showing('held at book')).toBe(true)
+
+      await screen.press('\r')
+      expect(typedText(screen)).toBe('/shock BTC')
+      expect(showing('held at book')).toBe(false)
+
+      await screen.press('-10')
+      // The percentage has nothing to pick from, so the list says what goes there.
+      expect(showing('a move in percent')).toBe(true)
+      await screen.press('\r')
+      const rows = await until(screen, 'Scenario: BTC')
+      expect(rows.some((row) => row.includes('Scenario: BTC -10%'))).toBe(true)
+
+      expect(screen.wrapped()).toEqual([])
+      expectOneFrame(screen)
+    } finally {
+      await secrets.remove('book')
+      screen.stop()
+      await restore()
+    }
+  }, 120_000)
+
+  /**
+   * A suggestion past the last column is cut. Wrapped, it is a row Ink counts
+   * once and draws twice — and it would push the line under the cursor down.
+   */
+  test(`a suggestion from history is cut at the edge rather than wrapped, and Enter never takes it, at ${columns} columns`, async () => {
+    const restore = await credentialEnv({ profile: false })
+    const screen = await open(columns, 33)
+    const inputRows = () => {
+      const rows = screen.visible()
+      const top = rows.findIndex(isRule)
+      return rows.findIndex((row, at) => at > top && isRule(row)) - top - 1
+    }
+    try {
+      await screen.press(`${LONG_QUESTION}\r`)
+      await screen.press('what br')
+      // The row under the input box's top rule: the transcript above quotes the question whole.
+      const shown = screen.visible()
+      const line = shown[shown.findIndex(isRule) + 1] ?? ''
+      if (!line.trimEnd().endsWith('…')) dump(screen)
+      expect(line).toContain('what breaks first')
+      expect(line.trimEnd().endsWith('…')).toBe(true)
+      expect(inputRows()).toBe(1)
+      expect(screen.wrapped()).toEqual([])
+      // The question repeats one phrase, so its echo wraps into rows that match.
+      expectOneFrame(screen)
+
+      // One word at a time on alt+f, the rest on →.
+      await screen.press(KEY.altF)
+      expect(typedText(screen).startsWith('what breaks')).toBe(true)
+      await screen.press('\x1b[C')
+      expect(bare(typedText(screen))).toBe(bare(LONG_QUESTION))
+
+      await screen.press(KEY.ctrlU)
+      await screen.press('what br')
+      await screen.press('\r')
+      expect(screen.visible().some((row) => row.trim() === '❯ what br')).toBe(true)
+    } finally {
+      screen.stop()
+      await restore()
+    }
+  }, 120_000)
+}
+
+for (const columns of WIDTHS) {
+  /**
+   * The mode is beside the line whatever the width, and Esc does one thing at
+   * a time: the list first, then INSERT. A second Esc must never do something
+   * the first one's screen gave no sign of.
+   */
+  test(`the vim mode is shown beside the line, and Esc closes a list before it leaves INSERT, at ${columns} columns`, async () => {
+    const restore = await credentialEnv({ profile: false })
+    const screen = await open(columns, 33)
+    const status = () => screen.visible().find(isStatus) ?? ''
+    const menuOpen = () => screen.visible().some((row) => /^ {2,}❯ \/\w/.test(row))
+    try {
+      expect(status()).not.toContain('INSERT')
+      await screen.press('/vim\r')
+      expect(status()).toContain('-- INSERT --')
+      // Its own file, so the choice outlives the session.
+      const prefs = join(process.env['TULA_CONFIG_DIR'] ?? '', 'preferences.json')
+      expect(JSON.parse(await readFile(prefs, 'utf8'))).toEqual({ vim: true })
+
+      await screen.press('/ex')
+      expect(menuOpen()).toBe(true)
+      await screen.press('\x1b')
+      expect([menuOpen(), status().includes('-- INSERT --')]).toEqual([false, true])
+      await screen.press('\x1b')
+      expect(status()).toContain('-- NORMAL --')
+
+      // A letter in NORMAL is a command: x takes the character under the cursor.
+      await screen.press('x')
+      expect(typedText(screen)).toBe('/e')
+      // The menu is back over the edited line, and a list never takes j or k.
+      await screen.press('k')
+      expect(typedText(screen)).toBe('/e')
+
+      // Esc with a list open closes the list and drops a half-typed `d` with
+      // it: nothing on screen showed the `d`, so the `w` after it only moves.
+      await screen.press('d')
+      expect(menuOpen()).toBe(true)
+      await screen.press('\x1b')
+      expect([menuOpen(), status().includes('-- NORMAL --')]).toEqual([false, true])
+      await screen.press('w')
+      expect(typedText(screen)).toBe('/e')
+
+      // A slash means a command in either mode.
+      await screen.press('/')
+      // The line holds `/` alone; `vim` after it is the dim suggestion from the
+      // `/vim` this test typed, with the cursor drawn on its first letter.
+      expect([menuOpen(), status().includes('-- INSERT --'), typedText(screen)]).toEqual([
+        true,
+        true,
+        '/vim',
+      ])
+      expect(screen.wrapped()).toEqual([])
+      // Not `expectOneInputBox`: the suggestion fills the line out to `/vim`,
+      // which is the prompt this test echoed above it, row for row.
+      expectOneFrame(screen)
+
+      await screen.press('\x1b')
+      await screen.press('vim\r')
+      expect(status()).not.toContain('-- ')
+      expect(JSON.parse(await readFile(prefs, 'utf8'))).toEqual({ vim: false })
+    } finally {
+      screen.stop()
+      await restore()
+    }
+  }, 120_000)
+}
+
+/** Nothing on screen shows a pending `f`, so the panel opening over one leaves it to take the next key. */
+test('? after f in vim NORMAL is the character searched for, not the keys panel', async () => {
+  const restore = await credentialEnv({ profile: false })
+  const screen = await open(120, 40)
+  try {
+    await screen.press('/vim\r')
+    await screen.press('what?')
+    await screen.press('\x1b')
+    await screen.press('0')
+    await screen.press('f')
+    await screen.press('?')
+    expect(screen.visible().some((row) => row.includes('Search all commands'))).toBe(false)
+    await screen.press('x')
+    expect(typedText(screen)).toBe('what')
+  } finally {
+    screen.stop()
+    await restore()
+  }
+}, 60_000)
+
+/** `.` types again what INSERT recorded, and a ctrl+w it never recorded made that a different change. */
+test('. after an INSERT that used ctrl+w repeats nothing', async () => {
+  const restore = await credentialEnv({ profile: false })
+  const screen = await open(120, 40)
+  try {
+    await screen.press('/vim\r')
+    await screen.press('one two')
+    await screen.press('\x1b')
+    await screen.press('A')
+    await screen.press('x')
+    await screen.press(KEY.ctrlW)
+    await screen.press('\x1b')
+    expect(typedText(screen)).toBe('one')
+    await screen.press('.')
+    expect(typedText(screen)).toBe('one')
+  } finally {
+    screen.stop()
+    await restore()
+  }
+}, 60_000)
+
+/**
+ * Ink splits one read at every escape sequence and renders nothing between the
+ * pieces, so each piece has to see the vim state the one before it left.
+ */
+test('. in the same read as the change it repeats', async () => {
+  const restore = await credentialEnv({ profile: false })
+  const screen = await open(120, 40)
+  try {
+    await screen.press('/vim\r')
+    await screen.press('one two three')
+    await screen.press('\x1b')
+    await screen.press('0')
+    // ← at the start of the line moves nothing; it is there to split the read.
+    await screen.press('dw\x1b[D.')
+    expect(typedText(screen)).toBe('three')
+  } finally {
+    screen.stop()
+    await restore()
+  }
+}, 60_000)
+
+/**
+ * The lists move on ctrl+n and ctrl+p exactly as on the arrows, and the two
+ * lines that filter them — the `/` line and the palette's query — take the same
+ * editing keys as any other line.
+ */
+test('both lists move on ctrl+n and ctrl+p, and their filters take the editing keys', async () => {
+  const screen = await open(120, 40)
+  try {
+    await screen.press('/')
+    // Indented past the input box's own `❯`, which reads `/exp` once that is typed.
+    const marked = () => screen.visible().find((row) => /^ {2,}❯ \/\w/.test(row)) ?? ''
+    expect(marked()).toContain('/breaks')
+    await screen.press(KEY.ctrlN)
+    expect(marked()).toContain('/exposure')
+    await screen.press(KEY.ctrlP)
+    expect(marked()).toContain('/breaks')
+
+    await screen.press('exp')
+    expect(marked()).toContain('/exposure')
+    await screen.press(KEY.ctrlA)
+    await screen.press(KEY.ctrlK)
+    expect(marked()).toBe('')
+    await screen.press(KEY.ctrlY)
+    expect(marked()).toContain('/exposure')
+    await screen.press('\x1b')
+    await screen.press(KEY.ctrlU)
+
+    await screen.press(KEY.ctrlS)
+    // Matched on its head: the /shock row's footer runs past the dialog and is cut.
+    const footer = () =>
+      screen.visible().find((row) => /(enter (runs|puts)|nothing matches)/.test(row)) ?? ''
+    expect(footer()).toContain('enter runs it')
+    // /shock is the fourth row, and the one entry the footer describes differently.
+    for (let at = 0; at < 3; at++) await screen.press(KEY.ctrlN)
+    expect(footer()).toContain('still has to be typed')
+    await screen.press(KEY.ctrlP)
+    expect(footer()).toContain('enter runs it')
+
+    await screen.press('zzbrea')
+    expect(footer()).toContain('nothing matches')
+    await screen.press(KEY.ctrlA)
+    await screen.press(KEY.ctrlD)
+    await screen.press(KEY.ctrlD)
+    expect(footer()).not.toContain('nothing matches')
+    expect(screen.exited()).toBe(false)
+    await screen.press(KEY.ctrlE)
+    await screen.press(KEY.ctrlW)
+    expect(footer()).toContain('more below')
+    await screen.press(KEY.ctrlY)
+    expect(footer()).not.toContain('more below')
+    await screen.press('\x1b')
+
+    // ctrl+l keeps its meaning beside all of this.
+    await screen.press('/help\r')
+    expect(screen.visible().join('\n')).toContain('your book')
+    await screen.press(KEY.ctrlL)
+    expect(screen.visible().join('\n')).not.toContain('your book')
+    expectOneInputBox(screen)
+  } finally {
+    screen.stop()
+  }
+}, 120_000)
+
+/**
+ * A kill buffer that carried a secret out of a masked field and onto a line
+ * drawn as text is the key on screen. The field still loses what ctrl+w and
+ * ctrl+k take — deleting has to work where dots are all there is to see.
+ */
+test('nothing deleted from a masked field can be yanked onto the shell line', async () => {
+  const restore = await credentialEnv({ profile: false })
+  const keyed: Connector = {
+    ...fakeVenue('keyed', 'Keyed Venue', async () => []),
+    fields: [{ name: 'apiKey', label: 'API key', secret: true }],
+  }
+  const screen = await open(120, 33, { connectors: new Map([['keyed', keyed]]) })
+  const dots = () => screen.visible().join('').split('•').length - 1
+  try {
+    await screen.press('/keyed connect\r')
+    await until(screen, 'Connect Keyed Venue')
+    await screen.press('topsecretvalue')
+    expect(dots()).toBe(14)
+    await screen.press(KEY.ctrlW)
+    expect(dots()).toBe(0)
+    await screen.press('topsecretvalue')
+    await screen.press(KEY.ctrlA)
+    await screen.press(KEY.ctrlK)
+    expect(dots()).toBe(0)
+
+    await screen.press('\x1b')
+    await until(screen, 'Left Keyed Venue unconnected')
+    await screen.press(KEY.ctrlY)
+    expect(typedText(screen)).toBe('')
+    expect(screen.rows().some((row) => row.includes('topsecret'))).toBe(false)
+  } finally {
+    screen.stop()
+    await restore()
+  }
+}, 120_000)
+
+/**
+ * Each thing `tasks/field-report/08-saved-history.md` says is never recorded,
+ * typed the way somebody would type it, and the file read afterwards. The
+ * connect field is edited mid-address on the way, which is its cursor working.
+ */
+test('the history file keeps the shell line, and nothing that must not be kept', async () => {
+  const restore = await credentialEnv({ profile: false })
+  const noted = fakeVenue('noted', 'Noted Wallet', async () => [])
+  const screen = await open(120, 33, { connectors: new Map([['noted', noted]]) })
+  const kept = async (): Promise<string[]> => {
+    try {
+      const raw = await readFile(historyPath(), 'utf8')
+      return raw.split('\n').filter(Boolean).map((row) => JSON.parse(row) as string)
+    } catch {
+      return []
+    }
+  }
+  try {
+    await screen.press('/noted connect\r')
+    await until(screen, 'Connect Noted Wallet')
+    await screen.press('0xac')
+    await screen.press(KEY.ctrlB)
+    await screen.press('b')
+    await screen.press('\r')
+    await until(screen, 'Connected Noted Wallet')
+    expect((await secrets.listCredentials('noted')).map((e) => e.credentials['address'])).toEqual([
+      '0xabc',
+    ])
+
+    await screen.press('/noted disconnect\r')
+    await until(screen, 'Forget Noted Wallet?')
+    await screen.press('noted\r')
+    await until(screen, 'Forgot')
+
+    await screen.press(' /about\r')
+    // Assembled, so this file holds nothing the commit hook would refuse.
+    await screen.press(`${'sk-'}ant-api03-${'q'.repeat(30)}\r`)
+    await screen.press('/help\r')
+
+    let lines: string[] = []
+    for (let at = 0; at < 40 && !lines.includes('/help'); at++) {
+      lines = await kept()
+      await new Promise((r) => setTimeout(r, 50))
+    }
+    expect(lines).toEqual(['/noted connect', '/noted disconnect', '/help'])
+    expect((await stat(historyPath())).mode & 0o777).toBe(0o600)
+  } finally {
+    await secrets.remove('noted')
+    screen.stop()
+    await restore()
+  }
+}, 120_000)
+
+test('ctrl+c on a recalled line starts history over, so ↑ is the newest line again', async () => {
+  const restore = await credentialEnv({ profile: false })
+  const screen = await open(120, 33)
+  try {
+    await screen.press('/help\r')
+    await until(screen, 'Type / for commands')
+    await screen.press('/keys\r')
+    await until(screen, 'Editing')
+    await screen.press('\x1b[A')
+    await screen.press('\x1b[A')
+    expect(inputRows(screen)).toEqual(['/help'])
+    await screen.press('\x03')
+    await screen.press('\x1b[A')
+    expect(inputRows(screen)).toEqual(['/keys'])
+  } finally {
+    screen.stop()
+    await restore()
+  }
+}, 60_000)
+
+/** The rows between the input box's two rules, prompt and indent taken off, as drawn. */
+function inputRows(screen: Screen): string[] {
+  const rows = screen.visible()
+  const top = rows.findIndex(isRule)
+  const bottom = rows.findIndex((row, at) => at > top && isRule(row))
+  return rows.slice(top + 1, bottom).map((row) => row.replace(/^\s*(❯\s)?/, '').trimEnd())
+}
+
+/** The keys that insert a newline, as each terminal sends them. */
+const NEWLINE = {
+  altEnter: '\x1b\r',
+  shiftEnterKitty: '\x1b[13;2u',
+  ctrlJ: '\n',
+  shiftEnterXterm: '\x1b[27;2;13~',
+}
+
+for (const columns of WIDTHS) {
+  /**
+   * A question of three lines, the middle one long enough to wrap: every row
+   * fits the width, the frame is still one input box, ↑ walks the rows before
+   * it reaches history, and a resize with it open leaves nothing behind.
+   * `tasks/field-report/11-multi-line-input.md` gives the keys.
+   */
+  test(`a question over three lines, one of them wrapping, keeps the frame at ${columns} columns`, async () => {
+    const restore = await credentialEnv({ profile: false })
+    const screen = await open(columns, 33)
+    try {
+      await screen.press('/help\r')
+      const long = Array.from({ length: Math.ceil(columns / 3) }, (_, at) => `w${at}`).join(' ')
+      await screen.press('what breaks first')
+      await screen.press(NEWLINE.altEnter)
+      await screen.press(long)
+      await screen.press(NEWLINE.shiftEnterKitty)
+      await screen.press('and then')
+      await screen.press(NEWLINE.ctrlJ)
+      await screen.press('after that')
+      await screen.press(NEWLINE.shiftEnterXterm)
+      await screen.press('last')
+
+      const drawn = inputRows(screen)
+      expect(drawn[0]).toBe('what breaks first')
+      expect(drawn.at(-1)).toBe('last')
+      // The wrapped line takes more than one row, and no row ran past the edge.
+      expect(drawn.length).toBeGreaterThan(5)
+      expect(drawn.join(' ')).not.toContain('[27;2;13~')
+      expect(screen.wrapped()).toEqual([])
+      expectOneFrame(screen)
+
+      // Every row above the first is walked before history is reached.
+      for (let at = 0; at < drawn.length - 1; at++) await screen.press('\x1b[A')
+      expect(inputRows(screen).at(-1)).toBe('last')
+      await screen.press('\x1b[A')
+      expect(inputRows(screen)).toEqual(['/help'])
+      await screen.press('\x1b[B')
+      expect(inputRows(screen).at(-1)).toBe('last')
+
+      await screen.resize(columns - 20, 33)
+      expect(screen.wrapped()).toEqual([])
+      expectOneFrame(screen)
+      await screen.resize(columns, 33)
+
+      await screen.press('\r')
+      expect(screen.rows().some((row) => row.includes('❯ what breaks first'))).toBe(true)
+      expect(typedText(screen)).toBe('')
+      expectOneFrame(screen)
+
+      let kept: string[] = []
+      for (let at = 0; at < 40 && kept.length < 2; at++) {
+        try {
+          kept = (await readFile(historyPath(), 'utf8')).split('\n').filter(Boolean).map((r) => JSON.parse(r) as string)
+        } catch {}
+        await new Promise((r) => setTimeout(r, 50))
+      }
+      expect(kept).toEqual(['/help', `what breaks first\n${long}\nand then\nafter that\nlast`])
+    } finally {
+      screen.stop()
+      await restore()
+    }
+  }, 120_000)
+
+  /**
+   * A slash means a command, and a command is one line. One that runs on past a
+   * break is refused with the reason and left on the line to fix. A slash on a
+   * question's last line is part of the question and opens no menu — until the
+   * lines above it are gone, when it is a command again and the menu opens
+   * under the input box it grew out of.
+   */
+  test(`a command stays one line, and the menu opens from what was the last line, at ${columns} columns`, async () => {
+    const screen = await open(columns, 33)
+    const menuOpen = () => screen.visible().some((row) => /^ {2,}❯ \/\w/.test(row))
+    try {
+      await screen.press('/exposure')
+      await screen.press(NEWLINE.ctrlJ)
+      await screen.press('and more')
+      await screen.press('\r')
+      expect(screen.visible().some((row) => row.includes('A command takes one line, and this one runs over 2'))).toBe(true)
+      expect(inputRows(screen)).toEqual(['/exposure', 'and more'])
+      await screen.press(KEY.ctrlU)
+      await screen.press('\x7f')
+      await screen.press(KEY.ctrlU)
+      expect(typedText(screen)).toBe('')
+
+      await screen.press('q1')
+      await screen.press(NEWLINE.ctrlJ)
+      await screen.press('q2')
+      await screen.press(NEWLINE.ctrlJ)
+      await screen.press('/ex')
+      expect(menuOpen()).toBe(false)
+
+      await screen.press('\x1b[A')
+      await screen.press('\x1b[A')
+      await screen.press(KEY.ctrlA)
+      for (let at = 0; at < 4; at++) await screen.press(KEY.ctrlK)
+      expect(inputRows(screen)).toEqual(['/ex'])
+      expect(menuOpen()).toBe(true)
+      expect(screen.wrapped()).toEqual([])
+      expectOneInputBox(screen)
+    } finally {
+      screen.stop()
+    }
+  }, 120_000)
+}
+
+/**
+ * A paste is text somebody meant to read before sending: its line breaks stay,
+ * and nothing in it is a submit — the reason bracketed paste exists.
+ */
+test('a bracketed paste keeps its lines and sends nothing, and a trailing backslash breaks the line', async () => {
+  const screen = await open(100, 33)
+  try {
+    await screen.press('\x1b[200~first line\r\nsecond line\n\x1b[201~')
+    expect(inputRows(screen)).toEqual(['first line', 'second line', ''])
+    // Once, on the line being typed: not a second time in the transcript as a question sent.
+    expect(screen.rows().filter((row) => row.includes('❯ first line'))).toHaveLength(1)
+
+    await screen.press('third\\')
+    await screen.press('\r')
+    expect(inputRows(screen)).toEqual(['first line', 'second line', 'third', ''])
+    expect(screen.wrapped()).toEqual([])
+    expectOneInputBox(screen)
+  } finally {
+    screen.stop()
+  }
+})
+
+for (const columns of WIDTHS) {
+  /**
+   * `?` on an empty line lists every key above the input, as Claude Code, Codex
+   * and Gemini CLI do. A panel rather than a modal, so it holds to the frame's
+   * rules: every row fits, one input box, and a resize with it up leaves
+   * nothing behind. Vim's rows appear only while vim is on.
+   */
+  test(`? lists the keys above the input, and the frame holds through a resize, at ${columns} columns`, async () => {
+    const restore = await credentialEnv({ profile: false })
+    const screen = await open(columns, 40)
+    const showing = (text: string) => screen.visible().some((row) => row.includes(text))
+    try {
+      expect(showing('? for shortcuts')).toBe(true)
+      await screen.press('?')
+      expect([showing('General'), showing('Search all commands'), showing('Vim mode')]).toEqual([
+        true,
+        true,
+        false,
+      ])
+      expect(typedText(screen)).toBe('')
+      expect(screen.wrapped()).toEqual([])
+      expectOneFrame(screen)
+
+      await screen.resize(columns - 20, 40)
+      expect(screen.wrapped()).toEqual([])
+      expectOneFrame(screen)
+      await screen.resize(columns, 40)
+
+      await screen.press('\x1b')
+      expect(showing('Search all commands')).toBe(false)
+
+      // After text, `?` is a character.
+      await screen.press('what?')
+      expect([typedText(screen), showing('Search all commands')]).toEqual(['what?', false])
+      await screen.press(KEY.ctrlU)
+
+      await screen.press('/vim\r')
+      await screen.press('?')
+      expect(showing('Vim mode')).toBe(true)
+      // The panel takes this Esc, so INSERT is still INSERT.
+      await screen.press('\x1b')
+      expect([showing('Vim mode'), showing('-- INSERT --')]).toEqual([false, true])
+      expectOneFrame(screen)
+    } finally {
+      screen.stop()
+      await restore()
+    }
+  }, 120_000)
+}
+
+/**
+ * A viewport too short for every key shows what fits and names the command that
+ * prints the rest, rather than growing a frame taller than the screen.
+ */
+test('the keys panel on a short terminal ends on the way to the rest', async () => {
+  const screen = await open(100, 20)
+  try {
+    await screen.press('?')
+    // The whole frame is on the screen — panel top, its way out, the input box
+    // and the status line. `rows()` would also count the banner scrolled above.
+    const rows = screen.visible()
+    expect(rows.some((row) => row.includes('/keys prints every key'))).toBe(true)
+    expect(rows.some((row) => row.trim() === 'General')).toBe(true)
+    expect(screen.wrapped()).toEqual([])
+    expectOneFrame(screen)
+  } finally {
+    screen.stop()
+  }
+})
+
+// Codex drops "? for shortcuts" first when its footer is narrow.
+test('the shortcuts hint is the part of the placeholder that goes when the row is narrow', async () => {
+  const screen = await open(60, 24)
+  try {
+    const rows = screen.visible()
+    expect(rows.some((row) => row.includes('ctrl+s to search them'))).toBe(true)
+    expect(rows.some((row) => row.includes('? for shortcuts'))).toBe(false)
+    expect(screen.wrapped()).toEqual([])
+  } finally {
+    screen.stop()
+  }
+})
+
+/**
+ * A question the test holds open until Esc stops it, as the real stream does:
+ * the SDK rejects a stream whose signal aborts, and `Agent.ask` turns that into
+ * a stop rather than a failure.
+ */
+function stoppableAgent() {
+  const client = {
+    messages: {
+      stream(_body: unknown, options?: { signal?: AbortSignal }) {
+        const said = new Promise<Anthropic.Message>((_resolve, reject) => {
+          options?.signal?.addEventListener('abort', () => reject(new Error('Request was aborted.')))
+        })
+        // Nothing awaits this one until the stop; a rejection nobody has asked
+        // for yet is not a failure of the test.
+        said.catch(() => {})
+        return {
+          on(event: string, cb: (t: string) => void) {
+            if (event === 'text') setTimeout(() => cb(PREAMBLE), 10)
+            return this
+          },
+          finalMessage: () => said,
+        }
+      },
+    },
+  }
+  return new Agent(fixtureEngine, { client: client as unknown as Anthropic })
+}
+
+/** The rows of the queue drawn above the input, as `↳` lines. */
+const queuedRows = (screen: Screen) =>
+  screen
+    .visible()
+    .filter((row) => row.trimStart().startsWith('↳'))
+    .map((row) => row.trim().replace(/^↳\s*/, ''))
+
+for (const columns of WIDTHS) {
+  /**
+   * The line takes keys while a command reads a venue. What is typed stays, a
+   * line sent is queued above the input beside the busy row that says what is
+   * being waited on, ↑ takes the newest back, and each runs once, after the
+   * one ahead of it — `tasks/field-report/13-type-while-working.md` gives the
+   * sources for each of those.
+   */
+  test(`a line typed while a command runs is queued, and runs once after it, at ${columns} columns`, async () => {
+    const restore = await credentialEnv({ profile: false })
+    const slow = fakeVenue('slowq', 'Slow Queue', async () => {
+      await new Promise((r) => setTimeout(r, 4000))
+      return []
+    })
+    const screen = await open(columns, 40, { connectors: new Map([['slowq', slow]]) })
+    const busyRow = () => screen.visible().some((row) => SPINNING.test(row))
+    try {
+      await secrets.put('slowq', { address: '0xabc' })
+      await screen.press('/refresh\r')
+      expect(busyRow()).toBe(true)
+
+      await screen.press('/help')
+      expect(typedText(screen)).toBe('/help')
+      await screen.press('\r')
+      await screen.press('/about')
+      await screen.press('\r')
+      expect(queuedRows(screen)).toEqual(['/help', '/about'])
+      expect(typedText(screen)).toBe('')
+      expect(busyRow()).toBe(true)
+
+      await screen.press('\x1b[A')
+      expect([typedText(screen), queuedRows(screen)]).toEqual(['/about', ['/help']])
+      await screen.press('\r')
+      expect(queuedRows(screen)).toEqual(['/help', '/about'])
+
+      await screen.resize(columns - 20, 40)
+      expect(screen.wrapped()).toEqual([])
+      expectOneFrame(screen)
+      await screen.resize(columns, 40)
+
+      // Typing goes on while it waits, and is not the queue's to clear.
+      await screen.press('draft')
+      const rows = await until(screen, 'What tula is')
+      await until(screen, 'Type / for commands')
+      await new Promise((r) => setTimeout(r, 300))
+      const all = screen.rows()
+      const at = (text: string) => all.findIndex((row) => row.includes(text))
+      expect(all.filter((row) => row.includes('❯ /help')).length).toBe(1)
+      expect(all.filter((row) => row.includes('❯ /about')).length).toBe(1)
+      // In the order they were sent, and after the command ahead of them.
+      expect(at('❯ /refresh')).toBeLessThan(at('❯ /help'))
+      expect(at('❯ /help')).toBeLessThan(at('❯ /about'))
+      expect(rows.length).toBeGreaterThan(0)
+      expect(queuedRows(screen)).toEqual([])
+      expect(typedText(screen)).toBe('draft')
+      expect(screen.wrapped()).toEqual([])
+      expectOneFrame(screen)
+    } finally {
+      await secrets.remove('slowq')
+      screen.stop()
+      await restore()
+    }
+  }, 120_000)
+}
+
+/**
+ * Esc stops the question being answered: what arrived stays, a line says it was
+ * stopped and left out of the conversation, and what was queued runs next.
+ */
+test('Esc stops a question, and what was queued runs next', async () => {
+  const screen = await open(120, 40, { agent: stoppableAgent() })
+  try {
+    await screen.press('what is my eth exposure\r')
+    await until(screen, PREAMBLE)
+    await screen.press('/help\r')
+    expect(queuedRows(screen)).toEqual(['/help'])
+
+    await screen.press('\x1b')
+    const rows = await until(screen, 'Type / for commands')
+    expect(rows.some((row) => row.includes('Stopped. That question'))).toBe(true)
+    expect(rows.some((row) => row.includes(PREAMBLE))).toBe(true)
+    expect(rows.filter((row) => row.includes('❯ /help'))).toHaveLength(1)
+    expect(screen.visible().some((row) => SPINNING.test(row))).toBe(false)
+    expectOneFrame(screen)
+  } finally {
+    screen.stop()
+  }
+}, 60_000)
+
+/**
+ * ctrl+c clears a typed line before it stops anything, and never leaves tula
+ * while something runs; on a command it says the command is not stopped.
+ */
+test('ctrl+c while a command runs clears the line first, then says the command is not stopped', async () => {
+  const restore = await credentialEnv({ profile: false })
+  const slow = fakeVenue('slowc', 'Slow C', async () => {
+    await new Promise((r) => setTimeout(r, 3000))
+    return []
+  })
+  const screen = await open(120, 33, { connectors: new Map([['slowc', slow]]) })
+  try {
+    await secrets.put('slowc', { address: '0xabc' })
+    await screen.press('/refresh\r')
+    await screen.press('half typed')
+    await screen.press('\x03')
+    expect([typedText(screen), screen.exited()]).toEqual(['', false])
+    await screen.press('\x03')
+    expect(screen.exited()).toBe(false)
+    expect(screen.visible().some((row) => row.includes('a command is not stopped'))).toBe(true)
+  } finally {
+    await secrets.remove('slowc')
+    screen.stop()
+    await restore()
+  }
+}, 60_000)
+
+/**
+ * Ink splits an escape sequence and a backspace out of a read, but hands a ctrl
+ * chord over inside the text around it. Each is still a key of its own, in the
+ * order it was pressed, rather than a control character dropped from the line.
+ */
+test('a ctrl chord that arrives in one read with text is a key, in order', async () => {
+  const screen = await open(120, 33)
+  try {
+    await screen.press('bc\x01a')
+    expect(typedText(screen)).toBe('abc')
+    await screen.press('\x05\x15/help\r')
+    expect(screen.rows().join('\n')).toContain('Type / for commands')
+    expect(typedText(screen)).toBe('')
+  } finally {
+    screen.stop()
+  }
+})
+
+/**
+ * A queued `/forget` asks its question while somebody may be typing the next
+ * line. That draft is not an answer to it: it is set aside for the name, and put
+ * back once the question is answered.
+ */
+test('a queued deletion asks with the line clear, and puts the draft back after', async () => {
+  const restore = await credentialEnv({ profile: false })
+  const slow = fakeVenue('slowf', 'Slow F', async () => {
+    await new Promise((r) => setTimeout(r, 3000))
+    return []
+  })
+  const screen = await open(120, 40, { connectors: new Map([['slowf', slow]]) })
+  try {
+    await secrets.put('slowf', { address: '0xabc' })
+    await screen.press('/refresh\r')
+    await screen.press('/forget slowf ')
+    await screen.press('\r')
+    expect(queuedRows(screen)).toEqual(['/forget slowf'])
+    await screen.press('next question')
+    await until(screen, 'Type slowf and press Enter')
+    expect(typedText(screen)).toBe('')
+    await screen.press('wrong\r')
+    expect(typedText(screen)).toBe('next question')
+    expect(await secrets.listCredentials('slowf')).toHaveLength(1)
+  } finally {
+    await secrets.remove('slowf')
+    screen.stop()
+    await restore()
+  }
+}, 60_000)
+
+for (const columns of WIDTHS) {
+  for (const running of ['the startup load', 'a running command'] as const) {
+    /**
+     * Enter on a highlighted row of the `/` menu queues that command while
+     * something runs, exactly as Enter on a typed line does. Completing it, as
+     * Tab does, would pile commands on the line and run none. The startup load
+     * is busy the same way a command is: it is one.
+     */
+    test(`Enter on a menu row while ${running} is busy queues it, at ${columns} columns`, async () => {
+      const restore = await credentialEnv({ profile: false })
+      const slow = fakeVenue('slowmenu', 'Slow Menu', async () => {
+        await new Promise((r) => setTimeout(r, 4000))
+        return []
+      })
+      await secrets.put('slowmenu', { address: '0xabc' })
+      const screen = await open(columns, 40, {
+        connectors: new Map([['slowmenu', slow]]),
+        initialVenues: running === 'the startup load' ? await secrets.listVenues() : [],
+      })
+      const busyRow = () => screen.visible().some((row) => SPINNING.test(row))
+      try {
+        if (running === 'a running command') await screen.press('/refresh\r')
+        expect(busyRow()).toBe(true)
+
+        for (const ch of '/refresh') await screen.press(ch)
+        const highlighted = screen.visible().find((row) => /^ {2,}❯ \/\w/.test(row)) ?? ''
+        expect(highlighted).toContain('/refresh')
+        await screen.press('\r')
+        if (queuedRows(screen).length !== 1) dump(screen)
+        expect([typedText(screen), queuedRows(screen)]).toEqual(['', ['/refresh']])
+
+        for (const ch of '/help') await screen.press(ch)
+        await screen.press('\r')
+        expect([typedText(screen), queuedRows(screen)]).toEqual(['', ['/refresh', '/help']])
+
+        await screen.press('draft still here')
+        expect(busyRow()).toBe(true)
+        expect(screen.wrapped()).toEqual([])
+        expectOneInputBox(screen)
+
+        await until(screen, 'Type / for commands', 120)
+        await new Promise((r) => setTimeout(r, 400))
+        const all = screen.rows()
+        expect(all.filter((row) => row.includes('❯ /help')).length).toBe(1)
+        expect(queuedRows(screen)).toEqual([])
+        expect(typedText(screen)).toBe('draft still here')
+        // Not `expectOneInputBox`: the running-command case runs /refresh
+        // itself before the one it queues, so the transcript repeats it.
+        expectOneFrame(screen)
+      } finally {
+        await secrets.remove('slowmenu')
+        screen.stop()
+        await restore()
+      }
+    }, 120_000)
+  }
+}
+
+for (const form of ['\r', '\n'] as const) {
+  /**
+   * Keys typed before the shell reads them arrive in one chunk, and from a
+   * terminal still in cooked mode each Enter is a line feed. They are replayed a
+   * key at a time: each command queues behind the load, the draft stays on the
+   * line, and nothing is typed as one run of text.
+   */
+  test(`keys typed ahead in one chunk queue each command, with Enter as ${form === '\r' ? 'CR' : 'LF'}`, async () => {
+    const restore = await credentialEnv({ profile: false })
+    const slow = fakeVenue('slowahead', 'Slow Ahead', async () => {
+      await new Promise((r) => setTimeout(r, 4000))
+      return []
+    })
+    await secrets.put('slowahead', { address: '0xabc' })
+    const screen = await open(100, 40, {
+      connectors: new Map([['slowahead', slow]]),
+      initialVenues: await secrets.listVenues(),
+    })
+    try {
+      expect(screen.visible().some((row) => SPINNING.test(row))).toBe(true)
+      await screen.press(`/refresh${form}/help${form}draft still here`)
+      await new Promise((r) => setTimeout(r, 300))
+      if (queuedRows(screen).length !== 2) dump(screen)
+      expect([queuedRows(screen), typedText(screen)]).toEqual([['/refresh', '/help'], 'draft still here'])
+
+      await until(screen, 'Type / for commands', 120)
+      await new Promise((r) => setTimeout(r, 400))
+      expect(screen.rows().filter((row) => row.includes('❯ /help')).length).toBe(1)
+      expect(typedText(screen)).toBe('draft still here')
+      expectOneFrame(screen)
+    } finally {
+      await secrets.remove('slowahead')
+      screen.stop()
+      await restore()
+    }
+  }, 120_000)
+}
+
+/** What `history.jsonl` holds once `want` has been written to it, or after two seconds. */
+async function historyOnDisk(want: string): Promise<string[]> {
+  let kept: string[] = []
+  for (let at = 0; at < 40 && !kept.includes(want); at++) {
+    try {
+      kept = (await readFile(historyPath(), 'utf8')).split('\n').filter(Boolean).map((r) => JSON.parse(r) as string)
+    } catch {}
+    await new Promise((r) => setTimeout(r, 50))
+  }
+  return kept
+}
+
+/** A line queued keeps the space in front of it that keeps it out of the history file. */
+test('a line queued with a space in front is not written to the history file', async () => {
+  const restore = await credentialEnv({ profile: false })
+  const slow = fakeVenue('slowspace', 'Slow Space', async () => {
+    await new Promise((r) => setTimeout(r, 2500))
+    return []
+  })
+  const screen = await open(120, 40, { connectors: new Map([['slowspace', slow]]) })
+  try {
+    await secrets.put('slowspace', { address: '0xabc' })
+    await screen.press('/refresh\r')
+    await screen.press(' /help\r')
+    await screen.press('/about\r')
+    expect(queuedRows(screen)).toEqual(['/help', '/about'])
+    await until(screen, '❯ /about', 80)
+    expect(await historyOnDisk('/about')).toEqual(['/refresh', '/about'])
+    expect(screen.rows().filter((row) => row.includes('❯ /help'))).toHaveLength(1)
+  } finally {
+    await secrets.remove('slowspace')
+    screen.stop()
+    await restore()
+  }
+}, 60_000)
+
+/**
+ * Ink hands over every key in one read before the screen redraws, and each had
+ * read the line from before the read: the backspace took all of `abc`, and
+ * Enter sent the empty line that was there first.
+ */
+test('keys in one read each see the line the key before them left', async () => {
+  const screen = await open(120, 33)
+  try {
+    await screen.press('abc\x7f\r')
+    expect(screen.rows().some((row) => row.trim() === '❯ ab')).toBe(true)
+    expect(typedText(screen)).toBe('')
+    expectOneFrame(screen)
+  } finally {
+    screen.stop()
+  }
+})
+
+const pushes = (screen: Screen) => (screen.written().match(/\x1b\[>1u/g) ?? []).length
+
+for (const reply of ['\x1b[?0u', '\x1b[?1u'] as const) {
+  for (const [afterMs, when] of [
+    [0, 'at once'],
+    [150, 'after 150ms'],
+    [1000, 'after a second, mid-typing'],
+  ] as const) {
+    /**
+     * Unrecognised, a late reply types `[?0u` into the input. A reply at any moment — before the
+     * first key, or while somebody is typing — is taken as a reply: never on the
+     * line, never in history, and it turns the protocol on exactly once.
+     */
+    test(`a keyboard reply ${reply.slice(1)} ${when} is never typed, and turns the protocol on once`, async () => {
+      const restore = await credentialEnv({ profile: false })
+      const screen = await open(100, 30, { keyboardProtocol: true, answerKeyboard: { reply, afterMs } })
+      try {
+        expect(screen.written()).toContain('\x1b[?u')
+        await screen.press('ab')
+        await new Promise((r) => setTimeout(r, afterMs + 150))
+        await screen.press('c')
+        expect(typedText(screen)).toBe('abc')
+        expect(screen.visible().some((row) => row.includes('[?'))).toBe(false)
+        expect(pushes(screen)).toBe(1)
+        await screen.press('\r')
+        let kept: string[] = []
+        try {
+          kept = (await readFile(historyPath(), 'utf8')).split('\n').filter(Boolean).map((r) => JSON.parse(r) as string)
+        } catch {}
+        for (let at = 0; at < 20 && !kept.includes('abc'); at++) {
+          await new Promise((r) => setTimeout(r, 50))
+          try {
+            kept = (await readFile(historyPath(), 'utf8')).split('\n').filter(Boolean).map((r) => JSON.parse(r) as string)
+          } catch {}
+        }
+        expect(kept).toEqual(['abc'])
+        expectOneFrame(screen)
+      } finally {
+        screen.stop()
+        await restore()
+      }
+    }, 60_000)
+  }
+}
+
+/**
+ * `/login` owns the keyboard on a first run, which is when the reply to a
+ * question asked at mount usually lands. It is not typed into the key box, and
+ * the protocol is still turned on.
+ */
+test('a keyboard reply while the key box is open is not typed into the key', async () => {
+  const restore = await credentialEnv({ profile: false })
+  const screen = await open(100, 33, {
+    initialApiKey: undefined,
+    keyboardProtocol: true,
+    answerKeyboard: { reply: '\x1b[?0u', afterMs: 1000 },
+  })
+  try {
+    await screen.press('\x1b[B')
+    await screen.press('\r')
+    expect(screen.visible().join('\n')).toContain('Paste the key')
+    await new Promise((r) => setTimeout(r, 1200))
+    expect(screen.visible().some((row) => row.includes('•'))).toBe(false)
+    expect(pushes(screen)).toBe(1)
+  } finally {
+    screen.stop()
+    await restore()
+  }
+}, 60_000)
+
+/**
+ * A cursor position nobody asked for — a menu closed before its answer came —
+ * and a reply whose ESC was flushed as the Esc key are replies too.
+ */
+test('a stray cursor reply, and a reply that lost its ESC, are never typed', async () => {
+  const screen = await open(100, 30, { keyboardProtocol: true })
+  try {
+    await screen.press('\x1b[12;1R')
+    expect(typedText(screen)).toBe('')
+    await screen.press('\x1b')
+    await screen.press('[?0u')
+    expect(typedText(screen)).toBe('')
+    expect(pushes(screen)).toBe(1)
+    await screen.press('x')
+    expect(typedText(screen)).toBe('x')
+  } finally {
+    screen.stop()
+  }
+}, 60_000)
+

@@ -1,0 +1,76 @@
+{
+  "captured": "2026-09-15T13:37:33.668Z",
+  "nodes": [
+    {
+      "rpc": "https://linea-rpc.publicnode.com",
+      "chainId": "0xe708",
+      "batchAnswered": 40
+    },
+    {
+      "rpc": "https://rpc.linea.build",
+      "chainId": "0xe708",
+      "batchAnswered": 40
+    },
+    {
+      "rpc": "https://linea.api.pocket.network",
+      "chainId": "0xe708",
+      "batchAnswered": 40
+    }
+  ],
+  "sharedLedgers": [],
+  "tokenList": {
+    "url": "https://raw.githubusercontent.com/SmolDapp/tokenLists/main/lists/59144.json",
+    "name": "Linea",
+    "tokens": 175,
+    "stablecoins": [
+      {
+        "symbol": "DAI",
+        "decimals": 18
+      },
+      {
+        "symbol": "USD+",
+        "decimals": 6
+      },
+      {
+        "symbol": "USDC",
+        "decimals": 6
+      },
+      {
+        "symbol": "USDL",
+        "decimals": 6
+      },
+      {
+        "symbol": "USDLR",
+        "decimals": 6
+      },
+      {
+        "symbol": "USDP",
+        "decimals": 18
+      },
+      {
+        "symbol": "USDT",
+        "decimals": 6
+      },
+      {
+        "symbol": "USDT+",
+        "decimals": 6
+      }
+    ]
+  },
+  "aave": [
+    {
+      "market": "Core",
+      "reserves": [
+        "WETH",
+        "WBTC",
+        "USDC",
+        "USDT",
+        "wstETH",
+        "ezETH",
+        "weETH",
+        "wrsETH",
+        "mUSD"
+      ]
+    }
+  ]
+}

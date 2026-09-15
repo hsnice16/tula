@@ -1,0 +1,4860 @@
+{
+  "captured": "2026-09-14T14:05:59.976Z",
+  "endpoint": "https://api.hyperliquid.xyz/info",
+  "found": "recentTrades users",
+  "request": {
+    "user": "<address>",
+    "types": [
+      "userAbstraction",
+      "spotClearinghouseState",
+      "clearinghouseState (every dex)",
+      "frontendOpenOrders",
+      "delegatorSummary",
+      "userVaultEquities",
+      "subAccounts",
+      "borrowLendUserState"
+    ]
+  },
+  "userAbstraction": "disabled",
+  "spot": {
+    "balances": [
+      {
+        "coin": "USDC",
+        "token": 0,
+        "total": "575320.2032794558",
+        "hold": "55648.5722397152",
+        "entryNtl": "0.0"
+      },
+      {
+        "coin": "HYPE",
+        "token": 150,
+        "total": "148.1373129751",
+        "hold": "23.0319414896",
+        "entryNtl": "11888.4405870796"
+      },
+      {
+        "coin": "UBTC",
+        "token": 197,
+        "total": "4.0090259842",
+        "hold": "0.3041566871",
+        "entryNtl": "311159.4575098873"
+      },
+      {
+        "coin": "UETH",
+        "token": 221,
+        "total": "55.526972198",
+        "hold": "8.0236789803",
+        "entryNtl": "139351.7942798372"
+      },
+      {
+        "coin": "LATINA",
+        "token": 223,
+        "total": "5.0381474007",
+        "hold": "0.0",
+        "entryNtl": "0.0123081805"
+      },
+      {
+        "coin": "USOL",
+        "token": 254,
+        "total": "161.1923681521",
+        "hold": "12.2214406931",
+        "entryNtl": "16244.2495114692"
+      },
+      {
+        "coin": "LICKO",
+        "token": 307,
+        "total": "978.5797563991",
+        "hold": "0.0",
+        "entryNtl": "0.0058714784"
+      },
+      {
+        "coin": "MAX",
+        "token": 734,
+        "total": "6940.785483275",
+        "hold": "0.0",
+        "entryNtl": "0.0"
+      }
+    ]
+  },
+  "perps": {
+    "marginSummary": {
+      "accountValue": "8403440.2220506816",
+      "totalNtlPos": "11805381.4266584672",
+      "totalRawUsd": "19880546.8319772241",
+      "totalMarginUsed": "2641409.4233671288"
+    },
+    "crossMarginSummary": {
+      "accountValue": "8328798.4945882189",
+      "totalNtlPos": "11653729.2794959269",
+      "totalRawUsd": "19654252.9573522198",
+      "totalMarginUsed": "2566767.6959046661"
+    },
+    "crossMaintenanceMarginUsed": "301719.3441478088",
+    "withdrawable": "5420099.4920528446",
+    "assetPositions": [
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "BTC",
+          "szi": "-46.6320520961",
+          "leverage": {
+            "type": "cross",
+            "value": 5
+          },
+          "entryPx": "78302.6",
+          "positionValue": "3650683.4624439033",
+          "unrealizedPnl": "727.9802816989",
+          "returnOnEquity": "0.0009968478",
+          "liquidationPx": "248298.3774000732",
+          "marginUsed": "730136.6924887806",
+          "maxLeverage": 40,
+          "cumFunding": {
+            "allTime": "-199065.3553893891",
+            "sinceOpen": "-39.550333545",
+            "sinceChange": "0.0"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "ETH",
+          "szi": "-1835.9489020159",
+          "leverage": {
+            "type": "cross",
+            "value": 5
+          },
+          "entryPx": "2505.45",
+          "positionValue": "4602723.8973539454",
+          "unrealizedPnl": "-2844.4619279508",
+          "returnOnEquity": "-0.0030918875",
+          "liquidationPx": "6793.4403431746",
+          "marginUsed": "920544.7794707889",
+          "maxLeverage": 25,
+          "cumFunding": {
+            "allTime": "-185539.4318556802",
+            "sinceOpen": "-2138.9443367125",
+            "sinceChange": "0.0"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "SOL",
+          "szi": "-12230.9092205301",
+          "leverage": {
+            "type": "cross",
+            "value": 5
+          },
+          "entryPx": "101.2941",
+          "positionValue": "1241681.9040682167",
+          "unrealizedPnl": "-2762.1225086739",
+          "returnOnEquity": "-0.0111473017",
+          "liquidationPx": "741.8073728301",
+          "marginUsed": "248336.3808136433",
+          "maxLeverage": 20,
+          "cumFunding": {
+            "allTime": "-445611.5763035931",
+            "sinceOpen": "-354.481207682",
+            "sinceChange": "0.0"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "BNB",
+          "szi": "-54.8973437577",
+          "leverage": {
+            "type": "cross",
+            "value": 3
+          },
+          "entryPx": "722.375",
+          "positionValue": "39617.2170961525",
+          "unrealizedPnl": "39.2650823031",
+          "returnOnEquity": "0.0029703907",
+          "liquidationPx": "137184.9381567163",
+          "marginUsed": "13205.7390320508",
+          "maxLeverage": 10,
+          "cumFunding": {
+            "allTime": "-1489.3484114816",
+            "sinceOpen": "-9.9037951862",
+            "sinceChange": "-0.4945286866"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "OP",
+          "szi": "-210091.2494903221",
+          "leverage": {
+            "type": "cross",
+            "value": 3
+          },
+          "entryPx": "0.09607",
+          "positionValue": "20221.2827634435",
+          "unrealizedPnl": "-37.3596309615",
+          "returnOnEquity": "-0.0055528795",
+          "liquidationPx": "34.830417653",
+          "marginUsed": "6740.4275868566",
+          "maxLeverage": 5,
+          "cumFunding": {
+            "allTime": "-1433.7822980178",
+            "sinceOpen": "-0.2522407082",
+            "sinceChange": "-0.2522407082"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "LTC",
+          "szi": "549.3470061847",
+          "leverage": {
+            "type": "cross",
+            "value": 3
+          },
+          "entryPx": "54.0809",
+          "positionValue": "29501.5822731348",
+          "unrealizedPnl": "-207.6490303471",
+          "returnOnEquity": "-0.0209681323",
+          "liquidationPx": null,
+          "marginUsed": "9833.8607577116",
+          "maxLeverage": 10,
+          "cumFunding": {
+            "allTime": "-2292.2547727426",
+            "sinceOpen": "4.1951898366",
+            "sinceChange": "0.3685211215"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "DOGE",
+          "szi": "-1319473.0597364164",
+          "leverage": {
+            "type": "cross",
+            "value": 3
+          },
+          "entryPx": "0.084152",
+          "positionValue": "110697.1923465867",
+          "unrealizedPnl": "339.7841809849",
+          "returnOnEquity": "0.0091802981",
+          "liquidationPx": "5.8777512896",
+          "marginUsed": "36899.0641155289",
+          "maxLeverage": 10,
+          "cumFunding": {
+            "allTime": "-27685.0745740214",
+            "sinceOpen": "-2.5612452858",
+            "sinceChange": "0.0"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "kPEPE",
+          "szi": "-14235094.7451886339",
+          "leverage": {
+            "type": "cross",
+            "value": 3
+          },
+          "entryPx": "0.003436",
+          "positionValue": "49054.13649192",
+          "unrealizedPnl": "-134.2884058419",
+          "returnOnEquity": "-0.0082352099",
+          "liquidationPx": "0.5404875458",
+          "marginUsed": "16351.3788296821",
+          "maxLeverage": 10,
+          "cumFunding": {
+            "allTime": "-48658.973645578",
+            "sinceOpen": "-31.7994918344",
+            "sinceChange": "-0.611753079"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "XRP",
+          "szi": "-37727.5558100037",
+          "leverage": {
+            "type": "cross",
+            "value": 3
+          },
+          "entryPx": "1.399731",
+          "positionValue": "52718.6001111087",
+          "unrealizedPnl": "89.8643338774",
+          "returnOnEquity": "0.0051051097",
+          "liquidationPx": "208.9723323703",
+          "marginUsed": "17572.866702745",
+          "maxLeverage": 20,
+          "cumFunding": {
+            "allTime": "-18110.2176953395",
+            "sinceOpen": "-0.2107803399",
+            "sinceChange": "0.0"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "WLD",
+          "szi": "-19654.0191912956",
+          "leverage": {
+            "type": "cross",
+            "value": 3
+          },
+          "entryPx": "0.38327",
+          "positionValue": "7538.8886813972",
+          "unrealizedPnl": "-5.9758979991",
+          "returnOnEquity": "-0.0023799152",
+          "liquidationPx": "389.3542638955",
+          "marginUsed": "2512.9628937991",
+          "maxLeverage": 10,
+          "cumFunding": {
+            "allTime": "-1546.7451002067",
+            "sinceOpen": "-0.7719479189",
+            "sinceChange": "-0.0940775067"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "kSHIB",
+          "szi": "-2194497.1784331469",
+          "leverage": {
+            "type": "cross",
+            "value": 3
+          },
+          "entryPx": "0.005226",
+          "positionValue": "11521.110186774",
+          "unrealizedPnl": "-50.6284373403",
+          "returnOnEquity": "-0.0132414065",
+          "liquidationPx": "3.4195850288",
+          "marginUsed": "3840.370062258",
+          "maxLeverage": 10,
+          "cumFunding": {
+            "allTime": "-5809.790739081",
+            "sinceOpen": "-1.6274660091",
+            "sinceChange": "-0.143875639"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "SEI",
+          "szi": "-1232286.4570207931",
+          "leverage": {
+            "type": "cross",
+            "value": 3
+          },
+          "entryPx": "0.045637",
+          "positionValue": "54931.6333946159",
+          "unrealizedPnl": "1306.4965492415",
+          "returnOnEquity": "0.0696945231",
+          "liquidationPx": "5.9663694864",
+          "marginUsed": "18310.544464872",
+          "maxLeverage": 5,
+          "cumFunding": {
+            "allTime": "-7575.3014078926",
+            "sinceOpen": "-51.317476017",
+            "sinceChange": "-4.1313900656"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "DOT",
+          "szi": "-45184.7036281734",
+          "leverage": {
+            "type": "cross",
+            "value": 10
+          },
+          "entryPx": "1.01767",
+          "positionValue": "45726.9200717115",
+          "unrealizedPnl": "256.3792923128",
+          "returnOnEquity": "0.055754871",
+          "liquidationPx": "166.8024816449",
+          "marginUsed": "4572.6920071712",
+          "maxLeverage": 10,
+          "cumFunding": {
+            "allTime": "-135.2458463796",
+            "sinceOpen": "-3.2322334148",
+            "sinceChange": "-2.7774883482"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "BIGTIME",
+          "szi": "-2011802.0138560575",
+          "leverage": {
+            "type": "cross",
+            "value": 3
+          },
+          "entryPx": "0.00761",
+          "positionValue": "14440.7148554588",
+          "unrealizedPnl": "870.9729812258",
+          "returnOnEquity": "0.1706486556",
+          "liquidationPx": "3.4271733624",
+          "marginUsed": "4813.5716175284",
+          "maxLeverage": 3,
+          "cumFunding": {
+            "allTime": "234.33990681",
+            "sinceOpen": "-6.570271517",
+            "sinceChange": "-6.570271517"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "BSV",
+          "szi": "2280.4351999164",
+          "leverage": {
+            "type": "cross",
+            "value": 3
+          },
+          "entryPx": "17.2484",
+          "positionValue": "38692.144036982",
+          "unrealizedPnl": "-641.7703338786",
+          "returnOnEquity": "-0.0489478617",
+          "liquidationPx": null,
+          "marginUsed": "12897.3813447028",
+          "maxLeverage": 3,
+          "cumFunding": {
+            "allTime": "-497.5800969593",
+            "sinceOpen": "16.4978285403",
+            "sinceChange": "8.185074987"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "FET",
+          "szi": "-938691.7039299122",
+          "leverage": {
+            "type": "cross",
+            "value": 3
+          },
+          "entryPx": "0.171859",
+          "positionValue": "158009.9745225221",
+          "unrealizedPnl": "3313.2373018576",
+          "returnOnEquity": "0.06161365",
+          "liquidationPx": "7.9422824614",
+          "marginUsed": "52669.9915075074",
+          "maxLeverage": 5,
+          "cumFunding": {
+            "allTime": "-14716.4781788722",
+            "sinceOpen": "-54.3396949076",
+            "sinceChange": "-1.9718387936"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "NEAR",
+          "szi": "-23343.5839168844",
+          "leverage": {
+            "type": "cross",
+            "value": 3
+          },
+          "entryPx": "2.43106",
+          "positionValue": "56400.4331015843",
+          "unrealizedPnl": "349.3258258312",
+          "returnOnEquity": "0.0184666419",
+          "liquidationPx": "329.9081129382",
+          "marginUsed": "18800.1443662369",
+          "maxLeverage": 10,
+          "cumFunding": {
+            "allTime": "-2084.4992106861",
+            "sinceOpen": "-0.64356963",
+            "sinceChange": "0.0"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "FIL",
+          "szi": "23780.371827854",
+          "leverage": {
+            "type": "cross",
+            "value": 3
+          },
+          "entryPx": "0.98797",
+          "positionValue": "23528.7754939153",
+          "unrealizedPnl": "34.4701036406",
+          "returnOnEquity": "0.0044015054",
+          "liquidationPx": null,
+          "marginUsed": "7842.9251641595",
+          "maxLeverage": 5,
+          "cumFunding": {
+            "allTime": "2780.9144766348",
+            "sinceOpen": "0.1938174515",
+            "sinceChange": "0.0"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "ONDO",
+          "szi": "-229353.8837245516",
+          "leverage": {
+            "type": "cross",
+            "value": 3
+          },
+          "entryPx": "0.3547",
+          "positionValue": "81043.5709373726",
+          "unrealizedPnl": "308.417147976",
+          "returnOnEquity": "0.0113734337",
+          "liquidationPx": "33.0085190762",
+          "marginUsed": "27014.5236453119",
+          "maxLeverage": 10,
+          "cumFunding": {
+            "allTime": "-6365.1536251634",
+            "sinceOpen": "-7.2961210697",
+            "sinceChange": "0.0"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "kFLOKI",
+          "szi": "1907225.7924349549",
+          "leverage": {
+            "type": "cross",
+            "value": 3
+          },
+          "entryPx": "0.024326",
+          "positionValue": "47036.0024930309",
+          "unrealizedPnl": "640.1710306322",
+          "returnOnEquity": "0.0413940872",
+          "liquidationPx": null,
+          "marginUsed": "15678.667497677",
+          "maxLeverage": 5,
+          "cumFunding": {
+            "allTime": "-8936.4511580015",
+            "sinceOpen": "93.0423007047",
+            "sinceChange": "5.3024615589"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "XLM",
+          "szi": "-489126.3097620587",
+          "leverage": {
+            "type": "cross",
+            "value": 3
+          },
+          "entryPx": "0.186789",
+          "positionValue": "93585.5150993942",
+          "unrealizedPnl": "-2221.9343946869",
+          "returnOnEquity": "-0.0729590843",
+          "liquidationPx": "15.1104736135",
+          "marginUsed": "31195.1716988402",
+          "maxLeverage": 5,
+          "cumFunding": {
+            "allTime": "-9856.2954721939",
+            "sinceOpen": "-8.050518448",
+            "sinceChange": "-1.1659536034"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "HYPE",
+          "szi": "-10980.3739370053",
+          "leverage": {
+            "type": "cross",
+            "value": 3
+          },
+          "entryPx": "80.2337",
+          "positionValue": "884326.3757645947",
+          "unrealizedPnl": "-3329.7207235808",
+          "returnOnEquity": "-0.0113384791",
+          "liquidationPx": "776.7644081003",
+          "marginUsed": "294775.4585881982",
+          "maxLeverage": 10,
+          "cumFunding": {
+            "allTime": "4661.3037956786",
+            "sinceOpen": "-135.1295559087",
+            "sinceChange": "0.0"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "FARTCOIN",
+          "szi": "179267.5289178486",
+          "leverage": {
+            "type": "cross",
+            "value": 3
+          },
+          "entryPx": "0.14067",
+          "positionValue": "25378.9040688998",
+          "unrealizedPnl": "161.3154193384",
+          "returnOnEquity": "0.0191908221",
+          "liquidationPx": null,
+          "marginUsed": "8459.6346896333",
+          "maxLeverage": 10,
+          "cumFunding": {
+            "allTime": "-3507.9244598519",
+            "sinceOpen": "0.3570841748",
+            "sinceChange": "0.3157789812"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "WLFI",
+          "szi": "-108378.000409345",
+          "leverage": {
+            "type": "cross",
+            "value": 3
+          },
+          "entryPx": "0.057448",
+          "positionValue": "6214.9364334739",
+          "unrealizedPnl": "11.2114045691",
+          "returnOnEquity": "0.0054020904",
+          "liquidationPx": "67.3896878616",
+          "marginUsed": "2071.6454778246",
+          "maxLeverage": 5,
+          "cumFunding": {
+            "allTime": "-1291.3376236389",
+            "sinceOpen": "-1.2062444146",
+            "sinceChange": "-0.0775772687"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "ZEC",
+          "szi": "-268.9693978076",
+          "leverage": {
+            "type": "cross",
+            "value": 5
+          },
+          "entryPx": "1149.8132",
+          "positionValue": "308454.1054057879",
+          "unrealizedPnl": "810.4753526468",
+          "returnOnEquity": "0.0131032683",
+          "liquidationPx": "29569.5029113604",
+          "marginUsed": "61690.8210811576",
+          "maxLeverage": 10,
+          "cumFunding": {
+            "allTime": "-10949.1637439029",
+            "sinceOpen": "-7.9474623635",
+            "sinceChange": "0.0"
+          }
+        }
+      },
+      {
+        "type": "oneWay",
+        "position": {
+          "coin": "LIT",
+          "szi": "-34085.2618813588",
+          "leverage": {
+            "type": "isolated",
+            "value": 2,
+            "rawUsd": "226293.8746250041"
+          },
+          "entryPx": "4.425937",
+          "positionValue": "151652.1471625414",
+          "unrealizedPnl": "-792.9010373111",
+          "returnOnEquity": "-0.010511799",
+          "liquidationPx": "6.0355031134",
+          "marginUsed": "74641.7274624627",
+          "maxLeverage": 5,
+          "cumFunding": {
+            "allTime": "-4644.555755195",
+            "sinceOpen": "-1.5155175548",
+            "sinceChange": "0.0"
+          }
+        }
+      }
+    ],
+    "time": 1789394940950
+  },
+  "dexes": {
+    "xyz": {
+      "marginSummary": {
+        "accountValue": "2149459.3323691689",
+        "totalNtlPos": "1222843.9157134554",
+        "totalRawUsd": "2301020.6763135974",
+        "totalMarginUsed": "201812.9148172638"
+      },
+      "crossMarginSummary": {
+        "accountValue": "2026686.2299995157",
+        "totalNtlPos": "589722.7581470179",
+        "totalRawUsd": "1990007.6448551855",
+        "totalMarginUsed": "79039.8124476108"
+      },
+      "crossMaintenanceMarginUsed": "19791.2438492706",
+      "withdrawable": "1729306.9343845895",
+      "assetPositions": [
+        {
+          "type": "oneWay",
+          "position": {
+            "coin": "xyz:TSLA",
+            "szi": "-78.1462424004",
+            "leverage": {
+              "type": "cross",
+              "value": 3
+            },
+            "entryPx": "359.539",
+            "positionValue": "28257.6812519928",
+            "unrealizedPnl": "-161.0474341502",
+            "returnOnEquity": "-0.0171957362",
+            "liquidationPx": "25416.5005020474",
+            "marginUsed": "9419.2270830397",
+            "maxLeverage": 20,
+            "cumFunding": {
+              "allTime": "-229.5390329475",
+              "sinceOpen": "-0.1759062735",
+              "sinceChange": "-0.1759062735"
+            }
+          }
+        },
+        {
+          "type": "oneWay",
+          "position": {
+            "coin": "xyz:NVDA",
+            "szi": "-280.1290415724",
+            "leverage": {
+              "type": "cross",
+              "value": 3
+            },
+            "entryPx": "211.027",
+            "positionValue": "59238.8884213228",
+            "unrealizedPnl": "-123.9700155936",
+            "returnOnEquity": "-0.0062913061",
+            "liquidationPx": "7200.9142823945",
+            "marginUsed": "19746.2961404409",
+            "maxLeverage": 20,
+            "cumFunding": {
+              "allTime": "-201.6368272265",
+              "sinceOpen": "-0.1754493704",
+              "sinceChange": "0.0"
+            }
+          }
+        },
+        {
+          "type": "oneWay",
+          "position": {
+            "coin": "xyz:GOLD",
+            "szi": "4.4079658949",
+            "leverage": {
+              "type": "isolated",
+              "value": 3,
+              "rawUsd": "-12574.4456093857"
+            },
+            "entryPx": "4276.73",
+            "positionValue": "18836.5606588757",
+            "unrealizedPnl": "-15.1278059007",
+            "returnOnEquity": "-0.0024073927",
+            "liquidationPx": "2910.8816297926",
+            "marginUsed": "6262.11504949",
+            "maxLeverage": 25,
+            "cumFunding": {
+              "allTime": "-1506.5305645502",
+              "sinceOpen": "2.0446200161",
+              "sinceChange": "0.0"
+            }
+          }
+        },
+        {
+          "type": "oneWay",
+          "position": {
+            "coin": "xyz:INTC",
+            "szi": "-434.5608673446",
+            "leverage": {
+              "type": "isolated",
+              "value": 3,
+              "rawUsd": "55982.7336039445"
+            },
+            "entryPx": "96.6182",
+            "positionValue": "42218.8919451341",
+            "unrealizedPnl": "-232.3986345494",
+            "returnOnEquity": "-0.0166052425",
+            "liquidationPx": "122.6914182872",
+            "marginUsed": "13763.8416588104",
+            "maxLeverage": 10,
+            "cumFunding": {
+              "allTime": "-825.0954601307",
+              "sinceOpen": "-1.0698688839",
+              "sinceChange": "-0.2737999273"
+            }
+          }
+        },
+        {
+          "type": "oneWay",
+          "position": {
+            "coin": "xyz:AAPL",
+            "szi": "-170.9895359236",
+            "leverage": {
+              "type": "cross",
+              "value": 20
+            },
+            "entryPx": "333.637",
+            "positionValue": "57161.8018592496",
+            "unrealizedPnl": "-113.3430519279",
+            "returnOnEquity": "-0.0397357104",
+            "liquidationPx": "11784.9792323592",
+            "marginUsed": "2858.0900929625",
+            "maxLeverage": 20,
+            "cumFunding": {
+              "allTime": "-26.7639019418",
+              "sinceOpen": "1.8604535659",
+              "sinceChange": "0.0"
+            }
+          }
+        },
+        {
+          "type": "oneWay",
+          "position": {
+            "coin": "xyz:MSFT",
+            "szi": "5.3822615608",
+            "leverage": {
+              "type": "cross",
+              "value": 10
+            },
+            "entryPx": "495.537",
+            "positionValue": "2698.1815430597",
+            "unrealizedPnl": "31.0676623103",
+            "returnOnEquity": "0.1164841986",
+            "liquidationPx": null,
+            "marginUsed": "269.818154306",
+            "maxLeverage": 20,
+            "cumFunding": {
+              "allTime": "57.9327625513",
+              "sinceOpen": "0.1968807141",
+              "sinceChange": "-0.0236210304"
+            }
+          }
+        },
+        {
+          "type": "oneWay",
+          "position": {
+            "coin": "xyz:GOOGL",
+            "szi": "201.0603720706",
+            "leverage": {
+              "type": "cross",
+              "value": 10
+            },
+            "entryPx": "344.408",
+            "positionValue": "69562.8675289713",
+            "unrealizedPnl": "315.9857255628",
+            "returnOnEquity": "0.0456317624",
+            "liquidationPx": null,
+            "marginUsed": "6956.2867528971",
+            "maxLeverage": 20,
+            "cumFunding": {
+              "allTime": "10.4345629014",
+              "sinceOpen": "0.985292951",
+              "sinceChange": "0.0"
+            }
+          }
+        },
+        {
+          "type": "oneWay",
+          "position": {
+            "coin": "xyz:AMD",
+            "szi": "28.3179372938",
+            "leverage": {
+              "type": "isolated",
+              "value": 10,
+              "rawUsd": "-12716.7926573561"
+            },
+            "entryPx": "498.922",
+            "positionValue": "13817.7375024867",
+            "unrealizedPnl": "-310.728105168",
+            "returnOnEquity": "-0.2199305387",
+            "liquidationPx": "472.7073654836",
+            "marginUsed": "1100.9448451307",
+            "maxLeverage": 10,
+            "cumFunding": {
+              "allTime": "-93.8495724091",
+              "sinceOpen": "1.6135275896",
+              "sinceChange": "0.2582235531"
+            }
+          }
+        },
+        {
+          "type": "oneWay",
+          "position": {
+            "coin": "xyz:MU",
+            "szi": "-4.9540944639",
+            "leverage": {
+              "type": "isolated",
+              "value": 3,
+              "rawUsd": "6023.685894027"
+            },
+            "entryPx": "911.923",
+            "positionValue": "4542.6569186664",
+            "unrealizedPnl": "-24.9004425854",
+            "returnOnEquity": "-0.0165350497",
+            "liquidationPx": "1158.0004681803",
+            "marginUsed": "1481.0289753607",
+            "maxLeverage": 10,
+            "cumFunding": {
+              "allTime": "-435.2462594171",
+              "sinceOpen": "0.0",
+              "sinceChange": "0.0"
+            }
+          }
+        },
+        {
+          "type": "oneWay",
+          "position": {
+            "coin": "xyz:SNDK",
+            "szi": "-26.9472278626",
+            "leverage": {
+              "type": "isolated",
+              "value": 3,
+              "rawUsd": "55305.4916332975"
+            },
+            "entryPx": "1539.025",
+            "positionValue": "41886.7709896532",
+            "unrealizedPnl": "-414.2936453408",
+            "returnOnEquity": "-0.0299688134",
+            "liquidationPx": "1954.6313655025",
+            "marginUsed": "13418.7206436443",
+            "maxLeverage": 10,
+            "cumFunding": {
+              "allTime": "-80.9318357506",
+              "sinceOpen": "-0.4500352285",
+              "sinceChange": "0.0"
+            }
+          }
+        },
+        {
+          "type": "oneWay",
+          "position": {
+            "coin": "xyz:MSTR",
+            "szi": "-299.7787503567",
+            "leverage": {
+              "type": "isolated",
+              "value": 10,
+              "rawUsd": "43403.7839856115"
+            },
+            "entryPx": "131.646",
+            "positionValue": "40479.1246606671",
+            "unrealizedPnl": "-1014.2080161455",
+            "returnOnEquity": "-0.2569897779",
+            "liquidationPx": "137.8914852369",
+            "marginUsed": "2924.6593249443",
+            "maxLeverage": 10,
+            "cumFunding": {
+              "allTime": "15.9720910701",
+              "sinceOpen": "-0.6918303837",
+              "sinceChange": "-0.4624765"
+            }
+          }
+        },
+        {
+          "type": "oneWay",
+          "position": {
+            "coin": "xyz:CRCL",
+            "szi": "1717.4759283748",
+            "leverage": {
+              "type": "isolated",
+              "value": 3,
+              "rawUsd": "-106354.6043977563"
+            },
+            "entryPx": "92.887",
+            "positionValue": "158608.90198541",
+            "unrealizedPnl": "-923.186906958",
+            "returnOnEquity": "-0.0173605244",
+            "liquidationPx": "65.1841538539",
+            "marginUsed": "52254.2975876537",
+            "maxLeverage": 10,
+            "cumFunding": {
+              "allTime": "-1068.3491823267",
+              "sinceOpen": "0.1994209806",
+              "sinceChange": "0.0"
+            }
+          }
+        },
+        {
+          "type": "oneWay",
+          "position": {
+            "coin": "xyz:SKHX",
+            "szi": "128.7360527466",
+            "leverage": {
+              "type": "cross",
+              "value": 10
+            },
+            "entryPx": "1249.452",
+            "positionValue": "161087.4228018349",
+            "unrealizedPnl": "237.8452433029",
+            "returnOnEquity": "0.0147868118",
+            "liquidationPx": null,
+            "marginUsed": "16108.7422801835",
+            "maxLeverage": 10,
+            "cumFunding": {
+              "allTime": "123.3987947086",
+              "sinceOpen": "0.1618026218",
+              "sinceChange": "0.0"
+            }
+          }
+        },
+        {
+          "type": "oneWay",
+          "position": {
+            "coin": "xyz:SILVER",
+            "szi": "273.8688937826",
+            "leverage": {
+              "type": "isolated",
+              "value": 3,
+              "rawUsd": "-11473.7975357781"
+            },
+            "entryPx": "62.8458",
+            "positionValue": "17229.639845654",
+            "unrealizedPnl": "18.1035729716",
+            "returnOnEquity": "0.0031554835",
+            "liquidationPx": "42.7502244138",
+            "marginUsed": "5755.8423098759",
+            "maxLeverage": 25,
+            "cumFunding": {
+              "allTime": "-4835.5989726852",
+              "sinceOpen": "1.1322663358",
+              "sinceChange": "0.2276096057"
+            }
+          }
+        },
+        {
+          "type": "oneWay",
+          "position": {
+            "coin": "xyz:CL",
+            "szi": "8.5015594382",
+            "leverage": {
+              "type": "isolated",
+              "value": 3,
+              "rawUsd": "-566.0334351471"
+            },
+            "entryPx": "99.87",
+            "positionValue": "846.4492639032",
+            "unrealizedPnl": "-2.6040605587",
+            "returnOnEquity": "-0.0092010495",
+            "liquidationPx": "68.2871321659",
+            "marginUsed": "280.415828756",
+            "maxLeverage": 20,
+            "cumFunding": {
+              "allTime": "-2961.1927428362",
+              "sinceOpen": "0.0",
+              "sinceChange": "0.0"
+            }
+          }
+        },
+        {
+          "type": "oneWay",
+          "position": {
+            "coin": "xyz:NATGAS",
+            "szi": "-1762.6691091367",
+            "leverage": {
+              "type": "isolated",
+              "value": 10,
+              "rawUsd": "5829.1526520464"
+            },
+            "entryPx": "3.00538",
+            "positionValue": "5315.1524316909",
+            "unrealizedPnl": "-17.6447660648",
+            "returnOnEquity": "-0.0333076744",
+            "liquidationPx": "3.1495270017",
+            "marginUsed": "514.0002203555",
+            "maxLeverage": 10,
+            "cumFunding": {
+              "allTime": "386.1903562589",
+              "sinceOpen": "-1.8861004876",
+              "sinceChange": "-1.8861004876"
+            }
+          }
+        },
+        {
+          "type": "oneWay",
+          "position": {
+            "coin": "xyz:SMSN",
+            "szi": "-563.1000781709",
+            "leverage": {
+              "type": "isolated",
+              "value": 10,
+              "rawUsd": "111919.4076999729"
+            },
+            "entryPx": "180.424",
+            "positionValue": "101876.0661426702",
+            "unrealizedPnl": "-279.2195212664",
+            "returnOnEquity": "-0.0274830893",
+            "liquidationPx": "189.2912400962",
+            "marginUsed": "10043.3415573027",
+            "maxLeverage": 10,
+            "cumFunding": {
+              "allTime": "1129.3404157284",
+              "sinceOpen": "11.0625992612",
+              "sinceChange": "0.0"
+            }
+          }
+        },
+        {
+          "type": "oneWay",
+          "position": {
+            "coin": "xyz:EWY",
+            "szi": "-561.1991886767",
+            "leverage": {
+              "type": "isolated",
+              "value": 20,
+              "rawUsd": "106049.186446787"
+            },
+            "entryPx": "179.959",
+            "positionValue": "99927.1275357783",
+            "unrealizedPnl": "1065.8063697782",
+            "returnOnEquity": "0.2110655327",
+            "liquidationPx": "184.3598904119",
+            "marginUsed": "6122.0589110086",
+            "maxLeverage": 20,
+            "cumFunding": {
+              "allTime": "-334.1642033507",
+              "sinceOpen": "-0.9279889633",
+              "sinceChange": "-1.4362247442"
+            }
+          }
+        },
+        {
+          "type": "oneWay",
+          "position": {
+            "coin": "xyz:BRENTOIL",
+            "szi": "376.7152051879",
+            "leverage": {
+              "type": "cross",
+              "value": 3
+            },
+            "entryPx": "103.4565",
+            "positionValue": "39012.6266492629",
+            "unrealizedPnl": "38.963789163",
+            "returnOnEquity": "0.00299924",
+            "liquidationPx": null,
+            "marginUsed": "13004.2088830876",
+            "maxLeverage": 20,
+            "cumFunding": {
+              "allTime": "-5186.0042120782",
+              "sinceOpen": "-12.8015769366",
+              "sinceChange": "0.0"
+            }
+          }
+        },
+        {
+          "type": "oneWay",
+          "position": {
+            "coin": "xyz:LITE",
+            "szi": "14.3062408866",
+            "leverage": {
+              "type": "isolated",
+              "value": 10,
+              "rawUsd": "-11036.3766271701"
+            },
+            "entryPx": "857.145",
+            "positionValue": "12331.8365818359",
+            "unrealizedPnl": "69.3124482839",
+            "returnOnEquity": "0.0565238017",
+            "liquidationPx": "812.0399095056",
+            "marginUsed": "1295.4599546657",
+            "maxLeverage": 10,
+            "cumFunding": {
+              "allTime": "4.5958321111",
+              "sinceOpen": "0.3934525156",
+              "sinceChange": "0.0766749568"
+            }
+          }
+        },
+        {
+          "type": "oneWay",
+          "position": {
+            "coin": "xyz:MRVL",
+            "szi": "-207.934034459",
+            "leverage": {
+              "type": "isolated",
+              "value": 10,
+              "rawUsd": "50721.285912598"
+            },
+            "entryPx": "221.6581",
+            "positionValue": "46209.1804778178",
+            "unrealizedPnl": "-118.9139455205",
+            "returnOnEquity": "-0.0258002295",
+            "liquidationPx": "232.3139966438",
+            "marginUsed": "4512.1054347802",
+            "maxLeverage": 10,
+            "cumFunding": {
+              "allTime": "-47.7798646332",
+              "sinceOpen": "-2.2067531024",
+              "sinceChange": "-0.2855443496"
+            }
+          }
+        },
+        {
+          "type": "oneWay",
+          "position": {
+            "coin": "xyz:DRAM",
+            "szi": "-2394.4310974702",
+            "leverage": {
+              "type": "cross",
+              "value": 20
+            },
+            "entryPx": "55.05243",
+            "positionValue": "131863.7149687787",
+            "unrealizedPnl": "-44.4479645506",
+            "returnOnEquity": "-0.0067437736",
+            "liquidationPx": "872.7793608793",
+            "marginUsed": "6593.1857484389",
+            "maxLeverage": 20,
+            "cumFunding": {
+              "allTime": "-41.6100945841",
+              "sinceOpen": "-2.3788302977",
+              "sinceChange": "0.0"
+            }
+          }
+        },
+        {
+          "type": "oneWay",
+          "position": {
+            "coin": "xyz:SPCX",
+            "szi": "5.158120396",
+            "leverage": {
+              "type": "isolated",
+              "value": 3,
+              "rawUsd": "-508.8943104829"
+            },
+            "entryPx": "147.9931",
+            "positionValue": "769.4884006738",
+            "unrealizedPnl": "6.1216831484",
+            "returnOnEquity": "0.0240579646",
+            "liquidationPx": "101.1885808157",
+            "marginUsed": "260.5940901909",
+            "maxLeverage": 20,
+            "cumFunding": {
+              "allTime": "-4.1448643979",
+              "sinceOpen": "-0.0692509991",
+              "sinceChange": "0.0"
+            }
+          }
+        },
+        {
+          "type": "oneWay",
+          "position": {
+            "coin": "xyz:SKHY",
+            "szi": "229.126868955",
+            "leverage": {
+              "type": "cross",
+              "value": 10
+            },
+            "entryPx": "177.4059",
+            "positionValue": "40839.5731225453",
+            "unrealizedPnl": "191.1104023676",
+            "returnOnEquity": "0.0470154071",
+            "liquidationPx": null,
+            "marginUsed": "4083.9573122545",
+            "maxLeverage": 10,
+            "cumFunding": {
+              "allTime": "23.625780517",
+              "sinceOpen": "-0.3174945232",
+              "sinceChange": "0.0"
+            }
+          }
+        },
+        {
+          "type": "oneWay",
+          "position": {
+            "coin": "xyz:UNITREE",
+            "szi": "-407.5777194236",
+            "leverage": {
+              "type": "isolated",
+              "value": 10,
+              "rawUsd": "31009.2482032035"
+            },
+            "entryPx": "69.134",
+            "positionValue": "28225.5722255202",
+            "unrealizedPnl": "-48.0673012514",
+            "returnOnEquity": "-0.01705875",
+            "liquidationPx": "72.4588610441",
+            "marginUsed": "2783.6759776833",
+            "maxLeverage": 10,
+            "cumFunding": {
+              "allTime": "195.8524248063",
+              "sinceOpen": "145.0096912708",
+              "sinceChange": "0.0"
+            }
+          }
+        }
+      ],
+      "time": 1789394941332
+    },
+    "flx": {
+      "marginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMarginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMaintenanceMarginUsed": "0.0",
+      "withdrawable": "0.0",
+      "assetPositions": [],
+      "time": 1789394941756
+    },
+    "vntl": {
+      "marginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMarginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMaintenanceMarginUsed": "0.0",
+      "withdrawable": "0.0",
+      "assetPositions": [],
+      "time": 1789394941955
+    },
+    "hyna": {
+      "marginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMarginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMaintenanceMarginUsed": "0.0",
+      "withdrawable": "0.0",
+      "assetPositions": [],
+      "time": 1789394942307
+    },
+    "km": {
+      "marginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMarginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMaintenanceMarginUsed": "0.0",
+      "withdrawable": "0.0",
+      "assetPositions": [],
+      "time": 1789394942578
+    },
+    "abcd": {
+      "marginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMarginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMaintenanceMarginUsed": "0.0",
+      "withdrawable": "0.0",
+      "assetPositions": [],
+      "time": 1789394942916
+    },
+    "cash": {
+      "marginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMarginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMaintenanceMarginUsed": "0.0",
+      "withdrawable": "0.0",
+      "assetPositions": [],
+      "time": 1789394943112
+    },
+    "para": {
+      "marginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMarginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMaintenanceMarginUsed": "0.0",
+      "withdrawable": "0.0",
+      "assetPositions": [],
+      "time": 1789394943451
+    },
+    "mkts": {
+      "marginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMarginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMaintenanceMarginUsed": "0.0",
+      "withdrawable": "0.0",
+      "assetPositions": [],
+      "time": 1789394944122
+    },
+    "io": {
+      "marginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMarginSummary": {
+        "accountValue": "0.0",
+        "totalNtlPos": "0.0",
+        "totalRawUsd": "0.0",
+        "totalMarginUsed": "0.0"
+      },
+      "crossMaintenanceMarginUsed": "0.0",
+      "withdrawable": "0.0",
+      "assetPositions": [],
+      "time": 1789394944524
+    }
+  },
+  "openOrders": [
+    {
+      "coin": "FIL",
+      "side": "B",
+      "limitPx": "0.9907",
+      "sz": "2349.4591842683",
+      "origSz": "2349.4591842683",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "FIL",
+      "side": "B",
+      "limitPx": "0.99089",
+      "sz": "2348.8844633329",
+      "origSz": "2348.8844633329",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "LIT",
+      "side": "B",
+      "limitPx": "4.4424",
+      "sz": "1295.9957095218",
+      "origSz": "1295.9957095218",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "LIT",
+      "side": "A",
+      "limitPx": "4.4542",
+      "sz": "347.7061659693",
+      "origSz": "347.7061659693",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "FIL",
+      "side": "A",
+      "limitPx": "0.99264",
+      "sz": "2344.8614167844",
+      "origSz": "2344.8614167844",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "FIL",
+      "side": "A",
+      "limitPx": "0.99244",
+      "sz": "2345.2924574861",
+      "origSz": "2345.2924574861",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "FIL",
+      "side": "A",
+      "limitPx": "0.99224",
+      "sz": "2345.7234981877",
+      "origSz": "2345.7234981877",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ZEC",
+      "side": "B",
+      "limitPx": "1146.2",
+      "sz": "11.465682663",
+      "origSz": "11.465682663",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ETH",
+      "side": "B",
+      "limitPx": "2507.0",
+      "sz": "5.3934686191",
+      "origSz": "5.3934686191",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ETH",
+      "side": "A",
+      "limitPx": "2508.1",
+      "sz": "5.3911697353",
+      "origSz": "5.3911697353",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ETH",
+      "side": "B",
+      "limitPx": "2507.1",
+      "sz": "5.3933249388",
+      "origSz": "5.3933249388",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ETH",
+      "side": "A",
+      "limitPx": "2508.0",
+      "sz": "4.9571117488",
+      "origSz": "4.9571117488",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ETH",
+      "side": "B",
+      "limitPx": "2507.2",
+      "sz": "4.9586922314",
+      "origSz": "4.9586922314",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ETH",
+      "side": "B",
+      "limitPx": "2506.9",
+      "sz": "32.2452928064",
+      "origSz": "32.2452928064",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ETH",
+      "side": "A",
+      "limitPx": "2507.9",
+      "sz": "23.550052413",
+      "origSz": "23.550052413",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ETH",
+      "side": "B",
+      "limitPx": "2507.3",
+      "sz": "23.5556559421",
+      "origSz": "23.5556559421",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "LIT",
+      "side": "B",
+      "limitPx": "4.4388",
+      "sz": "1295.9957095218",
+      "origSz": "1295.9957095218",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "LIT",
+      "side": "B",
+      "limitPx": "4.4379",
+      "sz": "1297.4325118605",
+      "origSz": "1297.4325118605",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ZEC",
+      "side": "B",
+      "limitPx": "1146.7",
+      "sz": "6.5661866879",
+      "origSz": "6.5661866879",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ZEC",
+      "side": "B",
+      "limitPx": "1146.5",
+      "sz": "11.465682663",
+      "origSz": "11.465682663",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ZEC",
+      "side": "B",
+      "limitPx": "1146.0",
+      "sz": "11.465682663",
+      "origSz": "11.465682663",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "FIL",
+      "side": "B",
+      "limitPx": "0.99036",
+      "sz": "2350.1775854377",
+      "origSz": "2350.1775854377",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ETH",
+      "side": "B",
+      "limitPx": "2507.3",
+      "sz": "5.3928938981",
+      "origSz": "5.3928938981",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ETH",
+      "side": "B",
+      "limitPx": "2506.4",
+      "sz": "32.2517584169",
+      "origSz": "32.2517584169",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ETH",
+      "side": "B",
+      "limitPx": "2506.7",
+      "sz": "32.2478790506",
+      "origSz": "32.2478790506",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "B",
+      "limitPx": "80.48",
+      "sz": "160.1028846031",
+      "origSz": "160.1028846031",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ZEC",
+      "side": "A",
+      "limitPx": "1147.7",
+      "sz": "8.462765775",
+      "origSz": "8.462765775",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ZEC",
+      "side": "A",
+      "limitPx": "1147.5",
+      "sz": "6.5661866879",
+      "origSz": "6.5661866879",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "DOT",
+      "side": "A",
+      "limitPx": "1.0134",
+      "sz": "4953.663423191",
+      "origSz": "4953.663423191",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "DOT",
+      "side": "A",
+      "limitPx": "1.0132",
+      "sz": "4954.6691848281",
+      "origSz": "4954.6691848281",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "DOT",
+      "side": "A",
+      "limitPx": "1.013",
+      "sz": "4955.6749464652",
+      "origSz": "4955.6749464652",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "B",
+      "limitPx": "78241.0",
+      "sz": "1.1159212724",
+      "origSz": "1.1159212724",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "NEAR",
+      "side": "A",
+      "limitPx": "2.4193",
+      "sz": "1927.0392966858",
+      "origSz": "1927.0392966858",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "NEAR",
+      "side": "A",
+      "limitPx": "2.4188",
+      "sz": "1927.4703373875",
+      "origSz": "1927.4703373875",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "NEAR",
+      "side": "B",
+      "limitPx": "2.4159",
+      "sz": "2383.6550799298",
+      "origSz": "2383.6550799298",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "B",
+      "limitPx": "78251.0",
+      "sz": "1.1157775922",
+      "origSz": "1.1157775922",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "B",
+      "limitPx": "78295.0",
+      "sz": "0.9583040559",
+      "origSz": "0.9583040559",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@142",
+      "side": "B",
+      "limitPx": "78279.0",
+      "sz": "0.0669118849",
+      "origSz": "0.0669118849",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "XRP",
+      "side": "B",
+      "limitPx": "1.3971",
+      "sz": "8217.0725751166",
+      "origSz": "8217.0725751166",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "SOL",
+      "side": "B",
+      "limitPx": "101.54",
+      "sz": "24.7417362727",
+      "origSz": "24.7417362727",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ETH",
+      "side": "B",
+      "limitPx": "2505.7",
+      "sz": "32.2608102717",
+      "origSz": "32.2608102717",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "B",
+      "limitPx": "78295.0",
+      "sz": "0.1346283791",
+      "origSz": "0.1346283791",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "SOL",
+      "side": "B",
+      "limitPx": "101.54",
+      "sz": "24.7417362727",
+      "origSz": "24.7417362727",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "SOL",
+      "side": "B",
+      "limitPx": "101.46",
+      "sz": "132.300759349",
+      "origSz": "132.300759349",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "B",
+      "limitPx": "78291.0",
+      "sz": "0.1424733199",
+      "origSz": "0.1424733199",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "B",
+      "limitPx": "78286.0",
+      "sz": "1.1152890794",
+      "origSz": "1.1152890794",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "B",
+      "limitPx": "78289.0",
+      "sz": "0.1424876879",
+      "origSz": "0.1424876879",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "SOL",
+      "side": "B",
+      "limitPx": "101.48",
+      "sz": "132.2720233022",
+      "origSz": "132.2720233022",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "SOL",
+      "side": "B",
+      "limitPx": "101.54",
+      "sz": "24.7417362727",
+      "origSz": "24.7417362727",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "SOL",
+      "side": "B",
+      "limitPx": "101.51",
+      "sz": "132.2432872554",
+      "origSz": "132.2432872554",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "SOL",
+      "side": "B",
+      "limitPx": "101.52",
+      "sz": "132.228919232",
+      "origSz": "132.228919232",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "XRP",
+      "side": "B",
+      "limitPx": "1.3968",
+      "sz": "8218.5093774553",
+      "origSz": "8218.5093774553",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "SOL",
+      "side": "B",
+      "limitPx": "101.49",
+      "sz": "132.2576552788",
+      "origSz": "132.2576552788",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "SOL",
+      "side": "B",
+      "limitPx": "101.54",
+      "sz": "132.2001831853",
+      "origSz": "132.2001831853",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "XRP",
+      "side": "B",
+      "limitPx": "1.3966",
+      "sz": "8219.946179794",
+      "origSz": "8219.946179794",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "B",
+      "limitPx": "78293.0",
+      "sz": "0.1424733199",
+      "origSz": "0.1424733199",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "SOL",
+      "side": "B",
+      "limitPx": "101.55",
+      "sz": "24.7417362727",
+      "origSz": "24.7417362727",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "XRP",
+      "side": "B",
+      "limitPx": "1.3974",
+      "sz": "8215.6357727779",
+      "origSz": "8215.6357727779",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "B",
+      "limitPx": "80.496",
+      "sz": "160.059780533",
+      "origSz": "160.059780533",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "B",
+      "limitPx": "80.56",
+      "sz": "90.4179711754",
+      "origSz": "90.4179711754",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "B",
+      "limitPx": "80.544",
+      "sz": "159.9735723926",
+      "origSz": "159.9735723926",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "B",
+      "limitPx": "80.528",
+      "sz": "160.0023084394",
+      "origSz": "160.0023084394",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ZEC",
+      "side": "B",
+      "limitPx": "1145.6",
+      "sz": "11.4800506863",
+      "origSz": "11.4800506863",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "B",
+      "limitPx": "80.512",
+      "sz": "160.0310444862",
+      "origSz": "160.0310444862",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ZEC",
+      "side": "B",
+      "limitPx": "1145.8",
+      "sz": "11.4800506863",
+      "origSz": "11.4800506863",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@151",
+      "side": "B",
+      "limitPx": "2506.8",
+      "sz": "2.0191383266",
+      "origSz": "2.0191383266",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ZEC",
+      "side": "B",
+      "limitPx": "1146.0",
+      "sz": "11.465682663",
+      "origSz": "11.465682663",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "XLM",
+      "side": "B",
+      "limitPx": "0.19115",
+      "sz": "30111.0666124704",
+      "origSz": "30111.0666124704",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "FET",
+      "side": "B",
+      "limitPx": "0.1683",
+      "sz": "34216.0108941819",
+      "origSz": "34216.0108941819",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "XRP",
+      "side": "A",
+      "limitPx": "1.3983",
+      "sz": "8059.0243178578",
+      "origSz": "8059.0243178578",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "XRP",
+      "side": "A",
+      "limitPx": "1.3986",
+      "sz": "8057.5875155191",
+      "origSz": "8057.5875155191",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "XRP",
+      "side": "B",
+      "limitPx": "1.3977",
+      "sz": "8214.1989704392",
+      "origSz": "8214.1989704392",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "kPEPE",
+      "side": "B",
+      "limitPx": "0.003444",
+      "sz": "995415.2234600797",
+      "origSz": "995415.2234600797",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "kSHIB",
+      "side": "B",
+      "limitPx": "0.005248",
+      "sz": "1097313.2453218157",
+      "origSz": "1097313.2453218157",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "kPEPE",
+      "side": "B",
+      "limitPx": "0.003443",
+      "sz": "995704.0207301616",
+      "origSz": "995704.0207301616",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "kSHIB",
+      "side": "B",
+      "limitPx": "0.005247",
+      "sz": "1097523.0184632682",
+      "origSz": "1097523.0184632682",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "XLM",
+      "side": "B",
+      "limitPx": "0.19119",
+      "sz": "30103.8826007768",
+      "origSz": "30103.8826007768",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "XLM",
+      "side": "B",
+      "limitPx": "0.19122",
+      "sz": "30099.5721937607",
+      "origSz": "30099.5721937607",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "SEI",
+      "side": "B",
+      "limitPx": "0.044545",
+      "sz": "129309.3368797591",
+      "origSz": "129309.3368797591",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@107",
+      "side": "B",
+      "limitPx": "80.567",
+      "sz": "23.0319414896",
+      "origSz": "23.0319414896",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "FET",
+      "side": "B",
+      "limitPx": "0.16832",
+      "sz": "34211.7004871658",
+      "origSz": "34211.7004871658",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "SEI",
+      "side": "B",
+      "limitPx": "0.044562",
+      "sz": "129260.4856002428",
+      "origSz": "129260.4856002428",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "FET",
+      "side": "B",
+      "limitPx": "0.16825",
+      "sz": "34226.0685105529",
+      "origSz": "34226.0685105529",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "kFLOKI",
+      "side": "B",
+      "limitPx": "0.024628",
+      "sz": "196139.3240604547",
+      "origSz": "196139.3240604547",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "kFLOKI",
+      "side": "A",
+      "limitPx": "0.024682",
+      "sz": "291643.5755149047",
+      "origSz": "291643.5755149047",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "kFLOKI",
+      "side": "A",
+      "limitPx": "0.024692",
+      "sz": "291525.7577231299",
+      "origSz": "291525.7577231299",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "kFLOKI",
+      "side": "A",
+      "limitPx": "0.024687",
+      "sz": "291584.6666190173",
+      "origSz": "291584.6666190173",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "kFLOKI",
+      "side": "B",
+      "limitPx": "0.024633",
+      "sz": "196099.0935949706",
+      "origSz": "196099.0935949706",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "kFLOKI",
+      "side": "B",
+      "limitPx": "0.024623",
+      "sz": "196179.5545259387",
+      "origSz": "196179.5545259387",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "SEI",
+      "side": "B",
+      "limitPx": "0.044553",
+      "sz": "129286.3480423397",
+      "origSz": "129286.3480423397",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "XRP",
+      "side": "A",
+      "limitPx": "1.3991",
+      "sz": "8054.7139108417",
+      "origSz": "8054.7139108417",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "XRP",
+      "side": "A",
+      "limitPx": "1.3989",
+      "sz": "8056.1507131804",
+      "origSz": "8056.1507131804",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "XLM",
+      "side": "A",
+      "limitPx": "0.19142",
+      "sz": "17961.4660362882",
+      "origSz": "17961.4660362882",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ZEC",
+      "side": "A",
+      "limitPx": "1148.2",
+      "sz": "8.462765775",
+      "origSz": "8.462765775",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ZEC",
+      "side": "A",
+      "limitPx": "1148.0",
+      "sz": "8.462765775",
+      "origSz": "8.462765775",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "kPEPE",
+      "side": "A",
+      "limitPx": "0.003448",
+      "sz": "994260.034379752",
+      "origSz": "994260.034379752",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "SOL",
+      "side": "A",
+      "limitPx": "101.63",
+      "sz": "93.8231927182",
+      "origSz": "93.8231927182",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@156",
+      "side": "A",
+      "limitPx": "101.6",
+      "sz": "12.2171302861",
+      "origSz": "12.2171302861",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "SOL",
+      "side": "A",
+      "limitPx": "101.59",
+      "sz": "93.8662967883",
+      "origSz": "93.8662967883",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "NEAR",
+      "side": "A",
+      "limitPx": "2.4201",
+      "sz": "1926.4645757504",
+      "origSz": "1926.4645757504",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "XLM",
+      "side": "A",
+      "limitPx": "0.19146",
+      "sz": "17957.1556292721",
+      "origSz": "17957.1556292721",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "SOL",
+      "side": "A",
+      "limitPx": "101.6",
+      "sz": "24.7273682493",
+      "origSz": "24.7273682493",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "XLM",
+      "side": "A",
+      "limitPx": "0.19149",
+      "sz": "17954.2820245947",
+      "origSz": "17954.2820245947",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "DOGE",
+      "side": "B",
+      "limitPx": "0.083901",
+      "sz": "150151.5916051729",
+      "origSz": "150151.5916051729",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ZEC",
+      "side": "A",
+      "limitPx": "1148.4",
+      "sz": "8.4483977516",
+      "origSz": "8.4483977516",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "OP",
+      "side": "A",
+      "limitPx": "0.09638",
+      "sz": "67725.5460784172",
+      "origSz": "67725.5460784172",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "80.666",
+      "sz": "145.6199170289",
+      "origSz": "145.6199170289",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "SOL",
+      "side": "A",
+      "limitPx": "101.59",
+      "sz": "24.7273682493",
+      "origSz": "24.7273682493",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@156",
+      "side": "B",
+      "limitPx": "101.54",
+      "sz": "103.1954543736",
+      "origSz": "103.1954543736",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@107",
+      "side": "A",
+      "limitPx": "80.604",
+      "sz": "23.0175734662",
+      "origSz": "23.0175734662",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "SOL",
+      "side": "A",
+      "limitPx": "101.6",
+      "sz": "24.7273682493",
+      "origSz": "24.7273682493",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "OP",
+      "side": "A",
+      "limitPx": "0.09636",
+      "sz": "67739.6267413366",
+      "origSz": "67739.6267413366",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "80.65",
+      "sz": "145.6486530756",
+      "origSz": "145.6486530756",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "SOL",
+      "side": "A",
+      "limitPx": "101.6",
+      "sz": "24.7273682493",
+      "origSz": "24.7273682493",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "SOL",
+      "side": "A",
+      "limitPx": "101.61",
+      "sz": "93.8375607415",
+      "origSz": "93.8375607415",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "80.602",
+      "sz": "90.3748671052",
+      "origSz": "90.3748671052",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "OP",
+      "side": "B",
+      "limitPx": "0.09618",
+      "sz": "66536.8795035975",
+      "origSz": "66536.8795035975",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@151",
+      "side": "B",
+      "limitPx": "2506.1",
+      "sz": "6.0071268979",
+      "origSz": "6.0071268979",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "80.634",
+      "sz": "145.6773891224",
+      "origSz": "145.6773891224",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "OP",
+      "side": "B",
+      "limitPx": "0.09616",
+      "sz": "66550.6728060492",
+      "origSz": "66550.6728060492",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "80.618",
+      "sz": "145.7061251692",
+      "origSz": "145.7061251692",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "SEI",
+      "side": "A",
+      "limitPx": "0.04463",
+      "sz": "105497.2117202195",
+      "origSz": "105497.2117202195",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "SEI",
+      "side": "A",
+      "limitPx": "0.044621",
+      "sz": "105518.7637553002",
+      "origSz": "105518.7637553002",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "SEI",
+      "side": "A",
+      "limitPx": "0.044612",
+      "sz": "105540.315790381",
+      "origSz": "105540.315790381",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "FET",
+      "side": "A",
+      "limitPx": "0.16864",
+      "sz": "7675.3980934207",
+      "origSz": "7675.3980934207",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "FET",
+      "side": "A",
+      "limitPx": "0.1686",
+      "sz": "7678.2716980981",
+      "origSz": "7678.2716980981",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "FET",
+      "side": "A",
+      "limitPx": "0.16857",
+      "sz": "7678.2716980981",
+      "origSz": "7678.2716980981",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "A",
+      "limitPx": "78324.0",
+      "sz": "0.0772568618",
+      "origSz": "0.0772568618",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "A",
+      "limitPx": "78323.0",
+      "sz": "0.0772568618",
+      "origSz": "0.0772568618",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "A",
+      "limitPx": "78321.0",
+      "sz": "0.0772568618",
+      "origSz": "0.0772568618",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "A",
+      "limitPx": "78319.0",
+      "sz": "0.0772712298",
+      "origSz": "0.0772712298",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "A",
+      "limitPx": "78343.0",
+      "sz": "0.5593040464",
+      "origSz": "0.5593040464",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "A",
+      "limitPx": "78334.0",
+      "sz": "0.5593758865",
+      "origSz": "0.5593758865",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "A",
+      "limitPx": "78325.0",
+      "sz": "0.5594333586",
+      "origSz": "0.5594333586",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "A",
+      "limitPx": "78316.0",
+      "sz": "0.5594908307",
+      "origSz": "0.5594908307",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ETH",
+      "side": "A",
+      "limitPx": "2509.9",
+      "sz": "25.3699062552",
+      "origSz": "25.3699062552",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ETH",
+      "side": "A",
+      "limitPx": "2508.3",
+      "sz": "5.3907386946",
+      "origSz": "5.3907386946",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "kSHIB",
+      "side": "A",
+      "limitPx": "0.005255",
+      "sz": "1173228.1336902122",
+      "origSz": "1173228.1336902122",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "kSHIB",
+      "side": "B",
+      "limitPx": "0.005249",
+      "sz": "1097104.9089827019",
+      "origSz": "1097104.9089827019",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "kSHIB",
+      "side": "A",
+      "limitPx": "0.005254",
+      "sz": "1173452.2748550519",
+      "origSz": "1173452.2748550519",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "DOGE",
+      "side": "B",
+      "limitPx": "0.083831",
+      "sz": "150276.5934086412",
+      "origSz": "150276.5934086412",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "DOGE",
+      "side": "A",
+      "limitPx": "0.084006",
+      "sz": "133526.3517438905",
+      "origSz": "133526.3517438905",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "DOGE",
+      "side": "B",
+      "limitPx": "0.083848",
+      "sz": "150246.4205595281",
+      "origSz": "150246.4205595281",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "DOGE",
+      "side": "A",
+      "limitPx": "0.083989",
+      "sz": "133553.6509883261",
+      "origSz": "133553.6509883261",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "DOGE",
+      "side": "B",
+      "limitPx": "0.083865",
+      "sz": "150214.8109080764",
+      "origSz": "150214.8109080764",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "DOGE",
+      "side": "A",
+      "limitPx": "0.083972",
+      "sz": "133580.9502327617",
+      "origSz": "133580.9502327617",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "DOGE",
+      "side": "B",
+      "limitPx": "0.083882",
+      "sz": "150184.6380589633",
+      "origSz": "150184.6380589633",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "DOGE",
+      "side": "A",
+      "limitPx": "0.083955",
+      "sz": "133608.2494771973",
+      "origSz": "133608.2494771973",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "DOGE",
+      "side": "A",
+      "limitPx": "0.083939",
+      "sz": "133634.1119192942",
+      "origSz": "133634.1119192942",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ZEC",
+      "side": "A",
+      "limitPx": "1149.2",
+      "sz": "8.4483977516",
+      "origSz": "8.4483977516",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ZEC",
+      "side": "A",
+      "limitPx": "1149.0",
+      "sz": "8.4483977516",
+      "origSz": "8.4483977516",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@142",
+      "side": "A",
+      "limitPx": "78301.0",
+      "sz": "0.0668975169",
+      "origSz": "0.0668975169",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "WLD",
+      "side": "B",
+      "limitPx": "0.38337",
+      "sz": "16685.2981990407",
+      "origSz": "16685.2981990407",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "WLD",
+      "side": "A",
+      "limitPx": "0.384",
+      "sz": "18079.7148687646",
+      "origSz": "18079.7148687646",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "WLD",
+      "side": "B",
+      "limitPx": "0.38344",
+      "sz": "16682.1372338955",
+      "origSz": "16682.1372338955",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "WLD",
+      "side": "A",
+      "limitPx": "0.38393",
+      "sz": "18083.0195141436",
+      "origSz": "18083.0195141436",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "WLD",
+      "side": "B",
+      "limitPx": "0.38352",
+      "sz": "16678.6889082826",
+      "origSz": "16678.6889082826",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "WLD",
+      "side": "A",
+      "limitPx": "0.38385",
+      "sz": "18086.7552002243",
+      "origSz": "18086.7552002243",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "SOL",
+      "side": "A",
+      "limitPx": "101.65",
+      "sz": "93.8088246948",
+      "origSz": "93.8088246948",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "SOL",
+      "side": "A",
+      "limitPx": "101.64",
+      "sz": "93.8088246948",
+      "origSz": "93.8088246948",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@142",
+      "side": "B",
+      "limitPx": "78273.0",
+      "sz": "0.2373022743",
+      "origSz": "0.2373022743",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@142",
+      "side": "A",
+      "limitPx": "78303.0",
+      "sz": "0.2372160661",
+      "origSz": "0.2372160661",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ETH",
+      "side": "A",
+      "limitPx": "2508.1",
+      "sz": "5.3911697353",
+      "origSz": "5.3911697353",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "kPEPE",
+      "side": "A",
+      "limitPx": "0.00345",
+      "sz": "993683.8766419269",
+      "origSz": "993683.8766419269",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ETH",
+      "side": "A",
+      "limitPx": "2510.1",
+      "sz": "25.3678947319",
+      "origSz": "25.3678947319",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ETH",
+      "side": "A",
+      "limitPx": "2509.4",
+      "sz": "25.3749350634",
+      "origSz": "25.3749350634",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ETH",
+      "side": "A",
+      "limitPx": "2509.0",
+      "sz": "25.3791017901",
+      "origSz": "25.3791017901",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ETH",
+      "side": "A",
+      "limitPx": "2508.7",
+      "sz": "25.3821190751",
+      "origSz": "25.3821190751",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ETH",
+      "side": "A",
+      "limitPx": "2508.4",
+      "sz": "25.38513636",
+      "origSz": "25.38513636",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "A",
+      "limitPx": "78365.0",
+      "sz": "0.5591459981",
+      "origSz": "0.5591459981",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "XRP",
+      "side": "A",
+      "limitPx": "1.3992",
+      "sz": "8054.7139108417",
+      "origSz": "8054.7139108417",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BNB",
+      "side": "B",
+      "limitPx": "721.22",
+      "sz": "7.9843105962",
+      "origSz": "7.9843105962",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BNB",
+      "side": "A",
+      "limitPx": "722.32",
+      "sz": "7.2342997754",
+      "origSz": "7.2342997754",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BNB",
+      "side": "B",
+      "limitPx": "721.37",
+      "sz": "7.9828737939",
+      "origSz": "7.9828737939",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BNB",
+      "side": "A",
+      "limitPx": "722.18",
+      "sz": "7.2357365778",
+      "origSz": "7.2357365778",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BNB",
+      "side": "B",
+      "limitPx": "721.51",
+      "sz": "7.9814369916",
+      "origSz": "7.9814369916",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BNB",
+      "side": "A",
+      "limitPx": "722.04",
+      "sz": "7.2371733801",
+      "origSz": "7.2371733801",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "80.699",
+      "sz": "145.5624449353",
+      "origSz": "145.5624449353",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "SOL",
+      "side": "A",
+      "limitPx": "101.66",
+      "sz": "93.7944566714",
+      "origSz": "93.7944566714",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "@156",
+      "side": "B",
+      "limitPx": "101.54",
+      "sz": "12.2243142978",
+      "origSz": "12.2243142978",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ONDO",
+      "side": "B",
+      "limitPx": "0.35321",
+      "sz": "16303.39613741",
+      "origSz": "16303.39613741",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ONDO",
+      "side": "A",
+      "limitPx": "0.35362",
+      "sz": "10867.9728900475",
+      "origSz": "10867.9728900475",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ONDO",
+      "side": "B",
+      "limitPx": "0.35328",
+      "sz": "16300.5225327326",
+      "origSz": "16300.5225327326",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ONDO",
+      "side": "A",
+      "limitPx": "0.35355",
+      "sz": "10870.846494725",
+      "origSz": "10870.846494725",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "NEAR",
+      "side": "B",
+      "limitPx": "2.4151",
+      "sz": "2384.3734810991",
+      "origSz": "2384.3734810991",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "NEAR",
+      "side": "B",
+      "limitPx": "2.4156",
+      "sz": "2383.9424403975",
+      "origSz": "2383.9424403975",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "FARTCOIN",
+      "side": "B",
+      "limitPx": "0.14143",
+      "sz": "34754.2370502649",
+      "origSz": "34754.2370502649",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "FARTCOIN",
+      "side": "A",
+      "limitPx": "0.1418",
+      "sz": "46153.9704858712",
+      "origSz": "46153.9704858712",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "FARTCOIN",
+      "side": "B",
+      "limitPx": "0.14146",
+      "sz": "34746.9093583375",
+      "origSz": "34746.9093583375",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "FARTCOIN",
+      "side": "A",
+      "limitPx": "0.14177",
+      "sz": "46163.7407417745",
+      "origSz": "46163.7407417745",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "FARTCOIN",
+      "side": "B",
+      "limitPx": "0.14149",
+      "sz": "34739.4379861761",
+      "origSz": "34739.4379861761",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "FARTCOIN",
+      "side": "A",
+      "limitPx": "0.14174",
+      "sz": "46173.5109976778",
+      "origSz": "46173.5109976778",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "WLFI",
+      "side": "B",
+      "limitPx": "0.057296",
+      "sz": "100507.197197859",
+      "origSz": "100507.197197859",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "WLFI",
+      "side": "B",
+      "limitPx": "0.057307",
+      "sz": "100488.5187674557",
+      "origSz": "100488.5187674557",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "WLFI",
+      "side": "A",
+      "limitPx": "0.057392",
+      "sz": "110402.4549045958",
+      "origSz": "110402.4549045958",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "WLFI",
+      "side": "B",
+      "limitPx": "0.057319",
+      "sz": "100466.9667323749",
+      "origSz": "100466.9667323749",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "WLFI",
+      "side": "A",
+      "limitPx": "0.05738",
+      "sz": "110426.880544354",
+      "origSz": "110426.880544354",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "kPEPE",
+      "side": "A",
+      "limitPx": "0.00345",
+      "sz": "993683.8766419269",
+      "origSz": "993683.8766419269",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "kPEPE",
+      "side": "B",
+      "limitPx": "0.003444",
+      "sz": "995415.2234600797",
+      "origSz": "995415.2234600797",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "kPEPE",
+      "side": "A",
+      "limitPx": "0.003449",
+      "sz": "993971.2371096701",
+      "origSz": "993971.2371096701",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "OP",
+      "side": "A",
+      "limitPx": "0.09638",
+      "sz": "67725.5460784172",
+      "origSz": "67725.5460784172",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "OP",
+      "side": "B",
+      "limitPx": "0.09619",
+      "sz": "66529.8391721378",
+      "origSz": "66529.8391721378",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "A",
+      "limitPx": "80.663",
+      "sz": "145.6199170289",
+      "origSz": "145.6199170289",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BIGTIME",
+      "side": "B",
+      "limitPx": "0.007164",
+      "sz": "893287.3132241491",
+      "origSz": "893287.3132241491",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BIGTIME",
+      "side": "A",
+      "limitPx": "0.007193",
+      "sz": "933831.0016180361",
+      "origSz": "933831.0016180361",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BIGTIME",
+      "side": "B",
+      "limitPx": "0.007165",
+      "sz": "893162.3114206808",
+      "origSz": "893162.3114206808",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BIGTIME",
+      "side": "A",
+      "limitPx": "0.007192",
+      "sz": "933960.3138285205",
+      "origSz": "933960.3138285205",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BSV",
+      "side": "A",
+      "limitPx": "17.003",
+      "sz": "423.3538091027",
+      "origSz": "423.3538091027",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "DOT",
+      "side": "B",
+      "limitPx": "1.0111",
+      "sz": "5695.3407904362",
+      "origSz": "5695.3407904362",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "DOT",
+      "side": "B",
+      "limitPx": "1.0113",
+      "sz": "5694.3350287991",
+      "origSz": "5694.3350287991",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "DOT",
+      "side": "B",
+      "limitPx": "1.0115",
+      "sz": "5693.1855869281",
+      "origSz": "5693.1855869281",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "WLFI",
+      "side": "A",
+      "limitPx": "0.057399",
+      "sz": "110389.5236835473",
+      "origSz": "110389.5236835473",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "B",
+      "limitPx": "78270.0",
+      "sz": "1.1155045997",
+      "origSz": "1.1155045997",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ETH",
+      "side": "B",
+      "limitPx": "2505.3",
+      "sz": "32.2658390798",
+      "origSz": "32.2658390798",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ETH",
+      "side": "B",
+      "limitPx": "2505.0",
+      "sz": "32.2697184462",
+      "origSz": "32.2697184462",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "A",
+      "limitPx": "78353.0",
+      "sz": "0.5592322063",
+      "origSz": "0.5592322063",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "A",
+      "limitPx": "78344.0",
+      "sz": "0.5593040464",
+      "origSz": "0.5593040464",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ONDO",
+      "side": "B",
+      "limitPx": "0.35312",
+      "sz": "16307.7065444262",
+      "origSz": "16307.7065444262",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "ONDO",
+      "side": "A",
+      "limitPx": "0.35367",
+      "sz": "10866.5360877088",
+      "origSz": "10866.5360877088",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "kSHIB",
+      "side": "A",
+      "limitPx": "0.005255",
+      "sz": "1173228.1336902122",
+      "origSz": "1173228.1336902122",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BIGTIME",
+      "side": "B",
+      "limitPx": "0.007161",
+      "sz": "893662.318634554",
+      "origSz": "893662.318634554",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "HYPE",
+      "side": "B",
+      "limitPx": "80.44",
+      "sz": "160.1747247201",
+      "origSz": "160.1747247201",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "LTC",
+      "side": "B",
+      "limitPx": "53.665",
+      "sz": "88.9811688367",
+      "origSz": "88.9811688367",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "LTC",
+      "side": "B",
+      "limitPx": "53.676",
+      "sz": "88.9668008133",
+      "origSz": "88.9668008133",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "LTC",
+      "side": "A",
+      "limitPx": "53.739",
+      "sz": "121.7833662296",
+      "origSz": "121.7833662296",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "LTC",
+      "side": "B",
+      "limitPx": "53.687",
+      "sz": "88.9524327899",
+      "origSz": "88.9524327899",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "LTC",
+      "side": "A",
+      "limitPx": "53.728",
+      "sz": "121.797734253",
+      "origSz": "121.797734253",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "kPEPE",
+      "side": "A",
+      "limitPx": "0.00345",
+      "sz": "993683.8766419269",
+      "origSz": "993683.8766419269",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "kPEPE",
+      "side": "B",
+      "limitPx": "0.003444",
+      "sz": "995415.2234600797",
+      "origSz": "995415.2234600797",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BIGTIME",
+      "side": "A",
+      "limitPx": "0.007193",
+      "sz": "933831.0016180361",
+      "origSz": "933831.0016180361",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "LTC",
+      "side": "A",
+      "limitPx": "53.744",
+      "sz": "121.7689982062",
+      "origSz": "121.7689982062",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "B",
+      "limitPx": "78260.0",
+      "sz": "1.1161655288",
+      "origSz": "1.1161655288",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "SOL",
+      "side": "A",
+      "limitPx": "101.66",
+      "sz": "93.7944566714",
+      "origSz": "93.7944566714",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BSV",
+      "side": "A",
+      "limitPx": "17.011",
+      "sz": "423.1526567752",
+      "origSz": "423.1526567752",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BSV",
+      "side": "A",
+      "limitPx": "17.008",
+      "sz": "423.2244968922",
+      "origSz": "423.2244968922",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BSV",
+      "side": "B",
+      "limitPx": "16.935",
+      "sz": "301.0962981013",
+      "origSz": "301.0962981013",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BSV",
+      "side": "B",
+      "limitPx": "16.932",
+      "sz": "301.1537701949",
+      "origSz": "301.1537701949",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BSV",
+      "side": "B",
+      "limitPx": "16.938",
+      "sz": "301.0388260078",
+      "origSz": "301.0388260078",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "BTC",
+      "side": "B",
+      "limitPx": "78249.0",
+      "sz": "1.1163235771",
+      "origSz": "1.1163235771",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "SOL",
+      "side": "B",
+      "limitPx": "101.42",
+      "sz": "132.3582314425",
+      "origSz": "132.3582314425",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    },
+    {
+      "coin": "kPEPE",
+      "side": "B",
+      "limitPx": "0.003442",
+      "sz": "991400.7977257073",
+      "origSz": "991400.7977257073",
+      "reduceOnly": false,
+      "orderType": "Limit",
+      "tif": "Alo",
+      "isTrigger": false,
+      "triggerPx": "0.0",
+      "triggerCondition": "N/A",
+      "isPositionTpsl": false
+    }
+  ],
+  "delegatorSummary": {
+    "delegated": "0.0",
+    "undelegated": "0.0",
+    "totalPendingWithdrawal": "0.0",
+    "nPendingWithdrawals": 0
+  },
+  "userVaultEquities": [],
+  "subAccounts": null,
+  "borrowLendUserState": {
+    "tokenToState": [],
+    "health": "healthy",
+    "healthFactor": null
+  }
+}

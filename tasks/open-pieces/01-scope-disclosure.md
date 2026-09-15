@@ -60,7 +60,7 @@ at all, so the one number tula exists to give is understated and nothing says so
 That is the failure the conventions call the worst available — a partial
 portfolio served as complete.
 
-Cheap, and it does not wait for 10. Someone whose Base wallet is unread is
+Cheap, and it does not wait for 11. Someone whose Base wallet is unread is
 under-counted today; this is the difference between a limit they were told about
 and one they find out from a liquidation.
 

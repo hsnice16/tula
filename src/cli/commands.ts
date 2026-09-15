@@ -38,8 +38,21 @@ import {
   type Shock,
   type ShockedDebt,
   type ShockedHealthFactor,
+  type ShockedRatio,
 } from '../core/risk.js'
-import { freshness, healthFactor, holdings, pct, price, quantity, usd } from '../core/format.js'
+import {
+  freshness,
+  healthFactor,
+  holdings,
+  marginRatio,
+  pct,
+  price,
+  quantity,
+  ratioFloor,
+  ratioValue,
+  usd,
+  plural,
+} from '../core/format.js'
 import { renderTable, type Align } from '../ui/table.js'
 import * as secrets from '../secrets/store.js'
 import { APP_DESCRIPTION, APP_NAME, APP_VERSION, IS_PRE_RELEASE, REPO_URL } from '../version.js'
@@ -50,11 +63,13 @@ import type { Altered, Alteration, Session } from './session.js'
 export interface CommandResult {
   output: string
   /**
-   * The tail of `output` that the transcript may not truncate away — what
-   * `incompleteNote` returned for this view, handed over rather than left to be
-   * recomputed. The note is not the same on every call: the REMOVED
-   * explanation is a one-time thing, so a second call for the same view returns
-   * the short form and would pin a block the output does not end with.
+   * The tail of `output` that is about the view rather than in it: what
+   * `incompleteNote` returned, and what a total or a ranking left out — or the
+   * whole of `output`, where there is no view to be about. The
+   * shell pins it under truncation; the one-shot CLI prints it on stderr. Handed
+   * over rather than recomputed: the REMOVED explanation is a one-time thing, so
+   * a second call for the same view returns the short form and would name a
+   * block the output does not end with.
    */
   note?: string
   /** Something the user must know is missing. Drives a non-zero exit. */
@@ -64,8 +79,40 @@ export interface CommandResult {
   usageError?: boolean
 }
 
+/**
+ * A one-shot command's two streams: the view on stdout, what it says about
+ * itself on stderr — the POSIX split, and clig.dev's "Output" guideline
+ * (https://clig.dev/#output), so `tula exposure > book.txt` holds the table
+ * and the warning still reaches the terminal. A command that could not produce
+ * what was asked for has no data, so all of it is messaging. One newline comes
+ * off the note because printing stdout ends the line, so the two on one
+ * terminal read as the shell's output does.
+ */
+export function streams(
+  result: Pick<CommandResult, 'output' | 'note' | 'usageError'>,
+): { stdout: string; stderr: string } {
+  if (result.usageError) return { stdout: '', stderr: result.output }
+  const note = result.note ?? ''
+  if (note === '' || !result.output.endsWith(note)) return { stdout: result.output, stderr: '' }
+  return { stdout: result.output.slice(0, -note.length), stderr: note.replace(/^\n/, '') }
+}
+
 /** The venue id a failure line opens with. */
 export const failedVenue = (failure: string): string => failure.split(':')[0] ?? '<venue>'
+
+/**
+ * Venues that failed in part: this read's rows are on the book beside what did
+ * not load. A failed venue showing its previous read failed whole.
+ */
+export function answeredInPart({
+  failures,
+  positions,
+  stale,
+}: Pick<Session['current'], 'failures' | 'positions' | 'stale'>): string[] {
+  return [...new Set(failures.map(failedVenue))].filter(
+    (venue) => !stale.includes(venue) && positions.some((p) => belongsToVenue(p.venue, venue)),
+  )
+}
 
 /**
  * Whether anything is missing from the view — the one question every command's
@@ -154,7 +201,7 @@ function alteredLines(altered: readonly Altered[]): string[] {
   }
 
   const lines = [
-    `ALTERED — ${altered.length} asset name(s) are not as the venue sent them. Nothing is missing.`,
+    `ALTERED — ${plural(altered.length, 'asset name')} ${altered.length === 1 ? 'is' : 'are'} not as the venue sent them. Nothing is missing.`,
   ]
   for (const rows of groups.values()) {
     const [first] = rows as [Altered, ...Altered[]]
@@ -162,7 +209,7 @@ function alteredLines(altered: readonly Altered[]): string[] {
     // the whole of what can be said, and an empty item in a comma list is a
     // line that looks truncated.
     if (first.why === 'empty') {
-      lines.push(`  ${first.venue}  ${rows.length} name(s) with ${ALTERED_WHY.empty}`)
+      lines.push(`  ${first.venue}  ${plural(rows.length, 'name')} with ${ALTERED_WHY.empty}`)
       continue
     }
     const rest = rows.length - ALTERED_SHOWN
@@ -222,17 +269,26 @@ export function incompleteNote(session: Session): string {
   const failed = failures.filter((f) => !isRetired(failedVenue(f)))
 
   if (failed.length > 0) {
-    lines.push(`\nINCOMPLETE — ${failed.length} venue(s) failed. This is not your full exposure.`)
-    // Per failure, not once for the list. A failure already naming a remedy
-    // needs no second one, and what makes a line a remedy is that it names a
-    // command tula has — not that it happens to contain a slash, which a venue
-    // quoting a URL does.
-    for (const f of failed) {
-      lines.push(`  ${f}`)
-      const venue = failedVenue(f)
-      if (!namesCommand(f, session.venueIds)) {
+    // Counted by venue: a venue that answered in part has a line per part.
+    const venues = [...new Set(failed.map(failedVenue))]
+    const inPart = answeredInPart(session.current)
+    const whole = venues.length - venues.filter((v) => inPart.includes(v)).length
+    const counts = [
+      ...(whole > 0 ? [`${plural(whole, 'venue')} failed`] : []),
+      ...(inPart.length > 0 ? [`${plural(inPart.length, 'venue')} answered in part`] : []),
+    ]
+    lines.push(`\nINCOMPLETE — ${counts.join(', ')}. This is not your full exposure.`)
+    // One remedy per venue, after its lines. None where each line already names
+    // one, and what makes a line a remedy is that it names a command tula has —
+    // not that it happens to contain a slash, which a venue quoting a URL does.
+    for (const venue of venues) {
+      const mine = failed.filter((f) => failedVenue(f) === venue)
+      for (const f of mine) lines.push(`  ${f}`)
+      if (!mine.every((f) => namesCommand(f, session.venueIds))) {
         lines.push(
-          `    Run ${typed(`${venue} status`)} to see why, or ${typed('refresh')} to try again.`,
+          inPart.includes(venue)
+            ? `    Every figure shown is from what did load. Run ${typed('refresh')} to try again.`
+            : `    Run ${typed(`${venue} status`)} to see why, or ${typed('refresh')} to try again.`,
         )
       }
       // Its rows are still in every total on screen, and a reader looking at a
@@ -256,7 +312,7 @@ export function incompleteNote(session: Session): string {
     } else {
       explained.add(session)
       lines.push(
-        `\nREMOVED — ${gone.length} venue(s) tula no longer reads. Nothing was asked of them, and nothing failed.`,
+        `\nREMOVED — ${plural(gone.length, 'venue')} tula no longer reads. Nothing was asked of them, and nothing failed.`,
       )
       for (const f of gone) lines.push(`  ${f}`)
     }
@@ -281,16 +337,27 @@ export function incompleteNote(session: Session): string {
  * Shared because `exposure` and `shock` describe the same gap, and the one that
  * grew its own copy is the one that flooded.
  */
-function unpricedNote({ total, unpriced }: PortfolioValue): string[] {
-  if (unpriced.length === 0) return []
-  const shown = unpriced.slice(0, 6).join(', ')
-  const rest = unpriced.length - 6
-  return [
-    total === null
-      ? `No price for any of ${unpriced.length} asset(s), so there is no total:`
-      : `${unpriced.length} asset(s) had no price and are excluded from the total:`,
-    `  ${shown}${rest > 0 ? `, and ${rest} more` : ''}`,
-  ]
+function unpricedNote({ total, unpriced, unstated }: PortfolioValue): string[] {
+  const lines: string[] = []
+  if (unpriced.length > 0) {
+    const shown = unpriced.slice(0, 6).join(', ')
+    const rest = unpriced.length - 6
+    lines.push(
+      total === null
+        ? `No price for any of ${plural(unpriced.length, 'asset')}, so there is no total:`
+        : `${plural(unpriced.length, 'asset')} had no price and are excluded from the total:`,
+      `  ${shown}${rest > 0 ? `, and ${rest} more` : ''}`,
+    )
+  }
+  // Counting such a derivative at all would mean counting its notional, which
+  // is exposure, not equity.
+  if (unstated.length > 0) {
+    lines.push(
+      `${list(unstated)} ${unstated.length === 1 ? 'states' : 'state'} no equity for a derivative held there, so it is excluded from the total.`,
+      `  ${typed('venues')} names what each venue reads.`,
+    )
+  }
+  return lines
 }
 
 /**
@@ -421,6 +488,7 @@ function unrankedNote(session: Session, positions: readonly Position[]): string 
 export function trigger(position: Position): string {
   const params = position.liquidation
   if (params?.healthFactor !== undefined) return `health factor ${healthFactor(params.healthFactor)}`
+  if (params?.ratio !== undefined) return `${params.ratio.name} ${ratioValue(params.ratio)}`
   if (params?.price !== undefined) return `liq price ${price(params.price)}`
   return 'unknown'
 }
@@ -559,6 +627,30 @@ function riskColumns(risks: readonly LiquidationRisk[], now: Date): Column<Liqui
   ]
 }
 
+/**
+ * The positions ranked through an account rather than on their own, under the
+ * table. Their liquidation prices lie past the account's trigger, so ranking
+ * them beside it would claim an order the venue does not liquidate in.
+ */
+function accountNote(risks: readonly LiquidationRisk[]): string {
+  const lines = risks.flatMap((r) => {
+    const ratio = r.position.liquidation?.ratio
+    if (!ratio || !r.members || r.members.length === 0) return []
+    const held = r.members.map((p) => `${p.asset} ${p.kind}`)
+    const shown = held.slice(0, 6).join(', ')
+    const floor = ratioFloor(ratio)
+    return [
+      `  ${r.position.venue}  liquidated past ${marginRatio(ratio.threshold)}: ${shown}${
+        held.length > 6 ? `, and ${held.length - 6} more` : ''
+      }`,
+      ...(floor ? [`    Ranked on what loaded: ${floor}.`] : []),
+    ]
+  })
+  return lines.length === 0
+    ? ''
+    : `\n\nLiquidated with the account on its ratio, not on their own prices:\n${lines.join('\n')}`
+}
+
 /** The half that says what to do about what is held, or nothing to say. */
 function legendFor(rows: readonly Position[], free: Map<string, Availability>): string {
   const lines = releaseNotes(rows.flatMap((p) => free.get(p.id) ?? []))
@@ -610,12 +702,15 @@ export async function exposure(session: Session): Promise<CommandResult> {
     ['left', 'right', 'right', 'left', 'left'],
   )
 
-  const value = portfolioValue(exposures)
-  // Notional, not worth: an exposure is `delta × price`, so a perp contributes
-  // the whole position rather than the margin behind it, and a leveraged book
-  // called this "Net value" overstated net worth by its leverage.
-  const lines = [table, '', `Net notional  ${usd(value.total)}`, ...unpricedNote(value)]
-  return { output: lines.join('\n') + note, note, incomplete: isIncomplete(session) }
+  const { positions: held, prices } = session.current
+  // Not the sum of the NOTIONAL column. A perp's notional is exposure and says
+  // nothing about what the account is worth; summed, the same short moved this
+  // line by a different amount at each venue.
+  const value = portfolioValue(held, prices)
+  const unpriced = unpricedNote(value)
+  const tail = (unpriced.length > 0 ? `\n${unpriced.join('\n')}` : '') + note
+  const lines = [table, '', `Equity  ${usd(value.total)}`]
+  return { output: lines.join('\n') + tail, note: tail, incomplete: isIncomplete(session) }
 }
 
 export async function breaks(session: Session): Promise<CommandResult> {
@@ -630,14 +725,14 @@ export async function breaks(session: Session): Promise<CommandResult> {
   }
   // "Nothing can be liquidated" is the strongest claim this command makes, so
   // it is the answer that most needs what the ranking could not see.
+  const tail = unrankedNote(session, all) + note
   if (risks.length === 0) {
     return {
       output:
         'Nothing here can be liquidated — no leverage, no borrowing, nothing to call.\n' +
         '  Spot balances cannot be taken from you, so there is nothing to rank.' +
-        unrankedNote(session, all) +
-        note,
-      note,
+        tail,
+      note: tail,
       incomplete: isIncomplete(session),
     }
   }
@@ -648,10 +743,32 @@ export async function breaks(session: Session): Promise<CommandResult> {
     ...riskColumns(risks, now),
   ]
   return {
-    output: draw(columns, risks) + unrankedNote(session, all) + note,
-    note,
+    output: draw(columns, risks) + accountNote(risks) + tail,
+    note: tail,
     incomplete: isIncomplete(session),
   }
+}
+
+/**
+ * Each account ratio under the shock. A withheld one says what the venue does
+ * not state; a recomputed one says the one thing it held still.
+ */
+function ratioLines(ratios: readonly ShockedRatio[]): string[] {
+  if (ratios.length === 0) return []
+  const lines = ['', 'Account ratios, liquidated past the level shown:']
+  for (const r of ratios) {
+    lines.push(
+      `  ${r.position.venue}  ${r.ratio.name} ${ratioValue(r.ratio)} -> ${marginRatio(r.after)}  (past ${marginRatio(r.ratio.threshold)})`,
+    )
+    if (r.why !== null) lines.push(`    Not recomputed: ${r.why}.`)
+  }
+  if (ratios.some((r) => r.tiered)) {
+    lines.push(
+      '  Maintenance is scaled at the margin rate each position carries today; a move into',
+      '  another margin tier changes that rate.',
+    )
+  }
+  return lines
 }
 
 /**
@@ -726,6 +843,23 @@ export async function shock(session: Session, args: string[]): Promise<CommandRe
   if (all.length === 0) {
     return { output: (await emptyBook(session)) + note, note, incomplete: isIncomplete(session) }
   }
+  // A move on something the book does not hold moves nothing, and "nothing
+  // liquidates" under it reads as an answer about the asset that was typed.
+  const held = [...new Set(all.map((p) => p.asset.toUpperCase()))].sort()
+  const absent = shocks.filter((s) => !held.includes(s.asset.toUpperCase())).map((s) => s.asset)
+  if (absent.length > 0) {
+    const shown = held.slice(0, 12).join(', ')
+    return {
+      output:
+        `${list(absent)} ${absent.length === 1 ? 'is' : 'are'} not in this book, so a move on ${absent.length === 1 ? 'it' : 'them'} changes nothing here.\n` +
+        `  Held: ${shown}${held.length > 12 ? `, and ${held.length - 12} more` : ''}.\n` +
+        `  ${SHOCK_USAGE}` +
+        note,
+      note,
+      usageError: true,
+      incomplete: isIncomplete(session),
+    }
+  }
   const result = scenario(all, prices, shocks)
 
   const heading = shocks.map((s) => `${s.asset} ${pct(s.pct, 0)}`).join(', ')
@@ -736,8 +870,6 @@ export async function shock(session: Session, args: string[]): Promise<CommandRe
     `  After    ${usd(result.after.total)}`,
     `  Change   ${usd(result.change)}`,
   ]
-
-  lines.push(...unpricedNote(result.before).map((l) => `  ${l}`))
 
   // One row per market, weighted by each leg's share of the collateral base —
   // the same figure the agent's answer is built from, because a screen and a
@@ -751,20 +883,29 @@ export async function shock(session: Session, args: string[]): Promise<CommandRe
   if (shockedHealth.length > 0) {
     lines.push('', 'Health factors:', ...shockedHealth, ...debtHeldStill(markets))
   }
+  lines.push(...ratioLines(result.ratios))
 
   lines.push('')
   if (result.liquidated.length === 0) {
-    lines.push('Nothing liquidates at this level.')
+    // A withheld ratio is an account this move could call in, and nobody
+    // evaluated it.
+    lines.push(
+      ...(result.ratios.some((r) => r.after === null)
+        ? [
+            'No position liquidates on its own price at this level, but the ratio above was not',
+            '  recomputed, so whether that account survives the move is unknown.',
+          ]
+        : ['Nothing liquidates at this level.']),
+    )
   } else {
     lines.push('LIQUIDATED:')
     for (const p of result.liquidated) lines.push(`  ${p.venue}  ${p.kind} ${p.asset}`)
   }
 
-  return {
-    output: lines.join('\n') + unrankedNote(session, all) + note,
-    note,
-    incomplete: isIncomplete(session),
-  }
+  const unpriced = unpricedNote(result.before)
+  const tail =
+    (unpriced.length > 0 ? `\n\n${unpriced.join('\n')}` : '') + unrankedNote(session, all) + note
+  return { output: lines.join('\n') + tail, note: tail, incomplete: isIncomplete(session) }
 }
 
 export async function venues(
@@ -775,6 +916,7 @@ export async function venues(
   const now = new Date()
   const stored = await secrets.listVenues()
 
+  const inPart = answeredInPart(session.current)
   const rows = stored.map((venueId) => {
     // Removed is not failed — nothing was attempted — and the sentence that
     // says why is 200 characters, which in a cell stretches the rule past the
@@ -784,17 +926,19 @@ export async function venues(
     const mine = all.filter((p) => belongsToVenue(p.venue, venueId))
     const stalest = mine.reduce((min, p) => (p.asOf < min ? p.asOf : min), now)
 
-    const failure = failures.find((f) => f.startsWith(`${venueId}:`))
     // A venue that failed and had rows to keep still contributes them to every
     // total, so this row counts them and dates them. `—` in both columns said
-    // the venue contributed nothing to a book it is contributing to.
-    if (failure) {
+    // the venue contributed nothing to a book it is contributing to. Why it
+    // failed goes under the table, as REMOVED does: a sentence in the cell
+    // stretched the rule past an 80-column terminal, and held only the first of
+    // a partial read's lines.
+    if (failures.some((f) => failedVenue(f) === venueId)) {
       const held = mine.length > 0
       return [
         venueId,
         held ? String(mine.length) : '—',
         held ? freshness(stalest, now) : '—',
-        `FAILED: ${failure.split(': ').slice(1).join(': ')}`,
+        `${inPart.includes(venueId) ? 'answered in part' : 'FAILED'} — see below`,
       ]
     }
 
@@ -804,9 +948,8 @@ export async function venues(
   })
 
   // A failure whose venue is no longer stored still has to be said out loud.
-  for (const failure of failures) {
-    const [venue = '?', ...rest] = failure.split(': ')
-    if (!stored.includes(venue)) rows.push([venue, '—', '—', `FAILED: ${rest.join(': ')}`])
+  for (const venue of new Set(failures.map(failedVenue))) {
+    if (!stored.includes(venue)) rows.push([venue, '—', '—', 'FAILED — see below'])
   }
 
   const detail = notReadDetail(uncovered(session))
@@ -814,6 +957,7 @@ export async function venues(
     rows.length > 0
       ? renderTable(['VENUE', 'HOLDINGS', 'AS OF', 'STATUS'], rows, ['left', 'right', 'left', 'left'])
       : `No venues connected yet. ${pickVenue()}`,
+    ...(failures.length > 0 ? ['', ...failures.map((f) => `  ${f}`)] : []),
     ...stored.flatMap((venueId) => {
       const gone = retired(venueId, forgetCommand(venueId))
       return gone ? ['', `  ${gone}`] : []
@@ -826,15 +970,14 @@ export async function venues(
     // This table is the venue overview, so a venue whose text tula had to
     // change belongs on it — and it is the one view that names every venue at
     // once, which is where a book altered at two of them reads as two venues.
-    ...alteredLines(session.current.altered),
-    '',
+    ...(session.current.altered.length > 0 ? [...alteredLines(session.current.altered), ''] : []),
     `Connectors in this build: ${[...connectors.keys()].join(', ')}`,
-    // The venues are what this table is about, but the exit code answers one
-    // question for every command — is anything missing — and a price source
-    // that did not answer is missing from the same view.
-    ...(session.current.priceError ? ['', session.current.priceError] : []),
   ]
-  return { output: lines.join('\n'), incomplete: isIncomplete(session) }
+  // The venues are what this table is about, but the exit code answers one
+  // question for every command — is anything missing — and a price source
+  // that did not answer is missing from the same view.
+  const note = session.current.priceError ? `\n\n${session.current.priceError}` : ''
+  return { output: lines.join('\n') + note, note, incomplete: isIncomplete(session) }
 }
 
 export async function positionsAt(
@@ -879,14 +1022,14 @@ export async function breaksAt(
   // The venue answered, and what it holds cannot be called in. That is the one
   // state this sentence is true of; the two above it are a venue nobody read
   // and an account with nothing in it, and both used to read as this one.
+  const tail = unrankedNote(session, mine) + note
   if (risks.length === 0) {
     return {
       output:
         `Nothing at ${venueId} can be liquidated — no leverage, no borrowing, nothing to call.\n` +
         '  Spot balances cannot be taken from you, so there is nothing to rank.' +
-        unrankedNote(session, mine) +
-        note,
-      note,
+        tail,
+      note: tail,
       incomplete: isIncomplete(session),
     }
   }
@@ -894,9 +1037,55 @@ export async function breaksAt(
   const now = new Date()
   return {
     incomplete: isIncomplete(session),
-    output: draw(riskColumns(risks, now), risks) + unrankedNote(session, mine) + note,
-    note,
+    output: draw(riskColumns(risks, now), risks) + accountNote(risks) + tail,
+    note: tail,
   }
+}
+
+/**
+ * An account a venue liquidates on a ratio, and the balances inside its
+ * automatic borrowing, in the venue's own column names. `/<venue> status` is where
+ * somebody goes to check what the venue shows them against what tula read.
+ */
+function borrowingLines(rows: readonly Position[]): string[] {
+  const lines: string[] = []
+  const seen = new Set<string>()
+  for (const p of rows) {
+    const ratio = p.liquidation?.ratio
+    if (!ratio || seen.has(ratio.account)) continue
+    seen.add(ratio.account)
+    lines.push(
+      '',
+      `  ${ratio.name} ${ratioValue(ratio)}, liquidated past ${marginRatio(ratio.threshold)}` +
+        (ratio.borrowCapUsed !== undefined ? ` · Borrow Cap Used ${marginRatio(ratio.borrowCapUsed)}` : ''),
+    )
+    const floor = ratioFloor(ratio)
+    if (floor) lines.push(`  Covers what loaded: ${floor}.`)
+    // The venue's own sentence for it, because the figure looks like the ratio
+    // above and means something else.
+    if (ratio.borrowHealth !== undefined) {
+      lines.push(
+        `  Health Factor ${marginRatio(ratio.borrowHealth)} — below 100% the account cannot borrow more; it is not liquidated on it`,
+      )
+    }
+  }
+  const borrowing = rows.filter((p) => p.borrowing !== undefined)
+  if (borrowing.length > 0) {
+    const table = renderTable(
+      ['TOKEN', 'NET BALANCE', 'BORROWED', 'SUPPLIED', 'LTV', 'PM CAP USED'],
+      borrowing.map((p) => [
+        p.asset,
+        quantity(p.quantity),
+        quantity(p.borrowing!.borrowed),
+        quantity(p.borrowing!.supplied),
+        marginRatio(p.borrowing!.ltv),
+        marginRatio(p.borrowing!.capUsed),
+      ]),
+      ['left', 'right', 'right', 'right', 'right', 'right'],
+    )
+    lines.push('', ...table.split('\n').map((line) => `  ${line}`))
+  }
+  return lines
 }
 
 export async function venueStatus(
@@ -906,21 +1095,31 @@ export async function venueStatus(
 ): Promise<CommandResult> {
   const { positions: all, failures } = await session.ensureLoaded()
   const mine = all.filter((p) => belongsToVenue(p.venue, connector.venue.id))
-  const failure = failures.find((f) => f.startsWith(`${connector.venue.id}:`))
+  const own = failures.filter((f) => f.startsWith(`${connector.venue.id}:`))
+  const failure = own[0]
+  const inPart = answeredInPart(session.current).includes(connector.venue.id)
   const now = new Date()
 
   const lines = [`${connector.venue.name}  (${connector.venue.kind})`, '']
   if (!connected) {
     lines.push('  Not connected.', `  Connect with:  ${connectCommand(connector.venue.id)}`)
-  } else if (failure) {
-    lines.push(`  FAILED — ${failure.split(': ').slice(1).join(': ')}`)
-    lines.push('  Numbers elsewhere in tula do not include this venue.')
+  } else if (failure && !inPart) {
+    for (const f of own) lines.push(`  FAILED — ${f.split(': ').slice(1).join(': ')}`)
+    lines.push(
+      session.current.stale.includes(connector.venue.id)
+        ? '  Numbers elsewhere in tula use its last read — AS OF says when.'
+        : '  Numbers elsewhere in tula do not include this venue.',
+    )
   } else {
     // reduce() over no rows answers with its seed, so an empty venue used to
     // report the current time as the age of data it does not have.
     const stalest = mine.reduce<Date | null>((min, p) => (min && min < p.asOf ? min : p.asOf), null)
     const held = holdings(connector.venue.kind, mine)
     lines.push(stalest ? `  ${held}, oldest ${freshness(stalest, now)}` : `  ${held}`)
+    if (inPart) {
+      lines.push(`  Answered in part. Every figure in tula is from what did load; run ${typed('refresh')} to try again.`)
+      for (const f of own) lines.push(`    ${f.split(': ').slice(1).join(': ')}`)
+    }
     // Only a venue that asked for a key can have had one checked, and only
     // what the venue will report can be said to have been checked. Saying more
     // here than the connect screen said is the contradiction, not the brevity.
@@ -933,6 +1132,7 @@ export async function venueStatus(
             `  it cannot ${unprovable.join(' or ')}, so tula could not.`
           : '  This key was checked as read-only when you connected.',
     )
+    lines.push(...borrowingLines(mine))
     // The screen somebody opens to check what tula reads here is the screen
     // that has to say what it does not. A venue that answered is otherwise
     // taken as complete, which is the whole failure this disclosure exists for.

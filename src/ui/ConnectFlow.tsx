@@ -2,7 +2,7 @@ import { Box, Text, useApp, useInput } from 'ink'
 import { useCallback, useEffect, useState } from 'react'
 import {
   isOverScoped,
-  overScopedPowers,
+  overScopedRefusal,
   unverified,
   type Connectable,
   type ConnectorCredentials,
@@ -12,7 +12,11 @@ import { connectCommand, typed } from '../core/surface.js'
 import { failureText } from '../core/errors.js'
 import * as secrets from '../secrets/store.js'
 import type { StoredCredential } from '../secrets/store.js'
+import { terminalReply } from './anchor.js'
 import { BRAND_MARK, brandColor } from './brand.js'
+import { editingCommand, enterKey, isLineCommand, typed as keystroke } from './keys.js'
+import { edit, insert, lineEditor, type LineEditor } from './line.js'
+import { InputLine } from './TextInput.js'
 import { theme } from './theme.js'
 
 interface Props {
@@ -42,6 +46,20 @@ const SPINNER = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', 
  * and says which command takes one away.
  */
 const PICKABLE = 9
+
+/** Dots drawn for a secret at most, so a long key does not wrap the field. */
+const MASK_CELLS = 56
+
+/**
+ * A masked field drawn as its last `MASK_CELLS` dots, with the cursor among
+ * them. A key longer than that still shows where in it the cursor is, which is
+ * what an edit in the middle of a paste needs and all a dot can say.
+ */
+function masked(draft: LineEditor): { value: string; cursor: number } {
+  const dots = Math.min(draft.text.length, MASK_CELLS)
+  const hidden = draft.text.length - dots
+  return { value: '•'.repeat(dots), cursor: Math.max(0, draft.cursor - hidden) }
+}
 
 /**
  * What the screen is asking for.
@@ -74,12 +92,15 @@ export function ConnectFlow({ target, onDone, existing = [], save: store, doneMe
   )
   const [index, setIndex] = useState(0)
   const [values, setValues] = useState<Record<string, string>>({})
-  const [draft, setDraft] = useState('')
+  const [draft, setDraft] = useState<LineEditor>(() => lineEditor())
   const [busy, setBusy] = useState(false)
   const [frame, setFrame] = useState(0)
   const [error, setError] = useState<string | null>(null)
 
   const field = step.kind === 'fields' ? target.fields[index] : undefined
+  // Read at each keystroke rather than fixed when the field opened: the flag
+  // is what keeps a kill in this field out of the buffer the next field yanks.
+  const secret = field?.secret === true
   // An address-only venue has no key to over-scope, so saying so would be a lie.
   const hasSecret = target.fields.some((f) => f.secret)
   const mark = brandColor(target.id)
@@ -98,7 +119,7 @@ export function ConnectFlow({ target, onDone, existing = [], save: store, doneMe
       setError(message)
       setIndex(0)
       setValues({})
-      setDraft('')
+      setDraft(lineEditor())
       setStep(existing.length > 0 ? { kind: 'pick' } : { kind: 'fields', replacing: null })
     },
     [existing.length],
@@ -174,11 +195,7 @@ export function ConnectFlow({ target, onDone, existing = [], save: store, doneMe
         return refuse('That key cannot read balances. Enable read access and try again.')
       }
       if (isOverScoped(scope)) {
-        return refuse(
-          `Refused: this key can ${overScopedPowers(scope).join(' and ')}. ` +
-            'tula is read-only and will not hold a key that ' +
-            'can move your funds. Create one with query permissions only.',
-        )
+        return refuse(overScopedRefusal(scope, target.readOnlyKey))
       }
 
       // Nothing is on disk yet on any branch. A credential that failed above
@@ -193,6 +210,8 @@ export function ConnectFlow({ target, onDone, existing = [], save: store, doneMe
   )
 
   useInput((input, key) => {
+    // A terminal's reply to a question the shell asked it: never an address or a key.
+    if (terminalReply(input)) return
     // Above the busy gate: verifying a key is a call to the venue, and a wait
     // nothing can interrupt is exactly when somebody reaches for this key. Ink
     // holds raw mode, so unhandled it raises no SIGINT either and the screen
@@ -219,7 +238,7 @@ export function ConnectFlow({ target, onDone, existing = [], save: store, doneMe
 
     const commit = (raw: string) => {
       const value = raw.trim()
-      setDraft('')
+      setDraft((d) => lineEditor('', { killed: d.killed }))
 
       if (step.kind === 'name') {
         // Blank is a real answer: an unnamed entry works, and this venue's
@@ -247,12 +266,23 @@ export function ConnectFlow({ target, onDone, existing = [], save: store, doneMe
       void verify(next, step.replacing)
     }
 
-    if (key.return) return commit(draft)
-    if (key.backspace || key.delete) return setDraft((d) => d.slice(0, -1))
+    // One line, so every newline key is Enter here, and a key in a form nothing
+    // reads is never typed into an address or a secret.
+    const enter = enterKey(input, key)
+    if (enter === 'ignore') return
+    if (enter) return commit(draft.text)
+    const command = editingCommand(input, key)
+    if (command) {
+      // A field has no history, and ↑ recalling the shell's into a key field
+      // is a line typed somewhere else arriving where a secret goes.
+      if (!isLineCommand(command)) return
+      return setDraft((d) => edit({ ...d, secret }, command))
+    }
     if (key.ctrl || key.meta || key.tab) return
     if (!input) return
-    if (/[\r\n]$/.test(input)) return commit(draft + input.replace(/[\r\n]+/g, ''))
-    setDraft((d) => d + input.replace(/[\r\n]+/g, ''))
+    const { text, submits } = keystroke(input)
+    if (submits) return commit(insert(draft, text).text)
+    setDraft((d) => insert({ ...d, secret }, text))
   })
 
   const line =
@@ -377,8 +407,7 @@ export function ConnectFlow({ target, onDone, existing = [], save: store, doneMe
             paddingX={1}
           >
             <Text color={theme.accent}>{'❯ '}</Text>
-            <Text>{line.secret ? '•'.repeat(Math.min(draft.length, 56)) : draft}</Text>
-            <Text inverse> </Text>
+            <InputLine {...(line.secret ? masked(draft) : { value: draft.text, cursor: draft.cursor })} />
           </Box>
           <Text dimColor>{`  ${line.footer}`}</Text>
         </Box>

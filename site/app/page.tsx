@@ -90,31 +90,31 @@ export default function Page() {
             </Link>
           </div>
 
-          <Session status="4 venues  ·  11 positions  ·  09:14:02 (4s ago)  ·  commands only">
+          <Session status="4 venues  ·  12 positions  ·  09:14:02 (4s ago)  ·  commands only">
             <Banner />
             <Prompt>❯ /exposure</Prompt>
-            {`ASSET   NET    NOTIONAL  VENUES                   AS OF
-─────  ────  ──────────  ───────────────────────  ─────────────────
-ETH    6.64  $16,268.00  kraken hyperliquid aave  09:14:02 (4s ago)
-BTC    0.12   $8,160.00  kraken                   09:14:02 (4s ago)
-SOL      30   $4,350.00  kraken                   09:14:02 (4s ago)
-LINK    180   $2,556.00  wallet                   09:14:02 (4s ago)
-USDC   1200   $1,200.00  wallet                   09:14:02 (4s ago)
-ARB     900     $558.00  wallet                   09:14:02 (4s ago)
-USDT    480     $480.00  kraken                   09:14:02 (4s ago)
-OP      320     $464.00  kraken                   09:14:02 (4s ago)
-UNI      60     $438.00  wallet                   09:14:02 (4s ago)
+            {`ASSET      NET    NOTIONAL  VENUES                   AS OF
+─────  ───────  ──────────  ───────────────────────  ─────────────────
+ETH       6.64  $16,268.00  kraken hyperliquid aave  09:14:02 (4s ago)
+BTC       0.12   $8,160.00  kraken                   09:14:02 (4s ago)
+SOL         30   $4,350.00  kraken                   09:14:02 (4s ago)
+USDC   3260.48   $3,260.48  hyperliquid wallet       09:14:02 (4s ago)
+LINK       180   $2,556.00  wallet                   09:14:02 (4s ago)
+ARB        900     $558.00  wallet                   09:14:02 (4s ago)
+USDT       480     $480.00  kraken                   09:14:02 (4s ago)
+OP         320     $464.00  kraken                   09:14:02 (4s ago)
+UNI         60     $438.00  wallet                   09:14:02 (4s ago)
 
 `}
-            <Held>{'Net notional  $34,474.00'}</Held>
+            <Held>{'Equity  $41,434.48'}</Held>
             <Prompt>❯ /breaks</Prompt>
             {`VENUE        ASSET  KIND        MOVE TO LIQ  TRIGGER              AS OF
 ───────────  ─────  ──────────  ───────────  ───────────────────  ─────────────────
 aave         ETH    collateral       -27.0%  health factor 1.37   09:14:02 (4s ago)
 hyperliquid  ETH    perp             +39.3%  liq price $3,412.00  09:14:02 (4s ago)
 
-Ranked over what tula reads: aave, hyperliquid and kraken each have an unread
-area that could hold a liquidation of its own.
+Ranked over what tula reads: aave and kraken each have an unread area that
+could hold a liquidation of its own.
   /venues names them.`}
           </Session>
         </div>
@@ -155,7 +155,7 @@ area that could hold a liquidation of its own.
             </div>
 
             <div className="overflow-hidden rounded border border-rule bg-panel shadow-lift">
-              <p className="border-b border-rule px-4 py-3 font-mono text-[0.68rem] uppercase tracking-[0.14em] text-dim">
+              <p className="border-b border-rule px-4 py-3 font-mono text-[0.75rem] leading-[1.125rem] uppercase tracking-[0.14em] text-dim">
                 One asset, three venues
               </p>
               {SEEN.map(([venue, what, qty]) => (
@@ -194,7 +194,7 @@ area that could hold a liquidation of its own.
             </h2>
             <p className="text-dim">Type a question instead of a command.</p>
             <p className="mt-4 text-dim">
-              Connect a model and the answer comes back in plain English. Every command still works
+              Sign in to a model and the answer comes back in plain English. Every command works
               without one.
             </p>
           </div>
@@ -211,13 +211,13 @@ area that could hold a liquidation of its own.
             {`Net long 6.64 ETH, $16,268.00 across kraken, hyperliquid and aave, as of
 09:14:02 (4s ago).
 
-A 20% fall takes the book to $31,220.40, a change of -$3,253.60, and
-nothing liquidates. Aave is nearest: a health factor of 1.37 breaks at
--27.0%. The hyperliquid short breaks the other way, +39.3%.
+A 20% fall takes your equity to $38,180.88, a change of -$3,253.60,
+and nothing liquidates. Aave is closest: its health factor of 1.37
+breaks at -27.0%. The hyperliquid short breaks if ETH rises 39.3%.
 
-That ranking is over what tula reads. aave, hyperliquid and kraken each
-have an area it does not read that could hold a liquidation of its own —
-/venues names them.`}
+That ranking is over what tula reads. aave and kraken each have an area
+it does not read that could hold a liquidation of its own — /venues names
+them.`}
           </Ask>
         </div>
       </section>

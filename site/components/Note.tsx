@@ -1,6 +1,6 @@
 'use client'
 
-import { type MouseEvent, type ReactNode, useRef, useState } from 'react'
+import { type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 
 /** How far the card drifts, in px, at the ends of the term — about 2.4rem. */
 const DRIFT = 38
@@ -28,7 +28,31 @@ const MARGIN = 16
 export function Note({ term, children }: { term: string; children: ReactNode }) {
   const [open, setOpen] = useState(false)
   const card = useRef<HTMLSpanElement>(null)
+  const root = useRef<HTMLSpanElement>(null)
+  /**
+   * Read at the start of a press, not at its click: Android focuses the button
+   * on the same tap, so by the click the card is already open and a toggle
+   * would shut it again.
+   */
+  const press = useRef<{ mouse: boolean; wasOpen: boolean } | null>(null)
   const id = `${term.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-note`
+
+  // A tapped card has no hover to leave and, on iOS, no focus to lose.
+  useEffect(() => {
+    if (!open) return
+    const away = (event: PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(false)
+    }
+    const dismiss = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', away)
+    document.addEventListener('keydown', dismiss)
+    return () => {
+      document.removeEventListener('pointerdown', away)
+      document.removeEventListener('keydown', dismiss)
+    }
+  }, [open])
 
   const place = (anchor: HTMLElement, across: number) => {
     const on = card.current
@@ -48,16 +72,34 @@ export function Note({ term, children }: { term: string; children: ReactNode }) 
   }
 
   return (
-    <span className="relative inline-block">
+    <span ref={root} className="relative inline-block">
+      {/* Hover is mouse-only: iOS Safari focuses nothing on a tap and emulates
+          mouseenter instead, which opened the card with nothing to close it.
+          A touch press toggles through the click. */}
       <button
         type="button"
         aria-describedby={id}
-        onMouseEnter={(event) => {
+        onPointerEnter={(event) => {
+          if (event.pointerType !== 'mouse') return
           track(event)
           setOpen(true)
         }}
-        onMouseMove={track}
-        onMouseLeave={() => setOpen(false)}
+        onPointerMove={(event) => {
+          if (event.pointerType === 'mouse') track(event)
+        }}
+        onPointerLeave={(event) => {
+          if (event.pointerType === 'mouse') setOpen(false)
+        }}
+        onPointerDown={(event) => {
+          press.current = { mouse: event.pointerType === 'mouse', wasOpen: open }
+        }}
+        onClick={(event) => {
+          const began = press.current
+          press.current = null
+          if (began?.mouse) return
+          place(event.currentTarget, 0)
+          setOpen(!(began ? began.wasOpen : open))
+        }}
         onFocus={(event) => {
           place(event.currentTarget, 0)
           setOpen(true)
@@ -65,7 +107,7 @@ export function Note({ term, children }: { term: string; children: ReactNode }) 
         onBlur={() => setOpen(false)}
         // Form controls do not inherit text-transform, and this one sits in a line
         // the page sets in capitals.
-        className="cursor-help border-b border-dashed border-accent-dim pb-0.5 uppercase tracking-[inherit] transition-colors hover:border-accent hover:text-notice"
+        className="relative cursor-help border-b border-dashed after:absolute after:inset-x-0 after:-inset-y-[10px] after:content-[''] border-accent-dim pb-0.5 uppercase tracking-[inherit] transition-colors hover:border-accent hover:text-notice"
       >
         {term}
       </button>

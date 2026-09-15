@@ -8,9 +8,10 @@ const SUMMARY = 'There is nothing at this address. Everything the site publishes
 export const metadata: Metadata = {
   // Without one, every 404 carries the front page's title.
   title: TITLE,
-  // Next tags this route noindex itself, but the layout's `index, follow` is
-  // emitted beside it — restated here so the two tags on the page agree.
-  robots: { index: false, follow: true },
+  description: SUMMARY,
+  // Next emits `noindex` for this route on its own; null drops the layout's
+  // `index, follow`, which would otherwise print beside it.
+  robots: null,
   // The layout canonicalises to `/`, which every real page overrides and this
   // one inherited: a 404 that names the front page as its canonical asks a
   // crawler that ignores the noindex to fold every mistyped path into it.
@@ -46,14 +47,14 @@ export default function NotFound() {
       <dl className="grid gap-x-10 gap-y-5 sm:grid-cols-[7rem_1fr]">
         {NAV.map(({ href, label, blurb }) => (
           <div key={href} className="contents">
-            <dt className="pt-0.5 font-mono text-[0.74rem] uppercase tracking-[0.09em]">
-              {/* A 12px line of capitals is a 14px-tall target, and these three
-                  links are the whole way out of a dead end on a phone. The
+            <dt className="pt-0.5 font-mono text-[0.75rem] uppercase tracking-[0.09em]">
+              {/* A 12px line of capitals is a 14px-tall target, and these links
+                  are the whole way out of a dead end on a phone. The
                   `after` takes the tap area to 44 without moving the row — the
                   gap below the term is a blurb, which nothing else can claim. */}
               <Link
                 href={href}
-                className="relative inline-block text-accent after:absolute after:inset-x-0 after:-top-[15px] after:-bottom-[15px] after:content-['']"
+                className="relative inline-block text-accent after:absolute after:-inset-x-[6px] after:-top-[15px] after:-bottom-[15px] after:content-['']"
               >
                 {label}
               </Link>

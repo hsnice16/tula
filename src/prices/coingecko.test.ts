@@ -1,4 +1,6 @@
 import { describe, expect, test } from 'bun:test'
+import { CHAINS } from '../connectors/chains.js'
+import { assetOn, BRIDGED } from '../connectors/symbols.js'
 import { TulaError } from '../core/errors.js'
 import { CoinGeckoOracle } from './coingecko.js'
 
@@ -105,6 +107,113 @@ describe('CoinGeckoOracle', () => {
     const err = await oracle.quoteMany(['BTC']).catch((e) => e)
     expect(err).toBeInstanceOf(TulaError)
     expect((err as Error).message).toContain('still correct')
+  })
+
+  describe('a pinned coin no page lists', () => {
+    // xDAI has no market-cap rank, so it is on no page at any depth, and the
+    // chain it is the gas token of is one tula reads.
+    const XDAI = [{ id: 'xdai', symbol: 'xdai', current_price: 0.9997 }]
+
+    function byId(idStatus = 200) {
+      const calls: string[] = []
+      const oracle = new CoinGeckoOracle(
+        async (url) => {
+          calls.push(url)
+          if (new URL(url).searchParams.has('ids')) {
+            return new Response(JSON.stringify(XDAI), { status: idStatus })
+          }
+          return new Response(JSON.stringify(TOP), { status: 200 })
+        },
+        60_000,
+        1,
+      )
+      return { oracle, calls }
+    }
+
+    test('is asked for by id once somebody holds it, at its quoted price rather than a dollar', async () => {
+      const { oracle, calls } = byId()
+      expect((await oracle.quoteMany(['XDAI'])).get('XDAI')?.price.toString()).toBe('0.9997')
+      await oracle.quoteMany(['XDAI', 'BTC'])
+      expect(calls.filter((url) => new URL(url).searchParams.has('ids'))).toHaveLength(1)
+    })
+
+    test('costs nothing for a book that does not hold one', async () => {
+      const { oracle, calls } = byId()
+      await oracle.quoteMany(['BTC', 'ETH'])
+      expect(calls).toHaveLength(1)
+    })
+
+    test('failing to arrive leaves that coin unpriced and keeps every other price', async () => {
+      const { oracle } = byId(429)
+      const quotes = await oracle.quoteMany(['BTC', 'XDAI'])
+      expect(quotes.get('BTC')?.price.toString()).toBe('60000')
+      expect(quotes.has('XDAI')).toBe(false)
+    })
+
+    /** The pages answer; the request by id does whatever `answer` does. */
+    const byIdAnswering = (answer: () => Promise<Response>) =>
+      new CoinGeckoOracle(
+        async (url) =>
+          new URL(url).searchParams.has('ids') ? answer() : new Response(JSON.stringify(TOP), { status: 200 }),
+        60_000,
+        1,
+      )
+
+    // `request()` throws on its deadline and on a dropped connection, and either
+    // one escaping here took every page price with it.
+    test('a request that throws keeps every other price', async () => {
+      const oracle = byIdAnswering(() => Promise.reject(new TulaError('CoinGecko did not answer in time.')))
+      const quotes = await oracle.quoteMany(['BTC', 'XDAI'])
+      expect(quotes.get('BTC')?.price.toString()).toBe('60000')
+      expect(quotes.has('XDAI')).toBe(false)
+    })
+
+    test('a body that is not JSON keeps every other price', async () => {
+      const oracle = byIdAnswering(async () => new Response('<html>busy</html>', { status: 200 }))
+      const quotes = await oracle.quoteMany(['BTC', 'XDAI'])
+      expect(quotes.get('BTC')?.price.toString()).toBe('60000')
+      expect(quotes.has('XDAI')).toBe(false)
+    })
+
+    test('two reads asking at once both get it, from one request', async () => {
+      const { oracle, calls } = byId()
+      await oracle.quoteMany(['BTC'])
+      const both = await Promise.all([oracle.quoteMany(['XDAI']), oracle.quoteMany(['XDAI'])])
+      for (const quotes of both) expect(quotes.get('XDAI')?.price.toString()).toBe('0.9997')
+      expect(calls.filter((url) => new URL(url).searchParams.has('ids'))).toHaveLength(1)
+    })
+  })
+
+  describe('a bridge’s token', () => {
+    /** Answers a request by id with every id it names, at `price`. */
+    const quoting = (price: number) =>
+      new CoinGeckoOracle(
+        async (url) => {
+          const ids = new URL(url).searchParams.get('ids')
+          const rows = ids ? ids.split(',').map((id) => ({ id, symbol: id, current_price: price })) : TOP
+          return new Response(JSON.stringify(rows), { status: 200 })
+        },
+        60_000,
+        1,
+      )
+
+    test('is priced by its own coin, never by the coin it is named after', async () => {
+      const quotes = await quoting(0.97).quoteMany(['USDC', 'arbitrum:USDC.E'])
+      expect(quotes.get('USDC')?.price.toString()).toBe('0.9998')
+      expect(quotes.get('arbitrum:USDC.E')?.price.toString()).toBe('0.97')
+    })
+
+    test('every one the symbol table names has a coin to be priced by', async () => {
+      const names = [
+        'USDT0',
+        ...Object.entries(BRIDGED).map(([at, ticker]) => {
+          const [eip155, address] = at.split(':') as [string, string]
+          return assetOn(CHAINS.find((c) => c.eip155 === Number(eip155))!, address, ticker)
+        }),
+      ]
+      const quotes = await quoting(1).quoteMany(names)
+      expect(names.filter((name) => !quotes.has(name))).toEqual([])
+    })
   })
 
   describe('TULA_PRICE_PAGES', () => {

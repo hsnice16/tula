@@ -1,5 +1,5 @@
 import Decimal from 'decimal.js'
-import { PartialRead, retired, type Connector } from '../connectors/types.js'
+import { PartialRead, refreshScope, retired, type Connector } from '../connectors/types.js'
 import { remote, TulaError } from '../core/errors.js'
 import { netExposure, oldest, type PriceMap, type QuoteTimes } from '../core/exposure.js'
 import { belongsToVenue, type AssetId, type ChainId, type Position } from '../core/position.js'
@@ -279,6 +279,9 @@ export class Session {
       // deriving that by splitting the lines back apart would be a second
       // parser for a string this file is the one writer of.
       const failed: string[] = []
+      // One per refresh: what a venue lists is read once for every address it
+      // holds, and read again next refresh rather than held for the session.
+      const scope = refreshScope()
 
       for (const venueId of await secrets.listVenues()) {
         const connector = this.connectors.get(venueId)
@@ -328,7 +331,7 @@ export class Session {
           }
           let read: readonly Position[] = []
           try {
-            read = await connector.fetchPositions(held.credentials)
+            read = await connector.fetchPositions(held.credentials, scope)
           } catch (err) {
             // A venue spread over several chains has several independent ways to
             // fail, and catching per connector made the whole book hostage to

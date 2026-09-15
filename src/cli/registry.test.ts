@@ -1,5 +1,91 @@
 import { describe, expect, test } from 'bun:test'
-import { buildPalette, matchPalette, type PriceEntry, type VenueEntry } from './registry.js'
+import {
+  argumentList,
+  buildPalette,
+  matchPalette,
+  SLASH_COMMANDS,
+  VENUE_SUBCOMMANDS,
+  type CandidateContext,
+  type PriceEntry,
+  type VenueEntry,
+} from './registry.js'
+
+describe('argument candidates', () => {
+  const context = (over: Partial<CandidateContext> = {}): CandidateContext => ({
+    venues: VENUES,
+    stored: [
+      { name: 'kraken', summary: '12 balances · 3s ago' },
+      { name: 'circle', summary: 'no longer read by this build' },
+    ],
+    assets: [
+      { name: 'BTC', summary: 'held at kraken' },
+      { name: 'ETH', summary: 'held at kraken' },
+    ],
+    accounts: () => [
+      { name: 'hot', summary: 'hot (0xaaa)' },
+      { name: 'cold', summary: 'cold (0xbbb)' },
+    ],
+    ...over,
+  })
+  const names = (line: string, over: Partial<CandidateContext> = {}) =>
+    argumentList(line, context(over))?.candidates.map((c) => c.name)
+
+  // A declaration nobody reads is a list that silently offers nothing.
+  test('every argument the registry names says where its candidates come from', () => {
+    for (const command of SLASH_COMMANDS.filter((c) => c.args)) {
+      expect({ command: command.name, declared: command.arguments?.length }).toEqual({
+        command: command.name,
+        declared: command.args?.split(' ').length,
+      })
+    }
+  })
+
+  test('each position offers what the command takes there, filtered as typed', () => {
+    expect(names('/connect ')).toEqual(['kraken', 'aave'])
+    expect(names('/connect KR')).toEqual(['kraken'])
+    expect(names('/update ')).toEqual(['install'])
+    expect(names('/history c')).toEqual(['clear'])
+    expect(names('/shock ')).toEqual(['BTC', 'ETH'])
+    expect(names('/shock e')).toEqual(['ETH'])
+  })
+
+  // /forget is how a key for a venue this build dropped is removed, so the
+  // venue that is no longer a venue is exactly the one it has to offer.
+  test('forget offers what is stored, including a venue the build no longer reads', () => {
+    expect(names('/forget ')).toEqual(['kraken', 'circle'])
+  })
+
+  test('shock comes round again after its percentage, which offers a shape, not a list', () => {
+    const percent = argumentList('/shock ETH ', context())
+    expect(percent?.candidates).toEqual([])
+    expect(percent?.empty).toContain('percent')
+    expect(percent?.heading).toBe('/shock <percent>')
+    expect(names('/shock ETH -20 ')).toEqual(['BTC', 'ETH'])
+  })
+
+  test('an asset list before anything is read says what reads it, and reads nothing', () => {
+    expect(argumentList('/shock ', context({ assets: null }))?.empty).toContain('/refresh')
+    expect(argumentList('/shock ', context({ assets: null, stored: [] }))?.empty).toContain(
+      'pick a venue',
+    )
+  })
+
+  test('a venue holding several accounts offers them to disconnect, and one holding one does not', () => {
+    expect(names('/kraken disconnect ')).toEqual(['hot', 'cold'])
+    expect(
+      argumentList('/kraken disconnect ', context({ accounts: () => [{ name: 'only', summary: 'only' }] })),
+    ).toBeNull()
+    expect(VENUE_SUBCOMMANDS.find((s) => s.name === 'disconnect')?.arguments).toBeDefined()
+  })
+
+  test('no list where there is nothing to complete', () => {
+    expect(argumentList('/shock', context())).toBeNull()
+    expect(argumentList('/exposure ', context())).toBeNull()
+    expect(argumentList('/connect kraken extra ', context())).toBeNull()
+    expect(argumentList('/connect zz', context())).toBeNull()
+    expect(argumentList('what is my eth ', context())).toBeNull()
+  })
+})
 
 const VENUES: VenueEntry[] = [
   { id: 'kraken', detail: '12 balances · 3s ago', connected: true },

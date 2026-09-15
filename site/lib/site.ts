@@ -10,7 +10,7 @@ export const NAME = 'tula'
  * the two disagree and `release-cut.sh` bumps this with them: a frame offered
  * as the tool's own output cannot print a release that was never cut.
  */
-export const VERSION = '0.2.0'
+export const VERSION = '0.3.0'
 
 /**
  * GA4, for the site alone. Held here rather than read from `process.env`: an
@@ -55,29 +55,39 @@ export const INSTALL_COMMAND = `curl --proto '=https' --tlsv1.2 -LsSf ${SITE}/in
 export const pageUrl = (href: string) => `${SITE}${href === '/' ? '' : href}/`
 
 /**
- * Every route the site publishes, in the order the header shows them. The
- * header, the footer, the sitemap and `llms.txt` all take the routes from here,
- * so a fourth page cannot ship unlinked or unindexed; the blurb is the sentence
+ * Every route the site publishes, in display order. The footer, the sitemap and
+ * `llms.txt` all take the routes from here, so a new page cannot ship unlinked
+ * or unindexed; the header shows only `inHeader` ones. The blurb is the sentence
  * `llms.txt` summarises each one by.
  */
 export const NAV = [
   {
     href: '/',
     label: 'Overview',
+    inHeader: true,
     blurb:
-      'What one asset held spot, short and pledged nets to, what breaks first, and the question you can ask in plain English instead.',
+      'How one asset held spot, short and as collateral nets out, what breaks first, and asking in plain English instead.',
   },
   {
     href: '/install',
     label: 'Install',
+    inHeader: true,
     blurb:
-      'One command. Checksum and sigstore attestation, what it runs on, Homebrew and npm, and how to go back to a version.',
+      'One command, with every download checked. Homebrew and npm, what it runs on, and how to go back a version.',
   },
   {
     href: '/security',
     label: 'Security',
+    inHeader: true,
     blurb:
-      'What tula promises about your keys and your funds, what enforces each promise in the build, and where the edges are.',
+      'What tula promises about your keys and your funds, what enforces each promise, and where the limits are.',
+  },
+  {
+    href: '/keys',
+    label: 'Keys',
+    inHeader: false,
+    blurb:
+      'Every key the shell answers to, grouped by what it is for, and which ones need a terminal that sends them.',
   },
 ] as const
 
@@ -188,6 +198,12 @@ export const KEYWORDS = [
   'ethereum',
   'arbitrum',
   'base chain',
+  'polygon',
+  'optimism',
+  'avalanche',
+  'gnosis',
+  'scroll',
+  'linea',
   'erc-20',
   'onchain',
   'wallet balances',

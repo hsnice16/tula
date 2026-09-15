@@ -1,4 +1,4 @@
-# 13–16 · Execution
+# 14–17 · Execution
 
 Last, deliberately. Guardrails enforced by a contract rather than by app config a
 prompt injection could rewrite.

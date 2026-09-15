@@ -113,19 +113,20 @@ describe('netExposure', () => {
 })
 
 describe('portfolioValue', () => {
+  const ETH = new Map([['ETH', new Decimal(4000)]])
+  const perp = (venue: string, quantity: string, equity?: string): Position => ({
+    ...pos(venue, 'ETH', quantity, 'perp'),
+    ...(equity === undefined ? {} : { equity: new Decimal(equity) }),
+  })
+
   test('sums priced legs and names what it had to leave out', () => {
-    const exposures = netExposure(
-      [pos('a', 'ETH', '2'), pos('a', 'XYZ', '100')],
-      new Map([['ETH', new Decimal(4000)]]),
-    )
-    const value = portfolioValue(exposures)
+    const value = portfolioValue([pos('a', 'ETH', '2'), pos('a', 'XYZ', '100')], ETH)
     expect(value.total?.toString()).toBe('8000')
     expect(value.unpriced).toEqual(['XYZ'])
   })
 
   test('a book nobody could price has no total, rather than a total of zero', () => {
-    const exposures = netExposure([pos('a', 'XYZ', '100'), pos('a', 'ABC', '5')], new Map())
-    const value = portfolioValue(exposures)
+    const value = portfolioValue([pos('a', 'XYZ', '100'), pos('a', 'ABC', '5')], new Map())
     expect(value.total).toBeNull()
     expect(value.unpriced).toEqual(['ABC', 'XYZ'])
   })
@@ -135,12 +136,54 @@ describe('portfolioValue', () => {
     expect(portfolioValue([]).total?.toString()).toBe('0')
   })
 
-  test('a short reduces the total', () => {
-    const exposures = netExposure(
-      [pos('a', 'ETH', '2'), pos('b', 'ETH', '-3', 'perp')],
-      new Map([['ETH', new Decimal(4000)]]),
+  test('a debt reduces the total', () => {
+    expect(portfolioValue([pos('a', 'ETH', '2'), pos('b', 'ETH', '-3', 'debt')], ETH).total?.toString()).toBe(
+      '-4000',
     )
-    expect(portfolioValue(exposures).total?.toString()).toBe('-4000')
+  })
+
+  test('a short adds the equity its venue states, not its notional', () => {
+    // -3 ETH at 4000 is -12,000 of notional. The venue says the position is up
+    // 500, and that is all it adds to what the book is worth.
+    const value = portfolioValue([pos('a', 'USDC', '1000'), perp('b', '-3', '500')], new Map([...ETH, ['USDC', new Decimal(1)]]))
+    expect(value.total?.toString()).toBe('1500')
+    expect(netExposure([perp('b', '-3', '500')], ETH)[0]?.notional?.toString()).toBe('-12000')
+  })
+
+  test('the same short moves the total by the same amount wherever its PnL is stated', () => {
+    // Coinbase states the PnL on the position; Hyperliquid states it inside the
+    // balance row beside it. Both are the same account, and one total.
+    const prices = new Map([...ETH, ['USDC', new Decimal(1)]])
+    const onThePosition = [pos('coinbase', 'USDC', '1000'), perp('coinbase', '-3', '500')]
+    const inTheBalance = [pos('hyperliquid', 'USDC', '1500', 'collateral'), perp('hyperliquid', '-3', '0')]
+    expect(portfolioValue(onThePosition, prices).total?.toString()).toBe(
+      portfolioValue(inTheBalance, prices).total?.toString(),
+    )
+  })
+
+  test('a derivative whose venue states no equity is named, never counted at its notional', () => {
+    const value = portfolioValue([pos('a', 'ETH', '2'), perp('binance', '-3')], ETH)
+    expect(value.total?.toString()).toBe('8000')
+    expect(value.unstated).toEqual(['binance'])
+  })
+
+  test('a perp moves the total by its size times the price change', () => {
+    const value = portfolioValue([perp('b', '-3', '500')], new Map([['ETH', new Decimal(3000)]]), ETH)
+    expect(value.total?.toString()).toBe('3500')
+  })
+
+  test('a perp whose PnL lives in an unpriced balance does not make the book worth $0.00', () => {
+    // Hyperliquid with the price source down: the USDC balance has no price, and
+    // the perp beside it states zero because its PnL is inside that balance.
+    const value = portfolioValue([pos('hl', 'USDC', '1500', 'collateral'), perp('hl', '-3', '0')], new Map())
+    expect(value.total).toBeNull()
+    expect(value.unpriced).toEqual(['USDC'])
+  })
+
+  test('a perp on an asset nobody prices still carries the equity its venue states', () => {
+    const value = portfolioValue([{ ...perp('b', '-3', '250'), asset: 'xyz:TSLA' }], new Map())
+    expect(value.total?.toString()).toBe('250')
+    expect(value.unpriced).toEqual([])
   })
 })
 

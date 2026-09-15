@@ -43,7 +43,7 @@ rather than an implementation detail. It also carries a cost nothing else in thi
 milestone does: an address goes to a third party, which is why the tier-2 label is
 a promise to the reader and not bookkeeping.
 
-It sits in **10** rather than **7** because the remainder splits by the only
+It sits in **11** rather than **7** because the remainder splits by the only
 question tula answers. What is left uncovered *and* liquidatable — Morpho,
 Compound, Spark — is hand-built by the policy in `ROADMAP.md`, and an aggregator
 could not give a health factor anyway. What is left uncovered and not

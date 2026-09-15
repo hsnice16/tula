@@ -1,0 +1,372 @@
+{
+  "groups": [
+    {
+      "title": "General",
+      "rows": [
+        {
+          "keys": [
+            "?"
+          ],
+          "does": "Show or hide these keys, on an empty line"
+        },
+        {
+          "keys": [
+            "/"
+          ],
+          "does": "Open the command menu"
+        },
+        {
+          "keys": [
+            "ctrl+s"
+          ],
+          "does": "Search all commands; while searching history, go to a newer match"
+        },
+        {
+          "keys": [
+            "ctrl+o"
+          ],
+          "does": "Show all of a long output, or shorten it again"
+        },
+        {
+          "keys": [
+            "ctrl+l"
+          ],
+          "does": "Clear the screen"
+        },
+        {
+          "keys": [
+            "ctrl+c"
+          ],
+          "does": "Clear the line; on an empty line, leave tula"
+        },
+        {
+          "keys": [
+            "ctrl+d"
+          ],
+          "does": "Delete the character under the cursor; on an empty line, leave tula"
+        },
+        {
+          "keys": [
+            "Esc"
+          ],
+          "does": "Close a list, the command search or these keys; cancel removing a venue"
+        },
+        {
+          "keys": [
+            "Enter"
+          ],
+          "does": "While something is running, save what you typed to run next"
+        },
+        {
+          "keys": [
+            "Esc",
+            "ctrl+c"
+          ],
+          "does": "Stop an answer while it is being written; ctrl+c clears what you typed first"
+        },
+        {
+          "keys": [
+            "↑"
+          ],
+          "does": "On an empty line, bring back the last line waiting to run, to edit it"
+        }
+      ]
+    },
+    {
+      "title": "Editing",
+      "rows": [
+        {
+          "keys": [
+            "ctrl+a",
+            "Home"
+          ],
+          "does": "Go to the start of the line"
+        },
+        {
+          "keys": [
+            "ctrl+e",
+            "End"
+          ],
+          "does": "Go to the end of the line"
+        },
+        {
+          "keys": [
+            "ctrl+b",
+            "←"
+          ],
+          "does": "Move back one character"
+        },
+        {
+          "keys": [
+            "ctrl+f",
+            "→"
+          ],
+          "does": "Move forward one character"
+        },
+        {
+          "keys": [
+            "alt+b",
+            "ctrl+←",
+            "alt+←"
+          ],
+          "does": "Move back one word",
+          "note": "alt needs Option as Meta on macOS"
+        },
+        {
+          "keys": [
+            "alt+f",
+            "ctrl+→",
+            "alt+→"
+          ],
+          "does": "Move forward one word",
+          "note": "alt needs Option as Meta on macOS"
+        },
+        {
+          "keys": [
+            "ctrl+w"
+          ],
+          "does": "Delete back to the previous space"
+        },
+        {
+          "keys": [
+            "alt+backspace"
+          ],
+          "does": "Delete the word before the cursor",
+          "note": "alt needs Option as Meta on macOS"
+        },
+        {
+          "keys": [
+            "alt+d"
+          ],
+          "does": "Delete the word after the cursor",
+          "note": "alt needs Option as Meta on macOS"
+        },
+        {
+          "keys": [
+            "ctrl+u"
+          ],
+          "does": "Delete to the start of the line"
+        },
+        {
+          "keys": [
+            "ctrl+k"
+          ],
+          "does": "Delete to the end of the line; at its end, join the next line"
+        },
+        {
+          "keys": [
+            "ctrl+y"
+          ],
+          "does": "Put back what was last deleted"
+        },
+        {
+          "keys": [
+            "Delete"
+          ],
+          "does": "Delete the character under the cursor"
+        },
+        {
+          "keys": [
+            "ctrl+t"
+          ],
+          "does": "Swap the two characters around the cursor"
+        },
+        {
+          "keys": [
+            "ctrl+_"
+          ],
+          "does": "Undo the last edit"
+        }
+      ]
+    },
+    {
+      "title": "History",
+      "rows": [
+        {
+          "keys": [
+            "↑",
+            "ctrl+p"
+          ],
+          "does": "Move up a line; on the top line, show the line you sent before"
+        },
+        {
+          "keys": [
+            "↓",
+            "ctrl+n"
+          ],
+          "does": "Move down a line; on the bottom line, show the next line you sent"
+        },
+        {
+          "keys": [
+            "ctrl+r"
+          ],
+          "does": "Search what you sent before — ctrl+r for older, Enter to run, Esc to edit, ctrl+g to cancel"
+        }
+      ]
+    },
+    {
+      "title": "Lists and suggestions",
+      "rows": [
+        {
+          "keys": [
+            "↑ ↓",
+            "ctrl+p ctrl+n"
+          ],
+          "does": "Move through an open list"
+        },
+        {
+          "keys": [
+            "Enter"
+          ],
+          "does": "Run the highlighted command; in a list of choices for a command, put the choice on the line"
+        },
+        {
+          "keys": [
+            "Tab"
+          ],
+          "does": "Put the highlighted command on the line; with no list open, accept the suggestion"
+        },
+        {
+          "keys": [
+            "→",
+            "ctrl+f",
+            "ctrl+e"
+          ],
+          "does": "At the end of the line, accept the suggestion shown after the cursor"
+        },
+        {
+          "keys": [
+            "alt+f"
+          ],
+          "does": "Accept one word of the suggestion",
+          "note": "alt needs Option as Meta on macOS"
+        }
+      ]
+    },
+    {
+      "title": "More than one line",
+      "rows": [
+        {
+          "keys": [
+            "Enter"
+          ],
+          "does": "Send what you typed"
+        },
+        {
+          "keys": [
+            "ctrl+j"
+          ],
+          "does": "Start a new line — works in every terminal"
+        },
+        {
+          "keys": [
+            "shift+Enter"
+          ],
+          "does": "Start a new line",
+          "note": "needs a terminal that sends it — one with the kitty keyboard protocol, or tmux with extended-keys"
+        },
+        {
+          "keys": [
+            "alt+Enter",
+            "ctrl+Enter"
+          ],
+          "does": "Start a new line",
+          "note": "alt needs Option as Meta on macOS; ctrl+Enter needs a terminal that sends it"
+        },
+        {
+          "keys": [
+            "\\ then Enter"
+          ],
+          "does": "Start a new line; the backslash is removed"
+        }
+      ]
+    },
+    {
+      "title": "Vim mode — after /vim",
+      "rows": [
+        {
+          "keys": [
+            "Esc"
+          ],
+          "does": "Switch to NORMAL mode; if a list is open, the first Esc closes it"
+        },
+        {
+          "keys": [
+            "i a",
+            "I A",
+            "o O"
+          ],
+          "does": "Switch to INSERT mode: before or after the cursor, at the start or end of the line, or on a new line below or above"
+        },
+        {
+          "keys": [
+            "h l",
+            "j k"
+          ],
+          "does": "Left and right; up and down a line, and to earlier or later lines you sent from the top or bottom line"
+        },
+        {
+          "keys": [
+            "w e b",
+            "W E B"
+          ],
+          "does": "Move by word; the capitals count everything between spaces as one word"
+        },
+        {
+          "keys": [
+            "0 ^ $",
+            "gg G"
+          ],
+          "does": "Go to the start, the first character or the end of the line; to the first or last line"
+        },
+        {
+          "keys": [
+            "f F t T",
+            "; ,"
+          ],
+          "does": "Jump to a character on the line; repeat the jump, or repeat it backwards"
+        },
+        {
+          "keys": [
+            "d c y",
+            "dd cc yy",
+            "D C"
+          ],
+          "does": "Delete, change or copy as far as the next move goes; the whole line; to the end of the line"
+        },
+        {
+          "keys": [
+            "x r ~ J",
+            "p P"
+          ],
+          "does": "Delete a character, replace it, switch its case, join lines; paste after or before"
+        },
+        {
+          "keys": [
+            "iw aw",
+            "i\" a\"",
+            "i( a(",
+            "i[ a[",
+            "i{ a{"
+          ],
+          "does": "After d, c or y: inside or around a word, quotes or brackets"
+        },
+        {
+          "keys": [
+            "3dw",
+            ".",
+            "u"
+          ],
+          "does": "Repeat a command a number of times; repeat the last change; undo"
+        },
+        {
+          "keys": [
+            "/",
+            "?"
+          ],
+          "does": "Open the command menu; show these keys"
+        }
+      ]
+    }
+  ]
+}

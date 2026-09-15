@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import Decimal from 'decimal.js'
 import type { Position, PositionKind } from './position.js'
 import {
+  shockedRatios,
   collateralMoveUnder,
   healthFactorUnder,
   liquidationRisk,
@@ -462,5 +463,75 @@ describe('what a shocked health factor assumed', () => {
       pos({ id: 'other', venue: 'compound', asset: 'ETH', quantity: '-2', kind: 'debt' }),
     ]
     expect(shockedHealthFactors(elsewhere, market, [{ asset: 'ETH', pct: d('-0.2') }])[0]?.debt).toBeNull()
+  })
+})
+
+describe('a shock under an equity total', () => {
+  test('a short’s shocked contribution is its PnL after the move, not its shocked notional', () => {
+    const cash = pos({ id: 'hl:collateral:USDC', asset: 'USDC', quantity: '1500', kind: 'collateral' })
+    const short = { ...pos({ id: 'hl:perp:ETH', asset: 'ETH', quantity: '-3', kind: 'perp' }), equity: d('0') }
+    const prices = new Map([
+      ['ETH', d(4000)],
+      ['USDC', d(1)],
+    ])
+    const result = scenario([cash, short], prices, [{ asset: 'ETH', pct: d('-0.1') }])
+    expect(result.before.total?.toString()).toBe('1500')
+    // -3 through a 400 fall is +1,200 of PnL.
+    expect(result.after.total?.toString()).toBe('2700')
+  })
+})
+
+describe('an account ratio under a shock', () => {
+  const pool = pos({
+    id: 'hl:spot:USDC',
+    asset: 'USDC',
+    quantity: '10000',
+    liquidation: {
+      ratio: {
+        name: 'Unified Account Ratio',
+        value: d('0.2'),
+        threshold: d('0.95'),
+        account: 'acct',
+        pools: [{ row: 'hl:spot:USDC', balance: d('10000'), isolated: d('0'), maintenance: d('2000') }],
+      },
+    },
+  })
+  const leg: Position = {
+    ...pos({ id: 'hl:perp:ETH', asset: 'ETH', quantity: '-10', kind: 'perp' }),
+    encumbers: ['hl:spot:USDC'],
+    liquidation: { mark: d('4000'), maintenance: d('2000'), liquidatedWith: 'acct' },
+  }
+
+  test('no shock returns the ratio stated today', () => {
+    expect(shockedRatios([pool, leg], []).map((r) => r.after?.toString())).toEqual(['0.2'])
+  })
+
+  test('a move scales the leg’s maintenance with its notional and the pool with its PnL', () => {
+    // A 10% rise: maintenance 2000 → 2200, the pool 10000 − 4000 = 6000.
+    const [shocked] = shockedRatios([pool, leg], [{ asset: 'ETH', pct: d('0.1') }])
+    expect(shocked?.after?.toString()).toBe(d('2200').div('6000').toString())
+    expect(shocked?.tiered).toBe(true)
+  })
+
+  test('a pool the move empties is liquidated, never a ratio that looks safe', () => {
+    const result = scenario([pool, leg], new Map(), [{ asset: 'ETH', pct: d('0.25') }])
+    expect(result.ratios[0]?.after?.isFinite()).toBe(false)
+    expect(result.liquidated.map((p) => p.id)).toEqual(['hl:spot:USDC'])
+  })
+
+  test('a ratio over part of the account ranks on its floor, and is never recomputed under a move', () => {
+    const partial = { ...pool, liquidation: { ratio: { ...pool.liquidation!.ratio!, unread: ['the xyz dex'] } } }
+    const [entry] = whatBreaksFirst([partial, leg], new Map())
+    expect(entry?.move?.toString()).toBe(d('0.2').div('0.95').minus(1).toString())
+    const [shocked] = shockedRatios([partial, leg], [{ asset: 'ETH', pct: d('0.1') }])
+    expect(shocked?.after).toBeNull()
+    expect(shocked?.why).toBe('the xyz dex did not load, so how the positions there move is unknown')
+  })
+
+  test('the account ranks once, beside the rest, with its position held under it', () => {
+    const [entry, ...rest] = whatBreaksFirst([pool, leg], new Map())
+    expect(rest).toEqual([])
+    expect(entry?.move?.toString()).toBe(d('0.2').div('0.95').minus(1).toString())
+    expect(entry?.members?.map((p) => p.id)).toEqual(['hl:perp:ETH'])
   })
 })

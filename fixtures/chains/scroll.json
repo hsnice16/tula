@@ -1,0 +1,60 @@
+{
+  "captured": "2026-09-15T13:37:33.668Z",
+  "nodes": [
+    {
+      "rpc": "https://scroll-rpc.publicnode.com",
+      "chainId": "0x82750",
+      "batchAnswered": 40
+    },
+    {
+      "rpc": "https://scroll.api.pocket.network",
+      "chainId": "0x82750",
+      "batchAnswered": 40
+    },
+    {
+      "rpc": "https://scroll.rpc.sentio.xyz",
+      "chainId": "0x82750",
+      "batchAnswered": 40
+    }
+  ],
+  "sharedLedgers": [],
+  "tokenList": {
+    "url": "https://raw.githubusercontent.com/SmolDapp/tokenLists/main/lists/534352.json",
+    "name": "Scroll",
+    "tokens": 38,
+    "stablecoins": [
+      {
+        "symbol": "DAI",
+        "decimals": 18
+      },
+      {
+        "symbol": "USDC",
+        "decimals": 6
+      },
+      {
+        "symbol": "USDe",
+        "decimals": 18
+      },
+      {
+        "symbol": "USDQ",
+        "decimals": 18
+      },
+      {
+        "symbol": "USDT",
+        "decimals": 6
+      }
+    ]
+  },
+  "aave": [
+    {
+      "market": "Core",
+      "reserves": [
+        "WETH",
+        "USDC",
+        "wstETH",
+        "weETH",
+        "SCR"
+      ]
+    }
+  ]
+}

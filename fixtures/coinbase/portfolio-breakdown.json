@@ -18,6 +18,10 @@
     "position_side": "FUTURES_POSITION_SIDE_LONG",
     "net_size": "0.75",
     "leverage": "5",
+    "unrealized_pnl": {
+     "userNativeCurrency": { "value": "-1500.00", "currency": "USD" },
+     "rawCurrency": { "value": "-1500.00", "currency": "USDC" }
+    },
     "margin_type": "MARGIN_TYPE_CROSS",
     "liquidation_buffer": "4200.00",
     "liquidation_percentage": "18.5",
@@ -36,6 +40,10 @@
     "position_side": "FUTURES_POSITION_SIDE_SHORT",
     "net_size": "12",
     "leverage": "3",
+    "unrealized_pnl": {
+     "userNativeCurrency": { "value": "300.00", "currency": "USD" },
+     "rawCurrency": { "value": "300.00", "currency": "USDC" }
+    },
     "margin_type": "MARGIN_TYPE_CROSS",
     "liquidation_price": {
      "userNativeCurrency": { "value": "4100.00", "currency": "USD" },

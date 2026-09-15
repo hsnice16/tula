@@ -18,7 +18,7 @@
     }
   },
   "files": {
-    "includes": ["**", "!.next", "!out", "!node_modules", "!next-env.d.ts"]
+    "includes": ["**", "!.next", "!out", "!node_modules", "!next-env.d.ts", "!lib/keys.json"]
   },
   "css": {
     "parser": {

@@ -10,6 +10,7 @@ import {
   connectable,
   isOverScoped,
   overScopedPowers,
+  overScopedRefusal,
   type Connectable,
   type Connector,
   type KeyScope,
@@ -100,13 +101,23 @@ describe('a refused key is told which power got it refused', () => {
   })
 
   test.each(['../index.ts', '../ui/ConnectFlow.tsx'])(
-    'the refusal in %s reads the powers off the one function rather than listing its own',
+    'the refusal in %s is the one sentence, with the venue’s own way to make a read-only key',
     (file) => {
       const source = readFileSync(new URL(file, import.meta.url), 'utf8')
-      expect(source).toContain('overScopedPowers(scope)')
+      expect(source).toContain('overScopedRefusal(scope, ')
       expect(source).not.toMatch(/scope\.canTrade === true &&/)
+      expect(source).not.toContain('query permissions only')
     },
   )
+
+  test('the refusal ends on the venue’s remedy, or a plain one where it names none', () => {
+    const scope: KeyScope = { canRead: true, canTrade: false, canWithdraw: true }
+    expect(overScopedRefusal(scope, 'Create a key with only Enable Reading turned on.')).toBe(
+      'Refused: this key can withdraw. tula will not hold a key that can move your funds.\n' +
+        'Create a key with only Enable Reading turned on.',
+    )
+    expect(overScopedRefusal(scope)).toEndWith('Create a key that can only read, then connect again.')
+  })
 })
 
 describe('askFields', () => {

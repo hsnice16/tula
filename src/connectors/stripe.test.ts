@@ -31,12 +31,10 @@ describe('minorUnits', () => {
 })
 
 describe('stripe scope', () => {
-  test('a secret key reports that it can move money, so connect refuses it', async () => {
-    expect(await stripeConnector.verifyScope({ apiKey: 'sk_live_x' })).toEqual({
-      canRead: true,
-      canTrade: true,
-      canWithdraw: true,
-    })
+  test('a secret key is refused in Stripe’s terms, and pointed at a restricted key', async () => {
+    await expect(stripeConnector.verifyScope({ apiKey: 'sk_live_x' })).rejects.toThrow(
+      'Refused: a secret key (sk_) can move money. tula only holds a restricted key (rk_) with read access.',
+    )
   })
 
   test('a publishable key is rejected with the reason', async () => {

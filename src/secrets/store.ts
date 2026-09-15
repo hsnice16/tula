@@ -4,7 +4,7 @@ import { chmod, lstat, mkdir, readFile, rename, rm, stat, writeFile } from 'node
 import { join } from 'node:path'
 import type { ConnectorCredentials } from '../connectors/types.js'
 import { TulaError } from '../core/errors.js'
-import { configDir } from '../core/paths.js'
+import { configDir, homeRelative } from '../core/paths.js'
 import { visible } from '../core/untrusted.js'
 
 /**
@@ -531,7 +531,11 @@ export async function putPriceSource(provider: string, apiKey?: string): Promise
   await putReserved(PRICES_KEY, apiKey ? { provider, apiKey } : { provider })
 }
 
-/** The path only — callers show it to the user; the contents never leave this module. */
+/**
+ * The path only — callers show it to the user; the contents never leave this
+ * module. Under $HOME as `~/…`: `tula about` is what gets pasted into an issue,
+ * and the absolute path is the reader's username.
+ */
 export function locationHint(): string {
-  return credentialsPath()
+  return homeRelative(credentialsPath())
 }

@@ -3,6 +3,7 @@ import { TulaError } from '../core/errors.js'
 import type { AssetId } from '../core/position.js'
 import { byTicker, UNITY, usablePrice, type PriceOracle, type Quote } from '../core/prices.js'
 import { request } from '../core/http.js'
+import { inShell } from '../core/surface.js'
 
 const QUOTES = 'https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest'
 
@@ -44,7 +45,9 @@ export class CoinMarketCapOracle implements PriceOracle {
     for (const asset of assets) if (UNITY.has(asset)) out.set(asset, { price: new Decimal(1), asOf: now })
 
     const asked = byTicker(assets)
-    const wanted = [...asked.keys()]
+    // `chain:TICKER` and `dex:TICKER` name an issue no symbol quotes; sent as
+    // one, it could only be matched to the coin it is not.
+    const wanted = [...asked.keys()].filter((ticker) => !ticker.includes(':'))
     if (wanted.length === 0) return out
 
     for (let start = 0; start < wanted.length; start += CHUNK) {
@@ -80,7 +83,7 @@ function failure(status: number): TulaError {
   if (status === 401 || status === 403) {
     return new TulaError(
       'CoinMarketCap rejected the API key. Prices are unavailable; quantities are still correct.\n' +
-        '  Replace it with:  /coinmarketcap connect\n' +
+        `  Replace it with:  ${inShell('coinmarketcap connect')}\n` +
         '  Keys are at:      https://pro.coinmarketcap.com/account',
     )
   }

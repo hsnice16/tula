@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
+import Decimal from 'decimal.js'
+import { portfolioValue } from '../core/exposure.js'
 import { whatBreaksFirst } from '../core/risk.js'
 import { krakenConnector, normalizeAsset, sign } from './kraken.js'
 
@@ -241,6 +243,17 @@ describe('kraken margin positions', () => {
     const usd = (await krakenConnector.fetchPositions(CREDS)).find((p) => p.asset === 'USD')
     expect(usd?.kind).toBe('debt')
     expect(usd?.quantity.toString()).toBe('-50000')
+  })
+
+  test('the two rows of a margin position add its unrealised PnL to the total, never its notional', async () => {
+    stub({ positions: LONG })
+    const rows = await krakenConnector.fetchPositions(CREDS)
+    // 1 BTC bought for 50,000 with 40,000 of it borrowed, marked at 52,000: up 2,000.
+    const prices = new Map([
+      ['BTC', new Decimal('52000')],
+      ['USD', new Decimal('1')],
+    ])
+    expect(portfolioValue(rows, prices).total?.toString()).toBe('2000')
   })
 
   test('a short is negative in the asset and long the proceeds', async () => {

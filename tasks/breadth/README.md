@@ -20,9 +20,9 @@ number against, so the price source became something the user picks.
 - [07 · Switchable price sources](07-price-sources.md) — done
 - [08 · Aave V4](08-aave-v4.md) — planned · live on Ethereum, declared unread, and it hides a liquidation
 - [09 · Aave depth](09-aave-depth.md) — planned
-- [10 · Hyperliquid depth](10-hyperliquid-depth.md) — planned
+- [10 · Hyperliquid depth](10-hyperliquid-depth.md) — done, except ranking the borrow/lend health factor, which the venue says does not liquidate
 - [11 · Wallet depth](11-wallet-depth.md) — planned
-- [12 · Chain reach](12-chain-reach.md) — planned · the EVM chains outside the three, HyperEVM, Solana
+- [12 · Chain reach](12-chain-reach.md) — planned, less the six Aave v3 chains; HyperEVM and Solana are still unread
 - [13 · Binance depth](13-binance-depth.md) — planned
 - [14 · Coinbase depth](14-coinbase-depth.md) — planned
 - [15 · Kraken depth](15-kraken-depth.md) — planned

@@ -1,5 +1,5 @@
 {
-  "captured": "2026-09-10T14:40:28.780Z",
+  "captured": "2026-09-15T13:37:33.668Z",
   "nodes": [
     {
       "rpc": "https://ethereum-rpc.publicnode.com",
@@ -17,10 +17,11 @@
       "batchAnswered": 40
     }
   ],
+  "sharedLedgers": [],
   "tokenList": {
     "url": "https://tokens.uniswap.org",
     "name": "Uniswap Labs Default",
-    "tokens": 403,
+    "tokens": 405,
     "stablecoins": [
       {
         "symbol": "DAI",

@@ -17,6 +17,6 @@ Notify before a threshold is crossed, not after.
 
 This asked whether alerts should ship with the risk engine. They did not — the
 engine shipped in 0.1.0 without them — and the question stands answered by
-`ROADMAP.md` putting this at milestone 9, ahead of every new capability. It is
+`ROADMAP.md` putting this at milestone 10, ahead of every new capability. It is
 the daily-driver hook, and a risk tool you have to remember to open is one you
 forget.

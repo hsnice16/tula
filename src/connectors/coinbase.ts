@@ -162,6 +162,7 @@ interface PerpPosition {
   net_size?: string
   leverage?: string
   liquidation_price?: BalancePair
+  unrealized_pnl?: BalancePair
 }
 
 interface BreakdownResponse {
@@ -196,6 +197,8 @@ export const coinbaseConnector: Connector = {
       hint: 'the CDP API signing key — not a wallet key and not a seed phrase',
     },
   ],
+
+  readOnlyKey: 'Create a CDP key with only the View permission.',
 
   help: [
     { label: 'Create a CDP API key', url: 'https://docs.cdp.coinbase.com/get-started/authentication/cdp-api-keys' },
@@ -321,6 +324,10 @@ async function perpPositions(creds: ConnectorCredentials, asOf: Date): Promise<P
     const signed = perp.position_side?.endsWith('SHORT') ? size.abs().negated() : size
     const liquidation = amount(perp.liquidation_price)
     const price = liquidation === undefined ? null : new Decimal(liquidation)
+    // The cash behind the position is already a row off the accounts list, so
+    // what the position adds to the book's equity is its unrealised PnL. Where
+    // Coinbase omits it the total names Coinbase rather than counting a notional.
+    const pnl = amount(perp.unrealized_pnl)
 
     positions.push({
       id: `coinbase:perp:${product}`,
@@ -329,6 +336,7 @@ async function perpPositions(creds: ConnectorCredentials, asOf: Date): Promise<P
       asset: perpAsset(product),
       quantity: signed,
       delta: signed,
+      ...(pnl === undefined ? {} : { equity: new Decimal(pnl) }),
       asOf,
       liquidation: {
         // Written even where Coinbase named no price: the leverage below is

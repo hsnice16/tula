@@ -24,8 +24,10 @@ import {
   type VenueEntry,
 } from './registry.js'
 import type { Session } from './session.js'
+import { keysText } from '../ui/keymap.js'
+import { plural } from '../core/format.js'
 
-export type UiAction = 'exit' | 'clear' | 'login'
+export type UiAction = 'exit' | 'clear' | 'login' | 'history' | 'vim'
 
 export type DispatchResult =
   | { kind: 'output'; output: string; note?: string; incomplete?: boolean; usageError?: boolean }
@@ -48,20 +50,18 @@ async function dispatchVenue(
     const available = VENUE_SUBCOMMANDS.filter((c) => connected || !c.needsConnection)
       .map((c) => c.name)
       .join(', ')
-    return { kind: 'output', output: `/${id} has no "${sub}". Try: ${available}`, usageError: true }
+    return { kind: 'output', output: `${typed(id)} has no "${sub}". Try: ${available}`, usageError: true }
   }
 
   if (sub === 'connect') return { kind: 'connect', venue: id }
   if (sub === 'docs') return { kind: 'output', ...commands.venueDocs(connector) }
 
   if (!connected) {
-    return {
-      kind: 'output',
-      output:
-        `${connector.venue.name} is not connected yet.\n` +
-        `  Connect it with:  ${connectCommand(id)}\n` +
-        (connector.help[0] ? `  ${connector.help[0].label}:  ${connector.help[0].url}` : ''),
-    }
+    const output =
+      `${connector.venue.name} is not connected yet.\n` +
+      `  Connect it with:  ${connectCommand(id)}\n` +
+      (connector.help[0] ? `  ${connector.help[0].label}:  ${connector.help[0].url}` : '')
+    return { kind: 'output', output, note: output }
   }
 
   switch (sub) {
@@ -124,7 +124,7 @@ async function dispatchVenue(
       }
     }
     default:
-      return { kind: 'output', output: `/${id} has no "${sub}".` }
+      return { kind: 'output', output: `${typed(id)} has no "${sub}".` }
   }
 }
 
@@ -135,10 +135,10 @@ async function dispatchVenue(
  * somewhere they had never been.
  */
 export function wayBack(previous: string, failed: string): string {
-  if (previous !== failed) return `Go back with:  /${previous} use`
+  if (previous !== failed) return `Go back with:  ${typed(`${previous} use`)}`
   const others = PRICE_PROVIDERS.filter((p) => p.id !== failed && p.keyless)
-  if (others.length === 0) return 'Every keyless source is unavailable; try again with /refresh.'
-  return `Try another source:  ${others.map((p) => `/${p.id} use`).join('  ')}`
+  if (others.length === 0) return `Every keyless source is unavailable; try again with ${typed('refresh')}.`
+  return `Try another source:  ${others.map((p) => typed(`${p.id} use`)).join('  ')}`
 }
 
 async function dispatchPrice(
@@ -160,7 +160,7 @@ async function dispatchPrice(
       .join(', ')
     return {
       kind: 'output',
-      output: `/${provider.id} has no "${sub}". Try: ${available}`,
+      output: `${typed(provider.id)} has no "${sub}". Try: ${available}`,
       usageError: true,
     }
   }
@@ -170,13 +170,10 @@ async function dispatchPrice(
     const { oracle } = buildOracle(provider.id, creds)
     const loaded = await session.useOracle(oracle)
     if (loaded.priceError) {
-      return {
-        kind: 'output',
-        incomplete: true,
-        output:
-          `Switched to ${provider.name}, but it did not answer:\n  ${loaded.priceError}\n` +
-          `  Quantities are still correct. ${wayBack(previous, provider.id)}`,
-      }
+      const output =
+        `Switched to ${provider.name}, but it did not answer:\n  ${loaded.priceError}\n` +
+        `  Quantities are still correct. ${wayBack(previous, provider.id)}`
+      return { kind: 'output', incomplete: true, output, note: output }
     }
     const priced = loaded.prices.size
     const held = new Set(loaded.positions.map((p) => p.asset)).size
@@ -186,12 +183,14 @@ async function dispatchPrice(
     // Held apart from an empty book, which is the same count and not a source
     // that failed at all.
     if (priced === 0 && held > 0) {
+      const output =
+        `${provider.name} answered, and priced none of your ${held} asset${held === 1 ? '' : 's'}.\n` +
+        '  Quantities are still correct; every total is unpriced until a source answers.\n' +
+        `  ${wayBack(previous, provider.id)}`
       return {
         kind: 'output',
-        output:
-          `${provider.name} answered, and priced none of your ${held} asset${held === 1 ? '' : 's'}.\n` +
-          '  Quantities are still correct; every total is unpriced until a source answers.\n' +
-          `  ${wayBack(previous, provider.id)}`,
+        output,
+        note: output,
         // Not an incomplete view: `isIncomplete` reads the failures and the
         // price error, and neither is set here, so a flag of its own would mean
         // this command exiting non-zero and `tula exposure` after it exiting 0
@@ -216,7 +215,7 @@ async function dispatchPrice(
       return provider.keyless
         ? {
             kind: 'output',
-            output: `${provider.name} needs no key. Use it with:  /${provider.id} use`,
+            output: `${provider.name} needs no key. Use it with:  ${typed(`${provider.id} use`)}`,
           }
         : { kind: 'connect-price', provider: provider.id }
 
@@ -252,7 +251,7 @@ async function dispatchPrice(
     }
 
     default:
-      return { kind: 'output', output: `/${provider.id} has no "${sub}".` }
+      return { kind: 'output', output: `${typed(provider.id)} has no "${sub}".` }
   }
 }
 
@@ -300,7 +299,7 @@ export async function dispatchCommand(
         kind: 'output',
         // This is the command somebody runs to recover from a failure, so it is
         // the last one that may report success while a venue is still missing.
-        output: `Refreshed ${venueCount} venue(s), ${loaded.positions.length} position(s).${note}`,
+        output: `Refreshed ${plural(venueCount, 'venue')}, ${plural(loaded.positions.length, 'position')}.${note}`,
         note,
         // Every risk command counts a price source that did not answer as part
         // of what is missing, and this one did not: `tula refresh && tula
@@ -354,17 +353,23 @@ export async function dispatchCommand(
     case 'connect': {
       if (args[0] && connectors.has(args[0])) return { kind: 'connect', venue: args[0] }
       const gone = args[0] ? retired(args[0], forgetCommand(args[0])) : undefined
-      return {
-        kind: 'output',
-        output:
-          gone ??
-          `Pick a venue directly — type / and choose one. Available: ${[...connectors.keys()].join(', ')}`,
-      }
+      const output =
+        gone ?? `Pick a venue directly — type / and choose one. Available: ${[...connectors.keys()].join(', ')}`
+      return { kind: 'output', output, note: output }
     }
+
+    // Every group, vim's included and titled as such: this runs from the
+    // command line as well, where there is no vim mode to ask about. The `?`
+    // panel is the one that shows vim's rows only while vim is on.
+    case 'keys':
+      return { kind: 'output', output: keysText({ vim: true }) }
 
     case 'exit':
     case 'clear':
     case 'login':
+    // Handed to `app.tsx`, the one caller `scripts/guard.sh` allows: see src/history/history.ts.
+    case 'history':
+    case 'vim':
       return { kind: 'ui', action: name }
 
     default: {

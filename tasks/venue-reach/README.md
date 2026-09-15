@@ -1,4 +1,4 @@
-# 10 · Venue reach
+# 11 · Venue reach
 
 Reach past what tula builds itself. Chain coverage is not here — it is 4's
 unfinished half rather than new ground, and closes in [7](../open-pieces). The
@@ -10,10 +10,10 @@ without the venue having adopted anything in particular. The tiers in 02 follow
 what a venue actually is, because a chain needs no authentication and an exchange
 needs the part that is genuinely hard.
 
-01 is here rather than in 13 because it costs nothing while the product is
+01 is here rather than in 14 because it costs nothing while the product is
 read-only and is a schema migration afterwards. `ROADMAP.md` pulls it forward on
 that argument, ahead of the rest of this milestone; 02 and 03 keep their place
-behind 8 and 9.
+behind 9 and 10.
 
 ## Tasks
 

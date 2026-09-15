@@ -1,7 +1,8 @@
-import { Box, Static, Text, useApp, useInput, useStdout, type Key } from 'ink'
+import { Box, Static, Text, useApp, useInput, usePaste, useStdout } from 'ink'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Agent, envApiKey, envApiKeyName, hasAmbientCredentials } from '../agent/agent.js'
+import { Agent, envApiKey, envApiKeyName, hasAmbientCredentials, StoppedError } from '../agent/agent.js'
 import {
+  answeredInPart,
   credentialName,
   credentialSource,
   failedVenue,
@@ -10,7 +11,10 @@ import {
 import { riskEngineFor } from '../cli/engine-adapter.js'
 import { belongsToVenue } from '../core/position.js'
 import {
+  argumentList,
   buildPalette,
+  type Candidate,
+  type CandidateContext,
   GROUP_LABELS,
   matchCommands,
   matchPalette,
@@ -46,17 +50,41 @@ import {
   priceProvider,
 } from '../prices/providers.js'
 import { downloaded, freshness, holdings } from '../core/format.js'
-import { typed } from './keys.js'
-import { askCursor, cursorRow } from './anchor.js'
+import {
+  clearHistory,
+  findInHistory,
+  HISTORY_LIMIT,
+  historyOff,
+  historyPath,
+  readHistory,
+  recordable,
+  recordHistory,
+} from '../history/history.js'
+import { readPreferences, writePreferences } from '../prefs/prefs.js'
+import { editingCommand, enterKey, isLineCommand, keyAction, pasted, typed, type ShellKey } from './keys.js'
+import { keysText } from './keymap.js'
+import { replay, vimEscape, vimState, vimTyped, vimUntracked, type VimState } from './vim.js'
+import {
+  before,
+  edit,
+  forwardWord,
+  insert,
+  lineEditor,
+  moveRow,
+  replace,
+  visualRows,
+  type LineEditor,
+} from './line.js'
+import { askCursor, askKeyboard, terminalReply } from './anchor.js'
 import { mouseReports, trackMouse, type MouseReport } from './mouse.js'
 import { Credentials, type CredentialsMode, type CredentialsResult } from './Credentials.js'
 import { displayRows, FRAME_ROWS, Palette, paletteGeometry, windowRows } from './Palette.js'
 import { offsetShowing, selectionIn, windowStart } from './scroll.js'
 import { clearForRedraw } from './resize.js'
 import { menuDisplay, SlashMenu, type MenuItem } from './SlashMenu.js'
-import { InputLine } from './TextInput.js'
+import { INPUT_ROWS, InputLine } from './TextInput.js'
 import { theme } from './theme.js'
-import { wrapLines } from './wrap.js'
+import { cells, wrapLines } from './wrap.js'
 
 type EntryKind = 'prompt' | 'output' | 'answer' | 'error' | 'notice' | 'banner'
 
@@ -74,6 +102,19 @@ interface Entry {
 }
 
 const SPINNER = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+
+const PLACEHOLDER = 'ask anything · / for commands · ctrl+s to search them'
+/**
+ * The pointer to the `?` panel, last so it is what goes when the row is too
+ * narrow for it — Codex's footer drops "? for shortcuts" first.
+ */
+const PLACEHOLDER_HINTED = `${PLACEHOLDER} · ? for shortcuts`
+
+/** Queued lines drawn before the rest are counted, as Gemini CLI draws three. */
+const QUEUE_ROWS = 3
+
+/** While something runs: what Enter and Esc do now that the line takes keys. */
+const PLACEHOLDER_BUSY = 'type the next one · Enter queues it · Esc stops a question'
 
 /**
  * Rows an entry gets in the transcript before the rest is collapsed to a count.
@@ -139,7 +180,7 @@ const RESPONDING = 'answering'
  * The one thing a command here does that cannot be undone: take a credential
  * off disk. `/<venue> disconnect`, `/<source> disconnect` and `/forget <venue>`
  * are the three spellings of it, and every one of them is one press away — a
- * row under each connected venue in `/`, a runnable entry in ctrl+k, and a
+ * row under each connected venue in `/`, a runnable entry in ctrl+s, and a
  * single left-click on either.
  */
 function forgets(parsed: ParsedCommand): { venue: string; ref?: string; all: boolean } | null {
@@ -157,28 +198,32 @@ function forgets(parsed: ParsedCommand): { venue: string; ref?: string; all: boo
   return null
 }
 
-/** The part of Ink's `Key` this shell reads. Every other field is decoration. */
-type Press = Pick<
-  Key,
-  | 'upArrow'
-  | 'downArrow'
-  | 'leftArrow'
-  | 'rightArrow'
-  | 'return'
-  | 'escape'
-  | 'ctrl'
-  | 'meta'
-  | 'tab'
-  | 'backspace'
-  | 'delete'
->
+/**
+ * The end of a command's output that the transcript may not hold back.
+ *
+ * The command hands over the block it appended, so the same *call* that wrote
+ * it says where it starts — no reading for the word `INCOMPLETE`, which would
+ * be a second copy of a sentence commands.ts owns, and no second call to
+ * `incompleteNote`, which answers a shorter thing once a session has been
+ * given the REMOVED explanation and would then name a tail this output does
+ * not end with. A command that reports its failures inside the table instead
+ * (`/venues`) hands over nothing but a price source's failure; handing over
+ * nothing pins the whole of it, and none of it is truncated.
+ */
+function caveat(result: { output: string; note?: string; incomplete?: boolean }): string | undefined {
+  if (!result.incomplete) return undefined
+  return result.note !== undefined && result.note !== '' ? result.note : result.output
+}
 
 /** A chunk that came in beside a mouse report carries no modifier of its own. */
-const TEXT_ONLY: Press = {
+const TEXT_ONLY: ShellKey = {
   upArrow: false,
   downArrow: false,
   leftArrow: false,
   rightArrow: false,
+  home: false,
+  end: false,
+  shift: false,
   return: false,
   escape: false,
   ctrl: false,
@@ -186,6 +231,19 @@ const TEXT_ONLY: Press = {
   tab: false,
   backspace: false,
   delete: false,
+}
+
+/** C0 controls but tab and a line break: the ctrl chords Ink leaves inside a read of text. */
+const CONTROL = /[\x00-\x08\x0b\x0c\x0e-\x1f]/
+const PIECES = /(\r\n|\r|\n|[\x00-\x08\x0b\x0c\x0e-\x1f])/
+
+/** One piece of a read Ink handed over whole, as the key Ink hands over when it arrives alone. */
+function pressed(piece: string): [string, ShellKey] {
+  if (/^[\r\n]+$/.test(piece)) return ['\r', { ...TEXT_ONLY, return: true }]
+  const code = piece.length === 1 ? piece.charCodeAt(0) : -1
+  if (code === 0x08) return ['', { ...TEXT_ONLY, backspace: true }]
+  if (code >= 1 && code <= 26) return [String.fromCharCode(code + 96), { ...TEXT_ONLY, ctrl: true }]
+  return [piece, TEXT_ONLY]
 }
 
 /**
@@ -196,6 +254,17 @@ const TEXT_ONLY: Press = {
 function alsoTyped(rest: string): string {
   if (rest.includes('\x1b')) return ''
   return rest.replace(/[\x00-\x09\x0b\x0c\x0e-\x1f\x7f]/g, '')
+}
+
+/**
+ * A ctrl+r search in progress: what has been typed, the history entry it has
+ * landed on (-1 before anything has), and the line as it stood, which ctrl+g
+ * and ctrl+c put back.
+ */
+interface Search {
+  query: string
+  at: number
+  original: LineEditor
 }
 
 /**
@@ -216,6 +285,8 @@ interface Forget {
   word: string
   /** For the line under the input, which stays up while the name is typed. */
   label: string
+  /** What was being typed when a queued command raised the question, put back once it is answered. */
+  draft: string
 }
 
 /** A load's step, in the voice the tool labels are written in. */
@@ -237,11 +308,7 @@ const MARK_GUTTER = 2
 
 const bannerTextWidth = (width: number) => Math.max(20, width - MARK_WIDTH - MARK_GUTTER)
 
-/**
- * Wrapped here rather than by Ink, because the block's height has to be known
- * before it is drawn: `entryRows` measures the same banner to decide how much
- * of it the screen behind the palette has room for.
- */
+/** Wrapped here rather than by Ink, so `trimTop` can cut it by rows. */
 function bannerRows(text: string, width: number): { text: string; head: boolean }[] {
   const columns = bannerTextWidth(width)
   return text
@@ -365,11 +432,9 @@ function TranscriptEntry({
 
 /** What `TranscriptEntry` will occupy, so the copy can be cut to the rows it has. */
 function entryRows(entry: Entry, width: number, expanded: boolean): number {
-  if (entry.kind === 'prompt') return 2
-  // The banner is not in `entries`, so nothing measures it today. It is here
-  // because `preview` is the wrong ruler for a two-column block, and a height
-  // that disagrees with what was drawn clips the backdrop by the difference.
-  if (entry.kind === 'banner') return Math.max(MARK.length, bannerRows(entry.text, width).length) + 1
+  // A question can run over several lines, and a height that disagrees with
+  // what was drawn clips the backdrop by the difference.
+  if (entry.kind === 'prompt') return wrapLines(entry.text, width + OUTPUT_INDENT - 2).length + 1
   const { rows, hidden } = preview(entry.text, width, expanded, entry.pinned)
   return rows + (hidden > 0 ? 1 : 0) + 1
 }
@@ -404,6 +469,8 @@ function transcriptTail(entries: Entry[], budget: number, width: number, expande
 type Menu = { items: MenuItem[]; prefix: string; heading?: string } & (
   | { level: 'top' }
   | { level: 'venue'; venue: string; heading: string }
+  /** The candidates for the argument the cursor is in. `empty` says why there are none. */
+  | { level: 'args'; heading: string; empty?: string }
 ) & {
   /** Rows the unfiltered menu would need. Fixing the block at this height keeps
    *  it from resizing as you type without reserving space it can never use. */
@@ -422,6 +489,12 @@ interface Props {
   initialApiKey: string | undefined
   initialVenues: string[]
   /**
+   * Ask the terminal whether it speaks the kitty keyboard protocol, and turn it
+   * on when it answers. Set by `run.tsx`; the emulator in the tests answers
+   * nothing unless a test says it does.
+   */
+  keyboardProtocol?: boolean
+  /**
    * Injected in tests; never in the product, which builds one from whatever
    * credential it found. A screen with an answer half-written on it is a frame
    * only a model in mid-turn produces, and the real one cannot be held there.
@@ -429,7 +502,14 @@ interface Props {
   agent?: Agent
 }
 
-export function App({ session, connectors, initialApiKey, initialVenues, agent: given }: Props) {
+export function App({
+  session,
+  connectors,
+  initialApiKey,
+  initialVenues,
+  agent: given,
+  keyboardProtocol = false,
+}: Props) {
   const { exit } = useApp()
   const { stdout } = useStdout()
   // Static children sit outside the layout flow, so a percentage width has
@@ -451,6 +531,8 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
   // Measured, not chosen: "22 more lines" is only true if it counts the rows the
   // block would really take, and Ink wraps it at the width the indent leaves.
   const bodyWidth = Math.max(20, frameWidth - OUTPUT_INDENT)
+  // The input box's side padding and its `❯ ` come out of the frame.
+  const textWidth = Math.max(10, frameWidth - 4)
 
   const [agent, setAgent] = useState<Agent | null>(
     () =>
@@ -522,9 +604,43 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
     }),
     [opening],
   )
-  const [input, setInput] = useState('')
-  const [cursor, setCursor] = useState(0)
+  const [editor, commitEditor] = useState<LineEditor>(() => lineEditor())
+  /**
+   * `editor`, as the last key left it. Ink hands over every key of one read
+   * before a render, and each reading state edits the line from before the
+   * first: `abc`, backspace and Enter sent an empty line.
+   */
+  const editorNow = useRef(editor)
+  const setEditor = useCallback((next: LineEditor | ((ed: LineEditor) => LineEditor)) => {
+    editorNow.current = typeof next === 'function' ? next(editorNow.current) : next
+    commitEditor(editorNow.current)
+  }, [])
+  const input = editor.text
+  const cursor = editor.cursor
   const [busy, setBusy] = useState(false)
+  /**
+   * `busy`, readable in the same tick it changes. Two Enters that land before a
+   * render would otherwise both find nothing running, and the second line
+   * would run beside the first instead of after it.
+   */
+  const busyNow = useRef(false)
+  const setWorking = useCallback((on: boolean) => {
+    busyNow.current = on
+    setBusy(on)
+  }, [])
+  /** Lines submitted while something ran, oldest first. Each runs once, after the one before it. */
+  const [queue, commitQueue] = useState<string[]>([])
+  /** `queue`, readable in the same tick it changes, for the reason `busyNow` is. */
+  const queueNow = useRef<string[]>([])
+  const setQueue = useCallback((next: string[]) => {
+    queueNow.current = next
+    commitQueue(next)
+  }, [])
+  /** Aborts the question being answered; null while none is. */
+  const stopper = useRef<AbortController | null>(null)
+  const runningCommand = useRef(false)
+  /** Said on the busy row when a stop is asked of something that cannot stop. */
+  const [stopNote, setStopNote] = useState('')
   const [activity, setActivity] = useState('')
   const [streaming, setStreaming] = useState('')
   const [frame, setFrame] = useState(0)
@@ -539,9 +655,11 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
    */
   const [anchor, setAnchor] = useState<number | null>(null)
   const [menuDismissed, setMenuDismissed] = useState(false)
-  const [palette, setPalette] = useState<{ query: string; index: number; offset: number } | null>(
-    null,
-  )
+  const [palette, setPalette] = useState<{
+    query: LineEditor
+    index: number
+    offset: number
+  } | null>(null)
   // Whole-transcript rather than per-entry, and it outlives the entry it was
   // turned on for: after reading "18 more lines" you usually want the answer
   // above it whole too, and the next one as well.
@@ -549,7 +667,31 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
   const [forgetting, setForgetting] = useState<Forget | null>(null)
   const [history, setHistory] = useState<string[]>([])
   const historyIndex = useRef(-1)
+  const [search, setSearch] = useState<Search | null>(null)
+  /** The `?` panel: every key, above the input, until a key closes it. */
+  const [keysOpen, setKeysOpen] = useState(false)
+  /** Null while vim editing is off, which it is until somebody turns it on. */
+  const [vim, commitVim] = useState<VimState | null>(null)
+  /** `vim`, as the last key left it, for the reason `editorNow` is: `dw` then `.` in one read repeated nothing. */
+  const vimNow = useRef<VimState | null>(null)
+  const setVim = useCallback(
+    (next: VimState | null | ((v: VimState | null) => VimState | null)) => {
+      vimNow.current = typeof next === 'function' ? next(vimNow.current) : next
+      commitVim(vimNow.current)
+    },
+    [],
+  )
   const nextId = useRef(0)
+
+  useEffect(() => {
+    let live = true
+    void readPreferences().then((prefs) => {
+      if (live && prefs.vim) setVim(vimState())
+    })
+    return () => {
+      live = false
+    }
+  }, [])
 
   const push = useCallback((kind: EntryKind, text: string, pinned?: string) => {
     setEntries((prev) => [
@@ -559,24 +701,34 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
   }, [])
 
   /**
-   * The end of a command's output that the transcript may not hold back.
-   *
-   * The command hands over the block it appended, so the same *call* that wrote
-   * it says where it starts — no reading for the word `INCOMPLETE`, which would
-   * be a second copy of a sentence commands.ts owns, and no second call to
-   * `incompleteNote`, which answers a shorter thing once a session has been
-   * given the REMOVED explanation and would then name a tail this output does
-   * not end with. A command that reports its failures inside the table instead
-   * (`/venues`) hands over nothing, so the whole of it is pinned and none of it
-   * is truncated.
+   * Said once. A refused history file is a command to run, and repeating it
+   * under every line typed afterwards is nagging about a thing already said.
    */
-  const caveat = useCallback(
-    (result: { output: string; note?: string; incomplete?: boolean }): string | undefined => {
-      if (!result.incomplete) return undefined
-      return result.note !== undefined && result.note !== '' ? result.note : result.output
+  const historyRefused = useRef(false)
+  const refuseHistory = useCallback(
+    (err: unknown) => {
+      if (historyRefused.current) return
+      historyRefused.current = true
+      push('error', `${failureText(err)}\n  Until then, ↑ recalls this session's lines and nothing is saved.`)
     },
-    [],
+    [push],
   )
+
+  /**
+   * Writes in the order lines were submitted. `/history clear` waits on it, or
+   * the append for the line that asked could land after the file was removed.
+   */
+  const recording = useRef<Promise<void>>(Promise.resolve())
+
+  useEffect(() => {
+    let live = true
+    readHistory().then((saved) => {
+      if (live) setHistory((typed) => [...saved, ...typed])
+    }, refuseHistory)
+    return () => {
+      live = false
+    }
+  }, [refuseHistory])
 
   /**
    * <Static> writes each entry to the terminal once, so emptying the transcript
@@ -766,10 +918,64 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
 
   const prices: PriceEntry[] = useMemo(() => priceEntries(activePrice), [activePrice])
 
+  /**
+   * What each venue holds, named the way `/<venue> disconnect <name>` takes it
+   * back. Read when that argument is reached rather than at start, and dropped
+   * whenever the store changes, so a list never offers an entry already gone.
+   */
+  const [accounts, setAccounts] = useState<Record<string, Candidate[]>>({})
+  useEffect(() => setAccounts({}), [connected])
+  const accountsFor = /^\/(\S+) disconnect /i.exec(input)?.[1]?.toLowerCase()
+  useEffect(() => {
+    if (!accountsFor || accounts[accountsFor] || !connected.includes(accountsFor)) return
+    let live = true
+    secrets
+      .listCredentials(accountsFor)
+      .then((held) => {
+        if (!live) return
+        const named = held.map((e) => ({
+          name: secrets.credentialRef(e),
+          summary: secrets.credentialLabel(e),
+        }))
+        setAccounts((known) => ({ ...known, [accountsFor]: named }))
+      })
+      // A store that cannot be read offers nothing here; the command itself
+      // reports the refusal, with its remedy, when it is run.
+      .catch(() => {})
+    return () => {
+      live = false
+    }
+  }, [accountsFor, accounts, connected])
+
+  const candidates: CandidateContext = useMemo(() => {
+    const { positions } = session.current
+    const held = new Map<string, Set<string>>()
+    for (const p of positions) {
+      const asset = p.asset.toUpperCase()
+      held.set(asset, (held.get(asset) ?? new Set()).add(p.venue))
+    }
+    return {
+      venues: venueEntries,
+      stored: connected.map((id) => ({
+        name: id,
+        summary:
+          venueEntries.find((v) => v.id === id)?.detail ??
+          'no longer read by this build — forgetting it removes the key',
+      })),
+      assets: session.isLoaded
+        ? [...held]
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([name, venues]) => ({ name, summary: `held at ${sentenceList([...venues])}` }))
+        : null,
+      accounts: (venue) => accounts[venue] ?? null,
+    }
+  }, [session, venueEntries, connected, accounts, entries.length])
+
   const menu: Menu | null = useMemo(() => {
     // Nothing runs off the menu while a credential is waiting to be named, and
     // a list of commands over a question is a list that answers a different one.
-    if (!input.startsWith('/') || busy || menuDismissed || forgetting) return null
+    // A command is one line, so a text holding a break is a question.
+    if (!input.startsWith('/') || input.includes('\n') || menuDismissed || forgetting || search) return null
     const rest = input.slice(1)
     const space = rest.indexOf(' ')
 
@@ -785,6 +991,19 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
       // Every row, plus the heading each group prints above its first.
       const total = all.length + new Set(all.map((c) => c.group)).size
       return { level: 'top', items, prefix: '/', total }
+    }
+
+    const args = argumentList(input, candidates)
+    if (args) {
+      const unfiltered = argumentList(args.prefix, candidates)?.candidates.length ?? 0
+      return {
+        level: 'args',
+        items: args.candidates.map((c) => ({ name: c.name, summary: c.summary })),
+        prefix: args.prefix,
+        heading: args.heading,
+        ...(args.empty ? { empty: args.empty } : {}),
+        total: Math.max(1, unfiltered),
+      }
     }
 
     const head = rest.slice(0, space).toLowerCase()
@@ -827,15 +1046,29 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
       heading: connectors.get(head)?.venue.name ?? head,
       total: matchVenueSubcommands('', entry?.connected ?? false).length,
     }
-  }, [input, busy, menuDismissed, forgetting, venueEntries, prices, connectors])
+  }, [input, menuDismissed, forgetting, search, venueEntries, prices, connectors, candidates])
 
+  /**
+   * A different line rather than an edit to this one, so its undo starts
+   * empty — Readline's "separately remembered for each line". The kill buffer
+   * is the process's, and outlives the line it was filled on.
+   */
   const setLine = useCallback((value: string, at = value.length) => {
-    setInput(value)
-    setCursor(at)
+    setEditor((ed) => ({ ...lineEditor(value, { killed: ed.killed }), cursor: at }))
     setMenuDismissed(false)
     setMenuIndex(0)
     setMenuOffset(0)
   }, [])
+
+  /** An edit to the line. The menu is re-derived only when the text changed, not the cursor. */
+  const changeLine = (next: LineEditor) => {
+    const changed = next.text !== editorNow.current.text
+    setEditor(next)
+    if (!changed) return
+    setMenuDismissed(false)
+    setMenuIndex(0)
+    setMenuOffset(0)
+  }
 
   const refreshConnected = useCallback(async () => {
     setConnected(await secrets.listVenues())
@@ -867,8 +1100,11 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
     // Removed, failed and never-asked are three different things. Counting a
     // venue this build dropped among the failures reported an outage about a
     // venue nothing was asked of, eight lines under a block saying so.
-    const failed = failures.filter((f) => !removed.includes(failedVenue(f)))
-    if (failed.length > 0) parts.push(`${failed.length} failed`)
+    // By venue, and a venue that answered in part is not one that failed.
+    const failed = new Set(failures.map(failedVenue).filter((v) => !removed.includes(v)))
+    const partial = answeredInPart(session.current).length
+    if (failed.size > partial) parts.push(`${failed.size - partial} failed`)
+    if (partial > 0) parts.push(`${partial} partial`)
     if (removed.length > 0) parts.push(`${removed.length} removed`)
     parts.push(agent ? 'opus 5' : 'commands only')
     return parts.join('  ·  ')
@@ -954,10 +1190,17 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
 
       lines.push('', `  Type ${id} and press Enter to confirm, or Esc to keep it.`)
       push('notice', lines.join('\n'))
-      setForgetting({ line, word: id, label: name })
+      // The question says to type a name, so the next letters type. In NORMAL
+      // they would be commands, and `kraken` would walk history and append.
+      setVim((v) => (v ? { ...v, mode: 'insert', pending: '' } : v))
+      // A line typed from the prompt is not the name, so a draft typed while
+      // this command waited in the queue is set aside rather than compared.
+      const draft = editorNow.current.text
+      if (draft) setLine('')
+      setForgetting({ line, word: id, label: name, draft })
       return true
     },
-    [connectors, push],
+    [connectors, push, setLine],
   )
 
   /** Enter with anything else on the line keeps the credential, and says so. */
@@ -969,22 +1212,93 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
         `  Run ${forgetting.line} again if you did mean to forget it.`,
     )
     setForgetting(null)
-    setLine('')
+    setLine(forgetting.draft)
   }, [forgetting, push, setLine])
 
+  /** `/history`, and `/history clear`. */
+  const historyCommand = useCallback(
+    async (args: string[]): Promise<{ output: string; error?: boolean }> => {
+      const where = homeRelative(historyPath())
+      if (args[0] === 'clear') {
+        await recording.current
+        const held = await clearHistory()
+        setHistory([])
+        historyIndex.current = -1
+        return {
+          output:
+            held === 0
+              ? `Nothing to clear — ${where} holds no history.`
+              : `Cleared ${held} line${held === 1 ? '' : 's'} from ${where}. ↑ starts empty.`,
+        }
+      }
+      if (args.length > 0) {
+        return { output: `/history takes clear or nothing. Try: /history clear`, error: true }
+      }
+      if (historyOff()) {
+        return {
+          output:
+            'Nothing is saved: TULA_NO_HISTORY=1 is set.\n' +
+            "  ↑ and ctrl+r reach this session's lines, and they go when tula closes.",
+        }
+      }
+      const saved = (await readHistory()).length
+      return {
+        output: [
+          `${saved} line${saved === 1 ? '' : 's'} to recall from ${where}, readable by you alone.`,
+          `  ↑ and ctrl+r reach the newest ${HISTORY_LIMIT}, and older lines leave the file as it grows.`,
+          '  A line typed with a space in front is not kept, and neither is anything shaped like',
+          '  a key, or anything typed while connecting a venue.',
+          '  /history clear empties it  ·  TULA_NO_HISTORY=1 keeps nothing',
+        ].join('\n'),
+      }
+    },
+    [],
+  )
+
   const submit = useCallback(
-    async (line: string, confirmed = false) => {
+    async (line: string, confirmed = false, from: 'line' | 'queue' = 'line') => {
       const trimmed = line.trim()
       // A confirmed command was echoed and recorded when it was first asked
       // for; running it again is the same command, not a second one.
-      if (!confirmed) {
+      // Refused before the line is cleared, so what was typed is still there
+      // to put back on one line.
+      if (!confirmed && trimmed.startsWith('/') && trimmed.includes('\n')) {
+        const lines = trimmed.split('\n').length
+        push(
+          'error',
+          `A command takes one line, and this one runs over ${lines}.\n` +
+            '  ctrl+k at the end of a line takes the break after it — or drop the slash to ask it as a question.',
+        )
+        return
+      }
+      // Queued rather than run beside what is running, or ahead of a queue not
+      // yet started, and said on screen by the queue drawn above the input.
+      // Echoed and recorded when it runs — whole, so a space in front still
+      // keeps it out of history.
+      if (!confirmed && from === 'line' && (busyNow.current || queueNow.current.length > 0)) {
         setLine('')
         historyIndex.current = -1
-        if (!trimmed) return
-        setHistory((prev) => [...prev, trimmed])
-        push('prompt', `❯ ${trimmed}`)
+        if (trimmed) setQueue([...queueNow.current, line])
+        return
       }
-      setBusy(true)
+      if (!confirmed) {
+        // A queued line starts while somebody may be typing the next one, and
+        // that draft is not this line's to clear.
+        if (from === 'line') {
+          setLine('')
+          historyIndex.current = -1
+        }
+        if (!trimmed) return
+        // Not even this session's list: bash's `ignorespace` keeps the line out
+        // of history altogether, and a pasted key recalled with ↑ is a key on
+        // screen a second time.
+        if (recordable(line)) {
+          setHistory((prev) => (prev.at(-1) === trimmed ? prev : [...prev, trimmed]))
+          recording.current = recording.current.then(() => recordHistory(line)).catch(refuseHistory)
+        }
+        push('prompt', `❯ ${trimmed.replace(/\n/g, '\n  ')}`)
+      }
+      setWorking(true)
 
       try {
         const parsed = parseCommand(trimmed, [...connectors.keys()])
@@ -993,6 +1307,7 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
           if (target && (await askToForget(trimmed, target.venue, target.ref, target.all))) return
         }
         if (parsed) {
+          runningCommand.current = true
           const result = await dispatchCommand(
             session,
             connectors,
@@ -1020,6 +1335,29 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
             if (result.action === 'clear') return clearScreen()
             if (result.action === 'login')
               return setCredentials({ mode: 'manage', source: await credentialSource() })
+            if (result.action === 'history') {
+              const said = await historyCommand(parsed.args)
+              return push(said.error ? 'error' : 'output', said.output)
+            }
+            if (result.action === 'vim') {
+              const on = vimNow.current === null
+              setVim(on ? vimState() : null)
+              try {
+                await writePreferences({ vim: on })
+              } catch (err) {
+                return push(
+                  'error',
+                  `${failureText(err)}\n  Vim editing is ${on ? 'on' : 'off'} for this session only.`,
+                )
+              }
+              return push(
+                'output',
+                on
+                  ? 'Vim editing is on, and stays on in later sessions.\n' +
+                      '  Esc for NORMAL, i to type again  ·  /vim turns it off'
+                  : 'Vim editing is off, and every key is the line’s own again.  /vim turns it back on',
+              )
+            }
           } else {
             push('output', result.output, caveat(result))
             // Both commands that take credentials off disk, not just the one
@@ -1042,6 +1380,9 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
           // deltas do not carry it. Concatenating across it ran the sentence it
           // left off on straight into the answer that came back.
           let seam = false
+          const controller = new AbortController()
+          stopper.current = controller
+          try {
           await agent.ask(trimmed, {
             onTurn: () => {
               seam = answer !== ''
@@ -1062,7 +1403,16 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
               const label = TOOL_LABELS[name] ?? name
               setActivity(repeats > 0 ? `${label} (${repeats + 1}×)` : label)
             },
-          })
+          }, controller.signal)
+          } catch (err) {
+            if (!(err instanceof StoppedError)) throw err
+            // What already arrived stays where it was read, and the line under
+            // it says the model will not see it — `ask` rolled it back.
+            setStreaming('')
+            if (answer.trim()) push('answer', answer.trim())
+            push('notice', 'Stopped. That question and what came of it are left out of the conversation.')
+            return
+          }
           setStreaming('')
           if (answer.trim()) push('answer', answer.trim())
         } else {
@@ -1075,8 +1425,11 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
         setStreaming('')
         push('error', failureText(err))
       } finally {
+        stopper.current = null
+        runningCommand.current = false
+        setStopNote('')
         setActivity('')
-        setBusy(false)
+        setWorking(false)
       }
     },
     [
@@ -1088,10 +1441,38 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
       setLine,
       venueEntries,
       refreshConnected,
-      caveat,
       askToForget,
+      refuseHistory,
+      historyCommand,
+      setVim,
     ],
   )
+
+  // The refs as well as the render, so what started or queued since the last
+  // commit decides, however late React runs this.
+  useEffect(() => {
+    if (busy || busyNow.current || forgetting || connecting || credentials) return
+    const [next, ...rest] = queueNow.current
+    if (next === undefined) return
+    setQueue(rest)
+    void submit(next, false, 'queue')
+  }, [busy, forgetting, connecting, credentials, queue, submit, setQueue])
+
+  /**
+   * Stops what is running, where that is a question. A command is left to end:
+   * its reads carry their own deadline and no signal reaches them, so the busy
+   * row says that rather than the press doing nothing on screen.
+   */
+  const stop = useCallback(() => {
+    if (stopper.current) {
+      stopper.current.abort()
+      setActivity('stopping')
+      return
+    }
+    if (runningCommand.current || busyNow.current) {
+      setStopNote('a command is not stopped — each read ends at its deadline')
+    }
+  }, [])
 
   /**
    * Enter while a credential is waiting to be named. Anything but the name
@@ -1102,9 +1483,9 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
     (candidate: string) => {
       if (!forgetting) return
       if (candidate.trim().toLowerCase() !== forgetting.word) return keepCredential()
-      const { line } = forgetting
+      const { line, draft } = forgetting
       setForgetting(null)
-      setLine('')
+      setLine(draft)
       void submit(line, true)
     },
     [forgetting, keepCredential, setLine, submit],
@@ -1118,7 +1499,8 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
   const showState = useCallback(async () => {
     const parsed = parseCommand('/exposure')
     if (!parsed) return
-    setBusy(true)
+    setWorking(true)
+    runningCommand.current = true
     try {
       push('prompt', '❯ /exposure')
       const result = await dispatchCommand(session, connectors, parsed, venueEntries)
@@ -1126,9 +1508,11 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
     } catch (err) {
       push('error', failureText(err))
     } finally {
-      setBusy(false)
+      runningCommand.current = false
+      setStopNote('')
+      setWorking(false)
     }
-  }, [session, connectors, venueEntries, push, caveat])
+  }, [session, connectors, venueEntries, push, setWorking])
 
   /** The front of a mouse report that arrived without its end. */
   const mouseCarry = useRef('')
@@ -1161,26 +1545,50 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
    * Completing on Enter as well as tab cost every command a second press — the
    * first closed the menu with nothing to show for it, which reads as the key
    * having been missed. Arguments cannot be guessed, so a command declaring them
-   * still lands on the line with the cursor where the first one goes, as in ctrl+k.
+   * still lands on the line with the cursor where the first one goes, as in ctrl+s.
    */
   const runFromMenu = useCallback(
     (at = menuIndex) => {
       if (!menu) return
       const chosen = menu.items[at]
+      // A candidate inside the line is inserted and the list closed; the next
+      // Enter runs the line. fish's pager and zsh's `complist` both keep that
+      // split — the sources are in tasks/field-report/09-argument-completion.md.
+      if (menu.level === 'args') {
+        const line = editorNow.current.text
+        // A candidate already typed out whole has nothing left to insert, and an
+        // Enter that changes nothing on screen reads as a key that missed.
+        const whole = chosen && line.trimEnd().toLowerCase() === `${menu.prefix}${chosen.name}`.toLowerCase()
+        if (!chosen || whole) return void submit(line)
+        setLine(`${menu.prefix}${chosen.name} `)
+        return setMenuDismissed(true)
+      }
       if (!chosen) return
-      if (chosen.args) return completeFromMenu(at)
+      // Bracketed arguments are optional, so the command runs without them, as
+      // Claude Code runs one. Completing instead made `/update` three Enters from
+      // `/update install`.
+      if (chosen.args && !chosen.args.startsWith('[')) return completeFromMenu(at)
       void submit(`${menu.prefix}${chosen.name}`)
     },
-    [menu, menuIndex, completeFromMenu, submit],
+    [menu, menuIndex, completeFromMenu, submit, setLine],
   )
+
+  /**
+   * The line as it stood when ↑ first left it, put back when ↓ comes past the
+   * newest entry — Readline saves it the same way. A question three lines long
+   * is not something to lose to one arrow too many.
+   */
+  const draft = useRef('')
 
   const recallHistory = useCallback(
     (direction: -1 | 1) => {
       if (history.length === 0) return
+      if (historyIndex.current === -1 && direction === 1) return
+      if (historyIndex.current === -1) draft.current = editorNow.current.text
       const current = historyIndex.current === -1 ? history.length : historyIndex.current
       const next = Math.min(history.length, Math.max(0, current + direction))
       historyIndex.current = next === history.length ? -1 : next
-      setLine(next === history.length ? '' : (history[next] ?? ''))
+      setLine(next === history.length ? draft.current : (history[next] ?? ''))
       // A recalled line usually starts with a slash, which would re-open the
       // menu and hand it the next arrow — leaving history one step deep however
       // often you press. Typing or deleting anything brings the menu back.
@@ -1204,13 +1612,13 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
     [venueEntries, prices],
   )
   const paletteMatches = useMemo(
-    () => (palette ? matchPalette(palette.query, paletteItems) : []),
+    () => (palette ? matchPalette(palette.query.text, paletteItems) : []),
     [palette, paletteItems],
   )
   // The rows the dialog will draw, measured here too: scrolling counts in those
   // rather than in matches, and the two have to agree on where the window is.
   const paletteRows = useMemo(
-    () => (palette ? displayRows(paletteMatches, palette.query) : []),
+    () => (palette ? displayRows(paletteMatches, palette.query.text) : []),
     [palette, paletteMatches],
   )
   const paletteLimit = windowRows(viewport.rows)
@@ -1219,7 +1627,16 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
   // taller than the menu can fill or than the frame can afford: the input box,
   // the trailing count and the status line all come out of the same viewport —
   // and one more row of it while the expanded hint is up.
-  const menuRows = Math.max(4, Math.min(rows - 8 - (expanded ? 1 : 0), menu?.total ?? 0))
+  const inputRows = Math.min(INPUT_ROWS, visualRows(input, textWidth).length)
+  // The busy row and the queue sit in the frame too, since a list can be
+  // open while something runs.
+  const workRows =
+    (busy ? 2 : 0) +
+    (queue.length > 0 ? 2 + Math.min(queue.length, QUEUE_ROWS) + (queue.length > QUEUE_ROWS ? 1 : 0) : 0)
+  const menuRows = Math.max(
+    4,
+    Math.min(rows - 8 - (inputRows - 1) - (expanded ? 1 : 0) - workRows, menu?.total ?? 0),
+  )
 
   // What the copy behind the dialog has left once the frame under it is drawn,
   // plus the row the ctrl+o hint adds to the status line while it is up.
@@ -1244,8 +1661,13 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
    */
   const openPalette = useCallback(() => {
     if (stdout) clearForRedraw(stdout)
-    setPalette({ query: input.replace(/^\//, ''), index: 0, offset: 0 })
-  }, [stdout, input])
+    const { text, killed } = editorNow.current
+    setPalette({
+      query: lineEditor(text.replace(/^\//, ''), { killed }),
+      index: 0,
+      offset: 0,
+    })
+  }, [stdout])
 
   const runFromPalette = useCallback(
     (entry: PaletteEntry, fill: boolean) => {
@@ -1378,45 +1800,245 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
   }, [paletteOpen, menuOpen, stdout])
 
   /**
-   * Asked again on every keystroke the menu is open for, rather than once when
-   * it opens: a line long enough to wrap makes the input box a row taller and
-   * moves everything under it. Nothing is written to the transcript meanwhile —
-   * the menu is closed while a command is in flight — so the answer cannot go
-   * stale between being asked for and arriving.
+   * Asked again whenever the frame under the open menu can have moved, rather
+   * than once when it opens: a line that wraps makes the input box a row
+   * taller, and output, the busy row, the queue and a streaming answer land
+   * and leave while the menu stays up.
    */
   useEffect(() => {
     if (!menuOpen || !stdout) return setAnchor(null)
     askCursor(stdout)
-  }, [menuOpen, stdout, input, viewport])
+  }, [menuOpen, stdout, input, viewport, entries.length, busy, queue.length, keysOpen, streaming, generation])
 
-  const onKey = (ch: string, key: Press): void => {
-    const answered = cursorRow(ch)
-    if (answered !== null) return setAnchor(answered)
+  /**
+   * The rest of a line, suggested after the cursor: the newest history entry
+   * that starts with what is typed, then the highlighted candidate of an open
+   * list — zsh-autosuggestions' `(history completion)` order. History is only
+   * what `recordable` let in, so nothing typed while connecting a venue can
+   * surface here, and no line the deletion prompt owns gets one.
+   */
+  const suggestion = (text: string, at: number): string => {
+    if (forgetting || search || palette || text === '' || at !== text.length) return ''
+    for (let i = history.length - 1; i >= 0; i--) {
+      const entry = history[i] ?? ''
+      if (entry.length > text.length && entry.startsWith(text)) {
+        const rest = entry.slice(text.length).split('\n')[0] ?? ''
+        if (rest) return rest
+      }
+    }
+    const chosen = menu?.items[menuIndex]
+    const full = chosen && menu ? `${menu.prefix}${chosen.name}` : ''
+    return full.length > text.length && full.startsWith(text) ? full.slice(text.length) : ''
+  }
+  const ghost = suggestion(input, cursor)
 
-    if (key.ctrl && ch === 'c') {
+  /** What ctrl+r is showing: the entry it landed on, or the line it started from. */
+  const searched = search
+    ? search.at >= 0
+      ? (history[search.at] ?? '')
+      : search.original.text
+    : ''
+  const searchMatches = search !== null && search.at >= 0 && searched.includes(search.query)
+
+  const cancelSearch = () => {
+    if (!search) return
+    setEditor(search.original)
+    setSearch(null)
+  }
+
+  /**
+   * The match becomes the line, and ↑ carries on from where it sits. The menu
+   * stays down for the reason `recallHistory` gives.
+   */
+  const takeSearch = (): LineEditor => {
+    const taken = lineEditor(searched, { killed: editorNow.current.killed })
+    historyIndex.current = search && search.at >= 0 ? search.at : -1
+    setSearch(null)
+    setEditor(taken)
+    setMenuDismissed(true)
+    return taken
+  }
+
+  /**
+   * ctrl+r's keys, from `tasks/field-report/08-saved-history.md`: Enter runs
+   * the match, Esc and Tab put it on the line, ctrl+g and ctrl+c put the line
+   * back as it was, and any other editing key takes the match and then does
+   * what it does — Readline's "a movement command will terminate the search".
+   */
+  const onSearchKey = (ch: string, key: ShellKey): void => {
+    if (!search) return
+    const command = editingCommand(ch, key)
+    const step = (direction: -1 | 1) => {
+      if (search.query === '') return
+      const from =
+        search.at >= 0 ? search.at + direction : direction < 0 ? history.length - 1 : history.length
+      const at = findInHistory(history, search.query, from, direction, searched)
+      if (at >= 0) setSearch({ ...search, at })
+    }
+
+    if (key.ctrl && ch === 'g') return cancelSearch()
+    if (key.return) {
+      setSearch(null)
+      return void submit(searched)
+    }
+    if (key.escape || key.tab) return void takeSearch()
+    if (command === 'reverse-search-history' || command === 'previous-history') return step(-1)
+    if (command === 'forward-search-history' || command === 'next-history') return step(1)
+    if (command === 'backward-delete-char') {
+      const query = search.query.slice(0, before(search.query, search.query.length))
+      const at = query === '' ? -1 : findInHistory(history, query, history.length - 1, -1)
+      return setSearch({ ...search, query, at: at >= 0 || query === '' ? at : search.at })
+    }
+    if (command && isLineCommand(command)) return changeLine(edit(takeSearch(), command))
+    if (key.ctrl || key.meta || !ch) return
+
+    const { text, submits } = typed(ch)
+    const query = search.query + text
+    const at = findInHistory(history, query, search.at >= 0 ? search.at : history.length - 1, -1)
+    // A query that stops matching keeps the last line it did match on screen,
+    // as Readline's failing search does, with the row under it saying so.
+    const next = { ...search, query, at: at >= 0 ? at : search.at }
+    if (!submits) return setSearch(next)
+    setSearch(null)
+    void submit(at >= 0 ? (history[at] ?? '') : searched)
+  }
+
+  /**
+   * The palette's query is a line like the shell's, sharing its kill buffer —
+   * one per process, as Readline keeps it — so a word killed in one can be
+   * yanked in the other.
+   */
+  const editQuery = (change: (query: LineEditor) => LineEditor) => {
+    if (!palette) return
+    const query = change(palette.query)
+    if (query.killed !== editorNow.current.killed) setEditor((ed) => ({ ...ed, killed: query.killed }))
+    const same = query.text === palette.query.text
+    setPalette({ query, index: same ? palette.index : 0, offset: same ? palette.offset : 0 })
+  }
+
+  const onKey = (ch: string, key: ShellKey): void => {
+    // Taken by the reply hook below; never a key.
+    if (terminalReply(ch)) return
+    // As the key before this one left them, not as this render drew them.
+    const editor = editorNow.current
+    const vim = vimNow.current
+    const input = editor.text
+    const cursor = editor.cursor
+    const queue = queueNow.current
+    const ghost = suggestion(input, cursor)
+    // Named through the keymap, so a key handled below is a key `?` lists.
+    const action = keyAction(ch, key)
+    const command = editingCommand(ch, key)
+    const enter = enterKey(ch, key)
+
+    // `.` types again what INSERT recorded — text, backspace and a newline —
+    // so a change made with any other key would be repeated as a different one.
+    if (vim?.mode === 'insert' && vim.recording !== null) {
+      const recorded =
+        key.escape ||
+        enter === 'newline' ||
+        command === 'backward-delete-char' ||
+        (command === null && enter === null && !key.ctrl && !key.meta && !key.tab)
+      if (!recorded) setVim(vimUntracked(vim))
+    }
+
+    if (action === 'interrupt') {
+      if (keysOpen) return setKeysOpen(false)
+      if (search) return cancelSearch()
       if (palette) return setPalette(null)
       if (forgetting) return keepCredential()
-      if (input.length > 0) return setLine('')
+      if (input.length > 0) {
+        // Readline abandons the line and starts history over, so the next ↑ is
+        // the newest entry again rather than the one before a recalled line.
+        historyIndex.current = -1
+        draft.current = ''
+        return setLine('')
+      }
+      // Stops rather than leaves while something runs, as Codex's does, so a
+      // second press meant to stop cannot end the session.
+      if (busyNow.current) return stop()
       return exit()
     }
-    if (key.ctrl && ch === 'd' && input.length === 0) return exit()
-    if (key.ctrl && ch === 'l') return clearScreen()
+    // The palette's query and a search are lines too, where ctrl+d deletes.
+    if (action === 'delete-char' && key.ctrl && input.length === 0 && !search && !palette && !busyNow.current) {
+      return exit()
+    }
+    if (action === 'clear-screen') return clearScreen()
 
     // Above the busy gate on purpose: reading what an earlier command
     // returned is the natural thing to do while the next one is in flight.
-    if (key.ctrl && ch === 'o') {
+    if (action === 'toggle-output') {
       setPalette(null)
       return toggleExpanded()
     }
 
-    if (busy) return
+    if (search) return onSearchKey(ch, key)
 
-    // Seeded from the line, so a half-typed command becomes the search
-    // rather than something to close the palette and go back to.
-    if (key.ctrl && ch === 'k') {
+    // Esc and `?` are what close the panel. Any other key closes it and then does
+    // what it does, as Gemini CLI's panel does, rather than being swallowed.
+    if (keysOpen) {
+      setKeysOpen(false)
+      if (action === 'dismiss' || action === 'show-keys') return
+    }
+    // On an empty line, as Claude Code, Codex and Gemini CLI open theirs; in
+    // vim NORMAL whatever is on the line, as Claude Code's does. After text,
+    // `?` is a character, and in the palette's query or a deletion prompt too.
+    if (
+      action === 'show-keys' &&
+      !palette &&
+      !forgetting &&
+      !menu &&
+      !vim?.pending &&
+      (input === '' || vim?.mode === 'normal')
+    ) {
+      return setKeysOpen(true)
+    }
+
+    const moves = command === 'previous-history' ? -1 : command === 'next-history' ? 1 : 0
+    // A key in a form nothing here reads, which would otherwise be typed as
+    // the punctuation it arrived as.
+    if (enter === 'ignore') return
+
+    // ctrl+s, because ctrl+k is Readline's kill-line:
+    // `tasks/field-report/07-readline-keys.md` gives the sources. Seeded from the line, so a half-typed command becomes the
+    // search rather than something to close the palette and go back to.
+    if (command === 'forward-search-history') {
       if (forgetting) return
       if (palette) return setPalette(null)
       return openPalette()
+    }
+    if (command === 'reverse-search-history') {
+      if (forgetting || palette) return
+      return setSearch({ query: '', at: -1, original: editor })
+    }
+
+    // NORMAL's letters are commands on the line, and only on the line: the
+    // palette's query and a deletion prompt take what is typed as text, and a
+    // list moves on arrows and ctrl+n/ctrl+p alone — `j` and `k` are never
+    // bound in one. Everything that is not a printable key goes on to the
+    // readline keys below, in either mode.
+    if (vim?.mode === 'normal' && !palette && !forgetting && ch && command === null && enter === null) {
+      if (!key.ctrl && !key.meta && !key.return && !key.tab && !key.escape) {
+        if (menu && (ch === 'j' || ch === 'k')) return
+        const step = replay(vim, editor, ch)
+        setVim(step.state)
+        if (step.effect === 'previous-history' || step.effect === 'next-history') {
+          return recallHistory(step.effect === 'previous-history' ? -1 : 1)
+        }
+        // A slash means a command in either mode, as in Codex's NORMAL.
+        if (step.effect === 'open-menu') {
+          setVim({ ...step.state, mode: 'insert', pending: '' })
+          return setLine('/')
+        }
+        return changeLine(step.editor)
+      }
+    }
+
+    // An Esc that a list, the palette or a prompt takes also drops a half-typed
+    // NORMAL command. Nothing on screen shows a pending `d`, so keeping it
+    // would let the next key delete something no frame warned about.
+    if (key.escape && vim?.pending && (forgetting || palette || menu)) {
+      setVim({ ...vim, pending: '' })
     }
 
     // The line is being used to name a credential, so the keys that would
@@ -1424,17 +2046,16 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
     // recalling history, and Enter running whatever it recalled.
     if (forgetting) {
       if (key.escape) return keepCredential()
-      if (key.upArrow || key.downArrow || key.tab) return
+      if (moves !== 0 || key.tab) return
       if (key.return) return confirmForget(input)
     } else if (palette) {
       const chosen = paletteMatches[palette.index]
       if (key.escape) return setPalette(null)
-      if (key.upArrow || key.downArrow) {
+      if (moves !== 0) {
         const last = paletteMatches.length - 1
-        const step = key.upArrow ? -1 : 1
         return setPalette((p) => {
           if (!p) return null
-          const index = Math.max(0, Math.min(last, p.index + step))
+          const index = Math.max(0, Math.min(last, p.index + moves))
           return { ...p, index, offset: offsetShowing(paletteRows, paletteLimit, p.offset, index) }
         })
       }
@@ -1442,58 +2063,144 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
         if (chosen) runFromPalette(chosen, key.tab)
         return
       }
-      if (key.backspace || key.delete) {
-        return setPalette((p) => (p ? { query: p.query.slice(0, -1), index: 0, offset: 0 } : null))
-      }
+      if (command && isLineCommand(command)) return editQuery((q) => edit(q, command))
       if (key.ctrl || key.meta || !ch) return
       const { text } = typed(ch)
       if (!text) return
-      return setPalette((p) => (p ? { query: p.query + text, index: 0, offset: 0 } : null))
+      return editQuery((q) => insert(q, text))
+    }
+
+    // Taking a suggestion: whole on → ctrl+f or ctrl+e at the end of the line,
+    // one word on alt+f, and on Tab where no list has anything to insert.
+    // Never on Enter, which runs what is typed.
+    if (ghost) {
+      const whole = input + ghost
+      if (
+        command === 'forward-char' ||
+        command === 'end-of-line' ||
+        (key.tab && !(menu && menu.items.length > 0))
+      ) {
+        return changeLine(replace(editor, whole))
+      }
+      if (command === 'forward-word') {
+        return changeLine(replace(editor, whole.slice(0, forwardWord(whole, cursor))))
+      }
+    }
+
+    // The newline keys, on the shell's line only: a connect field, the palette's
+    // query and the deletion prompt each hold one line, and Enter there is Enter.
+    if (!forgetting && enter !== null) {
+      if (enter === 'newline') {
+        if (vim?.mode === 'insert') setVim(vimTyped(vim, '\n'))
+        return changeLine(insert(editor, '\n'))
+      }
+      // `\` then Enter, the form every terminal can send: the backslash goes
+      // and a break takes its place, as in Claude Code and Gemini CLI.
+      if (!menu && cursor > 0 && input[cursor - 1] === '\\') {
+        return changeLine(
+          replace(editor, `${input.slice(0, cursor - 1)}\n${input.slice(cursor)}`, cursor),
+        )
+      }
     }
 
     if (menu) {
-      if (key.upArrow || key.downArrow) {
+      if (moves !== 0) {
         const last = menu.items.length - 1
-        const step = key.upArrow ? -1 : 1
-        const index = Math.max(0, Math.min(last, menuIndex + step))
+        const index = Math.max(0, Math.min(last, menuIndex + moves))
         setMenuIndex(index)
         return setMenuOffset((o) => offsetShowing(menuDisplayRows, menuRows, o, index))
       }
-      if (key.tab) return completeFromMenu()
+      if (key.tab && menu.items.length > 0) return completeFromMenu()
       if (key.return) return runFromMenu()
       if (key.escape) return setMenuDismissed(true)
     } else {
-      if (key.upArrow) return recallHistory(-1)
-      if (key.downArrow) return recallHistory(1)
+      // A queued line back on the line to edit: the newest, as Codex's edit key
+      // takes it, on an empty line, as Gemini CLI's ↑ does. Cleared, it is gone.
+      if (moves === -1 && input === '' && queue.length > 0) {
+        const newest = queue.at(-1) ?? ''
+        setQueue(queue.slice(0, -1))
+        setLine(newest)
+        return setMenuDismissed(true)
+      }
+      // Rows first, then history from the first and last — Claude Code and
+      // Gemini CLI, and zsh's `up-line-or-history` where nothing wraps.
+      if (moves !== 0) {
+        const row = moveRow(editor, textWidth, moves)
+        return row ? changeLine(row) : recallHistory(moves)
+      }
       if (key.return) return void submit(input)
     }
 
-    if (key.leftArrow) return setCursor((c) => Math.max(0, c - 1))
-    if (key.rightArrow) return setCursor((c) => Math.min(input.length, c + 1))
-    if (key.backspace || key.delete) {
-      if (cursor === 0) return
-      setInput(input.slice(0, cursor - 1) + input.slice(cursor))
-      setCursor(cursor - 1)
-      setMenuDismissed(false)
-      return
+    if (command && isLineCommand(command)) {
+      if (vim?.mode === 'insert' && command === 'backward-delete-char') setVim(vimTyped(vim, '\x7f'))
+      return changeLine(edit(editor, command))
+    }
+    // Esc reaches here only once no list and no deletion prompt took it, so an
+    // open list keeps INSERT, as in Codex and fish. The sources, and the split
+    // with Gemini CLI, are in `tasks/field-report/10-vim-mode.md`.
+    // With vim on, INSERT becomes NORMAL and a half-typed command is dropped
+    // before an Esc reaches what is running — Claude Code's order.
+    if (key.escape && busyNow.current && !(vim && (vim.mode === 'insert' || vim.pending))) return stop()
+    if (key.escape && vim) {
+      const step = vimEscape(vim, editor)
+      setVim(step.state)
+      return changeLine(step.editor)
     }
     if (key.ctrl || key.meta || key.tab || key.escape) return
     if (!ch) return
 
     const { text, submits } = typed(ch)
-    const next = input.slice(0, cursor) + text + input.slice(cursor)
+    const next = insert(editor, text)
+    if (vim?.mode === 'insert' && !submits) setVim(vimTyped(vim, text))
     // A paste carries its own newline, so it reaches Enter here rather than
     // above — including a pasted name confirming a credential deletion.
-    if (submits) return forgetting ? confirmForget(next) : void submit(next)
-    setInput(next)
-    setCursor(cursor + text.length)
-    setMenuDismissed(false)
-    setMenuIndex(0)
-    setMenuOffset(0)
+    if (submits) return forgetting ? confirmForget(next.text) : void submit(next.text)
+    changeLine(next)
   }
+
+  /**
+   * The terminal's replies, taken by a hook of their own that is never
+   * inactive: `/login` and a connect screen own the keyboard while they are up,
+   * and a reply that arrives then is still a reply. Every other handler drops
+   * what `terminalReply` recognises, so none reaches a line, a key box or
+   * history, however late it comes.
+   *
+   * The protocol is asked about here rather than left to Ink's own detection,
+   * which listens for the answer on stdin beside the reader this app mounts:
+   * under Bun the two together handed one reply to the input over and over, and
+   * an answer after its 200ms reached the input line as text. Asked once and
+   * read here, a reply at any time turns it on, and `holdInputModes` in
+   * `terminal.ts` pops what was pushed however tula leaves.
+   */
+  const keyboardPushed = useRef(false)
+  useEffect(() => {
+    if (keyboardProtocol && stdout) askKeyboard(stdout)
+  }, [keyboardProtocol, stdout])
+  useInput((ch) => {
+    const reply = terminalReply(ch)
+    if (!reply) return
+    if (reply.kind === 'cursor') return setAnchor(reply.row)
+    if (!keyboardProtocol || keyboardPushed.current || !stdout) return
+    keyboardPushed.current = true
+    stdout.write('\x1b[>1u')
+  })
+
+  /** What was typed ahead of the shell, a line or an Enter per render, so each sees the screen the last one left. */
+  const [typeAhead, setTypeAhead] = useState<string[]>([])
+  useEffect(() => {
+    const [next, ...rest] = typeAhead
+    if (next === undefined) return
+    // A connect screen or /login opened by an earlier key owns the keyboard
+    // now, and a key typed ahead was not typed at it: it is dropped rather than
+    // put into an address field or a key box.
+    if (credentials || connecting) return setTypeAhead([])
+    setTypeAhead(rest)
+    onKey(...pressed(next))
+  }, [typeAhead, credentials, connecting])
 
   useInput(
     (ch, key) => {
+      if (terminalReply(ch)) return
       // Before everything, including the busy gate: a report that reaches the
       // bottom of the handler is typed in as the punctuation it looks like.
       // Read as a stream rather than one report per chunk — mode 1003 reports
@@ -1518,7 +2225,41 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
       }
       // A chunk that is nothing but the front of a report: wait for the rest.
       if (partial) return
+      // Type-ahead: keys pressed before the shell was reading, or faster than it
+      // draws, reach it in one read — Enters and ctrl chords included, which
+      // Ink does not split out of the text, and a bracketed paste never arrives
+      // this way. Split and replayed a piece per render, so `/refresh` opens its
+      // menu before its Enter lands. A line break is Enter here: a terminal
+      // still in cooked mode turned that Enter into one.
+      if (ch.length > 1 && !ch.includes('\x1b') && (/[\r\n]/.test(ch.slice(0, -1)) || CONTROL.test(ch))) {
+        setTypeAhead((waiting) => [...waiting, ...ch.split(PIECES).filter(Boolean)])
+        return
+      }
       onKey(ch, key)
+    },
+    { isActive: !credentials && !connecting },
+  )
+
+  /**
+   * A bracketed paste, which Ink delivers whole while this hook is mounted and
+   * the terminal brackets it: inserted with its line breaks, and never a submit
+   * (Readline's `enable-bracketed-paste`, zsh's `bracketed-paste`). Lines that
+   * hold one line take it as they always have — a paste into the deletion
+   * prompt ending in a newline still answers it.
+   */
+  usePaste(
+    (text) => {
+      const clean = pasted(text)
+      if (palette) return editQuery((q) => insert(q, typed(clean).text))
+      if (forgetting) {
+        const { text: name, submits } = typed(clean)
+        const next = insert(editorNow.current, name)
+        return submits ? confirmForget(next.text) : changeLine(next)
+      }
+      const into = search ? takeSearch() : editorNow.current
+      const vim = vimNow.current
+      if (vim?.mode === 'insert') setVim(vimTyped(vim, clean))
+      changeLine(insert(into, clean))
     },
     { isActive: !credentials && !connecting },
   )
@@ -1573,7 +2314,7 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
         // with nothing moving. By the time `showState` raised it the cache was
         // warm and it flashed for a frame. One span covers the whole wait, and
         // `session.onProgress` names the venue being read while it does.
-        setBusy(true)
+        setWorking(true)
         try {
           if (provider) {
             const stored = await secrets.getPriceSource()
@@ -1595,7 +2336,7 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
           // refuse. The `finally` restored the spinner and let the crash run.
           push('error', failureText(err))
         } finally {
-          setBusy(false)
+          setWorking(false)
         }
       }}
     />
@@ -1614,20 +2355,76 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
   const renderInputBox = (inert: boolean) => (
     <Box
       borderStyle="round"
-      borderColor={busy || inert ? theme.muted : theme.accent}
+      borderColor={inert ? theme.muted : theme.accent}
       borderLeft={false}
       borderRight={false}
       paddingX={1}
     >
-      <Text color={busy || inert ? theme.muted : theme.accent}>{'❯ '}</Text>
+      <Text color={inert ? theme.muted : theme.accent}>{'❯ '}</Text>
       <InputLine
-        value={input}
-        cursor={cursor}
-        dim={busy || inert}
+        value={search ? searched : input}
+        // On the match, where Readline leaves point during a search.
+        cursor={search ? Math.max(0, searchMatches ? searched.indexOf(search.query) : searched.length) : cursor}
+        dim={inert}
+        width={textWidth}
+        {...(ghost && !inert ? { suggestion: ghost } : {})}
         placeholder={
-          busy || forgetting ? '' : 'ask anything · / for commands · ctrl+k to search them'
+          forgetting || search
+            ? ''
+            : busy
+              ? PLACEHOLDER_BUSY
+              : cells(PLACEHOLDER_HINTED) + 2 <= textWidth
+              ? PLACEHOLDER_HINTED
+              : PLACEHOLDER
         }
       />
+    </Box>
+  )
+
+  /**
+   * The row under the line while ctrl+r is up: what is being searched for, and
+   * — because a search that stops matching leaves the last match standing —
+   * that nothing matches, rather than a line that looks like an answer.
+   */
+  const searchHint = !search
+    ? ''
+    : history.length === 0
+      ? 'history is empty — nothing to search yet · esc to close'
+      : search.query === ''
+        ? 'search history: type part of an earlier line · ctrl+g to cancel'
+        : searchMatches
+          ? `search history: “${search.query}” · ctrl+r older · enter runs · esc edits · ctrl+g cancels`
+          : `nothing in history matches “${search.query}” · backspace to widen · ctrl+g cancels`
+
+  /**
+   * The `?` panel. A panel, not a modal: it sits in the frame above the input,
+   * and the frame has to stay shorter than the viewport, or Ink clears on every
+   * keystroke. So it shows the rows that fit and ends on the command that prints
+   * the rest. Each row is truncated, never wrapped, for the reason the status
+   * line is.
+   */
+  const keysLines = keysText({ vim: vim !== null, vimFirst: true }).split('\n')
+  const keysRoom = Math.max(3, rows - inputRows - 2 - 1 - (expanded ? 1 : 0) - 2 - workRows)
+  const keysCut = keysLines.length + 1 > keysRoom
+  const keysShown = keysCut ? keysLines.slice(0, keysRoom - 1) : keysLines
+  const keysPanel = (
+    <Box flexDirection="column" paddingLeft={1} marginBottom={1}>
+      {keysShown.map((line, at) =>
+        line !== '' && !line.startsWith(' ') ? (
+          <Text key={`k${at}`} color={theme.notice} wrap="truncate">
+            {line}
+          </Text>
+        ) : (
+          <Text key={`k${at}`} dimColor wrap="truncate">
+            {line || ' '}
+          </Text>
+        ),
+      )}
+      <Text dimColor wrap="truncate">
+        {keysCut
+          ? `… ${keysLines.length - keysShown.length} more rows · /keys prints every key · Esc closes`
+          : 'Esc or ? closes'}
+      </Text>
     </Box>
   )
 
@@ -1635,8 +2432,17 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
     <Box paddingLeft={1} flexDirection="column">
       {/* Truncated on purpose: a status line that wraps is a row Ink counts
           as one, and its next erase leaves the remainder standing. */}
-      <Text dimColor wrap="truncate">
-        {status}
+      <Text wrap="truncate">
+        {/* The mode beside the line, as Claude Code draws it. Gold for NORMAL,
+            the lighter notice gold for INSERT, and never red, which means
+            something is wrong. Dim goes on the status alone: a parent's dim
+            would dull the mode too. */}
+        {vim && (
+          <Text bold color={vim.mode === 'normal' ? theme.accent : theme.notice}>
+            {vim.mode === 'normal' ? '-- NORMAL --  ' : '-- INSERT --  '}
+          </Text>
+        )}
+        <Text dimColor>{status}</Text>
       </Text>
       {/* Nothing is marked "… more lines" while this is on, so the way back
           has to be somewhere that does not depend on there being one. */}
@@ -1665,7 +2471,8 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
       {panel ??
         (palette ? (
           <Palette
-            query={palette.query}
+            query={palette.query.text}
+            cursor={palette.query.cursor}
             matches={paletteMatches}
             selected={palette.index}
             offset={palette.offset}
@@ -1696,7 +2503,9 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
           />
         ) : (
           <>
-            {nothingConnected && entries.length === 0 && (
+            {/* Not while the keys panel is up: the panel's rows are counted
+                against a frame that does not hold this block. */}
+            {nothingConnected && entries.length === 0 && !keysOpen && (
               <Box marginBottom={1} paddingLeft={1} flexDirection="column">
                 <Text color={theme.notice}>
                   No venue connected yet, so there is nothing to measure.
@@ -1725,9 +2534,31 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
                 <Text color={theme.accent} wrap="truncate">
                   {`${SPINNER[frame % SPINNER.length]} ${activity || 'working'}`}
                   {elapsed > 0 ? `  ·  ${elapsed}s` : ''}
+                  {stopNote ? `  ·  ${stopNote}` : ''}
                 </Text>
               </Box>
             )}
+
+            {/* Above the input, where Claude Code, Codex and Gemini CLI draw
+                theirs, oldest first as they will run. Three rows and a count, so
+                a long queue does not push the line being typed off the screen. */}
+            {queue.length > 0 && (
+              <Box flexDirection="column" paddingLeft={3} marginBottom={1}>
+                <Text dimColor wrap="truncate">
+                  {`queued — ${queue.length === 1 ? 'runs' : 'run in order'} when this one finishes · ↑ on an empty line takes the last back`}
+                </Text>
+                {queue.slice(0, QUEUE_ROWS).map((line, at) => (
+                  <Text key={`q${at}`} wrap="truncate">
+                    {`↳ ${line.split('\n')[0]}${line.includes('\n') ? ' …' : ''}`}
+                  </Text>
+                ))}
+                {queue.length > QUEUE_ROWS && (
+                  <Text dimColor wrap="truncate">{`  … and ${queue.length - QUEUE_ROWS} more`}</Text>
+                )}
+              </Box>
+            )}
+
+            {keysOpen && keysPanel}
 
             {renderInputBox(false)}
 
@@ -1743,6 +2574,15 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
               </Box>
             )}
 
+            {/* Truncated for the reason the row above is. */}
+            {search && (
+              <Box paddingLeft={1}>
+                <Text color={theme.notice} wrap="truncate">
+                  {searchHint}
+                </Text>
+              </Box>
+            )}
+
             {menu && (
               <SlashMenu
                 items={menu.items}
@@ -1750,7 +2590,8 @@ export function App({ session, connectors, initialApiKey, initialVenues, agent: 
                 prefix={menu.prefix}
                 limit={menuRows}
                 offset={menuOffset}
-                {...(menu.level === 'venue' ? { heading: menu.heading } : {})}
+                {...(menu.level !== 'top' ? { heading: menu.heading } : {})}
+                {...(menu.level === 'args' && menu.empty ? { empty: menu.empty } : {})}
               />
             )}
 

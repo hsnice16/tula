@@ -1,5 +1,5 @@
 /**
- * A list too long for the rows it has, scrolled. Both the `/` menu and ctrl+k
+ * A list too long for the rows it has, scrolled. Both the `/` menu and ctrl+s
  * draw headings between their rows, so what scrolls is the drawn rows rather
  * than the entries — a notch has to move the list by what the eye sees move.
  *

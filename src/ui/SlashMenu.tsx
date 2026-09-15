@@ -21,6 +21,11 @@ interface Props {
   limit: number
   /** First drawn row on screen. The app owns it: the wheel moves it directly. */
   offset: number
+  /**
+   * Why there is nothing to pick, drawn where the rows would be: an argument
+   * list with no candidates yet is a list somebody needs told how to fill.
+   */
+  empty?: string
 }
 
 export type DisplayItem =
@@ -42,7 +47,7 @@ export function menuDisplay(items: MenuItem[]): DisplayItem[] {
   return display
 }
 
-export function SlashMenu({ items, selected, prefix, heading, limit, offset }: Props) {
+export function SlashMenu({ items, selected, prefix, heading, limit, offset, empty }: Props) {
   const labelOf = (item: MenuItem) => `${prefix}${item.name} ${item.args ?? ''}`.trimEnd()
   const width = items.length > 0 ? Math.max(...items.map((i) => labelOf(i).length)) : 0
   // Inside a venue the rows are `connect`, `positions`… and only the heading
@@ -53,6 +58,7 @@ export function SlashMenu({ items, selected, prefix, heading, limit, offset }: P
   const start = windowStart(display, limit, offset)
   const shown = display.slice(start, start + limit)
   const rest = display.length - shown.length
+  const explained = items.length === 0 && empty ? 1 : 0
 
   return (
     <Box flexDirection="column" paddingLeft={2}>
@@ -81,9 +87,14 @@ export function SlashMenu({ items, selected, prefix, heading, limit, offset }: P
           />
         ),
       )}
+      {explained > 0 && (
+        <Text dimColor wrap="truncate">
+          {`  ${empty}`}
+        </Text>
+      )}
       {/* The block keeps its height whatever the filter leaves, so the line you
           are typing on never moves under the cursor. */}
-      {Array.from({ length: Math.max(0, limit - shown.length) }, (_, i) => (
+      {Array.from({ length: Math.max(0, limit - shown.length - explained) }, (_, i) => (
         <Text key={`pad${i}`}> </Text>
       ))}
       <Text dimColor wrap="truncate">

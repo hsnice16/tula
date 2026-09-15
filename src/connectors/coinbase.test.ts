@@ -211,6 +211,19 @@ describe('coinbase perpetuals', () => {
     expect(btc?.liquidation?.leverage?.toString()).toBe('5')
   })
 
+  test('a perp adds its unrealised PnL to the book, and the cash beside it is already a row', async () => {
+    stub([ACCOUNTS], { '/portfolios/': BREAKDOWN })
+    const positions = await coinbaseConnector.fetchPositions(CREDS)
+    const perps = positions.filter((p) => p.kind === 'perp')
+    expect(perps.find((p) => p.asset === 'BTC')?.equity?.toString()).toBe('-1500')
+    expect(perps.find((p) => p.asset === 'ETH')?.equity?.toString()).toBe('300')
+    // The two stated add up to the portfolio's own perp PnL.
+    const stated = BREAKDOWN as { breakdown: { portfolio_balances: { perp_unrealized_pnl: { value: string } } } }
+    expect(stated.breakdown.portfolio_balances.perp_unrealized_pnl.value).toBe('-1200.00')
+    // Omitted, it is left unstated and the total names Coinbase rather than a notional.
+    expect(perps.find((p) => p.asset === 'SOL')?.equity).toBeUndefined()
+  })
+
   test('a short is negative however Coinbase signed net_size', async () => {
     stub([ACCOUNTS], { '/portfolios/': BREAKDOWN })
     const eth = (await coinbaseConnector.fetchPositions(CREDS)).find((p) => p.kind === 'perp' && p.asset === 'ETH')

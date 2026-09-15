@@ -1,5 +1,6 @@
 import type Decimal from 'decimal.js'
-import type { Position, VenueKind } from './position.js'
+import { list } from './coverage.js'
+import type { MarginRatio, Position, VenueKind } from './position.js'
 
 /**
  * Trailing zeros are stripped so a column of quantities is scanned by its
@@ -112,6 +113,29 @@ export function healthFactor(value: Decimal | null): string {
   return value.toFixed(2)
 }
 
+/**
+ * A margin ratio or a cap used, as the venue prints one: a percentage to two
+ * places with no sign, because it has no direction — a Unified Account Ratio of
+ * `+12.00%` reads as a move. Non-finite is a pool with maintenance owed and
+ * nothing left to back it, which has no percentage to print.
+ */
+export function marginRatio(fraction: Decimal | null): string {
+  if (fraction === null || !fraction.isFinite()) return '—'
+  // Grouped as the venue's app draws it, `Q(value * 100, 2)` through
+  // `toLocaleString` — so a ratio of 91.0064 reads `9,100.64%` in both.
+  return `${grouped(fraction.times(100).toFixed(2))}%`
+}
+
+/** A ratio as a figure, `at least` where it covers only what loaded. */
+export function ratioValue(ratio: MarginRatio): string {
+  return `${ratio.unread?.length ? 'at least ' : ''}${marginRatio(ratio.value)}`
+}
+
+/** Why a ratio is a floor, or null where it covers the whole account. */
+export function ratioFloor(ratio: MarginRatio): string | null {
+  return ratio.unread?.length ? `${list(ratio.unread)} did not load, and can only raise it` : null
+}
+
 /** Signed, because the direction of the move is the whole point. */
 export function pct(fraction: Decimal, dp = 1): string {
   if (!fraction.isFinite()) return '—'
@@ -144,4 +168,8 @@ export function downloaded(received: number, total: number | null): string {
   const mb = (n: number) => (n / 1_000_000).toFixed(1)
   if (!total) return `downloading ${mb(received)} MB`
   return `downloading ${Math.floor((received / total) * 100)}% · ${mb(received)} of ${mb(total)} MB`
+}
+
+export function plural(n: number, noun: string): string {
+  return `${n} ${noun}${n === 1 ? '' : 's'}`
 }

@@ -1,6 +1,6 @@
 import Decimal from 'decimal.js'
 import { claimed, RELEASES } from '../core/availability.js'
-import { freshness, healthFactor, pct, price, quantity, usd } from '../core/format.js'
+import { freshness, healthFactor, marginRatio, pct, price, quantity, ratioFloor, ratioValue, usd } from '../core/format.js'
 import { unrankedVenues } from '../core/coverage.js'
 import { belongsToVenue, type Position } from '../core/position.js'
 import type { Shock } from '../core/risk.js'
@@ -149,7 +149,7 @@ export function executeTool(engine: RiskEngine, name: string, input: unknown): u
             failed_venues: f.failures.map(untrusted),
             price_error: marked(f.priceError),
             warning:
-              'A venue listed here did not answer. Its figures are missing from these totals, or are its previous read — get_venue_status says which. Say so before quoting any total.',
+              'Each line names what did not load at a venue and what that leaves out. A venue that still has rows in these results answered in part: every figure here is from what did load. Any other is missing from these totals, or is its previous read — get_venue_status says which. Say so before quoting any total, and that /refresh tries again.',
           },
         }
       : {}
@@ -196,9 +196,15 @@ export function executeTool(engine: RiskEngine, name: string, input: unknown): u
           ),
           as_of: at(e.asOf),
         }))
+      const value = engine.scenario([]).before
       return seal({
         exposures: rows,
-        note: 'Figures are final: quote them exactly as written. notional_usd null means no price was available, not zero value.',
+        equity_usd: money(value.total),
+        excluded_from_equity: {
+          unpriced: value.unpriced.map(untrusted),
+          no_equity_stated: value.unstated.map(untrusted),
+        },
+        note: 'Figures are final: quote them exactly as written. notional_usd null means no price was available, not zero value. equity_usd is what the book is worth — holdings at price, debt subtracted, each derivative at the equity its venue states — and is not the sum of notional_usd, which measures exposure. Anything in excluded_from_equity is missing from equity_usd; say so beside it.',
         ...incomplete,
       })
     }
@@ -243,6 +249,15 @@ export function executeTool(engine: RiskEngine, name: string, input: unknown): u
               ? { health_factor: healthFactor(p.liquidation.healthFactor) }
               : {}),
             ...(p.liquidation?.price ? { liquidation_price: price(p.liquidation.price) } : {}),
+            ...(p.borrowing
+              ? {
+                  net_balance: quantity(p.quantity),
+                  borrowed: quantity(p.borrowing.borrowed),
+                  supplied: quantity(p.borrowing.supplied),
+                  loan_to_value: marginRatio(p.borrowing.ltv),
+                  borrow_cap_used: marginRatio(p.borrowing.capUsed),
+                }
+              : {}),
           }
         })
       return seal({
@@ -266,11 +281,34 @@ export function executeTool(engine: RiskEngine, name: string, input: unknown): u
         ...(r.position.liquidation?.price
           ? { liquidation_price: price(r.position.liquidation.price) }
           : {}),
+        ...(r.position.liquidation?.ratio
+          ? {
+              account_ratio: {
+                name: r.position.liquidation.ratio.name,
+                value: ratioValue(r.position.liquidation.ratio),
+                ...(ratioFloor(r.position.liquidation.ratio) !== null
+                  ? { covers_only_what_loaded: untrusted(ratioFloor(r.position.liquidation.ratio)!) }
+                  : {}),
+                liquidated_past: marginRatio(r.position.liquidation.ratio.threshold),
+                ...(r.position.liquidation.ratio.borrowHealth !== undefined
+                  ? {
+                      borrow_health_factor: marginRatio(r.position.liquidation.ratio.borrowHealth),
+                      borrow_health_factor_means: 'below 100% the account cannot borrow more; it is not a liquidation trigger',
+                    }
+                  : {}),
+              },
+              liquidated_with_this_account: (r.members ?? []).map((p) => ({
+                kind: p.kind,
+                asset: untrusted(p.asset),
+                ...(p.liquidation?.price ? { liquidation_price: price(p.liquidation.price) } : {}),
+              })),
+            }
+          : {}),
         as_of: at(r.position.asOf),
       }))
       return seal({
         risks: rows,
-        note: 'Figures are final: quote them exactly as written. move_to_liquidation null means the distance could not be computed: the venue gave no liquidation data, or the mark had no price to measure from, which a liquidation_price on the same row tells apart. Neither is the same as safe.',
+        note: 'Figures are final: quote them exactly as written. move_to_liquidation null means the distance could not be computed: the venue gave no liquidation data, or the mark had no price to measure from, which a liquidation_price on the same row tells apart. Neither is the same as safe. A row with account_ratio is an account the venue liquidates as a whole once that ratio passes liquidated_past; the positions in liquidated_with_this_account go with it, and their own liquidation_price lies past that trigger, so never rank them by it.',
         ...incomplete,
         ...unseen,
       })
@@ -329,6 +367,8 @@ export function executeTool(engine: RiskEngine, name: string, input: unknown): u
           (p) =>
             p.kind !== 'spot' &&
             p.kind !== 'pending' &&
+            // Evaluated through its account's ratio, in `account_ratios`.
+            p.liquidation?.liquidatedWith === undefined &&
             moveOn(p.asset) !== undefined &&
             (distances.get(p.id) ?? null) === null,
         )
@@ -340,10 +380,20 @@ export function executeTool(engine: RiskEngine, name: string, input: unknown): u
         value_after_usd: usd(result.after.total),
         change_usd: usd(result.change),
         unpriced_and_excluded: result.before.unpriced.map(untrusted),
+        no_equity_stated_and_excluded: result.before.unstated.map(untrusted),
         health_factors: healthFactors,
+        account_ratios: result.ratios.map((r) => ({
+          ...named(r.position.venue),
+          name: r.ratio.name,
+          before: ratioValue(r.ratio),
+          after: r.after === null ? null : marginRatio(r.after),
+          liquidated_past: marginRatio(r.ratio.threshold),
+          ...(r.why === null ? {} : { not_recomputed_because: r.why }),
+          ...(r.tiered ? { held_still: 'each position’s margin rate; a move into another margin tier changes it' } : {}),
+        })),
         liquidated: result.liquidated.map(row),
         could_not_be_evaluated: unevaluated,
-        note: 'Figures are final: quote them exactly as written. could_not_be_evaluated lists positions this shock could have called and the venue gave no liquidation data for; they are missing from liquidated, and that is a gap, not safety. health_factor_after null means a leg of that market had no price, so the new factor is unknown rather than unchanged. health_factor_after holds the debt at today’s value: where debt_this_shock_moves is not null, that market borrows an asset this shock moves, the figure reprices the collateral side only, and real_health_factor_after says where the true one sits — say so rather than quoting the number alone.',
+        note: 'Figures are final: quote them exactly as written. could_not_be_evaluated lists positions this shock could have called and the venue gave no liquidation data for; they are missing from liquidated, and that is a gap, not safety. An account_ratios entry with after null is the same gap for a whole account: its ratio could not be recomputed under this shock, so whether that account and every position in it liquidates is unknown — name it with its not_recomputed_because, and never say nothing liquidates without it. health_factor_after null means a leg of that market had no price, so the new factor is unknown rather than unchanged. health_factor_after holds the debt at today’s value: where debt_this_shock_moves is not null, that market borrows an asset this shock moves, the figure reprices the collateral side only, and real_health_factor_after says where the true one sits — say so rather than quoting the number alone.',
         ...incomplete,
         ...unseen,
       })

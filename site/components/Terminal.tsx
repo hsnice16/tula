@@ -17,11 +17,14 @@ export function Frame({
 }) {
   return (
     <div className="min-w-0 overflow-hidden rounded-[5px] border border-rule bg-panel shadow-lift">
-      <div className="flex items-center gap-2 border-b border-rule bg-panel-2 px-3.5 py-2.5">
+      {/* Wraps so that enlarged text drops the aside to its own row rather than
+          pushing it past the frame's clipped edge. The title's zero basis is what
+          makes the aside, not the title, the item that wraps. */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-rule bg-panel-2 px-3.5 py-2.5">
         <i className="block size-2.5 flex-none rounded-full bg-[#46403c]" />
         <i className="block size-2.5 flex-none rounded-full bg-rule" />
         <i className="block size-2.5 flex-none rounded-full bg-rule" />
-        <span className="ml-2 font-mono text-[0.68rem] uppercase tracking-[0.12em] text-dim">
+        <span className="ml-2 flex-1 font-mono text-[0.75rem] leading-[1.125rem] uppercase tracking-[0.12em] text-dim">
           {title}
         </span>
         {aside}

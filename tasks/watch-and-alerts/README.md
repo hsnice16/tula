@@ -1,4 +1,4 @@
-# 9 · Watch and alerts
+# 10 · Watch and alerts
 
 "Tell me before my health factor breaks 1.3" is arguably the reason someone opens
 this daily, and it is the natural bridge to autonomous mode later.

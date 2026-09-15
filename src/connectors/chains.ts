@@ -6,7 +6,16 @@ import type { ChainId } from '../core/position.js'
  * when they were spread over the connectors: the nodes a call may go to, the
  * EIP-155 id a token list is filtered by, and the name a failure prints. A
  * chain named wrong in a failure sends the reader to fix an endpoint that is
- * working, which on a three-chain book is the commonest way to lose an hour.
+ * working, which on a multi-chain book is the commonest way to lose an hour.
+ *
+ * Every default node passed the same live test before it was listed: the right
+ * `eth_chainId`, a 40-call batch answered as an array, and 120 `eth_call`s in
+ * chunks of 40 answered twice back to back, with every chain read at once. The
+ * third is the one that eliminates: `mainnet.base.org` passes the first two and
+ * then answers "over rate limit" per call inside an HTTP 200, which reads as
+ * nulls rather than as a node to move off. thirdweb's public nodes fail it the
+ * same way once several chains share them, so only Base lists one, beside two
+ * nodes that pass.
  */
 
 
@@ -23,10 +32,9 @@ export interface Chain {
   readonly name: string
 
   /**
-   * What `eth_getBalance` answers in. All three of these settle gas in ETH, so
-   * one native balance nets with another — but it is stated per chain rather
-   * than assumed, because the day one of them does not, assuming it would file
-   * somebody's gas token under ETH.
+   * What `eth_getBalance` answers in. Stated per chain because it differs —
+   * POL, AVAX and xDAI are not ETH — and assuming it would file somebody's gas
+   * token under ETH.
    */
   readonly nativeSymbol: string
 
@@ -49,11 +57,22 @@ export interface Chain {
 }
 
 /**
- * A Token Lists feed carrying every chain here, so one fetch answers for all of
- * them and a chain is never read against another chain's tokens. Per-chain
- * overrides exist for anyone who wants a narrower or a wider list.
+ * One fetch answers for every chain this feed carries. It carries no tokens for
+ * Gnosis, Scroll or Linea, so those take a list of their own.
  */
 const UNISWAP_LIST = 'https://tokens.uniswap.org'
+
+/**
+ * SmolDapp's per-chain lists, for the chains Uniswap's does not carry.
+ *
+ * Not CoinGecko's per-chain lists, which carry more: they upper-case every
+ * symbol, so an Aave receipt token arrives as `ALINUSDC` and passes the
+ * `RECEIPT` filter in `wallet.ts`, which knows receipt tokens by the case Aave
+ * writes them in — and the wallet then counts collateral the Aave read already
+ * counted. Not Scroll's own list either, which has no SCR.
+ */
+const smolList = (eip155: number): string =>
+  `https://raw.githubusercontent.com/SmolDapp/tokenLists/main/lists/${eip155}.json`
 
 /**
  * `TULA_TOKEN_LIST` came from the release that read one chain, so it means "the
@@ -108,6 +127,92 @@ export const CHAINS: readonly Chain[] = [
     ],
     tokenListEnv: ['TULA_BASE_TOKEN_LIST', SHARED_LIST_ENV],
     defaultTokenList: UNISWAP_LIST,
+  },
+  {
+    id: 'polygon',
+    eip155: 137,
+    name: 'Polygon',
+    nativeSymbol: 'POL',
+    rpcEnv: ['TULA_POLYGON_RPC'],
+    defaultRpcs: [
+      'https://polygon-bor-rpc.publicnode.com',
+      'https://poly.api.pocket.network',
+      'https://matic.rpc.sentio.xyz',
+    ],
+    tokenListEnv: ['TULA_POLYGON_TOKEN_LIST', SHARED_LIST_ENV],
+    defaultTokenList: UNISWAP_LIST,
+  },
+  {
+    id: 'optimism',
+    eip155: 10,
+    name: 'Optimism',
+    nativeSymbol: 'ETH',
+    rpcEnv: ['TULA_OPTIMISM_RPC'],
+    // Not `mainnet.optimism.io`: it refuses any batch over ten calls.
+    defaultRpcs: [
+      'https://optimism-rpc.publicnode.com',
+      'https://op.api.pocket.network',
+      'https://optimism.rpc.sentio.xyz',
+    ],
+    tokenListEnv: ['TULA_OPTIMISM_TOKEN_LIST', SHARED_LIST_ENV],
+    defaultTokenList: UNISWAP_LIST,
+  },
+  {
+    id: 'avalanche',
+    eip155: 43114,
+    name: 'Avalanche',
+    nativeSymbol: 'AVAX',
+    rpcEnv: ['TULA_AVALANCHE_RPC'],
+    defaultRpcs: [
+      'https://avalanche-c-chain-rpc.publicnode.com',
+      'https://api.avax.network/ext/bc/C/rpc',
+      'https://avax.api.pocket.network',
+    ],
+    tokenListEnv: ['TULA_AVALANCHE_TOKEN_LIST', SHARED_LIST_ENV],
+    defaultTokenList: UNISWAP_LIST,
+  },
+  {
+    id: 'gnosis',
+    eip155: 100,
+    name: 'Gnosis',
+    nativeSymbol: 'xDAI',
+    rpcEnv: ['TULA_GNOSIS_RPC'],
+    defaultRpcs: [
+      'https://gnosis-rpc.publicnode.com',
+      'https://rpc.gnosischain.com',
+      'https://gnosis.api.pocket.network',
+    ],
+    tokenListEnv: ['TULA_GNOSIS_TOKEN_LIST', SHARED_LIST_ENV],
+    defaultTokenList: smolList(100),
+  },
+  {
+    id: 'scroll',
+    eip155: 534352,
+    name: 'Scroll',
+    nativeSymbol: 'ETH',
+    rpcEnv: ['TULA_SCROLL_RPC'],
+    // Not `rpc.scroll.io`: it answers a 40-call batch with HTTP 413.
+    defaultRpcs: [
+      'https://scroll-rpc.publicnode.com',
+      'https://scroll.api.pocket.network',
+      'https://scroll.rpc.sentio.xyz',
+    ],
+    tokenListEnv: ['TULA_SCROLL_TOKEN_LIST', SHARED_LIST_ENV],
+    defaultTokenList: smolList(534352),
+  },
+  {
+    id: 'linea',
+    eip155: 59144,
+    name: 'Linea',
+    nativeSymbol: 'ETH',
+    rpcEnv: ['TULA_LINEA_RPC'],
+    defaultRpcs: [
+      'https://linea-rpc.publicnode.com',
+      'https://rpc.linea.build',
+      'https://linea.api.pocket.network',
+    ],
+    tokenListEnv: ['TULA_LINEA_TOKEN_LIST', SHARED_LIST_ENV],
+    defaultTokenList: smolList(59144),
   },
 ]
 

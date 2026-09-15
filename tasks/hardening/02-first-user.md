@@ -18,5 +18,5 @@ will not write Python.
 
 Open question the user has not answered yet. It should be settled before 1.0,
 because it decides what the agent that already shipped is answering, and what
-execution in 14 would be for. `ROADMAP.md` names it as the one thing that could
-reorder the plan: an answer naming a venue tula does not read moves 10 ahead of 8.
+execution in 15 would be for. `ROADMAP.md` names it as the one thing that could
+reorder the plan: an answer naming a venue tula does not read moves 11 ahead of 9.

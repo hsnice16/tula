@@ -82,9 +82,9 @@ rather than encumbrance.
 **A function in `src/core`, not fields on `NetExposure`.**
 
 `NetExposure` answers price sensitivity. Availability is a different question, and
-the two were conflated once already — `Net value` became `Net notional` because
-"value" counted a leveraged perp's whole position and overstated net worth by
-exactly the leverage. A `free` field inside a record about price sensitivity
+the two were conflated once already — `Net value` became `Net notional`, and
+later `Equity`, because counting a leveraged perp's whole position overstated
+net worth by exactly the leverage. A `free` field inside a record about price sensitivity
 invites that again.
 
 It is also where the graph gets inverted exactly once. `encumbers` is set on the

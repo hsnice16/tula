@@ -91,6 +91,62 @@ const redirected = (url: string): Intercepted =>
  */
 export const DOWNLOAD_TIMEOUT_MS = 300_000
 
+/**
+ * The most of one answer read into memory. The largest real one is about 300 KB,
+ * CoinPaprika's ticker list, so no working endpoint nears it; what it stops is a
+ * body streaming without end, which the deadline alone lets fill memory first.
+ */
+export const MAX_BODY_BYTES = 16_000_000
+
+const tooLarge = (url: string): TulaError =>
+  new TulaError(
+    `${host(url)} sent more than ${MAX_BODY_BYTES / 1_000_000} MB in one answer, so it was not read.\n` +
+      '  Nothing tula asks for is near that size. Try /refresh; if it persists, the endpoint is misbehaving.',
+  )
+
+const isTimeout = (err: unknown): boolean =>
+  err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')
+
+async function boundedBytes(res: Response, url: string, timeoutMs: number): Promise<Uint8Array> {
+  if (!res.body) return new Uint8Array()
+  const reader = res.body.getReader()
+  const chunks: Uint8Array[] = []
+  let size = 0
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      size += value.byteLength
+      if (size > MAX_BODY_BYTES) throw tooLarge(url)
+      chunks.push(value)
+    }
+  } catch (err) {
+    await reader.cancel().catch(() => {})
+    // The signal still bounds the body, and its abort says nothing about which
+    // host went quiet mid-answer.
+    throw isTimeout(err) ? tooSlow(url, timeoutMs) : err
+  }
+  return Buffer.concat(chunks)
+}
+
+/**
+ * Every buffered read of the answer, bounded. `body` itself is left as it
+ * arrives: the update download streams it for its progress line, is tens of
+ * megabytes, and is checksummed before it is used.
+ */
+function bounded(res: Response, url: string, timeoutMs: number): Response {
+  const bytes = () => boundedBytes(res, url, timeoutMs)
+  const text = async () => new TextDecoder().decode(await bytes())
+  Object.defineProperties(res, {
+    bytes: { value: bytes },
+    arrayBuffer: { value: async () => new Uint8Array(await bytes()).buffer },
+    blob: { value: async () => new Blob([new Uint8Array(await bytes())]) },
+    text: { value: text },
+    json: { value: async () => JSON.parse(await text()) as unknown },
+  })
+  return res
+}
+
 export async function request(
   url: string,
   init: RequestInit = {},
@@ -108,19 +164,18 @@ export async function request(
   })
 
   try {
-    return await Promise.race([
+    const res = await Promise.race([
       // `redirect` first, so a caller that needs to follow one says so and the
       // rest cannot acquire the behaviour by omission. Only `src/update` does.
       fetch(url, { redirect: 'error', ...init, signal: AbortSignal.timeout(timeoutMs) }),
       deadline,
     ])
+    return bounded(res, url, timeoutMs)
   } catch (err) {
     // Named rather than re-thrown: an abort surfaces as `TimeoutError: The
     // operation was aborted`, which says nothing about which venue stopped
     // answering, or that waiting longer would not have helped.
-    if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
-      throw tooSlow(url, timeoutMs)
-    }
+    if (isTimeout(err)) throw tooSlow(url, timeoutMs)
     if (isRedirect(err)) throw redirected(url)
     throw err
   } finally {

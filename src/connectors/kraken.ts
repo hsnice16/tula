@@ -230,6 +230,8 @@ export const krakenConnector: Connector = {
     { name: 'apiSecret', label: 'API secret', secret: true },
   ],
 
+  readOnlyKey: 'Create a key with only Query Funds and Query Open Orders & Trades turned on.',
+
   help: [
     { label: 'Create an API key', url: 'https://support.kraken.com/articles/360000919966-how-to-create-an-api-key' },
     { label: 'What each permission does', url: 'https://docs.kraken.com/exchange/guides/rest/api-keys' },

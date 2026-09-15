@@ -73,7 +73,7 @@ walk_imports() {
 
   case "$file" in
     src/secrets/* | src/connectors/*)
-      report "the agent layer reaches $file — $chain"
+      report "$WALKING reaches $file — $chain"
       return 0
       ;;
   esac
@@ -94,6 +94,7 @@ walk_imports() {
 if [ ! -d src/agent ]; then
   report "src/agent does not exist, so nothing enforces the agent boundary SECURITY.md promises"
 else
+  WALKING="the agent layer"
   SEEN=$(mktemp)
   entries=0
   for f in src/agent/*.ts src/agent/*.tsx; do
@@ -174,6 +175,28 @@ if grep -rnE "(console\.[a-z]+|process\.(stdout|stderr)|child_process|[^a-zA-Z]f
   report "src/secrets can log, spawn or reach the network; the store that holds every credential may do none of them"
 fi
 
+# The history file holds what was typed on the shell's line, on the keyboard
+# that pastes exchange keys. Two ways a key could reach it, both closed here:
+# something that holds one calling the write — the connect screen, a connector,
+# the store — and the writer itself reaching the store. The first is by
+# importer, because the shell is the one caller there is meant to be; the
+# second is the walk the agent boundary uses, for the holes it closes there.
+if [ ! -d src/history ]; then
+  report "src/history does not exist, so nothing holds the history write apart from the credentials"
+else
+  for f in $(grep -rlE "history/history(\.js)?['\"]" src --include='*.ts' --include='*.tsx' --exclude='*.test.ts' |
+    grep -vE '^src/(ui/app\.tsx|history/)'); do
+    report "$f reaches the history write, which only src/ui/app.tsx may call"
+  done
+  WALKING="src/history"
+  SEEN=$(mktemp)
+  for f in src/history/*.ts; do
+    case "$f" in *.test.ts) continue ;; esac
+    [ -f "$f" ] && walk_imports "$f" "$f"
+  done
+  rm -f "$SEEN"
+fi
+
 # Nothing the user reads should suggest this is a sketch. People are deciding
 # whether to point it at their net worth.
 #
@@ -181,7 +204,8 @@ fi
 # between `TULA` and `DEMO` and matched nothing — and `TULA_DEMO` is exactly how
 # the demo fixture this check stands as the evidence against was spelled.
 SKETCH="(^|[^A-Za-z])(demo|dummy|fake|toy|playground|just a test|for now)([^A-Za-z]|$)"
-if grep -rniE "$SKETCH" src --include='*.ts' --include='*.tsx' --exclude='*.test.ts'; then
+# bip39.ts is BIP-39's wordlist, which has "toy" in it.
+if grep -rniE "$SKETCH" src --include='*.ts' --include='*.tsx' --exclude='*.test.ts' --exclude='bip39.ts'; then
   report "language that reads as a toy project is in shipped source"
 fi
 # The site's own source only: node_modules and .next are dependencies and build

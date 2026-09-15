@@ -24,6 +24,32 @@ export class PartialRead extends TulaError {
   }
 }
 
+/**
+ * What one refresh reads once for every account it holds at a venue, such as a
+ * venue-wide listing, rather than once per address.
+ */
+export interface Refresh {
+  shared<T>(key: string, read: () => Promise<T>): Promise<T>
+}
+
+export function refreshScope(): Refresh {
+  const reads = new Map<string, Promise<unknown>>()
+  return {
+    shared<T>(key: string, read: () => Promise<T>): Promise<T> {
+      const held = reads.get(key)
+      if (held) return held as Promise<T>
+      // A failure is not held: the next account asks again rather than
+      // inheriting an error its own request never got.
+      const pending = read().catch((err: unknown) => {
+        reads.delete(key)
+        throw err
+      })
+      reads.set(key, pending)
+      return pending
+    },
+  }
+}
+
 export interface ConnectorCredentials {
   readonly [field: string]: string
 }
@@ -63,6 +89,14 @@ export function overScopedPowers(scope: KeyScope): string[] {
     scope.canWithdraw === true && 'withdraw',
     scope.canMoveFunds === true && 'move funds between wallets',
   ].filter((power): power is string => typeof power === 'string')
+}
+
+/** The refusal, worded once for the shell and the command line. */
+export function overScopedRefusal(scope: KeyScope, readOnlyKey = 'Create a key that can only read, then connect again.'): string {
+  return (
+    `Refused: this key can ${overScopedPowers(scope).join(' and ')}. tula will not hold a key that can move your funds.\n` +
+    readOnlyKey
+  )
 }
 
 export function unverified(scope: KeyScope): Array<'trade' | 'withdraw'> {
@@ -215,6 +249,7 @@ export interface Connectable {
   readonly name: string
   readonly fields: readonly CredentialField[]
   readonly help: readonly HelpLink[]
+  readonly readOnlyKey?: string
   verifyScope(creds: ConnectorCredentials): Promise<KeyScope>
 }
 
@@ -227,6 +262,13 @@ export interface Connector {
   /** Official pages only. Shown at the step where they are needed, not in a
    *  docs dump — someone pasting an API key should not have to go looking. */
   readonly help: readonly HelpLink[]
+
+  /**
+   * How to make a key this venue will read and nothing else, in the venue's own
+   * permission names — the page somebody is looking at says "Enable Reading",
+   * not "query permissions".
+   */
+  readonly readOnlyKey?: string
 
   /**
    * Refuse anything broader than read-only. Verified at connect time rather
@@ -256,7 +298,11 @@ export interface Connector {
    */
   readonly coverage?: Coverage
 
-  fetchPositions(creds: ConnectorCredentials): Promise<Position[]>
+  /**
+   * `refresh` is the refresh this read belongs to; one made per refresh and
+   * dropped with it, so nothing shared through it outlives the refresh.
+   */
+  fetchPositions(creds: ConnectorCredentials, refresh?: Refresh): Promise<Position[]>
 }
 
 export function connectable(connector: Connector): Connectable {
@@ -265,6 +311,7 @@ export function connectable(connector: Connector): Connectable {
     name: connector.venue.name,
     fields: connector.fields,
     help: connector.help,
+    ...(connector.readOnlyKey ? { readOnlyKey: connector.readOnlyKey } : {}),
     verifyScope: (creds) => connector.verifyScope(creds),
   }
 }

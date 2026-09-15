@@ -26,8 +26,9 @@ import {
   wordToAddress,
   words,
 } from './evm.js'
-import { canonical } from './symbols.js'
+import { assetOn } from './symbols.js'
 import { PartialRead, type Connector, type ConnectorCredentials, type KeyScope } from './types.js'
+import { plural } from '../core/format.js'
 
 export const AAVE: Venue = {
   id: 'aave',
@@ -41,7 +42,7 @@ interface Instance {
    * The label these rows carry. Ethereum Core keeps the bare venue id: it is
    * the market almost every account is in, and `aave` is what the user
    * connected. What distinguishes the rest differs by chain — on Ethereum it is
-   * the market, and on the other two there is one market, so it is the chain.
+   * the market, and every other chain has one market, so it is the chain.
    */
   venue: string
   /** The market's own name. A failure says it with the chain: "Core on Base". */
@@ -58,29 +59,27 @@ const where = (instance: Instance): string => `${instance.name} market on ${inst
  * no `INCOMPLETE`, because nothing had failed.
  *
  * Ethereum's four were each checked on-chain against `getMarketId()` on their
- * own PoolAddressesProvider. Arbitrum's and Base's are the `POOL` constants in
- * bgd-labs/aave-address-book, the register Aave's own docs defer to, and both
- * were confirmed to carry code at that address on that chain and nowhere else.
- * Arbitrum's is the address Aave also deploys on Polygon, Avalanche and
- * Optimism, which is why nothing below may key on a Pool alone.
+ * own PoolAddressesProvider. Every other chain's is the `POOL` constant in
+ * bgd-labs/aave-address-book, the register Aave's own docs defer to, confirmed
+ * on that chain to carry code and to be the Pool its own provider's `getPool()`
+ * names. Arbitrum, Polygon, Optimism and Avalanche share one address, which is
+ * why nothing below may key on a Pool alone.
  */
+// Each label is spelled out rather than built from the chain id: the release
+// notes quote them, and `src/site-claims.test.ts` finds a quoted one by its text.
 const INSTANCES: readonly Instance[] = [
   { chain: ETHEREUM, venue: AAVE.id, name: 'Core', pool: '0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2' },
   { chain: ETHEREUM, venue: `${AAVE.id}-prime`, name: 'Prime', pool: '0x4e033931ad43597d96D6bcc25c280717730B58B1' },
   { chain: ETHEREUM, venue: `${AAVE.id}-etherfi`, name: 'EtherFi', pool: '0x0AA97c284e98396202b6A04024F5E2c65026F3c0' },
   { chain: ETHEREUM, venue: `${AAVE.id}-horizon`, name: 'Horizon', pool: '0xAe05Cd22df81871bc7cC2a04BeCfb516bFe332C8' },
-  {
-    chain: chainById('arbitrum'),
-    venue: `${AAVE.id}-arbitrum`,
-    name: 'Core',
-    pool: '0x794a61358D6845594F94dc1DB02A252b5b4814aD',
-  },
-  {
-    chain: chainById('base'),
-    venue: `${AAVE.id}-base`,
-    name: 'Core',
-    pool: '0xA238Dd80C259a72e81d7e4664a9801593F98d1c5',
-  },
+  { chain: chainById('arbitrum'), venue: `${AAVE.id}-arbitrum`, name: 'Core', pool: '0x794a61358D6845594F94dc1DB02A252b5b4814aD' },
+  { chain: chainById('base'), venue: `${AAVE.id}-base`, name: 'Core', pool: '0xA238Dd80C259a72e81d7e4664a9801593F98d1c5' },
+  { chain: chainById('polygon'), venue: `${AAVE.id}-polygon`, name: 'Core', pool: '0x794a61358D6845594F94dc1DB02A252b5b4814aD' },
+  { chain: chainById('optimism'), venue: `${AAVE.id}-optimism`, name: 'Core', pool: '0x794a61358D6845594F94dc1DB02A252b5b4814aD' },
+  { chain: chainById('avalanche'), venue: `${AAVE.id}-avalanche`, name: 'Core', pool: '0x794a61358D6845594F94dc1DB02A252b5b4814aD' },
+  { chain: chainById('gnosis'), venue: `${AAVE.id}-gnosis`, name: 'Core', pool: '0xb50201558B00496A145fE76f7424749556E326D8' },
+  { chain: chainById('scroll'), venue: `${AAVE.id}-scroll`, name: 'Core', pool: '0x11fCfe756c05AD438e312a7fd934381537D3cFfe' },
+  { chain: chainById('linea'), venue: `${AAVE.id}-linea`, name: 'Core', pool: '0xc47b8C00b0f69a36fa203Ffeac0334874574a8Ac' },
 ]
 
 /** Every deployment in the build, so a fixture is captured against what ships. */
@@ -241,7 +240,7 @@ async function loadReserves(
   if (undecoded.length > 0) {
     throw new TulaError(
       `The ${chain.name} node at ${host(rpcUrl(chain))} did not return usable metadata for ` +
-        `${undecoded.length} Aave reserve(s).` +
+        `${plural(undecoded.length, 'Aave reserve')}.` +
         rpcRemedy(chain),
     )
   }
@@ -454,7 +453,7 @@ async function readMarkets(
     const markets = [...new Set(unread.map((l) => l.instance.name))]
     throw new TulaError(
       `The ${chain.name} node at ${host(rpcUrl(chain))} did not return balances for ` +
-        `${unread.length} Aave ${markets.join(', ')} reserve(s).` +
+        `${unread.length} Aave ${markets.join(', ')} ${unread.length === 1 ? 'reserve' : 'reserves'}.` +
         rpcRemedy(chain),
     )
   }
@@ -474,7 +473,9 @@ async function readMarkets(
     legs.forEach((leg, at) => {
       if (leg.instance !== instance) return
       const reserve = leg.reserve
-      const asset = canonical(reserve.symbol)
+      // By contract: Arbitrum's and Polygon's markets each list Circle's USDC
+      // and a bridge's, and both answer `symbol()` with `USDC`.
+      const asset = assetOn(instance.chain, reserve.underlying, reserve.symbol)
 
       const supplied = toBigInt(words(balances[at] ?? '')[0])
       if (supplied > 0n) {
@@ -558,7 +559,7 @@ export const aaveConnector: Connector = {
   coverage: {
     reads: [
       'supplied balances in all four Aave v3 Ethereum markets, collateral-flagged or not',
-      'the Aave v3 markets on Arbitrum One and Base, under the same address',
+      `the Aave v3 market on each of ${CHAINS.filter((c) => c.id !== ETHEREUM.id).map((c) => c.name).join(', ')}, under the same address`,
       'variable-rate debt, and the market health factor securing it',
       'the per-reserve liquidation threshold and LTV each market states, and the eMode\n      category\u2019s where the account is in one',
     ],
@@ -586,10 +587,9 @@ export const aaveConnector: Connector = {
       {
         what: `every chain but ${CHAINS.map((c) => c.name).join(', ')} — ${UNCOVERED_CHAINS} included`,
         why:
-          'Aave v3 is deployed on a dozen more chains — Polygon, Optimism, Avalanche, Gnosis, ' +
-          'Scroll, Linea and others — and only these three chains are in the build; on HyperEVM ' +
-          'there is no Aave at all, and the Aave-shaped lender there is a separate protocol ' +
-          'with its own contracts',
+          'Aave v3 also runs on BNB Chain, zkSync, Metis, Celo, Sonic, Mantle, Soneium, Plasma ' +
+          'and others, and none of those Pools is in the build; on HyperEVM there is no Aave at ' +
+          'all, and the Aave-shaped lender there is a separate protocol with its own contracts',
         hides: 'liquidation',
         plan: 'tasks/breadth/12-chain-reach.md',
       },

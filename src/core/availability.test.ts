@@ -283,3 +283,48 @@ describe('nothing is said where there is nothing to say', () => {
     expect(rows.some(constrained)).toBe(false)
   })
 })
+
+describe('what the venue itself states is held', () => {
+  test('a hold reconciled to orders and margin is split into what releases each', () => {
+    const [row] = availability([
+      at('hl', 'spot', 'USDC', '100', {
+        held: {
+          claims: [
+            { reason: 'margin', quantity: d('30') },
+            { reason: 'isolated', quantity: d('10') },
+            { reason: 'order', quantity: d('5') },
+          ],
+        },
+      }),
+    ])
+    expect(row?.free?.toString()).toBe('55')
+    expect(row?.claims.map((c) => c.reason)).toEqual(['margining a perp', 'posted to an isolated perp', 'on hold for an order'])
+  })
+
+  test('a hold the venue could not reconcile is unknown, never the whole balance', () => {
+    const [row] = availability([at('hl', 'spot', 'USDC', '100', { held: { unprovable: 'no order accounts for it' } })])
+    expect(row?.free).toBeNull()
+    expect(row?.unprovable).toBe('no order accounts for it')
+  })
+
+  test('a queue the venue states is waited out, not an order to cancel', () => {
+    const [row] = availability([
+      at('hl', 'pending', 'HYPE', '12', { held: { claims: [{ reason: 'wait', quantity: d('12') }] } }),
+    ])
+    expect(row?.claims.map((c) => c.reason)).toEqual(['not settled yet'])
+  })
+
+  test('a borrow claims its collateral whole, whatever hold the venue states beside it', () => {
+    const rows = of([
+      at('hl', 'collateral', 'HYPE', '50', { held: { claims: [{ reason: 'order', quantity: d('5') }] } }),
+      at('hl', 'spot', 'USDC', '-100', {
+        encumbers: ['hl:collateral:HYPE'],
+        borrowing: { borrowed: d('100'), supplied: null, ltv: null, capUsed: null },
+      }),
+    ])
+    const hype = rows.get('hl:collateral:HYPE')
+    expect(hype?.free?.toString()).toBe('0')
+    expect(hype?.claims.map((c) => c.reason)).toEqual(['securing a borrow'])
+    expect(RELEASES['securing a borrow']).toContain('Repay borrows to withdraw collateral')
+  })
+})

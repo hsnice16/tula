@@ -69,9 +69,28 @@ const position = (
 // is the claim the whole product rests on; the rest is there because a book of
 // three assets is not one, and because the page shows ctrl+o holding a line back
 // — which the tool only does past twelve rows.
+/**
+ * What Hyperliquid would state for the short below: its PnL lives in the dex's
+ * account value, and the account value is what its liquidation price is priced
+ * off. For a short, `liquidationPx = mark + A / (|szi| × (1 + 1/(2·maxLeverage)))`
+ * with `A = accountValue − positionValue / (2·maxLeverage)` — the relation
+ * `src/connectors/hyperliquid.test.ts` holds every standard capture to. ETH lists
+ * at 25x on Hyperliquid, so $3,412 at a $2,450 mark is this account value, and a
+ * different one would publish a liquidation price no account could have.
+ */
+const HL_MARK = d('2450')
+const HL_MAX_LEVERAGE = 25
+const HL_SIZE = d('2')
+const HL_ACCOUNT_VALUE = d('3412')
+  .minus(HL_MARK)
+  .times(HL_SIZE)
+  .times(d('1').plus(d('1').div(2 * HL_MAX_LEVERAGE)))
+  .plus(HL_MARK.times(HL_SIZE).div(2 * HL_MAX_LEVERAGE))
+
 const BOOK: Position[] = [
   position('kraken', 'spot', 'ETH', '4'),
-  position('hyperliquid', 'perp', 'ETH', '-2', { price: d('3412') }),
+  { ...position('hyperliquid', 'perp', 'ETH', '-2', { price: d('3412') }), equity: d('0') },
+  position('hyperliquid', 'collateral', 'USDC', HL_ACCOUNT_VALUE.toString()),
   position('aave', 'collateral', 'ETH', '4.64', { healthFactor: d('1.37') }),
   position('kraken', 'spot', 'BTC', '0.12'),
   position('kraken', 'spot', 'SOL', '30'),
@@ -79,9 +98,8 @@ const BOOK: Position[] = [
   position('wallet', 'spot', 'USDC', '1200'),
   position('wallet', 'spot', 'ARB', '900'),
   position('kraken', 'spot', 'USDT', '480'),
-  // Kraken, not the wallet: OP is on the default Token Lists feed for Optimism
-  // alone, and tula reads Ethereum, Arbitrum One and Base — so a wallet row for
-  // it was a picture of output this build cannot produce.
+  // Kraken, not `wallet`: OP exists on Optimism alone, where its row would be
+  // labelled `wallet-optimism`.
   position('kraken', 'spot', 'OP', '320'),
   position('wallet', 'spot', 'UNI', '60'),
 ]
@@ -132,9 +150,18 @@ describe('the published example', () => {
     expect(shows(usd(eth!.notional))).toBe(true)
   })
 
-  test('totals the same portfolio value', () => {
-    const total = portfolioValue(netExposure(BOOK, PRICES)).total
-    expect(shows(`Net notional  ${usd(total)}`)).toBe(true)
+  test('totals the equity the engine does, with the short at its account value rather than its notional', () => {
+    const total = portfolioValue(BOOK, PRICES).total
+    expect(shows(`Equity  ${usd(total)}`)).toBe(true)
+    expect(shows('Net notional')).toBe(false)
+  })
+
+  test('the Hyperliquid short carries the account value its liquidation price is priced off', () => {
+    const size = HL_SIZE
+    const A = HL_ACCOUNT_VALUE.minus(HL_MARK.times(size).div(2 * HL_MAX_LEVERAGE))
+    const liquidation = HL_MARK.plus(A.div(size.times(d('1').plus(d('1').div(2 * HL_MAX_LEVERAGE)))))
+    const short = BOOK.find((p) => p.venue === 'hyperliquid' && p.kind === 'perp')
+    expect(short?.liquidation?.price?.toString()).toBe(liquidation.toString())
   })
 
   test('reports the liquidation distances the risk engine computes', () => {
@@ -183,10 +210,10 @@ describe('the published example', () => {
     const shown = page.slice(table, page.indexOf('`}', table))
     expect(shown.split('\n').length - 1).toBe(2 + netExposure(BOOK, PRICES).length + 1)
 
-    const total = portfolioValue(netExposure(BOOK, PRICES)).total
+    const total = portfolioValue(BOOK, PRICES).total
     // Biome owns the quote character in the page; the claim here is the wrapper.
     const anyQuote = (text: string) => text.replace(/['"]/g, '"')
-    expect(anyQuote(page)).toContain(anyQuote(`<Held>{"Net notional  ${usd(total)}"}</Held>`))
+    expect(anyQuote(page)).toContain(anyQuote(`<Held>{"Equity  ${usd(total)}"}</Held>`))
   })
 
   test('answers the question above it with the scenario the engine runs', () => {
@@ -265,7 +292,7 @@ describe('the published example', () => {
         // Computed here.
         ...exposures.flatMap((e) => [quantity(e.delta), usd(e.notional)]),
         ...whatBreaksFirst(BOOK, PRICES).map((r) => pct(r.move!)),
-        usd(portfolioValue(exposures).total),
+        usd(portfolioValue(BOOK, PRICES).total),
         usd(shocked.after.total),
         usd(shocked.change),
         // Stated by the book itself: a liquidation price and a health factor are
@@ -301,10 +328,9 @@ describe('the preview card', () => {
   })
 })
 
-
 /**
  * The frame beside that transcript draws two of the tool's lists as literal
- * rows: the `/` menu and the ctrl+k palette are the whole of the interface a
+ * rows: the `/` menu and the ctrl+s palette are the whole of the interface a
  * transcript cannot show, so a picture of them is the only way to publish it.
  * That makes the page a second copy of the command surface, and a second copy
  * drifts — a renamed command, a reworded summary or one venue more leaves it
@@ -443,5 +469,30 @@ describe('the frame quotes the command surface it claims to', () => {
         (e) => [label(e.path, e.args), e.summary] as const,
       ),
     )
+  })
+})
+
+describe('the transcript frame', () => {
+  /**
+   * The body is anchored to the bottom and clipped at the top, so a row the page
+   * adds that BODY_ROWS does not count cuts the banner — the line naming the
+   * tool — off the frame. A prompt is a row with a row of margin either side; a
+   * text block ends in a line of its own only where its last line has text.
+   */
+  test('holds every row of the transcript, banner included', () => {
+    const body = page.slice(page.indexOf('<Session '), page.indexOf('</Session>'))
+    const banner = frame.slice(frame.indexOf('export const Banner'), frame.indexOf('export const Prompt'))
+    expect(frame).toContain('my-[1.3rem] block')
+    expect(frame).toContain('bottom-0 pb-[1.3rem]')
+
+    const text = [...body.matchAll(/\{`([\s\S]*?)`\}/g)].map((m) => m[1] ?? '')
+    const rows =
+      (banner.match(/className="block/g)?.length ?? 0) +
+      3 * (body.match(/<Prompt>/g)?.length ?? 0) +
+      (body.match(/<Held>/g)?.length ?? 0) +
+      text.reduce((n, block) => n + (block.match(/\n/g)?.length ?? 0) + (block.endsWith('\n') ? 0 : 1), 0) +
+      1
+
+    expect(Number(frame.match(/const BODY_ROWS = (\d+)/)?.[1])).toBe(rows)
   })
 })
