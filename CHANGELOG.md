@@ -11,6 +11,8 @@ CI and build plumbing, refactors, and doc-only edits — stays in commit message
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-15
+
 ### Added
 
 - **Aave v3 and wallet balances on six more chains: Polygon, Optimism, Avalanche, Gnosis, Scroll and Linea.** The same address you already connected is read on each of them — its Aave market, labelled by chain as `aave-polygon`, `aave-optimism`, `aave-avalanche`, `aave-gnosis`, `aave-scroll` and `aave-linea`, and its native and ERC-20 balances — so a position there is a book rather than an empty one, and a health factor on Polygon is ranked in `breaks` beside one on Ethereum. Each chain ships three public nodes that passed a live batch-and-rate-limit test, and each can be replaced with its own `TULA_<CHAIN>_RPC`. A native balance is that chain's own gas token — POL, AVAX, xDAI — not ETH, and a wrapped gas token nets with it the way WETH nets with ETH. Gnosis, Scroll and Linea read a per-chain token list from SmolDapp, because Uniswap's list carries none for them. xDAI is on none of the ranked pages CoinGecko is read from, so once you hold it CoinGecko is asked for it by id; it is priced at its quote, never pinned to a dollar. CoinPaprika does not list it, so under that source a Gnosis native balance is named under the table as unpriced. HyperEVM, Solana and Aave's other v3 chains are still unread, and `/venues` says so.
@@ -331,7 +333,8 @@ what breaks first.
 - `KeyScope` is tri-state. Kraken exposes no endpoint reporting a key's permissions, and every endpoint gated on trade permission mutates an order, so `canTrade` is `unknown` rather than guessed at. Withdraw scope is provable, and is proven.
 - Kraken margin and open orders are not read yet, so on a margin account this is not a complete Kraken picture.
 
-[Unreleased]: https://github.com/hsnice16/tula/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/hsnice16/tula/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/hsnice16/tula/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/hsnice16/tula/compare/v0.1.3...v0.2.0
 [0.1.3]: https://github.com/hsnice16/tula/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/hsnice16/tula/compare/v0.1.1...v0.1.2
