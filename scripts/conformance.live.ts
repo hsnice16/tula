@@ -179,6 +179,8 @@ async function kraken(): Promise<Finding[]> {
 
 const ADDRESS_BOOK = 'https://api.github.com/repos/bgd-labs/aave-address-book/contents/src'
 const ADDRESS_BOOK_RAW = 'https://raw.githubusercontent.com/bgd-labs/aave-address-book/main/src'
+/** Aave's own Pool interface. A stable-rate function reappearing here is the retirement coming undone. */
+const AAVE_IPOOL = 'https://raw.githubusercontent.com/aave-dao/aave-v3-origin/main/src/contracts/interfaces/IPool.sol'
 
 /**
  * The address book names a deployment by chain: `AaveV3Base.sol`, and Ethereum's
@@ -220,7 +222,7 @@ async function aave(): Promise<Finding[]> {
   // instantiating a stable debt token on a new listing, so the proof is that the
   // interface itself no longer carries one. `IPool.sol` is the file that would
   // have to grow it back.
-  const poolApi = await request(`${ADDRESS_BOOK_RAW}/../lib/aave-v3-origin/src/contracts/interfaces/IPool.sol`, followed, DEADLINE_MS)
+  const poolApi = await request(AAVE_IPOOL, followed, DEADLINE_MS)
   const poolSource = poolApi.ok ? await poolApi.text() : ''
   const stableFns = ['swapBorrowRateMode', 'rebalanceStableBorrowRate'].filter((fn) => poolSource.includes(fn))
   findings.push({
