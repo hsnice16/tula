@@ -4,6 +4,7 @@ import Decimal from 'decimal.js'
 import { portfolioValue } from '../core/exposure.js'
 import { whatBreaksFirst } from '../core/risk.js'
 import { krakenConnector, normalizeAsset, sign } from './kraken.js'
+import { isOverScoped } from './types.js'
 
 /**
  * Captured from https://api.kraken.com/0/public/Assets on 2026-09-10 — public,
@@ -30,6 +31,7 @@ interface Book {
   wallets?: Array<{ account_id: string; type: string }>
   positions?: Record<string, unknown>
   denied?: string[]
+  keyInfo?: unknown
 }
 
 const reached: string[] = []
@@ -54,6 +56,10 @@ function stub(book: Book) {
     if (path.endsWith('/Balance')) {
       const id = init?.body?.get('account_id') ?? ''
       return ok(book.balance?.[id] ?? {})
+    }
+    if (path.endsWith('/GetApiKeyInfo')) {
+      if (book.keyInfo === undefined) return new Response(JSON.stringify({ error: ['EGeneral:Unknown method'] }), { status: 200 })
+      return ok(book.keyInfo)
     }
     if (path.endsWith('/WithdrawMethods')) return deny()
     return new Response(JSON.stringify({ error: ['EGeneral:Unknown method'] }), { status: 200 })
@@ -168,7 +174,7 @@ describe('kraken scope', () => {
     await expect(krakenConnector.verifyScope(CREDS)).rejects.toThrow(/Query open orders & trades/)
   })
 
-  test('a query-only key reads, cannot withdraw, and trade stays unproven', async () => {
+  test('a key GetApiKeyInfo does not answer for falls back to the withdraw probe', async () => {
     stub({})
     expect(await krakenConnector.verifyScope(CREDS)).toEqual({
       canRead: true,
@@ -176,6 +182,40 @@ describe('kraken scope', () => {
       canWithdraw: false,
     })
   })
+
+  test('a query-only key is proven on both powers, not left unknown', async () => {
+    stub({ keyInfo: { permissions: ['query-funds', 'query-open-trades'] } })
+    expect(await krakenConnector.verifyScope(CREDS)).toEqual({
+      canRead: true,
+      canTrade: false,
+      canWithdraw: false,
+    })
+  })
+
+  for (const permission of ['modify-trades', 'close-trades']) {
+    test(`a key holding ${permission} is reported as able to trade`, async () => {
+      stub({ keyInfo: { permissions: ['query-funds', permission] } })
+      const scope = await krakenConnector.verifyScope(CREDS)
+      expect(scope.canTrade).toBe(true)
+      expect(isOverScoped(scope)).toBe(true)
+    })
+  }
+
+  test('a key holding withdraw-funds is reported as able to withdraw', async () => {
+    stub({ keyInfo: { permissions: ['query-funds', 'withdraw-funds'] } })
+    const scope = await krakenConnector.verifyScope(CREDS)
+    expect(scope.canWithdraw).toBe(true)
+    expect(isOverScoped(scope)).toBe(true)
+  })
+
+  // The dangerous direction: an answer nobody can read must not be read as a key
+  // holding no permissions, which would report a trading key as safe.
+  for (const permissions of [undefined, 'query-funds', [1, 2], null]) {
+    test(`an unreadable permissions field (${JSON.stringify(permissions)}) stays unknown`, async () => {
+      stub({ keyInfo: { permissions } })
+      expect((await krakenConnector.verifyScope(CREDS)).canTrade).toBe('unknown')
+    })
+  }
 })
 
 describe('kraken balances', () => {

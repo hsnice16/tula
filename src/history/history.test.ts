@@ -12,6 +12,16 @@ import {
   recordHistory,
   SCAN_STAGED,
 } from './history.js'
+import { WORDS as CHINESE_SIMPLIFIED } from './bip39/chinese-simplified.js'
+import { WORDS as CHINESE_TRADITIONAL } from './bip39/chinese-traditional.js'
+import { WORDS as CZECH } from './bip39/czech.js'
+import { WORDS as ENGLISH } from './bip39/english.js'
+import { WORDS as FRENCH } from './bip39/french.js'
+import { WORDS as ITALIAN } from './bip39/italian.js'
+import { WORDS as JAPANESE } from './bip39/japanese.js'
+import { WORDS as KOREAN } from './bip39/korean.js'
+import { WORDS as PORTUGUESE } from './bip39/portuguese.js'
+import { WORDS as SPANISH } from './bip39/spanish.js'
 
 let dir = ''
 beforeEach(async () => {
@@ -80,6 +90,49 @@ describe('what is recorded', () => {
     for (const [shape, line] of Object.entries(shapes)) {
       expect({ shape, recorded: recordable(line) }).toEqual({ shape, recorded: false })
     }
+  })
+
+  test('a seed phrase from any official BIP-39 list, however its spaces and accents are typed', () => {
+    const lists = {
+      ENGLISH,
+      CHINESE_SIMPLIFIED,
+      CHINESE_TRADITIONAL,
+      CZECH,
+      FRENCH,
+      ITALIAN,
+      JAPANESE,
+      KOREAN,
+      PORTUGUESE,
+      SPANISH,
+    }
+    for (const [list, words] of Object.entries(lists)) {
+      const phrase = words.split(/\s+/).slice(500, 512)
+      const shapes = {
+        spaced: phrase.join(' '),
+        lines: phrase.join('\n'),
+        ideographic: phrase.join('\u3000'),
+        unaccented: phrase.join(' ').normalize('NFKD').replace(/\p{M}/gu, ''),
+        composed: phrase.join(' ').normalize('NFC'),
+      }
+      for (const [shape, line] of Object.entries(shapes)) {
+        expect({ list, shape, recorded: recordable(line) }).toEqual({ list, shape, recorded: false })
+      }
+    }
+  })
+
+  test('an ordinary question in each of those languages is still kept', () => {
+    const questions = [
+      'muéstrame cada exchange donde la financiación giró contra mi posición corta\nen los últimos tres días',
+      'montre chaque plateforme où le financement est devenu défavorable\nà ma position courte cette semaine',
+      'mostrami ogni exchange dove il funding è andato contro la mia posizione corta\nnegli ultimi tre giorni',
+      'mostre cada corretora onde o financiamento ficou contra minha posição vendida\nnos últimos três dias',
+      'ukaž mi každou burzu, kde se financování obrátilo proti mé krátké pozici\nza poslední tři dny',
+      '過去三日間で資金調達率が私のショートに不利になった取引所を\nすべて表示してください',
+      '显示过去三天资金费率对我的空头不利的所有交易所\n并按清算距离排序',
+      '顯示過去三天資金費率對我的空頭不利的所有交易所\n並按清算距離排序',
+      '지난 사흘 동안 내 숏 포지션에 불리하게 바뀐 거래소를\n모두 보여주고 청산 거리순으로 정렬해 줘',
+    ]
+    for (const question of questions) expect({ question, recorded: recordable(question) }).toEqual({ question, recorded: true })
   })
 
   test('a long question of ordinary words over several lines is still kept', () => {

@@ -39,7 +39,7 @@ native and ERC-20 balances on those same nine chains — all three from one publ
 address alone. Then Kraken, Binance, Coinbase Advanced and Stripe, each from a
 read-only key. A key proven to withdraw or trade
 is turned away rather than warned about; where a venue exposes no way to check —
-Kraken for trading, Stripe for both — tula says so rather than calling it safe.
+Stripe, for both powers — tula says so rather than calling it safe.
 A venue that publishes no read-only key at all is not offered: there is nothing
 to connect it with that tula would hold. A venue may hold more than one address
 or key, and every figure counts all of them.

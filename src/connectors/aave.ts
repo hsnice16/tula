@@ -573,15 +573,9 @@ export const aaveConnector: Connector = {
         plan: 'tasks/breadth/08-aave-v4.md',
       },
       {
-        what: 'the Safety Module — staked AAVE, ABPT and GHO',
-        why: 'the stake contracts are never called',
+        what: 'Umbrella and the legacy Safety Module — staked AAVE, ABPT and GHO',
+        why: 'the stake contracts are never called, under either name',
         hides: 'value',
-        plan: 'tasks/breadth/09-aave-depth.md',
-      },
-      {
-        what: 'stable-rate debt',
-        why: 'only the variable debt token is read; the stable one is word [9] and unasked',
-        hides: 'liquidation',
         plan: 'tasks/breadth/09-aave-depth.md',
       },
       {

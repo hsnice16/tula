@@ -182,3 +182,24 @@ export async function request(
     clearTimeout(timer)
   }
 }
+
+/**
+ * A venue's answer as JSON, or a named failure saying which venue and what to
+ * do — never a `SyntaxError`.
+ *
+ * A gateway between here and the venue answers 5xx with an HTML page, and
+ * reading that as JSON threw past every handler that knows what a failure from
+ * that venue looks like. `src/core/errors.ts` renders anything that is not a
+ * `TulaError` as "This is a bug in tula", so an outage read as a bug report.
+ */
+export async function json<T>(res: Response, venue: string): Promise<T> {
+  try {
+    return (await res.json()) as T
+  } catch {
+    throw new TulaError(
+      `${venue} did not answer with JSON (HTTP ${res.status}).\n` +
+        '  Something between you and it — a proxy, a captive portal, or the venue itself —\n' +
+        '  answered with something else. Try /refresh in a moment.',
+    )
+  }
+}

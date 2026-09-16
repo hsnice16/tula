@@ -1,5 +1,6 @@
 import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { visible } from './untrusted.js'
 
 /**
  * Resolved per call, not at import: tests and scratch runs redirect these with
@@ -33,7 +34,7 @@ const MAX_PATH = 64
  */
 export const homeRelative = (path: string): string => {
   const home = homedir()
-  const clean = path.replace(/[\p{Cc}\p{Cf}]+/gu, '')
+  const clean = visible(path)
   const short = clean === home ? '~' : clean.startsWith(`${home}/`) ? `~${clean.slice(home.length)}` : clean
   return short.length > MAX_PATH ? `…${short.slice(short.length - MAX_PATH + 1)}` : short
 }

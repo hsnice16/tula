@@ -138,7 +138,13 @@ const LINK = reserve({ id: 1, symbol: 'LINK', supplied: 40n * 10n ** 18n })
 /** Listed with a zero threshold, so it cannot secure a borrow whatever the bit says. */
 const FROZEN = reserve({ id: 2, symbol: 'FRZ', supplied: 5n * 10n ** 18n, ltv: 0n, threshold: 0n })
 
-const WETH = reserve({ id: 0, symbol: 'WETH', supplied: 2n * 10n ** 18n })
+const WETH = reserve({
+  id: 0,
+  symbol: 'WETH',
+  supplied: 2n * 10n ** 18n,
+  // Ethereum's own wrap, the one contract that nets with ether.
+  underlying: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
+})
 
 const EMPTY_ACCOUNT = accountReturn(0n, 0n, MAX_UINT)
 
@@ -534,8 +540,10 @@ describe('aave on every chain it is deployed to, under one address', () => {
     expect(new Set(rows.filter((p) => p.asset === 'USDC').map((p) => p.venue))).toEqual(new Set(['aave', 'aave-base']))
     // Polygon, Optimism and Avalanche answer from Arbitrum's Pool address, so a
     // row each is also each chain read on its own node rather than skipped.
+    // A placeholder contract, so where a known bridge's USDC already holds
+    // `chain:USDC` it carries its own contract rather than borrow that name.
     for (const chain of CHAINS.filter((c) => c.id !== 'ethereum' && c.id !== 'base')) {
-      expect(rows.find((p) => p.venue === `aave-${chain.id}`)?.asset).toBe(`${chain.id}:USDC`)
+      expect(rows.find((p) => p.venue === `aave-${chain.id}`)?.asset).toMatch(new RegExp(`^${chain.id}:USDC(@[0-9a-f]{6})?$`))
     }
     expect(new Set(rows.map((p) => p.id)).size).toBe(rows.length)
   })
@@ -643,15 +651,17 @@ describe('the gaps this connector declares are still gaps', () => {
     for (const hub of V4_HUBS) expect(touched).not.toContain(hub.toLowerCase())
   })
 
-  test('stable-rate debt is declared unread, and its token is never asked for a balance', async () => {
-    gap('stable-rate debt')
+  // Aave removed stable-rate borrowing in v3.2 (2024-10-08), so this is no
+  // longer a gap to declare — there is nothing behind the token to miss. The
+  // call is still pinned: reading it would be a balance Aave no longer issues.
+  test('the stable debt token is never asked for a balance', async () => {
     stubNode()
     await aaveConnector.fetchPositions(CREDS)
     expect(touched).not.toContain(USDC.stableDebtToken.toLowerCase())
   })
 
-  test('the Safety Module is declared unread, and its stake contract is never called', async () => {
-    gap('Safety Module')
+  test('Umbrella and the legacy Safety Module are declared unread, and the stake contract is never called', async () => {
+    gap('Umbrella and the legacy Safety Module')
     stubNode()
     await aaveConnector.fetchPositions(CREDS)
     expect(touched).not.toContain(STK_AAVE.toLowerCase())

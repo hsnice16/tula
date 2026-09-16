@@ -3,7 +3,7 @@ import type { Session } from '../cli/session.js'
 import type { Connector } from '../connectors/types.js'
 import { App } from './app.js'
 import { guardResize } from './resize.js'
-import { holdInputModes } from './terminal.js'
+import { holdInputModes, whenLeaving } from './terminal.js'
 
 export async function runApp(
   session: Session,
@@ -19,6 +19,20 @@ export async function runApp(
   // Raw before anything is asked of the terminal. A tty still in canonical mode
   // holds an answer until a newline and echoes it onto the screen. Ink takes
   // raw mode over from here and turns it off on exit.
+  //
+  // Registered with the process like the other two modes, because Ink's own
+  // reset runs on unmount and a fatal signal never reaches one: `kill` from
+  // another pane left the shell with no echo and no line editing, which is the
+  // broken terminal this module exists to prevent.
+  const rawOff = process.stdin.isTTY
+    ? whenLeaving(() => {
+        try {
+          process.stdin.setRawMode(false)
+        } catch {
+          // The tty went away with the process that owned it; nothing to hand back.
+        }
+      })
+    : () => {}
   if (process.stdin.isTTY) process.stdin.setRawMode(true)
   let instance: ReturnType<typeof render>
   try {
@@ -39,12 +53,15 @@ export async function runApp(
     )
   } catch (err) {
     if (process.stdin.isTTY) process.stdin.setRawMode(false)
+    rawOff()
     release()
     throw err
   }
   try {
     await instance.waitUntilExit()
   } finally {
+    if (process.stdin.isTTY) process.stdin.setRawMode(false)
+    rawOff()
     release()
   }
 }

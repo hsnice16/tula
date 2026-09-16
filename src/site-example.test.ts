@@ -15,7 +15,7 @@ import { disclosure, list, unrankedVenues } from './core/coverage.js'
 import { netExposure, portfolioValue } from './core/exposure.js'
 import { holdings, pct, quantity, usd } from './core/format.js'
 import type { Position, PositionKind } from './core/position.js'
-import { scenario, whatBreaksFirst } from './core/risk.js'
+import { moveFromHealthFactor, scenario, whatBreaksFirst } from './core/risk.js'
 import { DEFAULT_PROVIDER } from './prices/providers.js'
 import { brandColor } from './ui/brand.js'
 import { displayRows } from './ui/Palette.js'
@@ -496,3 +496,29 @@ describe('the transcript frame', () => {
     expect(Number(frame.match(/const BODY_ROWS = (\d+)/)?.[1])).toBe(rows)
   })
 })
+
+describe('the guide pages quote the same book', () => {
+  const guide = (route: string) => readFileSync(`site/app/${route}/page.tsx`, 'utf8')
+  /** The one output block a guide page prints, as its rows. */
+  const rows = (source: string) => source.slice(source.indexOf('{`') + 2, source.indexOf('`}')).split('\n')
+
+  test('/liquidation-risk and /exposure print rows the front page prints, which this file recomputes', () => {
+    for (const route of ['liquidation-risk', 'exposure']) {
+      const printed = rows(guide(route))
+      expect(printed.length).toBeGreaterThan(2)
+      for (const row of printed) {
+        expect({ route, row, onFront: page.includes(row) }).toEqual({ route, row, onFront: true })
+      }
+    }
+  })
+
+  test('/aave works the formula on the book’s own health factor', () => {
+    const aave = whatBreaksFirst(BOOK, PRICES).find((r) => r.position.venue === 'aave')
+    const hf = aave!.position.liquidation!.healthFactor!
+    const percent = aave!.move!.abs().times(100).toDecimalPlaces(0).toString()
+    const text = guide('aave').replace(/\s+/g, ' ')
+    expect(text).toContain(`At ${hf.toFixed(2)}, about ${percent}%`)
+    expect(text).toContain(`At 2 that is ${moveFromHealthFactor(d('2')).abs().times(100).toString()}%`)
+  })
+})
+

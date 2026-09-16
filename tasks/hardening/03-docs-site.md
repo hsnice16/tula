@@ -10,7 +10,8 @@ A canonical origin a user can check before trusting a binary.
 ## Acceptance
 
 - An overview, install and the security model, each on one page. Connecting is
-  part of install, not a fourth page.
+  part of install, not a page of its own. The keys reference and the guides
+  written for a search sit under them, linked from the footer.
 - A canonical page users can check before trusting a binary - impersonation defence.
 - The install script is served from the documented origin only.
 - The changelog and the roadmap are not published — they stay in the repository.

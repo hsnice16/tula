@@ -41,16 +41,23 @@
   },
   "homepage": "https://usetu.la",
   "keywords": [
-    "trading",
     "crypto",
     "defi",
+    "trading",
     "portfolio",
     "risk",
+    "liquidation",
+    "health-factor",
+    "hyperliquid",
+    "aave",
+    "kraken",
+    "binance",
+    "coinbase",
+    "exposure",
     "tui",
     "cli",
-    "kraken",
-    "hyperliquid",
-    "aave"
+    "terminal",
+    "non-custodial"
   ],
   "patchedDependencies": {
     "ink@7.1.1": "patches/ink@7.1.1.patch"

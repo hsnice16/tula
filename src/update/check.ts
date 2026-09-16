@@ -3,9 +3,6 @@ import { APP_VERSION, REPO_URL } from '../version.js'
 import { readState, writeState } from './state.js'
 import { isNewer } from './version.js'
 
-/** Once a day. Often enough to hear about a release, rare enough to be nothing. */
-const EVERY_MS = 24 * 60 * 60 * 1000
-
 /**
  * A release number and nothing else. What comes back becomes a directory name
  * and part of a URL, so its shape is checked rather than assumed: this reads a
@@ -49,30 +46,22 @@ const offer = (version: string | null): Available | null =>
     : null
 
 /**
- * What the reader should be told at startup, if anything. Silence is the answer
- * to every failure: no network, an unreachable GitHub, an unreadable state file.
- * Nobody opened tula to find out about tula.
+ * What the reader should be told at startup, if anything. Asked on every shell
+ * start, so a release is heard of in the first session after it ships rather
+ * than up to a day later. Silence is the answer to every failure: no network,
+ * an unreachable GitHub, an unreadable state file. Nobody opened tula to find
+ * out about tula.
  *
  * `announced` is what keeps this from nagging. A version is mentioned once;
  * after that it is on the reader, and `/update` is always there.
  */
-export async function pendingUpdate(now = Date.now()): Promise<Available | null> {
+export async function pendingUpdate(): Promise<Available | null> {
   if (process.env['TULA_NO_UPDATE_CHECK']) return null
 
-  const state = await readState()
-  const last = state.checkedAt ? Date.parse(state.checkedAt) : 0
-  if (Number.isFinite(last) && now - last < EVERY_MS) return null
-
-  // The time is recorded whether or not there was an answer, so an unreachable
-  // GitHub costs one attempt a day rather than one per start.
   const found = offer(await latestRelease())
-  const said = found && state.announced !== found.version
-  await writeState({
-    ...state,
-    checkedAt: new Date(now).toISOString(),
-    ...(said ? { announced: found.version } : {}),
-  })
-  return said ? found : null
+  if (!found || (await readState()).announced === found.version) return null
+  await writeState({ announced: found.version })
+  return found
 }
 
 export interface UpdateCheck {
@@ -87,7 +76,7 @@ export interface UpdateCheck {
   checked: boolean
 }
 
-/** The same question `/update` asks, without the once-a-day gate in the way. */
+/** The same question `/update` asks, reporting whether GitHub answered at all. */
 export async function availableNow(): Promise<UpdateCheck> {
   const latest = await latestRelease()
   return latest === null ? { update: null, checked: false } : { update: offer(latest), checked: true }

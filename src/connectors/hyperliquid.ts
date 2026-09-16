@@ -6,6 +6,7 @@ import { PartialRead, refreshScope, type Connector, type ConnectorCredentials, t
 import { request, TooSlow } from '../core/http.js'
 import { addressProblem } from './evm.js'
 import { canonical } from './symbols.js'
+import { CHAINS } from './chains.js'
 
 const INFO = 'https://api.hyperliquid.xyz/info'
 
@@ -153,6 +154,25 @@ const modeOf = (name: string): AccountMode | undefined => (Object.hasOwn(MODES, 
  */
 export const DEX_NAME = /^[a-z0-9]{1,16}$/
 
+/**
+ * A dex is named permissionlessly and its name becomes the `dex:TICKER` scope on
+ * every market it lists — the same shape `assetOn` gives a bridged token. A dex
+ * called `optimism` would put `optimism:USDT` on the book, which nets into the
+ * real bridged row and draws that bridge's price. The chain ids are the only
+ * names that collide, so they are the ones refused.
+ */
+const CHAIN_IDS: ReadonlySet<string> = new Set(CHAINS.map((c) => c.id))
+
+export const usableDexName = (name: string): boolean => DEX_NAME.test(name) && !CHAIN_IDS.has(name)
+
+/**
+ * A spot token's name is its deployer's choice too, and `dex:TICKER` is the one
+ * shape it must not be able to spell: a token called `optimism:USDT` would net
+ * into the bridged row and price as it. Only the separator is taken away, so the
+ * holding is still reported under a name the reader can see is not that asset.
+ */
+export const spotAsset = (coin: string): string => canonical(coin).replaceAll(':', '.')
+
 /** Both ratios' explanation in the app: "When the value is greater than 95%, your portfolio may be liquidated." */
 const RATIO_THRESHOLD = new Decimal('0.95')
 
@@ -230,8 +250,8 @@ async function readListing(): Promise<Listing> {
       // A listed dex with no name is refused too: read as `''`, it would be
       // asked for as the first-party book and counted twice.
       const name = dex === null ? '' : String(dex.name ?? '')
-      const refused = dex !== null && !(typeof dex.name === 'string' && DEX_NAME.test(dex.name))
-      return { name, refused, collateral: token ? canonical(token) : null }
+      const refused = dex !== null && !(typeof dex.name === 'string' && usableDexName(dex.name))
+      return { name, refused, collateral: token ? spotAsset(token) : null }
     }),
     tokenName,
     pairs: new Map((spotMeta.universe ?? []).map((u) => [u.name, u.tokens])),
@@ -342,7 +362,7 @@ function readAccount(answers: Answers, listing: Listing, label: string): { posit
   const spotRow = (token: string): string => `${label}:spot:${token}`
   const perpsRow = (dexLabel: string, token: string): string => `${dexLabel}:perps:${token}`
   const positions: Position[] = []
-  const balances: Balance[] = (spot.balances ?? []).map((b) => ({ ...b, coin: canonical(b.coin) }))
+  const balances: Balance[] = (spot.balances ?? []).map((b) => ({ ...b, coin: spotAsset(b.coin) }))
   // A pool token the spot state leaves out holds nothing. Without a row, the
   // ratio it carries and the claims of the perps drawing on it land nowhere,
   // and the account ranks on prices past its trigger.

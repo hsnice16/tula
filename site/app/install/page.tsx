@@ -16,7 +16,13 @@ export const metadata: Metadata = {
   title: TITLE,
   description: SUMMARY,
   alternates: { canonical: '/install' },
-  openGraph: { ...OG, type: 'website', url: '/install', title: TITLE, description: SUMMARY },
+  openGraph: {
+    ...OG,
+    type: 'website',
+    url: '/install',
+    title: `${TITLE} · ${NAME}`,
+    description: SUMMARY,
+  },
   twitter: { ...TWITTER, title: `${TITLE} · ${NAME}`, description: SUMMARY },
 }
 
@@ -31,9 +37,9 @@ const CHECKS = [
 
 /**
  * "Not found" is one message with three different causes, and the section sits
- * below the tabs where a reader of any channel lands on it. It used to answer
- * for the install script alone — which is not the channel that leaves a binary
- * unreachable on purpose. Homebrew is: a pinned formula is `keg_only`.
+ * below the tabs where a reader of any channel lands on it. Answering for the
+ * install script alone misses the channel that leaves a binary unreachable on
+ * purpose: Homebrew, where a pinned formula is `keg_only`.
  */
 const PATH_FIXES: [string, ReactNode][] = [
   [
@@ -120,8 +126,8 @@ const CHANNELS: Channel[] = [
           <Ext href={`${REPO}/blob/main/install.sh`}>the one in the repo</Ext>.
         </p>
         <Aside>
-          The tula shell checks for a new release once a day. It never installs one without asking:
-          run <Code>/update install</Code>.
+          The tula shell checks for a new release each time it opens. It never installs one without
+          asking: run <Code>/update install</Code>.
         </Aside>
 
         <Step title="Where it puts things">
@@ -183,8 +189,9 @@ const CHANNELS: Channel[] = [
           <Code>tula</Code> gets stable releases; <Code>tula-latest</Code> gets every release.
         </p>
         <Aside>
-          The tula shell checks for a new release once a day. It never installs one without asking,
-          and on Homebrew it does not install one at all: run <Code>brew upgrade tula</Code>.
+          The tula shell checks for a new release each time it opens. It never installs one without
+          asking, and on Homebrew it does not install one at all: run <Code>brew upgrade tula</Code>
+          .
         </Aside>
 
         <Step title="One exact version">
@@ -234,8 +241,8 @@ const CHANNELS: Channel[] = [
         </div>
         <p className="mb-6 text-dim">Node is needed to install it, not to run it.</p>
         <Aside>
-          The tula shell checks for a new release once a day. It never installs one without asking,
-          and on npm it does not install one at all: run <Code>npm update</Code>.
+          The tula shell checks for a new release each time it opens. It never installs one without
+          asking, and on npm it does not install one at all: run <Code>npm update</Code>.
         </Aside>
 
         <Step title="One exact version">
@@ -246,7 +253,7 @@ const CHANNELS: Channel[] = [
         </Step>
 
         <Step title="Update">
-          <Command label="update">{'npm update -g @hsnice16/tula'}</Command>
+          <Command label="update">{'npm install -g @hsnice16/tula'}</Command>
         </Step>
 
         <Step title="Go back">
@@ -265,7 +272,7 @@ export default function Page() {
   return (
     <main className="wrap pt-16 pb-step-3">
       <JsonLd schema={breadcrumb('Install', '/install')} />
-      <h1 className="mb-5 text-[clamp(2rem,4.5vw,2.8rem)] font-medium tracking-[-0.025em]">
+      <h1 className="mb-5 text-[clamp(2rem,4.5vw,2.8rem)] font-medium leading-[1.1] tracking-[-0.025em]">
         Install
       </h1>
       <p className="mb-10 max-w-[36rem] text-[1.05rem] text-dim">
@@ -318,13 +325,13 @@ export default function Page() {
                 key={system}
                 className="block border-b border-rule py-3 sm:table-row sm:border-b-0 sm:py-0"
               >
-                <td className="inline-block text-ink sm:table-cell sm:w-56 sm:border-b sm:border-rule sm:px-3 sm:py-2.5 sm:align-top">
+                <td className="inline-block text-ink sm:table-cell sm:w-56 sm:border-b sm:border-rule sm:px-5 sm:py-2.5 sm:align-top">
                   {system}
                 </td>
-                <td className="ml-3 inline-block font-mono text-[0.8rem] text-notice sm:ml-0 sm:table-cell sm:w-32 sm:border-b sm:border-rule sm:px-3 sm:py-2.5 sm:align-top">
+                <td className="ml-4 inline-block font-mono text-[0.8rem] text-notice sm:ml-0 sm:table-cell sm:w-40 sm:border-b sm:border-rule sm:px-5 sm:py-2.5 sm:align-top">
                   {works}
                 </td>
-                <td className="block text-dim sm:table-cell sm:border-b sm:border-rule sm:px-3 sm:py-2.5 sm:align-top">
+                <td className="block text-dim sm:table-cell sm:border-b sm:border-rule sm:px-5 sm:py-2.5 sm:align-top">
                   {note}
                 </td>
               </tr>

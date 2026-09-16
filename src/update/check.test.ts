@@ -6,7 +6,6 @@ import { REPO_URL } from '../version.js'
 import { pendingUpdate } from './check.js'
 
 const NEW = '9.9.9'
-const DAY = 24 * 60 * 60 * 1000
 
 let config: string
 let calls: string[]
@@ -55,50 +54,43 @@ describe('the startup check', () => {
     expect(calls).toEqual([])
   })
 
-  test('a second start the same day asks nothing', async () => {
+  test('every start asks', async () => {
     serve(`v${NEW}`)
-    const now = Date.now()
-    await pendingUpdate(now)
+    await pendingUpdate()
     serve(`v${NEW}`)
-    expect(await pendingUpdate(now + DAY / 2)).toBeNull()
-    expect(calls).toEqual([])
-  })
-
-  test('a start a day later asks again', async () => {
-    serve(`v${NEW}`)
-    const now = Date.now()
-    await pendingUpdate(now)
-    serve(`v${NEW}`)
-    await pendingUpdate(now + DAY + 1)
+    await pendingUpdate()
     expect(calls).toHaveLength(1)
   })
 
   /**
-   * Told once. A line repeated every morning about a version somebody has
+   * Told once. A line repeated on every start about a version somebody has
    * already decided not to install is the thing that gets a check switched off.
    */
-  test('the same version is announced once, not every day', async () => {
+  test('the same version is announced once, not on every start', async () => {
     serve(`v${NEW}`)
-    const now = Date.now()
-    expect(await pendingUpdate(now)).not.toBeNull()
+    expect(await pendingUpdate()).not.toBeNull()
     serve(`v${NEW}`)
-    expect(await pendingUpdate(now + DAY + 1)).toBeNull()
+    expect(await pendingUpdate()).toBeNull()
     expect(calls).toHaveLength(1)
   })
 
-  /**
-   * Recorded whether or not there was an answer, so an unreachable GitHub costs
-   * one attempt a day rather than one on every start.
-   */
-  test('an unreachable GitHub still counts as today’s attempt', async () => {
+  test('a newer release after the announced one is announced too', async () => {
+    serve(`v${NEW}`)
+    await pendingUpdate()
+    serve('v9.9.10')
+    expect((await pendingUpdate())?.version).toBe('9.9.10')
+  })
+
+  /** Nothing to record when nothing was said, so an offline start leaves no file. */
+  test('an unreachable GitHub is silence, and writes nothing', async () => {
     globalThis.fetch = (async (input: string | URL | Request): Promise<Response> => {
       calls.push(typeof input === 'string' ? input : input.toString())
       throw new Error('offline')
     }) as typeof fetch
     calls = []
-    const now = Date.now()
-    expect(await pendingUpdate(now)).toBeNull()
-    expect(Date.parse((await state()).checkedAt)).toBe(now)
+    expect(await pendingUpdate()).toBeNull()
+    expect(calls).toHaveLength(1)
+    expect(await state().catch(() => null)).toBeNull()
   })
 
   test('a release older than this build is not an update', async () => {

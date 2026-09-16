@@ -75,8 +75,8 @@ export default function Page() {
           <h1 className="mb-5 max-w-[52rem] text-[clamp(2.1rem,5.2vw,3.4rem)] font-medium leading-[1.08] tracking-[-0.025em]">
             <span className="block font-normal text-dim">
               Every venue weighs only what it holds.
-            </span>
-            tula weighs what you hold.
+            </span>{' '}
+            <span className="block">tula weighs what you hold.</span>
           </h1>
           <p className="mb-8 max-w-[34rem] text-[1.05rem] italic text-dim">
             Your true exposure, what breaks first, and more, across every venue at once.

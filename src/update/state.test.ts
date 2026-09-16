@@ -16,8 +16,8 @@ afterEach(async () => {
 })
 
 test('what is written is read back', async () => {
-  await writeState({ checkedAt: '2026-09-15T00:00:00.000Z', announced: '0.3.0' })
-  expect(await readState()).toEqual({ checkedAt: '2026-09-15T00:00:00.000Z', announced: '0.3.0' })
+  await writeState({ announced: '0.3.0' })
+  expect(await readState()).toEqual({ announced: '0.3.0' })
 })
 
 test('a link at state.json is replaced, not written through', async () => {
@@ -32,5 +32,10 @@ test('a link at state.json is replaced, not written through', async () => {
 test('a directory anyone can write to is written nothing, silently', async () => {
   await chmod(dir, 0o777)
   await writeState({ announced: '0.3.0' })
+  expect(await readState()).toEqual({})
+})
+
+test('an announced version that is not a string reads as none', async () => {
+  await writeFile(join(dir, 'state.json'), JSON.stringify({ announced: 3, checkedAt: 'x' }))
   expect(await readState()).toEqual({})
 })

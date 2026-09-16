@@ -13,8 +13,8 @@ import type { Chain } from './chains.js'
 
 /**
  * A wrap nets with the gas token it wraps, one-for-one and trustlessly — and
- * only on the chain where that token is gas. WPOL was `WMATIC` before the
- * rename, one contract.
+ * only on the chain where that token is gas, at that chain's `CANONICAL_WRAP`.
+ * WPOL was `WMATIC` before the rename, one contract.
  *
  * Nothing else is on this list, and the omissions are the point: wstETH, weETH
  * and the Unit-bridged UBTC/UETH are not one-for-one with what they are named
@@ -39,6 +39,24 @@ export function canonical(symbol: string): string {
 }
 
 const key = (chain: Chain, address: string): string => `${chain.eip155}:${address.toLowerCase()}`
+
+/**
+ * Each chain's own wrap of its gas token — the contract Aave's address book
+ * names as that reserve, checked on-chain. Only it is redeemable one-for-one, so
+ * only it nets with the gas token: another contract calling itself WETH is a
+ * list's claim on ether's price.
+ */
+const CANONICAL_WRAP: ReadonlySet<string> = new Set([
+  '1:0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
+  '42161:0x82af49447d8a07e3bd95bd0d56f35241523fbab1',
+  '8453:0x4200000000000000000000000000000000000006',
+  '10:0x4200000000000000000000000000000000000006',
+  '534352:0x5300000000000000000000000000000000000004',
+  '59144:0xe5d7c2a44ffddf6b295a15c148167daaaf5cf34f',
+  '137:0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270',
+  '43114:0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7',
+  '100:0xe91d153e0b41518a2ce8dd3d7944fa863463a97d',
+])
 
 /**
  * The issuer's own contracts for the tickers a bridge also issues under. A
@@ -153,6 +171,16 @@ const OMNICHAIN: Readonly<Record<string, string>> = {
 }
 
 /**
+ * Tickers priced by a coin id of their own and backed by no contract a list
+ * could name: a gas token, or an issue `OMNICHAIN` already pins. An ERC-20
+ * answering to one elsewhere is a list's claim on that price, not the asset.
+ */
+const PRICED_BY_ID: ReadonlySet<string> = new Set(['BTC', 'ETH', 'SOL', 'XDAI', 'USDT0'])
+
+const bridgedAs = (chain: Chain, ticker: string): boolean =>
+  Object.entries(BRIDGED).some(([at, name]) => name === ticker && at.startsWith(`${chain.eip155}:`))
+
+/**
  * The asset a token on a chain is, which is its issue rather than its ticker:
  * a bridge's USDC nets with neither Circle's nor another bridge's, so a depeg on
  * one is never averaged away inside the others.
@@ -164,18 +192,29 @@ const OMNICHAIN: Readonly<Record<string, string>> = {
  * mark, so it is scoped even where no table here names the contract.
  *
  * A contract CoinGecko does not file keeps netting by ticker unless the ticker
- * is one an issuer above claims: nothing can say what it is an issue of.
+ * is one an issuer above claims: nothing can say what it is an issue of. One
+ * that would take a name a known contract or a pinned price answers to gets the
+ * contract in its name instead — a token list is somebody else's file, and a
+ * symbol on it must not borrow that asset's price or net with the real holding.
  */
 export function assetOn(chain: Chain, address: string | undefined, symbol: string): string {
   if (address === undefined) return canonical(symbol)
   const at = key(chain, address)
   const omnichain = OMNICHAIN[at]
   if (omnichain) return omnichain
-  const ticker = BRIDGED[at] ?? symbol.trim().toUpperCase()
+  const bridged = BRIDGED[at]
+  const ticker = bridged ?? symbol.trim().toUpperCase()
   const scoped = `${chain.id}:${ticker}`
+  const stranger = `${chain.id}:${ticker.replaceAll(':', '.')}@${address.slice(2, 8).toLowerCase()}`
   const unwrapped = WRAPS[ticker]
-  if (unwrapped) return unwrapped === canonical(chain.nativeSymbol) ? unwrapped : scoped
+  if (unwrapped === canonical(chain.nativeSymbol)) return CANONICAL_WRAP.has(at) ? unwrapped : stranger
+  if (bridged) return scoped
   const issued = ISSUED[ticker]
-  if (BRIDGED[at] || ticker.endsWith('.E') || (issued && !issued.has(at))) return scoped
-  return ticker
+  if (issued?.has(at)) return ticker
+  const name = unwrapped || issued || ticker.endsWith('.E') ? scoped : ticker
+  // `bridgedAs` is asked of every ticker, not only the ones that scope: a chain
+  // whose bridged GNO or LINK this contract is not must not hand it the bare
+  // ticker, which nets with the real holding and draws that asset's price.
+  if (ticker.includes(':') || PRICED_BY_ID.has(name) || bridgedAs(chain, ticker)) return stranger
+  return name
 }

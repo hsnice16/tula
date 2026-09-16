@@ -6,13 +6,19 @@ import { NAME, OG, REPO, TWITTER } from '@/lib/site'
 
 const TITLE = 'Security model — non-custodial, and read-only'
 const SUMMARY =
-  'What tula promises about your keys and your funds, and what enforces each promise: no code path can move funds off a venue, a key that can withdraw is turned away, and your keys never reach the model.'
+  'What tula promises about your keys and your funds, and what enforces each promise. No code path can move funds off a venue, and your keys never reach the model.'
 
 export const metadata: Metadata = {
   title: TITLE,
   description: SUMMARY,
   alternates: { canonical: '/security' },
-  openGraph: { ...OG, type: 'website', url: '/security', title: TITLE, description: SUMMARY },
+  openGraph: {
+    ...OG,
+    type: 'website',
+    url: '/security',
+    title: `${TITLE} · ${NAME}`,
+    description: SUMMARY,
+  },
   twitter: { ...TWITTER, title: `${TITLE} · ${NAME}`, description: SUMMARY },
 }
 
@@ -46,7 +52,7 @@ const NOTES = [
   ],
   [
     'Unknown is a value',
-    'Kraken proves a key cannot withdraw, not that it cannot trade, so tula says unknown rather than safe. A missing price shows as missing, never as zero.',
+    'Stripe publishes no way to check what a key can do, so tula says unknown rather than safe. A missing price shows as missing, never as zero.',
   ],
   [
     'The model never computes',
@@ -62,7 +68,7 @@ const NOTES = [
   ],
   [
     'What tula connects to',
-    'The venues you connect, your price source, token lists, and public nodes for Ethereum, Arbitrum One, Base, Polygon, Optimism, Avalanche, Gnosis, Scroll and Linea. If a node is down tula tries the next one, which then also sees your address. Anthropic gets only finished numbers, and only when you ask a question. The shell checks GitHub for a new release once a day. The binary tracks nothing; this site uses Google Analytics.',
+    'The venues you connect, your price source, token lists, and public nodes for Ethereum, Arbitrum One, Base, Polygon, Optimism, Avalanche, Gnosis, Scroll and Linea. If a node is down tula tries the next one, which then also sees your address. Anthropic gets only finished numbers, and only when you ask a question. The shell checks GitHub for a new release each time it opens. The binary tracks nothing; this site uses Google Analytics and shows a Peerlist badge.',
   ],
 ] as const
 
@@ -70,7 +76,7 @@ export default function Page() {
   return (
     <main className="wrap pt-16 pb-step-3">
       <JsonLd schema={breadcrumb('Security', '/security')} />
-      <h1 className="mb-5 text-[clamp(2rem,4.5vw,2.8rem)] font-medium tracking-[-0.025em]">
+      <h1 className="mb-5 text-[clamp(2rem,4.5vw,2.8rem)] font-medium leading-[1.1] tracking-[-0.025em]">
         Security model
       </h1>
       {/* Two paragraphs: run together, the second sentence starts mid-line. */}

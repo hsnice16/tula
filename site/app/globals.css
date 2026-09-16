@@ -151,6 +151,16 @@
   a:hover {
     color: var(--color-notice);
   }
+  /* Inside a sentence a link is underlined too: colour alone is the one cue a
+     reader who cannot tell accent from body text never gets. */
+  p a {
+    text-decoration-line: underline;
+    text-decoration-thickness: 1px;
+    text-decoration-color: var(--color-accent-dim);
+  }
+  p a:hover {
+    text-decoration-color: currentColor;
+  }
 }
 
 @layer components {
