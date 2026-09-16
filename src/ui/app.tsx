@@ -115,6 +115,8 @@ const QUEUE_ROWS = 3
 
 /** While something runs: what Enter and Esc do now that the line takes keys. */
 const PLACEHOLDER_BUSY = 'type the next one · Enter queues it · Esc stops a question'
+/** A command reads to its own deadline; `stop()` says so rather than stopping it. */
+const PLACEHOLDER_READING = 'type the next one · Enter queues it · each read ends at its deadline'
 
 /**
  * Rows an entry gets in the transcript before the rest is collapsed to a count.
@@ -291,9 +293,15 @@ interface Forget {
 
 /** A load's step, in the voice the tool labels are written in. */
 function loadLabel(step: LoadStep): string {
-  return step.kind === 'venue'
-    ? `reading ${step.venue}${step.account ? ` (${step.account})` : ''}`
-    : `pricing ${step.assets} asset${step.assets === 1 ? '' : 's'}`
+  if (step.kind !== 'venue') return `pricing ${step.assets} asset${step.assets === 1 ? '' : 's'}`
+  const where = `reading ${step.venue}${step.account ? ` (${step.account})` : ''}`
+  // A venue over nine chains held one unchanging label for the whole read, and
+  // an unchanging label is what a hang looks like. The count only ever goes up,
+  // and it is a count rather than the name of whichever chain is outstanding:
+  // a label that churns through nine names is the motion AGENTS.md rules out.
+  return step.total !== undefined && step.total > 1 && step.done !== undefined
+    ? `${where} · ${step.done} of ${step.total} chains`
+    : where
 }
 
 /**
@@ -891,6 +899,12 @@ export function App({
           detail: `FAILED — ${failure.split(': ').slice(1).join(': ')}`,
         }
       }
+      // Until the cache answers for this venue it holds an unknown number of
+      // things, not zero of them — and a read that threw is not one still running.
+      if (!session.covers(id)) {
+        const detail = session.isLoading ? 'reading…' : `not read — ${typed('refresh')}`
+        return { id, connected: true, addressOnly, detail }
+      }
       const mine = positions.filter((p) => belongsToVenue(p.venue, id))
       // reduce() over no rows answers with its seed, so a venue connected and
       // holding nothing drew the current time as the age of data it does not
@@ -905,7 +919,7 @@ export function App({
         detail: stalest ? `${held} · ${freshness(stalest, now)}` : held,
       }
     })
-  }, [session, connectors, connected, entries.length])
+  }, [session, session.isLoaded, connectors, connected, entries.length])
 
   useEffect(() => {
     // A store this cannot read is not a store with no price source in it: the
@@ -962,14 +976,18 @@ export function App({
           venueEntries.find((v) => v.id === id)?.detail ??
           'no longer read by this build — forgetting it removes the key',
       })),
-      assets: session.isLoaded
+      // The venues this build reads, not the whole store: a venue tula dropped is
+      // skipped before `refresh` records it, so asking about the store would be
+      // permanently unanswerable for anyone still holding a retired venue's key —
+      // and `registry.ts` would tell them to run the `/refresh` that cannot fix it.
+      assets: session.coversAll(storedVenues(connected, connectors.keys()).read)
         ? [...held]
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([name, venues]) => ({ name, summary: `held at ${sentenceList([...venues])}` }))
         : null,
       accounts: (venue) => accounts[venue] ?? null,
     }
-  }, [session, venueEntries, connected, accounts, entries.length])
+  }, [session, session.isLoaded, venueEntries, connected, connectors, accounts, entries.length])
 
   const menu: Menu | null = useMemo(() => {
     // Nothing runs off the menu while a credential is waiting to be named, and
@@ -1092,10 +1110,22 @@ export function App({
     // answered with nothing is still one that is connected.
     const { read, removed } = storedVenues(connected, connectors.keys())
     const stalest = session.stalest()
-    const parts = [
-      `${read.length} venue${read.length === 1 ? '' : 's'}`,
-      `${positions.length} position${positions.length === 1 ? '' : 's'}`,
-    ]
+    const parts = [`${read.length} venue${read.length === 1 ? '' : 's'}`]
+    // Nothing is counted while a stored venue is one the cache was not built
+    // from. `0 positions` there is not an empty book, it is a book nobody has
+    // answered for yet. With nothing stored it is the true answer, and the
+    // block below already says why — so this is only about a venue that will
+    // answer, including one connected after the shell opened.
+    if (read.length > 0 && !session.coversAll(read)) {
+      // A read that threw leaves this false with nothing running. Drawn as
+      // `reading…` that is a spinner over nothing; the rule is that a gap which
+      // does not close gets the command that closes it.
+      parts.push(session.isLoading ? 'reading…' : `not read · ${typed('refresh')}`)
+      if (removed.length > 0) parts.push(`${removed.length} removed`)
+      parts.push(agent ? 'opus 5' : 'commands only')
+      return parts.join('  ·  ')
+    }
+    parts.push(`${positions.length} position${positions.length === 1 ? '' : 's'}`)
     if (stalest) parts.push(freshness(stalest))
     // Removed, failed and never-asked are three different things. Counting a
     // venue this build dropped among the failures reported an outage about a
@@ -1108,7 +1138,7 @@ export function App({
     if (removed.length > 0) parts.push(`${removed.length} removed`)
     parts.push(agent ? 'opus 5' : 'commands only')
     return parts.join('  ·  ')
-  }, [session, agent, entries.length, streaming, connected, connectors, tick])
+  }, [session, session.isLoaded, agent, entries.length, streaming, connected, connectors, tick])
 
   /**
    * Says what is about to be forgotten and what it would take to get it back,
@@ -1510,6 +1540,7 @@ export function App({
     } finally {
       runningCommand.current = false
       setStopNote('')
+      setActivity('')
       setWorking(false)
     }
   }, [session, connectors, venueEntries, push, setWorking])
@@ -2372,7 +2403,9 @@ export function App({
           forgetting || search
             ? ''
             : busy
-              ? PLACEHOLDER_BUSY
+              ? runningCommand.current
+                ? PLACEHOLDER_READING
+                : PLACEHOLDER_BUSY
               : cells(PLACEHOLDER_HINTED) + 2 <= textWidth
               ? PLACEHOLDER_HINTED
               : PLACEHOLDER

@@ -13,7 +13,9 @@ therefore hand-built by the rule `ROADMAP.md` states about the tail.
 
 ## Acceptance
 
-- **The Safety Module** — staked AAVE, ABPT and GHO. Each stake contract answers
+- **Umbrella and the legacy Safety Module** — staked AAVE, ABPT and GHO. Umbrella
+  replaced the Safety Module in 2025 and the legacy stake tokens still run beside
+  it, so both are the gap and neither name alone states it. Each stake contract answers
   `balanceOf`, so it is three addresses in a batch already going out. An
   unstaked balance carries a cooldown; whether that is a `spot` row or an
   `UNAVAILABLE` reason is the question to settle, and
@@ -66,13 +68,16 @@ therefore hand-built by the rule `ROADMAP.md` states about the tail.
   pools as a legacy shim, and its return is a dynamic struct whose first word is
   an offset rather than a field — `decodeString` cannot be pointed at it either.
   The two collateral views are statically encoded and answer everything.
-- **Stable-rate debt**, or the declaration retired with evidence. Word `[9]` of
-  `getReserveData` is still a live token address on mainnet, so it reads with
-  one more `balanceOf`. But Aave disabled stable-rate borrowing, and a column
-  that is always zero is worse than no column: confirm against the live markets
-  in `scripts/conformance.live.ts`, and if nothing can carry a balance, drop the
-  gap rather than build for it. **Retiring a declaration is a finding, not a
-  shortcut — it needs the check that proves it, in the file that reruns.**
+- ~~**Stable-rate debt**, or the declaration retired with evidence.~~ **Retired
+  in 0.3.1.** Aave v3.2 removed every Pool function for stable-rate mode and
+  stopped instantiating a stable debt token on a listing, so nothing can carry a
+  balance and a column that is always zero is worse than no column. The gap is
+  gone from `aave.ts`, from `/aave` and from the table above. The check that
+  proves it reruns in `scripts/conformance.live.ts`: it asserts `IPool` carries
+  neither `swapBorrowRateMode` nor `rebalanceStableBorrowRate`, and reports
+  `contradicted` — restore the declaration — if either comes back.
+  **Retiring a declaration is a finding, not a shortcut — it needs the check
+  that proves it, in the file that reruns.**
 - Every chain Aave v3 is deployed on that tula does not read is
   [`12`](./12-chain-reach.md)'s, not this file's.
 - Each gap closed removes its `doesNotRead` entry in the same change, and the

@@ -266,7 +266,7 @@ command -v bun >/dev/null 2>&1 || {
   fail=1
 }
 if command -v bun >/dev/null 2>&1; then
-  awk '{print} /^        fetched_at: at\(f.loadedAt\),$/ {print "        probe_unmarked: f.failures[0] ?? null,"}' \
+  awk '{print} /^        failed_venues: f.failures.map\(untrusted\),$/ {print "        probe_unmarked: f.failures[0] ?? null,"}' \
     "$TOOLS_SAVED" >"$TOOLS"
   if ! grep -qF 'probe_unmarked' "$TOOLS"; then
     # The anchor moved, so the probe planted nothing and the check below would

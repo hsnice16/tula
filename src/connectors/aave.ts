@@ -27,7 +27,7 @@ import {
   words,
 } from './evm.js'
 import { assetOn } from './symbols.js'
-import { PartialRead, type Connector, type ConnectorCredentials, type KeyScope } from './types.js'
+import { PartialRead, type Connector, type ConnectorCredentials, type KeyScope, type PartProgress, type Refresh } from './types.js'
 import { plural } from '../core/format.js'
 
 export const AAVE: Venue = {
@@ -627,7 +627,11 @@ export const aaveConnector: Connector = {
     return { canRead: true, canTrade: false, canWithdraw: false }
   },
 
-  async fetchPositions(creds: ConnectorCredentials): Promise<Position[]> {
+  async fetchPositions(
+    creds: ConnectorCredentials,
+    _refresh?: Refresh,
+    onPart?: PartProgress,
+  ): Promise<Position[]> {
     const address = creds['address']
     if (!address) throw new TulaError('Aave needs a public address.')
 
@@ -638,8 +642,11 @@ export const aaveConnector: Connector = {
       instances: INSTANCES.filter((i) => i.chain.id === chain.id),
     })).filter((g) => g.instances.length > 0)
 
+    let settled = 0
     const read = await Promise.allSettled(
-      byChain.map((g) => readMarkets(g.chain, g.instances, address)),
+      byChain.map((g) =>
+        readMarkets(g.chain, g.instances, address).finally(() => onPart?.(++settled, byChain.length)),
+      ),
     )
 
     const positions = read.flatMap((r) => (r.status === 'fulfilled' ? r.value : []))

@@ -114,6 +114,20 @@ const RETRACTED = [
   'its last line says which of the two you got',
   // The check ran once a day until it moved to every shell start.
   'once a day',
+  // Binance's futures permission grants futures *trading*, so `verifyScope`
+  // refuses any key that could read them: the page advertised a capability the
+  // connector's own comment said was unreachable, and README said the opposite.
+  'USD-M futures',
+  // Aave removed stable-rate borrowing in v3.2. A gap that names a product the
+  // venue no longer offers cannot hide a liquidation.
+  'stable-rate debt',
+  // Hyperliquid documents the 95% trigger for portfolio margin only. The
+  // unified ratio's 95% is the app's wording, and saying the docs publish it
+  // would be citing a source that does not say it.
+  'Unified Account Ratio passes 95%.',
+  // Kraken proves trade access now, so no surface may send a reader away
+  // believing only withdrawal is checked.
+  'read balances but never withdraw',
 ] as const
 
 describe('the caveat travels with the claim', () => {
@@ -999,8 +1013,12 @@ describe('the release notes agree with the build they describe', () => {
    */
   test('every Aave market label the notes quote is one the build emits', () => {
     const connector = read('src/connectors/aave.ts')
+    // Non-vacuity is proven against the whole file, not against this release: a
+    // release need not mention Aave, and requiring one to would make the next
+    // release that does not the thing that fails. What must not happen is the
+    // pattern quietly matching nothing anywhere.
+    expect((notes.match(/`aave-[a-z]+`/g) ?? []).length).toBeGreaterThan(0)
     const quoted = [...new Set((unreleased.match(/`aave-[a-z]+`/g) ?? []).map((m) => m.slice(1, -1)))]
-    expect(quoted.length).toBeGreaterThan(0)
     for (const label of quoted) {
       const suffix = label.slice('aave-'.length)
       expect({ label, emitted: connector.includes(`\${AAVE.id}-${suffix}`) }).toEqual({

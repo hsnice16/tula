@@ -176,7 +176,7 @@ of them mentioned in no file at all.
 | What | Where |
 |---|---|
 | Aave V4 — the Hubs on Ethereum | [`breadth/08`](./tasks/breadth/08-aave-v4.md) |
-| The Safety Module, isolation mode, stable-rate debt | [`breadth/09`](./tasks/breadth/09-aave-depth.md) |
+| Umbrella and the legacy Safety Module, isolation mode | [`breadth/09`](./tasks/breadth/09-aave-depth.md) |
 | Staking and yield-bearing tokens, NFTs | [`breadth/11`](./tasks/breadth/11-wallet-depth.md) |
 | The EVM chains outside the nine, HyperEVM, Solana | [`breadth/12`](./tasks/breadth/12-chain-reach.md) |
 | Binance's cross-margin liquidation level, COIN-M and Portfolio Margin, earn products, held balances, sub-accounts | [`breadth/13`](./tasks/breadth/13-binance-depth.md) |

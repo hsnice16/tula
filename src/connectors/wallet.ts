@@ -22,7 +22,7 @@ import {
   words,
 } from './evm.js'
 import { assetOn, canonical } from './symbols.js'
-import { PartialRead, type Connector, type ConnectorCredentials, type KeyScope } from './types.js'
+import { PartialRead, type Connector, type ConnectorCredentials, type KeyScope, type PartProgress, type Refresh } from './types.js'
 import { typed } from '../core/surface.js'
 import { host, request } from '../core/http.js'
 
@@ -348,7 +348,11 @@ export const walletConnector: Connector = {
     return { canRead: true, canTrade: false, canWithdraw: false }
   },
 
-  async fetchPositions(creds: ConnectorCredentials): Promise<Position[]> {
+  async fetchPositions(
+    creds: ConnectorCredentials,
+    _refresh?: Refresh,
+    onPart?: PartProgress,
+  ): Promise<Position[]> {
     const address = creds['address']
     if (!address) throw new TulaError('A wallet needs a public address.')
 
@@ -361,12 +365,16 @@ export const walletConnector: Connector = {
     // rate-limiting one chain must not take the others off the book, and the
     // reader has to be told which one went or they will go and replace a node
     // that is answering.
+    let settled = 0
     const read = await Promise.allSettled(
       CHAINS.map(async (chain) => {
         const list = lists.get(tokenListUrl(chain))!
         if (list.status === 'rejected') throw list.reason
         return readChain(chain, address, chainTokens(list.value, chain))
-      }),
+        // Counted on settle, not on success: a chain that failed is one the
+        // reader is no longer waiting for, and a count that skipped it would
+        // stop short of its total and read as a hang.
+      }).map((p) => p.finally(() => onPart?.(++settled, CHAINS.length))),
     )
 
     const positions = read.flatMap((r) => (r.status === 'fulfilled' ? r.value : []))
