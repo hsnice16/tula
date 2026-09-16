@@ -115,7 +115,10 @@ export function riskEngineFor(session: Session): RiskEngine {
 
     freshness: () => ({
       oldest: session.stalest(),
-      loadedAt: session.current.loadedAt,
+      // `EMPTY.loadedAt` is the epoch, and the model quotes a figure verbatim —
+      // read cold it would state the epoch's age as a fact. Unknown is a value
+      // the tool result already carries.
+      loadedAt: session.isLoaded ? session.current.loadedAt : null,
       failures: session.current.failures,
       priceError: session.current.priceError,
     }),

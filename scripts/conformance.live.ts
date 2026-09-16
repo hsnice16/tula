@@ -214,6 +214,29 @@ async function aave(): Promise<Finding[]> {
     ],
   })
 
+  // The stable-rate gap was retired in 0.3.1, and `breadth/09` says a retirement
+  // needs the check that proves it rather than a reading of a changelog. Aave
+  // v3.2 removed every Pool function for stable-rate mode and stopped
+  // instantiating a stable debt token on a new listing, so the proof is that the
+  // interface itself no longer carries one. `IPool.sol` is the file that would
+  // have to grow it back.
+  const poolApi = await request(`${ADDRESS_BOOK_RAW}/../lib/aave-v3-origin/src/contracts/interfaces/IPool.sol`, followed, DEADLINE_MS)
+  const poolSource = poolApi.ok ? await poolApi.text() : ''
+  const stableFns = ['swapBorrowRateMode', 'rebalanceStableBorrowRate'].filter((fn) => poolSource.includes(fn))
+  findings.push({
+    verdict: poolSource === '' ? 'unreachable' : stableFns.length === 0 ? 'holds' : 'contradicted',
+    belief: 'Aave states no stable-rate borrowing, so there is no gap left to declare about it',
+    lines: [
+      poolSource === ''
+        ? 'Could not read IPool.sol; nothing here checked the retirement.'
+        : stableFns.length === 0
+          ? 'IPool carries neither swapBorrowRateMode nor rebalanceStableBorrowRate: the mode is gone ' +
+            'from the interface, and a gap naming it would describe a product the venue does not offer.'
+          : `IPool still carries ${stableFns.join(' and ')}. Stable-rate borrowing is reachable again — ` +
+            'restore the declared gap in aave.ts before the next release.',
+    ],
+  })
+
   // One check per chain tula actually reads, because "the pool moved" and "there
   // is a market here we never call" are different failures and only the second
   // scales with the chain list. `DEPLOYMENTS` is the connector's own list, so

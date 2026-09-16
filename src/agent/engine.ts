@@ -44,5 +44,6 @@ export interface RiskEngine {
    */
   coverage(): Disclosure
   venues(): VenueStatus[]
-  freshness(): { oldest: Date | null; loadedAt: Date; failures: string[]; priceError: string | null }
+  /** `loadedAt` is null before any load: the model quotes figures verbatim, so an unread book must not carry a date. */
+  freshness(): { oldest: Date | null; loadedAt: Date | null; failures: string[]; priceError: string | null }
 }

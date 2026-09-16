@@ -17,7 +17,7 @@ const PEERLIST = {
  * them without handing their taps to the next.
  */
 const LINK =
-  'flex min-h-11 items-center text-dim underline decoration-rule decoration-dotted underline-offset-4 hover:text-accent'
+  'flex min-h-8 items-center text-dim underline decoration-rule decoration-dotted underline-offset-4 hover:text-accent'
 
 function Column({
   title,

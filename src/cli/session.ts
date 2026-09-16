@@ -64,7 +64,7 @@ export interface LoadResult {
 export type LoadStep =
   /** `account` only where the venue holds more than one, so the wait names the
    *  address being read rather than repeating a label nothing else could be. */
-  | { kind: 'venue'; venue: string; account?: string }
+  | { kind: 'venue'; venue: string; account?: string; done?: number; total?: number }
   | { kind: 'prices'; assets: number }
 
 const EMPTY: LoadResult = {
@@ -217,6 +217,7 @@ function attributed(p: Position, account: { id: string; label: string } | undefi
 export class Session {
   private cached: LoadResult = EMPTY
   private hasLoaded = false
+  private inFlight = false
 
   /**
    * Told what the load is on: venues are read in turn, each behind a 15s
@@ -260,12 +261,43 @@ export class Session {
     return this.hasLoaded
   }
 
+  /**
+   * Whether a read is running now. `covers()` being false has two causes that
+   * look identical on screen and are not: a read in flight, and a read that
+   * threw. Drawn as the first, the second is a spinner over nothing, with no
+   * command offered — the disclosure rule inverted.
+   */
+  get isLoading(): boolean {
+    return this.inFlight
+  }
+
+  /**
+   * Whether the cache answers for this venue. `isLoaded` is a fact about the
+   * session — that some load finished — not about the venue set the cache was
+   * built from, and the two came apart wherever a venue was connected after the
+   * shell opened: the store gained it at once, the cache did not, and every
+   * surface read the gap as a venue holding nothing.
+   */
+  covers(venueId: string): boolean {
+    return this.hasLoaded && this.cached.connected.includes(venueId)
+  }
+
+  /**
+   * The same question for a whole set: any venue it does not answer for makes a
+   * count unknowable. Vacuous over an empty set — the caller holds the list, and
+   * a caller with nothing stored already has its own answer to give.
+   */
+  coversAll(venueIds: readonly string[]): boolean {
+    return this.hasLoaded && venueIds.every((id) => this.cached.connected.includes(id))
+  }
+
   async ensureLoaded(): Promise<LoadResult> {
     if (this.hasLoaded) return this.cached
     return this.refresh()
   }
 
   async refresh(): Promise<LoadResult> {
+    this.inFlight = true
     try {
       const positions: Position[] = []
       const failures: string[] = []
@@ -329,9 +361,27 @@ export class Session {
               `${venueId}: ${account ? `${label} — ` : ''}${unprefixed(text, connector.venue.name, venueId)}`,
             )
           }
+          // Caught here rather than at each call site: this runs inside
+          // `.finally()` on the chain's own promise, and a promise derived from
+          // `finally` rejects if the callback throws — discarding the fulfilled
+          // value. A listener that threw would delete that chain's positions and
+          // report the node that answered as the one that failed.
+          const step = (done: number, total: number) => {
+            try {
+              this.onProgress?.({
+                kind: 'venue',
+                venue: venueId,
+                ...(account ? { account: label } : {}),
+                done,
+                total,
+              })
+            } catch {
+              // A label is not worth a row.
+            }
+          }
           let read: readonly Position[] = []
           try {
-            read = await connector.fetchPositions(held.credentials, scope)
+            read = await connector.fetchPositions(held.credentials, scope, step)
           } catch (err) {
             // A venue spread over several chains has several independent ways to
             // fail, and catching per connector made the whole book hostage to
@@ -426,6 +476,7 @@ export class Session {
       this.hasLoaded = true
       return this.cached
     } finally {
+      this.inFlight = false
       // Cleared however the load ends, or a label outlives the work it named.
       this.onProgress?.(null)
     }

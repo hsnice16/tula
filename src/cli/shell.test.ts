@@ -197,6 +197,93 @@ describe('load progress', () => {
       null,
     ])
   })
+
+  /**
+   * A venue spread over several chains held one unchanging label for the whole
+   * read, and an unchanging label is what a hang looks like. The count is
+   * reported per part settled — including a part that failed, because a reader
+   * is no longer waiting for that one either.
+   */
+  test('a venue that reads in parts counts them, failures included', async () => {
+    const parts: Connector = {
+      ...testConnector,
+      venue: { id: 'parts', kind: 'cex', name: 'Parts' },
+      async fetchPositions(_creds, _refresh, onPart) {
+        onPart?.(1, 3)
+        onPart?.(2, 3)
+        onPart?.(3, 3)
+        return []
+      },
+    }
+    const session = await sessionOf(new Map([['parts', parts]]))
+    const steps: (LoadStep | null)[] = []
+    session.onProgress = (step) => steps.push(step)
+    await session.refresh()
+    expect(steps.filter((s) => s?.kind === 'venue')).toEqual([
+      { kind: 'venue', venue: 'parts' },
+      { kind: 'venue', venue: 'parts', done: 1, total: 3 },
+      { kind: 'venue', venue: 'parts', done: 2, total: 3 },
+      { kind: 'venue', venue: 'parts', done: 3, total: 3 },
+    ])
+  })
+})
+
+describe('what the cache answers for', () => {
+  /**
+   * `isLoaded` says a load finished; it says nothing about which venues that
+   * load was built from. The two came apart wherever a venue was connected
+   * after the shell opened: the store gained it at once, the cache did not, and
+   * every surface read the gap as a venue holding nothing.
+   */
+  test('a venue connected after a load is not covered by it', async () => {
+    const session = await freshSession()
+    await session.refresh()
+    expect(session.isLoaded).toBe(true)
+    expect(session.covers('testvenue')).toBe(true)
+
+    await secrets.put('emptyvenue', { apiKey: 'k' })
+    // The load is still finished, and still answers for nothing about this one.
+    expect(session.isLoaded).toBe(true)
+    expect(session.covers('emptyvenue')).toBe(false)
+    expect(session.coversAll(['testvenue', 'emptyvenue'])).toBe(false)
+
+    await session.refresh()
+    expect(session.covers('emptyvenue')).toBe(true)
+    expect(session.coversAll(['testvenue', 'emptyvenue'])).toBe(true)
+  })
+
+  test('nothing is covered before the first load', async () => {
+    const session = await freshSession()
+    expect(session.isLoaded).toBe(false)
+    expect(session.covers('testvenue')).toBe(false)
+    expect(session.coversAll(['testvenue'])).toBe(false)
+    expect(session.coversAll([])).toBe(false)
+  })
+
+  test('an empty set is covered once a load has happened', async () => {
+    const session = await freshSession()
+    await session.refresh()
+    expect(session.coversAll([])).toBe(true)
+  })
+
+  /**
+   * A venue this build dropped is skipped before `refresh` records it, so it can
+   * never appear in the cache — and a caller that asked about the whole store got
+   * an answer that could not become true. `/shock`'s asset list went dark for the
+   * rest of the session for anyone still holding a retired venue's key, and the
+   * remedy it offered was the `/refresh` that could not fix it.
+   */
+  test('a retired venue in the store never becomes covered, so callers must ask about the build', async () => {
+    const session = await freshSession()
+    await secrets.put('circle', { apiKey: 'k' })
+    await session.refresh()
+    const stored = await secrets.listVenues()
+    expect(stored).toContain('circle')
+    expect(session.covers('circle')).toBe(false)
+    expect(session.coversAll(stored)).toBe(false)
+    // The build's own list is the answerable question, and it is answered.
+    expect(session.coversAll([...CONNECTORS.keys()].filter((id) => stored.includes(id)))).toBe(true)
+  })
 })
 
 describe('dispatchCommand', () => {

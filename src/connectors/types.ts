@@ -253,6 +253,13 @@ export interface Connectable {
   verifyScope(creds: ConnectorCredentials): Promise<KeyScope>
 }
 
+/**
+ * How far through its own parts a venue is. A count, never a list of the parts
+ * still outstanding: the busy row sits under the cursor, and AGENTS.md's rule is
+ * that nothing there may move on its own beyond what the reader asked to watch.
+ */
+export type PartProgress = (done: number, total: number) => void
+
 export interface Connector {
   readonly venue: Venue
 
@@ -301,8 +308,12 @@ export interface Connector {
   /**
    * `refresh` is the refresh this read belongs to; one made per refresh and
    * dropped with it, so nothing shared through it outlives the refresh.
+   *
+   * `onPart` is for a venue spread over several chains: it reports how many have
+   * settled, so the busy row can count rather than sit on one unchanging label
+   * for as long as the slowest chain takes.
    */
-  fetchPositions(creds: ConnectorCredentials, refresh?: Refresh): Promise<Position[]>
+  fetchPositions(creds: ConnectorCredentials, refresh?: Refresh, onPart?: PartProgress): Promise<Position[]>
 }
 
 export function connectable(connector: Connector): Connectable {

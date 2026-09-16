@@ -411,7 +411,7 @@ export function executeTool(engine: RiskEngine, name: string, input: unknown): u
       return seal({
         venues,
         oldest_data: f.oldest === null ? null : at(f.oldest),
-        fetched_at: at(f.loadedAt),
+        fetched_at: f.loadedAt === null ? null : at(f.loadedAt),
         failed_venues: f.failures.map(untrusted),
         price_error: marked(f.priceError),
         // The whole of what no other result carries. Three different

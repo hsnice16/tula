@@ -5,7 +5,7 @@ import { Terminal } from '@/components/Terminal'
 const PATH = '/kraken'
 const TITLE = 'Kraken read-only API key for portfolio tracking'
 const SUMMARY =
-  'Which Kraken API key permissions to turn on so a tool can read balances but never withdraw, and what tula refuses.'
+  'Which Kraken API key permissions to turn on so a tool can read balances but never trade or withdraw, and what tula refuses.'
 
 export const metadata = guideMetadata(PATH, TITLE, SUMMARY)
 
