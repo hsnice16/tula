@@ -116,7 +116,10 @@ export function BackToTop() {
     // even on the pages where the button never appears.
     <div
       ref={wrapper}
-      className="pointer-events-none fixed right-8 bottom-8 z-20"
+      // Below the header's layer, not above it: the phone menu drops out of the
+      // header down this same right edge, and a z above it put this button in
+      // the middle of that menu's links.
+      className="pointer-events-none fixed right-8 bottom-8 z-0"
       style={{ transform: `translateY(${-lift}px)` }}
     >
       <button
