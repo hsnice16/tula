@@ -110,6 +110,21 @@ export class NotARegularFileError extends TulaError {
  * in the file renders as not connected, and a tool offering to take a key it is
  * already holding is the shape of a phishing page.
  */
+/**
+ * Neither a bug nor unfixable, so it names the way out like every other refusal
+ * here: without it a truncated or hand-edited store threw a bare `SyntaxError`,
+ * which `failureText` renders as "This is a bug in tula, not something you did."
+ */
+export class StoreUnreadableError extends TulaError {
+  constructor(path: string, why: string) {
+    super(
+      `${path} is not readable as JSON (${why}).\n` +
+        '  Something truncated it, or it was edited by hand.\n' +
+        `  To start over from nothing: mv ${path} ${path}.old`,
+    )
+  }
+}
+
 export class StoreTooNewError extends TulaError {
   constructor(path: string, version: number) {
     super(
@@ -241,7 +256,19 @@ async function load(): Promise<Store> {
 
   await refuseOpenDirectory()
 
-  const raw = JSON.parse(await readFile(path, 'utf8')) as Store
+  const text = await readFile(path, 'utf8')
+  let raw: Store
+  try {
+    raw = JSON.parse(text) as Store
+  } catch (err) {
+    throw new StoreUnreadableError(path, err instanceof Error ? err.message : 'unparseable')
+  }
+  // A top-level array or scalar passes every guard below — `Object.entries(5)`
+  // is `[]`, so `migrate` would return `{}` and the read would save it back over
+  // the file. A read path must not be able to empty the store.
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    throw new StoreUnreadableError(path, 'it holds a list or a single value, not an object')
+  }
   const stamped = raw[VERSION_KEY]
   const version = typeof stamped === 'number' ? stamped : 1
   if (version > FORMAT_VERSION) throw new StoreTooNewError(path, version)

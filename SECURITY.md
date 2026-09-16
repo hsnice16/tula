@@ -266,20 +266,20 @@ Everything tula contacts, and nothing else:
   nothing to Anthropic; if you never ask a question, tula never talks to it.
 
 - **GitHub — `https://github.com` — to see whether there is a newer release.** The check that runs on
-  its own does so once a day at most and only in the interactive shell;
+  its own does so each time the interactive shell opens, and nowhere else;
   `TULA_NO_UPDATE_CHECK=1` stops it. Asking directly — `/update`, or
   `tula update` — checks there and then, because you asked. Either way it is a
   GET of the public `/releases/latest` page, carrying nothing about you — not
-  your version, not an identifier, no query string — so what GitHub sees is what
-  it sees from anyone opening that page. Nothing is ever installed by a check:
+  your version, not an identifier, no query string — so GitHub sees your IP
+  address and when a shell opened, as it would from anyone opening that page. Nothing is ever installed by a check:
   it prints a line, and `/update install` is a separate thing you type. Typing
   it fetches the release archive and `checksums.txt` from that repository,
   following GitHub's redirect to the storage host it serves assets from. Those
   are the only other requests, and only when you ask for them.
 
 No telemetry and no crash reporting. The update check is the only request the
-binary makes that is not about your positions, and it is the only one that
-reports nothing.
+binary makes that is not about your positions, and it carries nothing about you
+beyond what any page request does.
 
 ## Verifying a release
 

@@ -190,25 +190,30 @@ export class CoinGeckoOracle implements PriceOracle {
     ]
     const ids = wanted.filter((id) => !cached.asked.has(id))
     if (ids.length > 0) {
-      const fetched = this.fetchPinned(cached, ids)
+      // Dropped again if it answered nothing: an id kept here is an id nothing
+      // asks for again, so one 429 used to cost those coins the whole TTL.
+      const fetched = this.fetchPinned(cached, ids).then((answered) => {
+        if (!answered) for (const id of ids) cached.asked.delete(id)
+      })
       for (const id of ids) cached.asked.set(id, fetched)
     }
     await Promise.all(wanted.map((id) => cached.asked.get(id)))
   }
 
-  private async fetchPinned(cached: Cache, ids: string[]): Promise<void> {
+  /** False where nothing was priced, so the caller can let the ids be asked again. */
+  private async fetchPinned(cached: Cache, ids: string[]): Promise<boolean> {
     // The pages already priced everything else. Failing here — a status, a
     // deadline, a body that is not JSON — would take all of that away over one
     // coin, which is left unpriced and named by the caller.
     let rows: unknown
     try {
       const res = await this.fetcher(`${MARKETS}?vs_currency=usd&ids=${ids.join(',')}`)
-      if (!res.ok) return
+      if (!res.ok) return false
       rows = await res.json()
     } catch {
-      return
+      return false
     }
-    if (!Array.isArray(rows)) return
+    if (!Array.isArray(rows)) return false
     for (const row of rows as MarketRow[]) {
       const price = usablePrice(row?.current_price)
       if (!price) continue
@@ -216,6 +221,7 @@ export class CoinGeckoOracle implements PriceOracle {
       // on Optimism and on Avalanche.
       for (const [symbol, id] of Object.entries(PINNED)) if (id === row?.id) cached.prices.set(symbol, price)
     }
+    return true
   }
 
   async quote(asset: AssetId): Promise<Quote | null> {

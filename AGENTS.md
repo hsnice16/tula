@@ -79,7 +79,7 @@ replaced by a literal.
 bun install
 bun run typecheck      # tsc --noEmit
 bun test               # unit tests
-bun run check          # typecheck, test, install path, guards, scan test — CI runs each, split across jobs
+bun run check          # typecheck, test, install path, guards, scan test — CI runs each, and all of it on macOS
 bun run build          # -> dist/tula
 bun run dev            # run from source
 ```
@@ -236,7 +236,17 @@ src/
     command.ts          # /update and /update install
   history/
     history.ts          # submitted lines kept across sessions; never a connect field, never a line that looks like a key
-    bip39.ts            # BIP-39's English wordlist, so a pasted seed phrase is never kept
+    bip39/              # BIP-39's official wordlists, one file each, so a pasted seed phrase in any of them is never kept
+      english.ts
+      chinese-simplified.ts
+      chinese-traditional.ts
+      czech.ts
+      french.ts
+      italian.ts
+      japanese.ts
+      korean.ts
+      portuguese.ts
+      spanish.ts
   prefs/
     prefs.ts            # preferences.json — vim mode and whatever preference follows; unreadable means default
   agent/
@@ -411,8 +421,8 @@ Two rules, and they are the reason the architecture exists:
 - **The version check carries nothing about the caller.** No identifier, no
   version, no query string — a GET of a public release page, resolved off the
   redirect for the reason `install.sh` avoids the API. Its state lives in
-  `state.json`, never `credentials.json`: writing a timestamp must not mean
-  importing the module that reads venue keys.
+  `state.json`, never `credentials.json`: recording which release was announced
+  must not mean importing the module that reads venue keys.
 - **Signed quantities.** Debt and shorts are negative so netting is a plain sum.
 - **Ordering is presentation.** Connectors return what the venue gave them; the
   command layer sorts. A new connector must not change how the table reads.
@@ -710,7 +720,7 @@ bun run build              # -> site/out, static
   static host could not do. Vercel reads it from the project's root directory,
   which is `site`; point that at the repository root instead and every header
   here silently stops being sent. The CSP is the security page's egress claim
-  enforced: same origin, plus Google Analytics, and nothing else. `script-src`
+  enforced: same origin, plus Google Analytics and the Peerlist badge image, and nothing else. `script-src`
   carries `'unsafe-inline'` and cannot lose it — Next inlines the RSC flight
   payload into every page, `output: 'export'` leaves no middleware to mint a
   nonce, and the hashes change every build. HSTS is deliberately without
@@ -738,6 +748,18 @@ bun run build              # -> site/out, static
   served for every path on the domain there is nothing at. It is not in `NAV`,
   which is the list of routes the sitemap and `llms.txt` publish, and a 404 in
   either is a 404 arrived at from a search result.
+- **The guides** — `app/liquidation-risk`, `app/exposure`, `app/hyperliquid`,
+  `app/aave`, `app/kraken`, `app/binance` and `app/coinbase`, built on
+  `components/Guide.tsx` — are pages written for a search, linked from the
+  footer's Guides column, beside Keys, and nowhere more prominent. A hidden link would be spam
+  under Google's policy, and a page nothing links to ranks weakly.
+- `components/VersionPill.tsx` draws the release the site describes, in the
+  header and in the mobile menu. It reads `VERSION` from `lib/site.ts` and
+  derives the pre-release marker from the hyphen, the same rule `src/version.ts`
+  applies to the binary — never a second hand-set flag.
+- `app/icon.png/route.tsx` and `app/apple-icon.png/route.tsx` render the favicon
+  and the touch icon from the same mark `app/icon.svg` draws, because a PNG is
+  what a browser tab and an iOS home screen ask for.
 - `agentRules: false` in `next.config.ts`: `next dev` otherwise writes a second
   AGENTS.md and CLAUDE.md under `site/`, and this file is the only one.
 - **The changelog and the roadmap are not on the site.** `CHANGELOG.md`,
@@ -761,11 +783,11 @@ bun run build              # -> site/out, static
   desktop gets between them — a quarter of its screen with nothing in it.
   `--gutter` clamps for the same reason. A section gap belongs in these tokens,
   not in a raw step count.
-- **The header and footer bars centre below the `phone` breakpoint.** A wordmark
-  held left against a nav held right is a shape that needs a row wide enough for
-  both ends; wrapped, `ml-auto` leaves each half on the edge it was pushed to and
-  they read as two halves that missed each other. `globals.css` says why the
-  breakpoint sits where it does.
+- **Below the `phone` breakpoint the header's links fold behind a menu
+  button.** Wrapped, they took a pinned header to two or three rows of a phone
+  screen. `MobileNav.tsx` is a disclosure, not `role="menu"`: WAI-ARIA reserves
+  that role for application menus that take arrow keys. `globals.css` says why
+  the breakpoint sits where it does.
 - **One command per copyable block on the install page.** Every block carries a
   copy button, so two alternatives sharing one is a paste that installs tula
   twice — which is why Homebrew and npm are separate blocks, and why update, go
@@ -781,7 +803,7 @@ bun run build              # -> site/out, static
   sideways-scrolling table puts it off a phone with nothing to say it is there.
   Horizontal scroll is right for the terminal frames, which are a picture of a
   fixed-width grid, and wrong for anything a reader has to read.
-- **Seven client component files, and each one earns it by needing something
+- **Eight client component files, and each one earns it by needing something
   CSS cannot read.** `Session.tsx` draws the front page's frame and works `/`,
   ctrl+s and ctrl+o on a loop because a transcript cannot show a keystroke —
   every state it passes through is one the binary draws, in the binary's own
@@ -809,6 +831,8 @@ bun run build              # -> site/out, static
   block, and its live region sits outside the button, because a button's
   children are presentational and a region nested in one is not reliably
   announced.
+  `MobileNav.tsx` holds the header's links on a phone; it closes on Escape, a
+  tap outside or a route change, and Escape hands focus back to its button.
   `Nav.tsx` and `Channels.tsx` measure where the active item sits so one
   underline can travel between them; `lib/marker.ts` is that measurement, held
   in one place because two copies of it drift apart by a pixel and read as a
@@ -846,7 +870,7 @@ bun run build              # -> site/out, static
   one is summarised by, and the preview card's dimensions and alt text. The nav
   routes feed the footer, the sitemap and `llms.txt` from one place, so a new
   page cannot ship unindexed or unsummarised; the header shows only the ones
-  marked `inHeader`. `src/site-claims.test.ts` reads
+  marked `inHeader`, and the 404 only the `site` group. `src/site-claims.test.ts` reads
   this file rather than `layout.tsx` for the trading caveat — the description is
   written here and rendered there.
 - **`metadataBase` is the deployed URL.** Next resolves every canonical,
@@ -860,7 +884,7 @@ bun run build              # -> site/out, static
   naming the image by hand in `OG_IMAGE` rather than having Next infer it.
 - **Every metadata route needs `export const dynamic = 'force-static'`.** Under
   `output: export` the build refuses to collect a route it cannot prove is
-  static, and a `new Date()` in the sitemap is enough to make it doubt.
+  static, and a `new Date()` in one is enough to make it doubt.
 - **`robots.txt` and `.well-known/` are served from the origin root**, which
   the apex domain owns, so both are read rather than kept as a written record.
   Discovery still does not lean on `robots.txt`: `llms.txt` is linked from the

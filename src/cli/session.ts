@@ -221,7 +221,7 @@ export class Session {
   /**
    * Told what the load is on: venues are read in turn, each behind a 15s
    * deadline per request rather than one for the venue — a venue spread over
-   * three chains issues many — and a spinner that cannot name the one it is
+   * nine chains issues many — and a spinner that cannot name the one it is
    * waiting on is indistinguishable from a hang. One listener — there is one
    * shell, and one fetch at a time.
    */
@@ -335,8 +335,8 @@ export class Session {
           } catch (err) {
             // A venue spread over several chains has several independent ways to
             // fail, and catching per connector made the whole book hostage to
-            // whichever public node was rate-limiting: two chains read fine and
-            // the reader saw neither. The rows that came back are kept and each
+            // whichever public node was rate-limiting: every other chain read
+            // fine and the reader saw none of it. The rows that came back are kept and each
             // chain's failure is its own line, so what is missing is named and
             // what is not missing is still on screen. One address of several is
             // the same shape: the loop carries on to the next one.

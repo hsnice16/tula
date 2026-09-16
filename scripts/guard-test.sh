@@ -19,6 +19,9 @@ SECRETS_PROBE=src/secrets/guard-probe.ts
 # Inside the history writer's own directory, for the reason the store's probe
 # sits inside the store's.
 HISTORY_PROBE=src/history/guard-probe.ts
+# Inside the wordlist folder, which two rules skip: the probe has to be where
+# code would hide from them.
+BIP39_PROBE=src/history/bip39/guard-probe.ts
 # The boundary check's subject is the directory itself, so one probe below moves
 # it. Restored on an interrupt as well: leaving src/agent under another name is
 # a broken checkout, not a failed test.
@@ -41,7 +44,7 @@ LAYOUT_GONE=src/connectors/registry.ts
 LAYOUT_SAVED=$(mktemp)
 cp "$LAYOUT_GONE" "$LAYOUT_SAVED"
 restore() {
-  rm -f "$PROBE" "$AGENT_PROBE" "$SECRETS_PROBE" "$HISTORY_PROBE"
+  rm -f "$PROBE" "$AGENT_PROBE" "$SECRETS_PROBE" "$HISTORY_PROBE" "$BIP39_PROBE"
   [ -d "$RENAMED" ] && mv "$RENAMED" src/agent
   cp "$CHANGELOG_SAVED" CHANGELOG.md
   cp "$TOOLS_SAVED" "$TOOLS"
@@ -105,6 +108,15 @@ expect_credential() {
 ORDERS="an order, withdrawal or transfer endpoint is referenced in src/"
 SIGNING="a transaction-signing RPC is referenced in src/"
 KEYS="key material is handled outside src/connectors/coinbase.ts"
+WORDLIST="src/history/bip39 holds something other than a wordlist: $BIP39_PROBE"
+
+# A valid first line, so each probe is refused for what follows it rather than
+# for a missing comment.
+expect_wordlist() {
+  printf '/** probe */\n%s\n' "$1" > "$BIP39_PROBE"
+  reports "$WORDLIST" "$1"
+  rm -f "$BIP39_PROBE"
+}
 
 echo "guard-test: order and withdrawal endpoints"
 expect "$ORDERS" "const p = '/0/private/AddOrder'"
@@ -128,6 +140,13 @@ expect "$KEYS" "export const privateKey = ''"
 expect "$KEYS" "const seedPhrase = ''"
 expect "$KEYS" "const m = 'mnemonic'"
 expect "$KEYS" "import { createPrivateKey } from 'node:crypto'"
+
+echo "guard-test: code inside the wordlists the rules above skip"
+expect_wordlist "export const seedPhrase = ''"
+expect_wordlist "import { load } from '../../secrets/store.js'"
+expect_wordlist 'export const WORDS = `abandon ${process.env.KEY}`'
+expect_wordlist 'export const WORDS = `abandon`
+export const mnemonic = 1'
 
 # SECURITY.md states this one as an architectural guarantee rather than a habit,
 # and every probe here got past the two greps that used to stand for it.

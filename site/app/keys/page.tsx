@@ -12,7 +12,13 @@ export const metadata: Metadata = {
   title: TITLE,
   description: SUMMARY,
   alternates: { canonical: '/keys' },
-  openGraph: { ...OG, type: 'website', url: '/keys', title: TITLE, description: SUMMARY },
+  openGraph: {
+    ...OG,
+    type: 'website',
+    url: '/keys',
+    title: `${TITLE} · ${NAME}`,
+    description: SUMMARY,
+  },
   twitter: { ...TWITTER, title: `${TITLE} · ${NAME}`, description: SUMMARY },
 }
 
@@ -32,7 +38,9 @@ export default function Page() {
   return (
     <main className="wrap pt-16 pb-step-3">
       <JsonLd schema={breadcrumb('Keys', '/keys')} />
-      <h1 className="mb-5 text-[clamp(2rem,4.5vw,2.8rem)] font-medium tracking-[-0.025em]">Keys</h1>
+      <h1 className="mb-5 text-[clamp(2rem,4.5vw,2.8rem)] font-medium leading-[1.1] tracking-[-0.025em]">
+        Keys
+      </h1>
       <p className="mb-8 max-w-[42rem] text-[1.08rem] text-dim">
         In the shell, <Code>?</Code> on an empty line shows these, and <Code>/keys</Code> prints
         them.

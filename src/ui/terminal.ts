@@ -18,41 +18,73 @@
 const FATAL: NodeJS.Signals[] = ['SIGINT', 'SIGTERM', 'SIGHUP', 'SIGQUIT']
 
 /**
- * Runs `off` however the process ends — on `exit`, on each fatal signal, and on
- * an uncaught throw — and returns what unregisters it. The signal handlers
- * re-raise after cleaning up rather than exiting themselves, so the exit code is
- * still the one the signal means.
+ * Every undo, in registration order, behind one handler per signal.
+ *
+ * One registry rather than a handler per caller, because re-raising ends the
+ * process: a per-caller handler that cleaned up and re-raised took the process
+ * down before the handlers registered after it ran, so only the first mode
+ * registered was ever handed back. Raw mode and mouse reporting both register
+ * after the keyboard protocol, and both survived a `kill`.
  */
-export function whenLeaving(off: () => void): () => void {
-  const onSignal = FATAL.map((signal) => {
-    const handler = (): void => {
+const undos: Array<() => void> = []
+let armed = false
+
+/** Exported for `terminal.test.ts`: emitting a real signal re-raises, which ends the test run. */
+export function runUndos(): void {
+  // Last registered, first undone: a later mode may have been set on top of an
+  // earlier one, and a caller that throws must not strand the ones behind it.
+  for (const off of [...undos].reverse()) {
+    try {
       off()
+    } catch {
+      // Handing the terminal back is best-effort; one mode's failure must not
+      // keep the others set.
+    }
+  }
+}
+
+function arm(): void {
+  if (armed) return
+  armed = true
+  for (const signal of FATAL) {
+    const handler = (): void => {
+      runUndos()
       process.removeListener(signal, handler)
       process.kill(process.pid, signal)
     }
     process.on(signal, handler)
-    return [signal, handler] as const
-  })
+  }
 
   // Node reaches `exit` from an uncaught throw; Bun does not, and Bun is what
-  // the binary is compiled with. Each handler removes itself before re-raising,
+  // the binary is compiled with. The handler removes itself before re-throwing,
   // so the crash still prints and still sets the exit code it would have —
   // restoring the terminal must not also swallow the error that got us here.
   const onCrash = (err: unknown): never => {
-    off()
+    runUndos()
     process.removeListener('uncaughtException', onCrash)
     process.removeListener('unhandledRejection', onCrash)
     throw err
   }
   process.on('uncaughtException', onCrash)
   process.on('unhandledRejection', onCrash)
-  process.on('exit', off)
+  process.on('exit', runUndos)
+}
 
+/**
+ * Runs `off` however the process ends — on `exit`, on each fatal signal, and on
+ * an uncaught throw — and returns what unregisters it. The signal handlers
+ * re-raise after cleaning up rather than exiting themselves, so the exit code is
+ * still the one the signal means.
+ */
+export function whenLeaving(off: () => void): () => void {
+  arm()
+  undos.push(off)
+  let released = false
   return () => {
-    process.removeListener('exit', off)
-    process.removeListener('uncaughtException', onCrash)
-    process.removeListener('unhandledRejection', onCrash)
-    for (const [signal, handler] of onSignal) process.removeListener(signal, handler)
+    if (released) return
+    released = true
+    const at = undos.lastIndexOf(off)
+    if (at !== -1) undos.splice(at, 1)
   }
 }
 

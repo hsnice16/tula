@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { CHAINS } from '../connectors/chains.js'
 import { assetOn, BRIDGED } from '../connectors/symbols.js'
 import { TulaError } from '../core/errors.js'
-import { CoinGeckoOracle } from './coingecko.js'
+import { CoinGeckoOracle, PINNED } from './coingecko.js'
 
 interface Row {
   id: string
@@ -150,6 +150,26 @@ describe('CoinGeckoOracle', () => {
       expect(quotes.has('XDAI')).toBe(false)
     })
 
+    // The id used to be recorded as asked whether or not anything came back, so
+    // one 429 left the coin unpriced for the whole TTL with nothing retrying.
+    test('a refusal is asked again on the next read, not cached for the whole TTL', async () => {
+      let answers = 0
+      const oracle = new CoinGeckoOracle(
+        async (url) => {
+          if (!new URL(url).searchParams.has('ids')) return new Response(JSON.stringify(TOP), { status: 200 })
+          answers++
+          return answers === 1
+            ? new Response('rate limited', { status: 429 })
+            : new Response(JSON.stringify([{ id: 'xdai', symbol: 'xdai', current_price: 0.9997 }]), { status: 200 })
+        },
+        60_000,
+        1,
+      )
+      expect((await oracle.quoteMany(['XDAI'])).has('XDAI')).toBe(false)
+      expect((await oracle.quoteMany(['XDAI'])).get('XDAI')?.price.toString()).toBe('0.9997')
+      expect(answers).toBe(2)
+    })
+
     /** The pages answer; the request by id does whatever `answer` does. */
     const byIdAnswering = (answer: () => Promise<Response>) =>
       new CoinGeckoOracle(
@@ -213,6 +233,23 @@ describe('CoinGeckoOracle', () => {
       ]
       const quotes = await quoting(1).quoteMany(names)
       expect(names.filter((name) => !quotes.has(name))).toEqual([])
+    })
+
+    /**
+     * A token list is somebody else's file, so whatever a contract no table
+     * here names calls itself, it must not come out under a name priced here.
+     */
+    test('no contract the tables do not name comes out under a pinned name', () => {
+      const stranger = `0x${'ab'.repeat(20)}`
+      for (const name of Object.keys(PINNED)) {
+        const [scope, ticker] = name.includes(':') ? (name.split(':') as [string, string]) : [undefined, name]
+        const chains = CHAINS.filter((c) => scope === undefined || c.id === scope.toLowerCase())
+        expect({ name, chains: chains.length > 0 }).toEqual({ name, chains: true })
+        for (const chain of chains) {
+          const as = assetOn(chain, stranger, ticker).toUpperCase()
+          expect({ name, chain: chain.id, taken: as === name }).toEqual({ name, chain: chain.id, taken: false })
+        }
+      }
     })
   })
 

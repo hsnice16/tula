@@ -2,7 +2,7 @@ import Decimal from 'decimal.js'
 import { remote, TulaError } from '../core/errors.js'
 import type { Position, Venue } from '../core/position.js'
 import type { Connector, ConnectorCredentials, KeyScope } from './types.js'
-import { request } from '../core/http.js'
+import { json, request } from '../core/http.js'
 
 const API = 'https://api.stripe.com/v1'
 
@@ -48,7 +48,7 @@ async function get<T>(path: string, apiKey: string): Promise<T> {
   const res = await request(`${API}${path}`, {
     headers: { Authorization: `Bearer ${apiKey}`, 'User-Agent': 'tula' },
   })
-  const body = (await res.json()) as T & { error?: { message?: string } }
+  const body = await json<T & { error?: { message?: string } }>(res, 'Stripe')
   if (!res.ok) {
     throw new TulaError(`Stripe: ${body.error?.message ? remote(body.error.message) : `HTTP ${res.status}`}`)
   }

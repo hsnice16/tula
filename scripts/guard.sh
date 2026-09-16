@@ -31,11 +31,33 @@ fi
 # CDP credential *is* an asymmetric private key. Confining it is what lets the
 # site say what tula does with a key rather than pretending it never sees one.
 # Everywhere else, a public address or an HMAC secret and nothing more.
+# bip39/ is word data, and Italian's list has "mnemonico" in it.
 if grep -rlE "(createPrivateKey|createSign|BEGIN [A-Z ]*PRIVATE KEY|privateKey|private_key|PRIVATE_KEY|seedPhrase|seed_phrase|SEED_PHRASE|mnemonic)" \
-     src --include='*.ts' --include='*.tsx' --exclude='*.test.ts' |
+     src --include='*.ts' --include='*.tsx' --exclude='*.test.ts' --exclude-dir='bip39' |
      grep -v '^src/connectors/coinbase.ts$'; then
   report "key material is handled outside src/connectors/coinbase.ts"
 fi
+
+# bip39/ is left out of the rule above and the wording rule below because it is
+# word data, so it has to stay word data: a doc comment, then one exported string
+# of words and nothing after it. A quote, a brace or a paren is code.
+for f in src/history/bip39/*.ts; do
+  [ -e "$f" ] || continue
+  awk '
+    NR == 1 { if ($0 !~ /^\/\*\* .* \*\/$/) bad = 1; next }
+    {
+      line = $0
+      if (NR == 2) {
+        if (line !~ /^export const WORDS = `/) bad = 1
+        sub(/^export const WORDS = `/, "", line)
+      }
+      if (line ~ /[(){};=$\\\047"]/) bad = 1
+      ticks += gsub(/`/, "`", line)
+      last = $0
+    }
+    END { if (bad || NR < 2 || ticks != 1 || last !~ /`$/) exit 1 }
+  ' "$f" || report "src/history/bip39 holds something other than a wordlist: $f"
+done
 
 # The agent layer sees computed views only: no credential, no venue client.
 #
@@ -204,8 +226,8 @@ fi
 # between `TULA` and `DEMO` and matched nothing — and `TULA_DEMO` is exactly how
 # the demo fixture this check stands as the evidence against was spelled.
 SKETCH="(^|[^A-Za-z])(demo|dummy|fake|toy|playground|just a test|for now)([^A-Za-z]|$)"
-# bip39.ts is BIP-39's wordlist, which has "toy" in it.
-if grep -rniE "$SKETCH" src --include='*.ts' --include='*.tsx' --exclude='*.test.ts' --exclude='bip39.ts'; then
+# bip39/ holds BIP-39's wordlists, where "toy" is a word.
+if grep -rniE "$SKETCH" src --include='*.ts' --include='*.tsx' --exclude='*.test.ts' --exclude-dir='bip39'; then
   report "language that reads as a toy project is in shipped source"
 fi
 # The site's own source only: node_modules and .next are dependencies and build
@@ -321,9 +343,11 @@ grep -q "\"homepage\": \"$site_url\"" package.json ||
   report "package.json homepage does not match SITE_URL in src/version.ts ($site_url)"
 
 # A raw internal anchor leaves the app: a full document load, so the reader
-# waits for the whole site again and lands wherever the browser puts them.
-if grep -rn '<a href="/' site/app site/components --include='*.tsx' 2>/dev/null; then
-  report "an internal link is a raw anchor; use <Link> instead"
+# waits for the whole site again and lands wherever the browser puts them. Every
+# anchor, not just the internal ones — off-site links owe <Ext> its rel, and the
+# one anchor that was neither was the one this could not see.
+if grep -rn '<a ' site/app site/components --include='*.tsx' 2>/dev/null | grep -v 'components/Ext.tsx'; then
+  report "a raw anchor; use <Link> for an internal route and <Ext> for an off-site one"
 fi
 
 # components/Link is where every internal route turns Next's own scroll reset

@@ -151,7 +151,6 @@ export const binanceConnector: Connector = {
     reads: [
       'spot balances, free and locked stated apart',
       'cross and isolated margin, where the key is allowed to read them',
-      'USD-M futures positions, where the key is allowed to read them',
     ],
     doesNotRead: [
       {
@@ -164,8 +163,10 @@ export const binanceConnector: Connector = {
         plan: 'tasks/breadth/13-binance-depth.md',
       },
       {
-        what: 'COIN-M futures and Portfolio Margin positions',
-        why: 'both are gated on trading-scoped key flags, which tula refuses to hold',
+        what: 'futures positions, on any of the futures wallets, and Portfolio Margin',
+        why:
+          "Binance's futures permission grants futures trading, so a key that could read them is " +
+          'refused before it is stored',
         hides: 'liquidation',
         plan: 'tasks/breadth/13-binance-depth.md',
       },

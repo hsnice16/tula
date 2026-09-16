@@ -3,7 +3,7 @@ import Decimal from 'decimal.js'
 import { remote, TulaError } from '../core/errors.js'
 import type { Position, PositionKind, Venue } from '../core/position.js'
 import type { Connector, ConnectorCredentials, KeyScope } from './types.js'
-import { request } from '../core/http.js'
+import { json, request } from '../core/http.js'
 
 const BASE = 'https://api.kraken.com'
 const ASSETS = '/0/public/Assets'
@@ -13,6 +13,28 @@ const BALANCE_EX = '/0/private/BalanceEx'
 const WALLET_ACCOUNTS = '/0/private/ListWalletAccounts'
 const OPEN_POSITIONS = '/0/private/OpenPositions'
 const WITHDRAW_METHODS = '/0/private/WithdrawMethods'
+const API_KEY_INFO = '/0/private/GetApiKeyInfo'
+
+/**
+ * Kraken's own strings for the two order powers — "Create & modify orders" and
+ * "Cancel & close orders". Closing a position is a trade, so both count.
+ */
+const TRADE_PERMISSIONS = ['modify-trades', 'close-trades'] as const
+
+interface ApiKeyInfo {
+  permissions?: unknown
+}
+
+/**
+ * `GetApiKeyInfo` needs no permission of its own, so it answers for a key that
+ * can do nothing else. An answer without a readable `permissions` array is not
+ * read as a key holding none — that would report a trading key as safe.
+ */
+function permissionSet(info: ApiKeyInfo): Set<string> | null {
+  if (!Array.isArray(info.permissions)) return null
+  const names = info.permissions.filter((p): p is string => typeof p === 'string')
+  return names.length === info.permissions.length ? new Set(names) : null
+}
 
 export const KRAKEN: Venue = { id: 'kraken', kind: 'cex', name: 'Kraken' }
 
@@ -94,7 +116,7 @@ async function call<T>(
     return { ok: false, errors: [`EService:Unavailable (HTTP ${res.status})`] }
   }
 
-  const envelope = (await res.json()) as KrakenEnvelope<T>
+  const envelope = await json<KrakenEnvelope<T>>(res, 'Kraken')
   const errors = envelopeErrors(res.status, envelope)
   if (errors) return { ok: false, errors }
   return { ok: true, result: envelope.result as T }
@@ -105,7 +127,7 @@ async function publicGet<T>(path: string, query: Record<string, string> = {}): P
   const res = await request(`${BASE}${path}${qs ? `?${qs}` : ''}`, {
     headers: { 'User-Agent': 'tula' },
   })
-  const envelope = (await res.json()) as KrakenEnvelope<T>
+  const envelope = await json<KrakenEnvelope<T>>(res, 'Kraken')
   const errors = envelopeErrors(res.status, envelope)
   if (errors) throw new KrakenApiError(errors)
   return envelope.result as T
@@ -238,9 +260,8 @@ export const krakenConnector: Connector = {
     { label: 'API key security', url: 'https://support.kraken.com/articles/api-key-security' },
   ],
 
-  // Trade permission only: every endpoint that would prove it also places an
-  // order. Withdraw is proven, by an endpoint that reads without moving funds.
-  unprovable: ['trade'],
+  // GetApiKeyInfo reports every permission and is itself gated on none, so both
+  // powers are proven. Only a key it does not answer for falls back to unknown.
 
   coverage: {
     reads: [
@@ -299,14 +320,24 @@ export const krakenConnector: Connector = {
       throw new TulaError(MISSING_POSITION_SCOPE)
     }
 
+    const info = await call<ApiKeyInfo>(API_KEY_INFO, creds)
+    const granted = info.ok ? permissionSet(info.result) : null
+    if (granted) {
+      return {
+        canRead: balance.ok,
+        canTrade: TRADE_PERMISSIONS.some((p) => granted.has(p)),
+        canWithdraw: granted.has('withdraw-funds'),
+      }
+    }
+
+    // The fallback, for a key or a deployment GetApiKeyInfo does not answer for.
+    // Every endpoint gated on "Create & modify orders" places or mutates an
+    // order, so probing it would mean shipping AddOrder in a tool that promises
+    // it cannot move money — trade stays unknown rather than assumed safe.
     const withdraw = await call<unknown>(WITHDRAW_METHODS, creds)
 
     return {
       canRead: balance.ok,
-      // Kraken exposes no endpoint that reports a key's permissions, and every
-      // endpoint gated on "Create & modify orders" places or mutates an order.
-      // Probing it would mean shipping AddOrder in a tool that promises it
-      // cannot move money, so this stays unproven by design.
       canTrade: 'unknown',
       // WithdrawMethods only lists methods, but it is gated on "Withdraw Funds",
       // so a success is proof the key holds that permission.

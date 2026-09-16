@@ -4,7 +4,16 @@ import { chmod, lstat, mkdir, open, readFile, rename, rm, stat, writeFile } from
 import { join } from 'node:path'
 import { TulaError } from '../core/errors.js'
 import { configDir } from '../core/paths.js'
-import { BIP39_ENGLISH } from './bip39.js'
+import { WORDS as CHINESE_SIMPLIFIED } from './bip39/chinese-simplified.js'
+import { WORDS as CHINESE_TRADITIONAL } from './bip39/chinese-traditional.js'
+import { WORDS as CZECH } from './bip39/czech.js'
+import { WORDS as ENGLISH } from './bip39/english.js'
+import { WORDS as FRENCH } from './bip39/french.js'
+import { WORDS as ITALIAN } from './bip39/italian.js'
+import { WORDS as JAPANESE } from './bip39/japanese.js'
+import { WORDS as KOREAN } from './bip39/korean.js'
+import { WORDS as PORTUGUESE } from './bip39/portuguese.js'
+import { WORDS as SPANISH } from './bip39/spanish.js'
 
 /**
  * What was submitted on the shell's input line, kept across sessions.
@@ -80,18 +89,46 @@ const LONG_RUN = /[A-Za-z0-9+/=_-]{32,}/g
 const SEED_WORDS = 12
 
 /**
+ * Every official BIP-39 list, since a wallet can issue its phrase in any of
+ * them. The sets are built on first use, not at import.
+ */
+const WORDLISTS = [
+  ENGLISH,
+  CHINESE_SIMPLIFIED,
+  CHINESE_TRADITIONAL,
+  CZECH,
+  FRENCH,
+  ITALIAN,
+  JAPANESE,
+  KOREAN,
+  PORTUGUESE,
+  SPANISH,
+]
+let wordSets: ReadonlySet<string>[] | undefined
+
+/**
+ * BIP-39 compares words in NFKD, so a phrase typed without its accents, or
+ * with full-width digits, is still that phrase.
+ */
+const fold = (text: string): string => text.normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase()
+
+/**
  * A seed phrase however it was written out: a word a line, numbered,
- * capitalised, or between commas — each a form `BARE_WORDS` does not see once a
- * paste keeps its line breaks. Held to BIP-39's own list, so a long question of
- * ordinary words is still kept.
+ * capitalised, between commas, or with the ideographic space a Japanese wallet
+ * prints — each a form `BARE_WORDS` does not see. A run is counted per list, as
+ * a phrase is drawn from one, so a long question of ordinary words is kept.
  */
 function walletWords(text: string): boolean {
-  let run = 0
-  for (const token of text.toLowerCase().split(/[\s,;]+/)) {
-    const word = token.replace(/^#?\d+[.):-]?/, '').replace(/[.:]$/, '')
+  wordSets ??= WORDLISTS.map((words) => new Set(fold(words).split(/\s+/)))
+  const runs = wordSets.map(() => 0)
+  for (const token of fold(text).split(/[\s,;、，]+/u)) {
+    const word = token.replace(/^#?\d+[.):-]?/, '').replace(/[.:。]$/u, '')
     if (word === '') continue
-    run = BIP39_ENGLISH.has(word) ? run + 1 : 0
-    if (run >= SEED_WORDS) return true
+    for (let at = 0; at < wordSets.length; at++) {
+      const run = wordSets[at]?.has(word) ? (runs[at] ?? 0) + 1 : 0
+      if (run >= SEED_WORDS) return true
+      runs[at] = run
+    }
   }
   return false
 }

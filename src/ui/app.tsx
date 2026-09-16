@@ -814,7 +814,7 @@ export function App({
   }, [busy])
 
   /**
-   * One line, once a day at most, and only about a version not mentioned before.
+   * One line, on a start after a release, and only about a version not mentioned before.
    * It is a `notice` in the transcript rather than anything pinned: somebody who
    * opened tula to read a liquidation price is not to be interrupted by tula.
    *

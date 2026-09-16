@@ -11,8 +11,8 @@ shell — without ever moving a binary they did not ask to have moved.
 ## Acceptance
 
 - The check is a GET of the public `/releases/latest` page, resolved off the
-  redirect, carrying no version, identifier or query string. Once a day at most,
-  and `TULA_NO_UPDATE_CHECK=1` stops it.
+  redirect, carrying no version, identifier or query string. Asked on every
+  shell start, and `TULA_NO_UPDATE_CHECK=1` stops it.
 - `/update` prints what it would install and where to check it; `/update install`
   is a second word somebody had to mean to type before anything is downloaded.
 - An archive absent from `checksums.txt` and a hash mismatch are refused exactly

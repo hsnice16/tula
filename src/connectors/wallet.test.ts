@@ -76,6 +76,7 @@ describe('token list filtering', () => {
       'DAI',
       { ...token({}), symbol: 42 },
       { ...token({}), symbol: '  ' },
+      { ...token({}), symbol: 'optimism:usdt' },
       { ...token({}), address: 0x6b175474 },
       { ...token({}), address: `${token({}).address}00` },
       { ...token({}), chainId: '1' },
@@ -177,24 +178,31 @@ describe('positions', () => {
     // Aave canonicalised it and the wallet did not, so a WETH balance supplied
     // to Aave and a WETH balance held in the wallet never met.
     const [position] = toPositions(
-      [{ symbol: 'WETH', amount: new Decimal(1), address: token({}).address }],
+      [{ symbol: 'WETH', amount: new Decimal(1), address: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2' }],
       asOf,
     )
     expect(position?.asset).toBe('ETH')
   })
 
   test('each wrapped gas token nets with the native balance it wraps, on its own chain', () => {
-    const on = (id: ChainId, symbol: string) =>
-      toPositions([{ symbol, amount: new Decimal(1), address: token({}).address }], asOf, chainById(id))[0]?.asset
-    expect([on('polygon', 'WPOL'), on('polygon', 'WMATIC'), on('avalanche', 'WAVAX'), on('gnosis', 'WXDAI')]).toEqual(
-      ['POL', 'POL', 'AVAX', 'XDAI'],
-    )
+    // Each chain's own wrap contract; any other contract by these names stays apart.
+    const WPOL = '0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270'
+    const on = (id: ChainId, symbol: string, address: string) =>
+      toPositions([{ symbol, amount: new Decimal(1), address }], asOf, chainById(id))[0]?.asset
+    expect([
+      on('polygon', 'WPOL', WPOL),
+      on('polygon', 'WMATIC', WPOL),
+      on('avalanche', 'WAVAX', '0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7'),
+      on('gnosis', 'WXDAI', '0xe91d153e0b41518a2ce8dd3d7944fa863463a97d'),
+    ]).toEqual(['POL', 'POL', 'AVAX', 'XDAI'])
+    expect(on('gnosis', 'WXDAI', token({}).address)).toBe('gnosis:WXDAI@6b1754')
   })
 
   test('a wrap on a chain where its token is not gas is a bridge’s, not the wrap', () => {
     // WETH on Polygon is the PoS bridge's claim on ether, not ether wrapped.
     const polygon = chainById('polygon')
-    const [row] = toPositions([{ symbol: 'WETH', amount: new Decimal(1), address: token({}).address }], asOf, polygon)
+    const pos = '0x7ceb23fd6bc0add59e62ac25578270cff1b9f619'
+    const [row] = toPositions([{ symbol: 'WETH', amount: new Decimal(1), address: pos }], asOf, polygon)
     expect(row?.asset).toBe('polygon:WETH')
   })
 })
@@ -396,9 +404,12 @@ describe('one asset nets across chains; one position keeps its chain', () => {
     expect(rows.some((p) => p.asset.includes('('))).toBe(false)
   })
 
+  // AAVE, not UNI: Linea has a bridged UNI, so a contract calling itself UNI
+  // there is a stranger by design and would not net. That rule has its own
+  // coverage in `symbols.test.ts`; this is about the chain a row came from.
   test('each row still says which chain it came from, or breaks cannot say what to act on', async () => {
-    stubChains({ tokens: everywhere('UNI') })
-    const rows = (await read()).filter((p) => p.asset === 'UNI')
+    stubChains({ tokens: everywhere('AAVE') })
+    const rows = (await read()).filter((p) => p.asset === 'AAVE')
     expect(new Set(rows.map((p) => p.venue)).size).toBe(CHAINS.length)
     // And the ids stay distinct, or one chain's row overwrites another's.
     expect(new Set(rows.map((p) => p.id)).size).toBe(CHAINS.length)

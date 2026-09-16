@@ -85,7 +85,8 @@ const MAX_DECIMALS = 77
 /**
  * The list is a file on somebody else's server or branch, so an entry is only
  * a shape until checked. One malformed entry is dropped rather than failing the
- * chain over a token nobody may hold.
+ * chain over a token nobody may hold. A `:` is refused because it is how tula
+ * scopes a name to a chain: `optimism:usdt` would take that bridge's price.
  */
 const wellFormed = (t: unknown): t is TokenEntry => {
   const e = t as Partial<Record<keyof TokenEntry, unknown>> | null
@@ -97,6 +98,7 @@ const wellFormed = (t: unknown): t is TokenEntry => {
     ADDRESS.test(e.address) &&
     typeof e.symbol === 'string' &&
     e.symbol.trim() !== '' &&
+    !e.symbol.includes(':') &&
     Number.isInteger(e.decimals) &&
     (e.decimals as number) >= 0 &&
     (e.decimals as number) <= MAX_DECIMALS
@@ -356,7 +358,7 @@ export const walletConnector: Connector = {
     )
 
     // Every chain read independently, and every failure kept: a public node
-    // rate-limiting one chain must not take the other two off the book, and the
+    // rate-limiting one chain must not take the others off the book, and the
     // reader has to be told which one went or they will go and replace a node
     // that is answering.
     const read = await Promise.allSettled(

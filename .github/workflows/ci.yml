@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.2.16
@@ -35,6 +37,24 @@ jobs:
       - name: every release target still cross-compiles
         run: bash scripts/release-build.sh dist/release
 
+  # The release job runs `bun run check` on macOS, where the binary is signed, so
+  # the same command runs here: a failure only macOS shows has to fail the pull
+  # request, not the tag.
+  check-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.2.16
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+
   # The site is the published origin of install.sh and of every claim a reader
   # sees before installing anything. Vercel builds it too, but a preview that
   # fails is a link nobody opens; this fails the pull request itself.
@@ -42,6 +62,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: 1.2.16
@@ -68,6 +90,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       # guard.sh is greps; guard-test.sh is not. Whether venue text in a tool
       # result carries its mark is a data-flow property, so the probe for it
       # plants a field and runs the check that catches one.

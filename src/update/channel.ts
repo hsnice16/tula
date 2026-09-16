@@ -41,6 +41,10 @@ export async function nativeInstall(): Promise<NativeInstall | null> {
   }
 }
 
-/** What to tell somebody who did not install with the script. */
+/**
+ * What to tell somebody who did not install with the script. `npm install`, not
+ * `npm update`: npm reads a 0.x minor as breaking, so `update` would leave a
+ * 0.3.x install on 0.3.x for every release that matters.
+ */
 export const OTHER_CHANNELS =
   'Installed with Homebrew or npm: brew upgrade tula, or npm install -g @hsnice16/tula'

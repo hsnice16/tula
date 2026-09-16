@@ -50,6 +50,17 @@ const CLAIMS = [
   'install.sh',
 ] as const
 
+/** The pages written for a search, each linked from the footer's Guides row. */
+const GUIDES = [
+  'site/app/liquidation-risk/page.tsx',
+  'site/app/exposure/page.tsx',
+  'site/app/hyperliquid/page.tsx',
+  'site/app/aave/page.tsx',
+  'site/app/kraken/page.tsx',
+  'site/app/binance/page.tsx',
+  'site/app/coinbase/page.tsx',
+] as const
+
 /**
  * Wordings that were false when they were published. A near-miss edit brings
  * them back, so they are named rather than described.
@@ -101,6 +112,8 @@ const RETRACTED = [
   // Five lines follow the PATH note — the usage pair and the read-only notice —
   // so the reader sent to the last line found the security URL, not their fix.
   'its last line says which of the two you got',
+  // The check ran once a day until it moved to every shell start.
+  'once a day',
 ] as const
 
 describe('the caveat travels with the claim', () => {
@@ -117,7 +130,7 @@ describe('retracted wordings stay retracted', () => {
   // retracted list without owing the reader the trading caveat. Both still
   // described mechanisms the workflow does not have — a contributor acting on
   // one would restore a check that is there, or drop it as redundant.
-  for (const path of [...CLAIMS, 'site/app/install/page.tsx', 'AGENTS.md', 'CONTRIBUTING.md']) {
+  for (const path of [...CLAIMS, 'site/app/install/page.tsx', ...GUIDES, 'AGENTS.md', 'CONTRIBUTING.md']) {
     // Both sides lowercased: one of these had come back capitalised at the head
     // of a sentence, and a case-sensitive sweep read straight past it.
     test(`${path} carries none of them`, () => {
@@ -356,6 +369,7 @@ describe('the docs publish the chains this build reads', () => {
     'AGENTS.md',
     'site/app/security/page.tsx',
     'site/app/llms.txt/route.ts',
+    'site/app/aave/page.tsx',
   ] as const
 
   test('there are chains to sweep for, so no assertion below runs over an empty list', () => {
@@ -420,7 +434,7 @@ describe('the docs publish the chains this build reads', () => {
       markets: DEPLOYMENTS.length,
       word: expect.any(String),
     })
-    for (const path of ['README.md', 'site/app/llms.txt/route.ts']) {
+    for (const path of ['README.md', 'site/app/llms.txt/route.ts', 'site/app/aave/page.tsx']) {
       expect({ path, states: flat(path).includes(`across ${word} markets`) }).toEqual({
         path,
         states: true,
@@ -559,20 +573,17 @@ describe('the security page names enforcement that exists', () => {
     const cannotProve = [...CONNECTORS.values()]
       .filter((connector) => (connector.unprovable ?? []).length > 0)
       .map((connector) => [connector.venue.id, [...(connector.unprovable ?? [])].sort()])
-    expect(cannotProve).toEqual([
-      ['kraken', ['trade']],
-      ['stripe', ['trade', 'withdraw']],
-    ])
+    expect(cannotProve).toEqual([['stripe', ['trade', 'withdraw']]])
 
-    // Kraken proves the one that is never let through, so no surface may leave a
-    // reader thinking a Kraken key is stored on nothing but a hope.
-    for (const path of ['README.md', 'site/app/security/page.tsx']) {
-      expect({ path, says: flat(path).includes('Kraken proves a key cannot withdraw') }).toEqual({
+    // Stripe is the only one left, so no surface may name another venue as the
+    // one tula cannot check — least of all Kraken, which now reports the lot.
+    for (const path of ['README.md', 'site/app/security/page.tsx', 'site/app/llms.txt/route.ts']) {
+      expect({ path, says: flat(path).includes('Kraken proves a key cannot') }).toEqual({
         path,
-        says: true,
+        says: false,
       })
     }
-    expect(flat('site/app/llms.txt/route.ts')).toContain('Kraken for trading, Stripe for both')
+    expect(flat('site/app/llms.txt/route.ts')).toContain('Stripe, for both powers')
   })
 
   test('the one private key tula loads is named, and confined by the guard', () => {
@@ -748,12 +759,12 @@ describe('the security page names enforcement that exists', () => {
 
   /**
    * The automatic check is `pendingUpdate()`, and the shell is its only caller —
-   * so `tula exposure` in a cron job never contacts GitHub. Four surfaces said
-   * "once a day" with nothing beside it, which reads as something the binary
-   * does wherever it runs, and it is the one egress claim a reader can check
-   * only by watching their own network.
+   * so `tula exposure` in a cron job never contacts GitHub. Four surfaces once
+   * stated the cadence with nothing beside it, which reads as something the
+   * binary does wherever it runs, and it is the one egress claim a reader can
+   * check only by watching their own network.
    */
-  test('the daily GitHub check is claimed only where it runs', () => {
+  test('the startup GitHub check is claimed only where it runs', () => {
     const callers = readdirSync('src', { recursive: true })
       .filter((entry) => typeof entry === 'string' && /\.tsx?$/.test(entry))
       .map((entry) => `src/${entry}`)
@@ -769,7 +780,7 @@ describe('the security page names enforcement that exists', () => {
     ]) {
       // A surface that stopped making the claim would otherwise pass by saying
       // nothing, and this list is the set of surfaces that owe the reader it.
-      const spans = flat(path).match(/.{0,160}once a day.{0,160}/g) ?? []
+      const spans = flat(path).match(/.{0,160}each time.{0,160}opens.{0,160}/g) ?? []
       expect({ path, claims: spans.length > 0 }).toEqual({ path, claims: true })
       for (const span of spans) {
         expect({ path, span, saysWhere: /shell/i.test(span) }).toEqual({
@@ -1057,5 +1068,133 @@ describe.skipIf(EXPORTED.length === 0)('the exported pages tell a crawler one th
     for (const page of skipped) {
       expect({ page, url: read(`${OUT}/${page}`).includes('og:url') }).toEqual({ page, url: false })
     }
+  })
+})
+
+/**
+ * A search lands a stranger on one guide page, cold. Each sentence there that
+ * says what tula does is held to the code that does it, so a page cannot go on
+ * describing a build that changed underneath it.
+ */
+describe('the guide pages state what the build does', () => {
+  const guide = (route: string) => flat(`site/app/${route}/page.tsx`)
+  const gaps = (venue: string) =>
+    (CONNECTORS.get(venue)?.coverage?.doesNotRead ?? []).map((gap) => gap.what.toLowerCase())
+  const reads = (venue: string) => (CONNECTORS.get(venue)?.coverage?.reads ?? []).join(' ')
+
+  test('each is in the footer’s Guides row and never in the header', () => {
+    const site = flat('site/lib/site.ts')
+    for (const path of GUIDES) {
+      const route = path.slice('site/app/'.length, -'/page.tsx'.length)
+      const at = site.indexOf(`href: '/${route}'`)
+      const entry = at === -1 ? '' : site.slice(at, site.indexOf('}', at))
+      expect({ route, guide: entry.includes("group: 'guide'") }).toEqual({ route, guide: true })
+      expect({ route, header: entry.includes('inHeader: false') }).toEqual({ route, header: true })
+    }
+    expect(read('site/components/Footer.tsx')).toContain("n.group === 'guide'")
+    expect(read('site/components/Nav.tsx')).toContain('NAV.filter((n) => n.inHeader)')
+  })
+
+  test('/hyperliquid: the modes, the 95% trigger and the partial read are the connector’s', () => {
+    const page = guide('hyperliquid')
+    const source = flat('src/connectors/hyperliquid.ts')
+    expect(source).toContain("export type AccountMode = 'standard' | 'unified' | 'portfolio'")
+    for (const mode of ['Standard.', 'Unified account.', 'Portfolio margin.']) expect(page).toContain(mode)
+    expect(source).toContain("RATIO_THRESHOLD = new Decimal('0.95')")
+    expect(page).toContain('passes 95%')
+    for (const name of ['Unified Account Ratio', 'Portfolio Margin Ratio']) {
+      expect(source).toContain(`name: '${name}'`)
+      expect(page).toContain(name)
+    }
+    expect(read('src/core/format.ts')).toContain("'at least '")
+    expect(page).toContain('“at least”')
+    for (const phrase of ['every builder-deployed dex', 'every sub-account']) {
+      expect(reads('hyperliquid')).toContain(phrase)
+      expect(page).toContain(phrase)
+    }
+    expect(gaps('hyperliquid').some((what) => what.includes('hyperevm'))).toBe(true)
+    expect(page).toContain('HyperEVM')
+  })
+
+  test('/aave: the move formula, eMode and the gaps are the build’s', () => {
+    const page = guide('aave')
+    expect(read('src/core/risk.ts')).toContain('ONE.div(healthFactor).minus(ONE)')
+    expect(page).toContain('1 − 1/HF')
+    expect(reads('aave')).toContain('eMode')
+    expect(page).toContain('eMode')
+    for (const gap of ['aave v4', 'safety module', 'isolation mode']) {
+      expect({ gap, declared: gaps('aave').some((what) => what.includes(gap)) }).toEqual({ gap, declared: true })
+      expect({ gap, stated: page.toLowerCase().includes(gap) }).toEqual({ gap, stated: true })
+    }
+  })
+
+  test('/liquidation-risk: the order, the unknowns and the unread level are the engine’s', () => {
+    const page = guide('liquidation-risk')
+    expect(read('src/core/risk.ts')).toContain('Nearest to liquidation first. Unknowns sort last')
+    expect(page).toContain('nearest first')
+    expect(page).toContain('sorts last, as unknown, never as safe')
+    expect(gaps('kraken')).toContain('the account margin level')
+    expect(page).toContain('Kraken’s account margin level')
+    expect(reads('coinbase')).toContain('the liquidation price and leverage Coinbase publishes')
+    expect(page).toContain('liquidation price Coinbase publishes')
+  })
+
+  test('/exposure: the Equity rule and the bridged-token rule are the engine’s', () => {
+    const page = guide('exposure')
+    expect(flat('src/core/exposure.ts')).toContain('never its notional')
+    expect(page).toContain('never its notional')
+    expect(flat('CHANGELOG.md')).toContain(
+      'Hyperliquid calls Account Equity and Bybit, OKX and Deribit call equity',
+    )
+    expect(page).toContain('Hyperliquid calls it Account Equity; Bybit, OKX and Deribit call it equity')
+    expect(read('src/connectors/symbols.ts')).toContain(
+      "'137:0x2791bca1f2de4661ed88a30c99a7a9449aa84174': 'USDC.E'",
+    )
+    expect(page).toContain('USDC.e on Polygon')
+  })
+
+  for (const venue of ['kraken', 'binance', 'coinbase'] as const) {
+    test(`/${venue} asks for the key its connector names`, () => {
+      const key = CONNECTORS.get(venue)?.readOnlyKey
+      expect(key).toBeDefined()
+      expect(guide(venue)).toContain(key ?? '')
+    })
+  }
+
+  const STATED_GAPS = {
+    kraken: ['the account margin level', 'kraken futures positions', 'drawn credit lines'],
+    binance: [
+      'the margin level a cross-margin account is liquidated at',
+      'futures',
+      'portfolio margin',
+      'sub-account',
+    ],
+    coinbase: ['portfolios other than', 'cftc-regulated futures'],
+  } as const
+
+  for (const [venue, stated] of Object.entries(STATED_GAPS)) {
+    test(`/${venue} names as unread only what its connector declares`, () => {
+      const page = guide(venue).toLowerCase()
+      for (const gap of stated) {
+        expect({ gap, declared: gaps(venue).some((what) => what.includes(gap)) }).toEqual({ gap, declared: true })
+        expect({ gap, stated: page.includes(gap) }).toEqual({ gap, stated: true })
+      }
+    })
+  }
+
+  test('the refusals the exchange pages state are the ones connect makes', () => {
+    const types = read('src/connectors/types.ts')
+    expect(types).toContain("scope.canTrade === true && 'trade'")
+    expect(types).toContain("scope.canWithdraw === true && 'withdraw'")
+    expect(read('src/connectors/kraken.ts')).toContain("TRADE_PERMISSIONS = ['modify-trades', 'close-trades']")
+    expect(guide('kraken')).toContain('A key that can trade or withdraw is refused')
+    expect(read('src/connectors/binance.ts')).toContain('Refusing this key: it can move your funds')
+    expect(guide('binance')).toContain('A key that can trade, withdraw or move your funds is refused')
+    const coinbase = read('src/connectors/coinbase.ts')
+    for (const field of ['can_view', 'can_trade', 'can_transfer']) {
+      expect(coinbase).toContain(`permissions.${field} === true`)
+    }
+    expect(guide('coinbase')).toContain('View, Trade and Transfer')
+    expect(guide('coinbase')).toContain('A key that can trade or transfer is refused')
   })
 })

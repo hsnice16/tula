@@ -78,11 +78,11 @@ proves that check still catches one.
   than dressed up.
 - **Exchange API keys must be query-only.** Scope is verified against the venue at
   connect time; a key that can withdraw is refused, not warned about.
-- **Where a venue cannot prove scope, we say so.** Kraken proves a key cannot
-  withdraw — the endpoint gated on that permission reads without moving
-  anything, so a refusal is the proof. Nothing proves it cannot *trade*: every
-  trade-gated endpoint places or mutates an order. Trade is the permission tula
-  reports as *unknown*, rather than implying a check that did not happen.
+- **Where a venue cannot prove scope, we say so.** Kraken reports a key's whole
+  permission list from an endpoint gated on none of them, so both powers are
+  proven and a key that can trade is refused. Stripe publishes no such check, and
+  tula reports its scope as *unknown* rather than implying a check that did not
+  happen.
 - **A venue with no read-only key is not a venue tula offers.** Unproven is one
   thing; a credential every one of whose forms can move money is another, and no
   wording on a connect screen makes it safe to store. Circle Mint was dropped for
@@ -115,7 +115,7 @@ proves that check still catches one.
 Network egress is the venues you connect, the price source you chose, a public
 node on each chain read — Ethereum, Arbitrum One, Base, Polygon, Optimism,
 Avalanche, Gnosis, Scroll and Linea — and a token list for
-the on-chain venues, GitHub once a day from the interactive shell to see whether
+the on-chain venues, GitHub each time the interactive shell opens to see whether
 there is a newer release — and, only when you ask a question in plain English,
 Anthropic, which receives the computed figures and never a credential.
 Drive tula with commands and it never talks to a model at all.
@@ -204,7 +204,7 @@ useful thing you can send.
 | What tula never asked for | working; `/venues` names every area a connector declares it does not read, with what each may hide, and every one of them is scheduled work in [ROADMAP.md](./ROADMAP.md) |
 | Interactive shell — slash commands and arguments that complete, ctrl+s to search them, ctrl+r through saved history, Readline keys, questions over several lines (ctrl+j, or shift+Enter where the terminal sends it), opt-in vim editing, ctrl+o for long output, ? for every key, type and queue the next line while one runs with Esc to stop a question, plain English | working; both command lists take the mouse as well as the keyboard |
 | Prices — CoinGecko, CoinPaprika, CoinMarketCap, CryptoCompare | working; one active at a time, `/<source> use` switches |
-| Staying current — the shell checks once a day and says so in a line; `/update` checks there and then | working; nothing is installed until you type `/update install` |
+| Staying current — the shell checks each time it opens and says so in a line; `/update` checks there and then | working; nothing is installed until you type `/update install` |
 | Kraken's account margin level | planned — Kraken liquidates on an account-wide level and no position carries that figure, so those rows rank `unknown` until it is read |
 | Binance futures | not while tula is read-only — Binance's futures permission grants trading, and a key holding it is refused |
 | Solana | planned — a different RPC and account model, so a connector of its own rather than a registry entry ([`breadth/12`](./tasks/breadth/12-chain-reach.md)) |

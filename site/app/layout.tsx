@@ -10,16 +10,18 @@ import {
   AUTHOR,
   DESCRIPTION,
   GOOGLE_SITE_VERIFICATION,
+  ICON,
   KEYWORDS,
   NAME,
   OG,
   REPO,
   SITE,
   TWITTER,
+  VERSION,
 } from '@/lib/site'
 import './globals.css'
 
-const TITLE = 'tula — your true exposure, and what breaks first'
+const TITLE = 'tula — liquidation risk and exposure across every venue'
 
 export const metadata: Metadata = {
   // Absolute: every canonical, OG image and sitemap URL is resolved against it,
@@ -33,9 +35,13 @@ export const metadata: Metadata = {
   authors: [{ name: AUTHOR.name, url: AUTHOR.url }],
   alternates: { canonical: '/' },
   // `icon` is restated beside `apple` because naming one replaces the set Next
-  // would have inferred from `app/icon.svg`.
+  // would have inferred from `app/icon.svg`. The PNG comes first: it is the one
+  // a search result can show.
   icons: {
-    icon: '/icon.svg',
+    icon: [
+      { url: ICON.url, sizes: `${ICON.size}x${ICON.size}`, type: 'image/png' },
+      { url: '/icon.svg', type: 'image/svg+xml' },
+    ],
     apple: { url: APPLE_ICON.url, sizes: `${APPLE_ICON.size}x${APPLE_ICON.size}` },
   },
   verification: { google: GOOGLE_SITE_VERIFICATION },
@@ -92,8 +98,16 @@ const SCHEMA = {
       // would promise a native build the release does not produce.
       isAccessibleForFree: true,
       offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+      softwareVersion: VERSION,
       license: `${REPO}/blob/main/LICENSE`,
       codeRepository: REPO,
+      // The other places this same software is published, so a search engine
+      // can tell the repository, the package and the tap are one thing.
+      sameAs: [
+        REPO,
+        'https://www.npmjs.com/package/@hsnice16/tula',
+        'https://github.com/hsnice16/homebrew-tap',
+      ],
       downloadUrl: `${SITE}/install/`,
       author: { '@id': `${SITE}/#author` },
       isPartOf: { '@id': `${SITE}/#site` },

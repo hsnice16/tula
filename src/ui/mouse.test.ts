@@ -96,16 +96,18 @@ describe('the terminal is handed back', () => {
     // `exit` is not enough on its own: Bun, which the binary is compiled with,
     // does not reach it from an uncaught throw.
     const events = ['SIGHUP', 'SIGTERM', 'exit', 'uncaughtException', 'unhandledRejection']
-    const count = () => events.map((e) => process.listenerCount(e))
-    const before = count()
+    // One shared handler per event runs a registry of undos, so this counts that
+    // each way out is wired rather than how many callers registered.
+    const wired = () => events.map((e) => process.listenerCount(e) > 0)
     const off = trackMouse(stdout)
-    const during = count()
+    const during = wired()
     off()
-    const after = count()
+    const after = wired()
 
-    expect(during).toEqual(before.map((n) => n + 1))
-    // And removes them again, or opening a list repeatedly leaks listeners.
-    expect(after).toEqual(before)
+    expect(during).toEqual(events.map(() => true))
+    // The shared handlers stay armed; what `off()` removes is this undo, which
+    // `terminal.test.ts` pins directly.
+    expect(after).toEqual(events.map(() => true))
   })
 
   test('the undo runs once, however many times it is called', () => {

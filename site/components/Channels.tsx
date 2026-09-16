@@ -13,9 +13,9 @@ export interface Channel {
 const slug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
 
 /**
- * One install channel at a time. All three used to run down the page at once,
- * and every section under them branched three ways in prose — a reader on any
- * one channel read two answers that were not theirs to find the one that was.
+ * One install channel at a time. With all three down the page, every section
+ * under them branches three ways, and a reader on one channel reads two answers
+ * that are not theirs to find the one that is.
  *
  * Panels hide rather than unmount, so the static export ships all three in the
  * HTML and a crawler indexes the whole page, not whichever tab happened to be

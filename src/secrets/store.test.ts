@@ -436,3 +436,23 @@ describe('the shape on disk', () => {
     expect((asOldTulaSeesIt as Record<string, unknown>)['address']).toBeUndefined()
   })
 })
+
+describe('a store that is not readable JSON names the way out', () => {
+  /**
+   * `failureText` renders anything that is not a `TulaError` as "This is a bug
+   * in tula, not something you did" — which a truncated or hand-edited file is
+   * not. The list and scalar cases matter for a second reason: `Object.entries`
+   * of either is `[]`, so a migration would have written `{}` back over it.
+   */
+  test.each([
+    ['truncated', '{"kraken": {"apiKey": "x"'],
+    ['empty', ''],
+    ['a list', '[1, 2, 3]'],
+    ['a number', '5'],
+    ['a string', '"hello"'],
+  ])('%s is refused by name, and the file is left alone', async (_name, contents) => {
+    await writeFile(path(), contents, { mode: 0o600 })
+    await expect(secrets.listVenues()).rejects.toThrow(/not readable as JSON|holds a list or a single value/)
+    expect(await readFile(path(), 'utf8')).toBe(contents)
+  })
+})

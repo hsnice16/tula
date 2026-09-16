@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { holdInputModes } from './terminal.js'
+import { holdInputModes, runUndos, whenLeaving } from './terminal.js'
 
 const stub = () => {
   const written: string[] = []
@@ -51,13 +51,12 @@ describe('the input modes are handed back', () => {
     // `exit` alone is not enough: Bun, which the binary is compiled with, does
     // not reach it from an uncaught throw.
     const events = ['SIGINT', 'SIGHUP', 'SIGTERM', 'SIGQUIT', 'exit', 'uncaughtException', 'unhandledRejection']
-    const count = () => events.map((e) => process.listenerCount(e))
-    const before = count()
     const release = holdInputModes(stdout)
-    const during = count()
+    // One shared handler per event, armed once, running a registry of undos —
+    // so this counts that each way out is wired, not how many callers there are.
+    expect(events.map((e) => process.listenerCount(e) > 0)).toEqual(events.map(() => true))
     release()
-    expect(during).toEqual(before.map((n) => n + 1))
-    expect(count()).toEqual(before)
+    expect(events.map((e) => process.listenerCount(e) > 0)).toEqual(events.map(() => true))
   })
 
   test('the exit handler pops, and the write it watched is put back', () => {
@@ -103,5 +102,46 @@ describe('the input modes are handed back', () => {
     off.stdout.write('\x1b[?2004l')
     releaseOff()
     expect(off.written).toEqual(['\x1b[?2004h', '\x1b[?2004l'])
+  })
+})
+
+describe('every mode registered is handed back, not just the first', () => {
+  /**
+   * The handler used to be per caller, and each one re-raised after its own
+   * cleanup — which ends the process, so the undos registered after it never
+   * ran. Raw mode and mouse reporting both register after the keyboard
+   * protocol, and both stayed set through a `kill`.
+   */
+  test('a fatal signal runs every undo, last registered first', () => {
+    const ran: string[] = []
+    const a = whenLeaving(() => ran.push('a'))
+    const b = whenLeaving(() => ran.push('b'))
+    const c = whenLeaving(() => ran.push('c'))
+    runUndos()
+    expect(ran).toEqual(['c', 'b', 'a'])
+    a()
+    b()
+    c()
+  })
+
+  test('one undo that throws does not strand the others', () => {
+    const ran: string[] = []
+    const a = whenLeaving(() => ran.push('a'))
+    const b = whenLeaving(() => {
+      throw new Error('the stream went away')
+    })
+    runUndos()
+    expect(ran).toEqual(['a'])
+    a()
+    b()
+  })
+
+  test('an unregistered undo stops running', () => {
+    const ran: string[] = []
+    const release = whenLeaving(() => ran.push('gone'))
+    release()
+    release()
+    runUndos()
+    expect(ran).toEqual([])
   })
 })

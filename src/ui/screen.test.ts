@@ -152,8 +152,10 @@ async function open(columns: number, rows: number, options: Options = {}): Promi
   const stdin = stdinStub()
   let pending: Promise<void> = Promise.resolve()
   let all = ''
+  let lastWrite = Date.now()
   const write = (chunk: string) => {
     all += chunk
+    lastWrite = Date.now()
     const answer = options.answerKeyboard
     if (answer && chunk.includes('\x1b[?u')) {
       if (answer.afterMs === 0) queueMicrotask(() => stdin.type(answer.reply))
@@ -212,6 +214,14 @@ async function open(columns: number, rows: number, options: Options = {}): Promi
     // Ink throttles renders to 30fps and flushes <Static> outside that throttle,
     // so a frame can still be owed several ticks after the keystroke that caused it.
     for (let i = 0; i < 8; i++) await new Promise((r) => setTimeout(r, 25))
+    // Then until Ink has been quiet for longer than a frame: a fixed wait on a
+    // loaded machine asserts on a render still in flight. A ghost outlives the
+    // quiet, so waiting for it hides nothing; the spinner's 80ms tick counts as
+    // quiet, and the cap keeps anything that never stops from hanging a test.
+    const cap = Date.now() + 2000
+    while (Date.now() - lastWrite < 50 && Date.now() < cap) {
+      await new Promise((r) => setTimeout(r, 10))
+    }
     await pending
   }
 
@@ -690,8 +700,9 @@ test('the / menu answers the pointer, wherever the frame ended up', async () => 
  */
 test('a click on the / menu runs the row under it after a command ends beneath it', async () => {
   const restore = await credentialEnv({ profile: false })
+  const read = gate()
   const slow = fakeVenue('slowclick', 'Slow Click', async () => {
-    await new Promise((r) => setTimeout(r, 1500))
+    await read.wait
     return []
   })
   const screen = await open(120, 80, { connectors: new Map([['slowclick', slow]]) })
@@ -708,6 +719,7 @@ test('a click on the / menu runs the row under it after a command ends beneath i
     await screen.press('/help\r')
     await screen.press('/')
     expect([busyRow(), queuedRows(screen)]).toEqual([true, ['/help']])
+    read.open()
     await until(screen, 'Type / for commands', 80)
     await screen.press('')
     expect(busyRow()).toBe(false)
@@ -718,6 +730,7 @@ test('a click on the / menu runs the row under it after a command ends beneath i
     if (!ran.some((row) => row.includes('❯ /about'))) dump(screen)
     expect(ran.some((row) => row.includes('❯ /about'))).toBe(true)
   } finally {
+    read.open()
     await secrets.remove('slowclick')
     screen.stop()
     await restore()
@@ -1336,6 +1349,7 @@ test('connecting says what it is doing while the venue is read', async () => {
   // real book. That read used to run with the spinner off, so the screen sat on
   // "Connected" with nothing moving, and the spinner only went up once the work
   // was done and the cache warm.
+  const read = gate()
   const slow: Connector = {
     venue: { id: 'slowvenue', kind: 'wallet', name: 'Slow Venue' },
     fields: [{ name: 'address', label: 'Address', secret: false }],
@@ -1344,7 +1358,7 @@ test('connecting says what it is doing while the venue is read', async () => {
       return { canRead: true, canTrade: false as const, canWithdraw: false as const }
     },
     async fetchPositions() {
-      await new Promise((r) => setTimeout(r, 1500))
+      await read.wait
       return []
     },
   }
@@ -1354,7 +1368,7 @@ test('connecting says what it is doing while the venue is read', async () => {
     await screen.press('0xabc\r')
     // Waited for rather than slept past: a fixed delay races the render on a
     // loaded machine, and a gate that fails at random teaches people to re-run
-    // it. The read takes 1.5s, so there is room to look several times.
+    // it. The read holds until the test opens it, so there is room to look.
     let rows: string[] = []
     for (let at = 0; at < 20; at++) {
       rows = screen.visible()
@@ -1366,6 +1380,7 @@ test('connecting says what it is doing while the venue is read', async () => {
     // And the line is not offering to take input while it works.
     expect(rows.some((row) => row.includes('ask anything'))).toBe(false)
   } finally {
+    read.open()
     screen.stop()
   }
 }, 120_000)
@@ -1389,6 +1404,19 @@ function fakeVenue(
     },
     fetchPositions,
   }
+}
+
+/**
+ * A read that ends when the test opens it. A timer ends it at a wall-clock moment
+ * instead, which a slow runner reaches before the assertions that need the read
+ * still running.
+ */
+function gate() {
+  let open = () => {}
+  const wait = new Promise<void>((resolve) => {
+    open = resolve
+  })
+  return { wait, open }
 }
 
 function holding(venue: string, asset: string, quantity: string): Position {
@@ -1953,10 +1981,11 @@ test('the up arrow brings a command back, and the down arrow puts it away again'
 })
 
 test('ctrl+c leaves the connect screen while the key is still being checked', async () => {
+  const check = gate()
   const slow: Connector = {
     ...fakeVenue('slowly', 'Slow Venue', async () => []),
     async verifyScope() {
-      await new Promise((r) => setTimeout(r, 5000))
+      await check.wait
       return { canRead: true, canTrade: false as const, canWithdraw: false as const }
     },
   }
@@ -1971,6 +2000,7 @@ test('ctrl+c leaves the connect screen while the key is still being checked', as
     await screen.press('\x03')
     expect(screen.exited()).toBe(true)
   } finally {
+    check.open()
     screen.stop()
   }
 }, 60_000)
@@ -2847,8 +2877,9 @@ for (const columns of WIDTHS) {
    */
   test(`a line typed while a command runs is queued, and runs once after it, at ${columns} columns`, async () => {
     const restore = await credentialEnv({ profile: false })
+    const read = gate()
     const slow = fakeVenue('slowq', 'Slow Queue', async () => {
-      await new Promise((r) => setTimeout(r, 4000))
+      await read.wait
       return []
     })
     const screen = await open(columns, 40, { connectors: new Map([['slowq', slow]]) })
@@ -2879,6 +2910,7 @@ for (const columns of WIDTHS) {
 
       // Typing goes on while it waits, and is not the queue's to clear.
       await screen.press('draft')
+      read.open()
       const rows = await until(screen, 'What tula is')
       await until(screen, 'Type / for commands')
       await new Promise((r) => setTimeout(r, 300))
@@ -2895,6 +2927,7 @@ for (const columns of WIDTHS) {
       expect(screen.wrapped()).toEqual([])
       expectOneFrame(screen)
     } finally {
+      read.open()
       await secrets.remove('slowq')
       screen.stop()
       await restore()
@@ -2932,8 +2965,9 @@ test('Esc stops a question, and what was queued runs next', async () => {
  */
 test('ctrl+c while a command runs clears the line first, then says the command is not stopped', async () => {
   const restore = await credentialEnv({ profile: false })
+  const read = gate()
   const slow = fakeVenue('slowc', 'Slow C', async () => {
-    await new Promise((r) => setTimeout(r, 3000))
+    await read.wait
     return []
   })
   const screen = await open(120, 33, { connectors: new Map([['slowc', slow]]) })
@@ -2947,6 +2981,7 @@ test('ctrl+c while a command runs clears the line first, then says the command i
     expect(screen.exited()).toBe(false)
     expect(screen.visible().some((row) => row.includes('a command is not stopped'))).toBe(true)
   } finally {
+    read.open()
     await secrets.remove('slowc')
     screen.stop()
     await restore()
@@ -2978,8 +3013,9 @@ test('a ctrl chord that arrives in one read with text is a key, in order', async
  */
 test('a queued deletion asks with the line clear, and puts the draft back after', async () => {
   const restore = await credentialEnv({ profile: false })
+  const read = gate()
   const slow = fakeVenue('slowf', 'Slow F', async () => {
-    await new Promise((r) => setTimeout(r, 3000))
+    await read.wait
     return []
   })
   const screen = await open(120, 40, { connectors: new Map([['slowf', slow]]) })
@@ -2990,12 +3026,14 @@ test('a queued deletion asks with the line clear, and puts the draft back after'
     await screen.press('\r')
     expect(queuedRows(screen)).toEqual(['/forget slowf'])
     await screen.press('next question')
+    read.open()
     await until(screen, 'Type slowf and press Enter')
     expect(typedText(screen)).toBe('')
     await screen.press('wrong\r')
     expect(typedText(screen)).toBe('next question')
     expect(await secrets.listCredentials('slowf')).toHaveLength(1)
   } finally {
+    read.open()
     await secrets.remove('slowf')
     screen.stop()
     await restore()
@@ -3012,8 +3050,9 @@ for (const columns of WIDTHS) {
      */
     test(`Enter on a menu row while ${running} is busy queues it, at ${columns} columns`, async () => {
       const restore = await credentialEnv({ profile: false })
+      const read = gate()
       const slow = fakeVenue('slowmenu', 'Slow Menu', async () => {
-        await new Promise((r) => setTimeout(r, 4000))
+        await read.wait
         return []
       })
       await secrets.put('slowmenu', { address: '0xabc' })
@@ -3042,6 +3081,7 @@ for (const columns of WIDTHS) {
         expect(screen.wrapped()).toEqual([])
         expectOneInputBox(screen)
 
+        read.open()
         await until(screen, 'Type / for commands', 120)
         await new Promise((r) => setTimeout(r, 400))
         const all = screen.rows()
@@ -3052,6 +3092,7 @@ for (const columns of WIDTHS) {
         // itself before the one it queues, so the transcript repeats it.
         expectOneFrame(screen)
       } finally {
+        read.open()
         await secrets.remove('slowmenu')
         screen.stop()
         await restore()
@@ -3069,8 +3110,9 @@ for (const form of ['\r', '\n'] as const) {
    */
   test(`keys typed ahead in one chunk queue each command, with Enter as ${form === '\r' ? 'CR' : 'LF'}`, async () => {
     const restore = await credentialEnv({ profile: false })
+    const read = gate()
     const slow = fakeVenue('slowahead', 'Slow Ahead', async () => {
-      await new Promise((r) => setTimeout(r, 4000))
+      await read.wait
       return []
     })
     await secrets.put('slowahead', { address: '0xabc' })
@@ -3084,6 +3126,7 @@ for (const form of ['\r', '\n'] as const) {
       await new Promise((r) => setTimeout(r, 300))
       if (queuedRows(screen).length !== 2) dump(screen)
       expect([queuedRows(screen), typedText(screen)]).toEqual([['/refresh', '/help'], 'draft still here'])
+      read.open()
 
       await until(screen, 'Type / for commands', 120)
       await new Promise((r) => setTimeout(r, 400))
@@ -3091,6 +3134,7 @@ for (const form of ['\r', '\n'] as const) {
       expect(typedText(screen)).toBe('draft still here')
       expectOneFrame(screen)
     } finally {
+      read.open()
       await secrets.remove('slowahead')
       screen.stop()
       await restore()
@@ -3113,8 +3157,9 @@ async function historyOnDisk(want: string): Promise<string[]> {
 /** A line queued keeps the space in front of it that keeps it out of the history file. */
 test('a line queued with a space in front is not written to the history file', async () => {
   const restore = await credentialEnv({ profile: false })
+  const read = gate()
   const slow = fakeVenue('slowspace', 'Slow Space', async () => {
-    await new Promise((r) => setTimeout(r, 2500))
+    await read.wait
     return []
   })
   const screen = await open(120, 40, { connectors: new Map([['slowspace', slow]]) })
@@ -3124,10 +3169,12 @@ test('a line queued with a space in front is not written to the history file', a
     await screen.press(' /help\r')
     await screen.press('/about\r')
     expect(queuedRows(screen)).toEqual(['/help', '/about'])
+    read.open()
     await until(screen, '❯ /about', 80)
     expect(await historyOnDisk('/about')).toEqual(['/refresh', '/about'])
     expect(screen.rows().filter((row) => row.includes('❯ /help'))).toHaveLength(1)
   } finally {
+    read.open()
     await secrets.remove('slowspace')
     screen.stop()
     await restore()

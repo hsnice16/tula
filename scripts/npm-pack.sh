@@ -16,6 +16,8 @@ VERSION=$(grep -m1 'APP_VERSION' src/version.ts | sed "s/.*'\([^']*\)'.*/\1/")
 REPO_URL=$(grep -m1 'REPO_URL' src/version.ts | sed "s/.*'\([^']*\)'.*/\1/")
 DESCRIPTION=$(grep -m1 'APP_DESCRIPTION' src/version.ts | sed "s/.*'\([^']*\)'.*/\1/")
 SITE_URL=$(grep -m1 'SITE_URL' src/version.ts | sed "s/.*'\([^']*\)'.*/\1/")
+# One list: the root manifest's, so the published package is found by the same words.
+KEYWORDS=$(node -p "JSON.stringify(require('./package.json').keywords)")
 
 # npm's own names for what our artifacts call darwin-arm64 and so on. The
 # postinstall resolves `${process.platform}-${process.arch}`, so these have to
@@ -88,7 +90,7 @@ $OPTIONAL
   },
   "repository": { "type": "git", "url": "git+$REPO_URL.git" },
   "homepage": "$SITE_URL",
-  "keywords": ["trading", "crypto", "defi", "portfolio", "risk", "tui", "cli"]
+  "keywords": $KEYWORDS
 }
 JSON
 

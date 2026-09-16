@@ -117,8 +117,11 @@ async function refuseSharedDirectory(dir: string): Promise<void> {
   let info: Stats
   try {
     info = await stat(dir)
-  } catch {
-    return
+  } catch (err) {
+    // Only the absent directory: anything else — a permission error, a symlink
+    // loop — would skip the refusals below rather than satisfy them.
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return
+    throw err
   }
 
   if (info.mode & 0o022) {

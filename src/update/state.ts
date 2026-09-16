@@ -3,20 +3,17 @@ import { join } from 'node:path'
 import { configDir } from '../core/paths.js'
 
 /**
- * When tula last looked for a release, and which one it has already mentioned.
+ * Which release tula has already mentioned.
  *
  * Its own file, never `credentials.json`. That one is mode 600 and its module
- * is walled off from the agent layer; a timestamp has no business sharing a
- * file with venue keys, and writing to that file would mean importing the code
- * that reads them.
+ * is walled off from the agent layer: recording which release was announced
+ * must not mean importing the module that reads venue keys.
  *
- * Every failure here is swallowed. A version check that cannot write a
- * timestamp has to be a check that did not happen, not a session that did not
- * start — the reader opened tula to see what their positions are worth.
+ * Every failure here is swallowed. A check that cannot record what it said has
+ * to be a check that did not happen, not a session that did not start — the
+ * reader opened tula to see what their positions are worth.
  */
 export interface UpdateState {
-  /** ISO 8601, from the last completed check — successful or not. */
-  checkedAt?: string
   /** The version already announced, so the same one is not announced twice. */
   announced?: string
 }
@@ -26,7 +23,8 @@ const statePath = (): string => join(configDir(), 'state.json')
 export async function readState(): Promise<UpdateState> {
   try {
     const parsed: unknown = JSON.parse(await readFile(statePath(), 'utf8'))
-    return parsed && typeof parsed === 'object' ? (parsed as UpdateState) : {}
+    const announced = parsed && typeof parsed === 'object' ? Reflect.get(parsed, 'announced') : undefined
+    return typeof announced === 'string' ? { announced } : {}
   } catch {
     return {}
   }

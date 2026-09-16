@@ -37,7 +37,7 @@ export const AUTHOR = { name: 'Himanshu Singh', url: 'https://github.com/hsnice1
  * promise retracted on release day reads as though it was never true.
  */
 export const DESCRIPTION =
-  'A terminal tool that answers what no single venue can: what is my real exposure, and what breaks first? Non-custodial, and read-only for the moment — placing trades will come later.'
+  'A terminal tool that answers what no single venue can: your real exposure, and what breaks first. Read-only for the moment — placing trades will come later.'
 
 /**
  * The one string every install instruction on the site renders. Written out
@@ -57,14 +57,16 @@ export const pageUrl = (href: string) => `${SITE}${href === '/' ? '' : href}/`
 /**
  * Every route the site publishes, in display order. The footer, the sitemap and
  * `llms.txt` all take the routes from here, so a new page cannot ship unlinked
- * or unindexed; the header shows only `inHeader` ones. The blurb is the sentence
- * `llms.txt` summarises each one by.
+ * or unindexed; the header shows only `inHeader` ones. `group` is the footer
+ * column a route sits in: `site` under Pages, `guide` under Guides. The blurb is
+ * the sentence `llms.txt` summarises each one by.
  */
 export const NAV = [
   {
     href: '/',
     label: 'Overview',
     inHeader: true,
+    group: 'site',
     blurb:
       'How one asset held spot, short and as collateral nets out, what breaks first, and asking in plain English instead.',
   },
@@ -72,6 +74,7 @@ export const NAV = [
     href: '/install',
     label: 'Install',
     inHeader: true,
+    group: 'site',
     blurb:
       'One command, with every download checked. Homebrew and npm, what it runs on, and how to go back a version.',
   },
@@ -79,6 +82,7 @@ export const NAV = [
     href: '/security',
     label: 'Security',
     inHeader: true,
+    group: 'site',
     blurb:
       'What tula promises about your keys and your funds, what enforces each promise, and where the limits are.',
   },
@@ -86,8 +90,63 @@ export const NAV = [
     href: '/keys',
     label: 'Keys',
     inHeader: false,
+    group: 'guide',
     blurb:
       'Every key the shell answers to, grouped by what it is for, and which ones need a terminal that sends them.',
+  },
+  {
+    href: '/liquidation-risk',
+    label: 'Liquidation risk',
+    inHeader: false,
+    group: 'guide',
+    blurb:
+      'Every liquidatable position across venues, in one list ordered by the move that liquidates it.',
+  },
+  {
+    href: '/exposure',
+    label: 'Exposure',
+    inHeader: false,
+    group: 'guide',
+    blurb:
+      'Spot, perps and collateral netted per asset across venues, and an Equity total that never adds a perp’s notional.',
+  },
+  {
+    href: '/hyperliquid',
+    label: 'Hyperliquid',
+    inHeader: false,
+    group: 'guide',
+    blurb:
+      'Liquidation price or account ratio by Hyperliquid account mode, builder dexes, sub-accounts, vaults and staked HYPE.',
+  },
+  {
+    href: '/aave',
+    label: 'Aave',
+    inHeader: false,
+    group: 'guide',
+    blurb:
+      'Aave health factor and the move to liquidation, across twelve v3 markets on nine chains, from one address.',
+  },
+  {
+    href: '/kraken',
+    label: 'Kraken',
+    inHeader: false,
+    group: 'guide',
+    blurb: 'A read-only Kraken API key, in Kraken’s own permission names, and what tula refuses.',
+  },
+  {
+    href: '/binance',
+    label: 'Binance',
+    inHeader: false,
+    group: 'guide',
+    blurb:
+      'A read-only Binance API key, in Binance’s own restriction names, and what tula refuses.',
+  },
+  {
+    href: '/coinbase',
+    label: 'Coinbase',
+    inHeader: false,
+    group: 'guide',
+    blurb: 'A read-only Coinbase CDP key with View only, and what tula refuses.',
   },
 ] as const
 
@@ -112,6 +171,9 @@ export const OG_IMAGE = {
  * reason `OG_IMAGE` is named by hand above.
  */
 export const APPLE_ICON = { url: '/apple-icon.png', size: 180 } as const
+
+/** The raster favicon, for the search results that do not take an SVG one. */
+export const ICON = { url: '/icon.png', size: 96 } as const
 
 /** Spread by every page, so a card is never the one thing a new page forgets. */
 export const OG = { locale: 'en_US' as const, siteName: NAME, images: [OG_IMAGE] }

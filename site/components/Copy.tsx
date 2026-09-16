@@ -20,10 +20,10 @@ const WORDS: Record<Outcome, { face: string; spoken: string }> = {
  * takes the tap area to 44 without moving anything, which is the shape this
  * has to be when the control a phone reader actually presses lives in a strip
  * sized for a desktop pointer.
- * It takes the text
- * as a prop rather than reading it back out of the DOM, so what lands on the
- * clipboard is the string the page was built from — a command a reader pastes
- * into a shell cannot be whatever the rendering happened to leave behind.
+ *
+ * It takes the text as a prop rather than reading it back out of the DOM, so
+ * what lands on the clipboard is the string the page was built from — a command
+ * a reader pastes into a shell cannot be whatever the rendering left behind.
  *
  * The clipboard can refuse: a browser withholding the permission, or a page
  * opened over plain HTTP. A button that stays on `Copy` after a click reads as

@@ -6,7 +6,8 @@ import { marginRatio } from '../core/format.js'
 import { portfolioValue } from '../core/exposure.js'
 import type { Position } from '../core/position.js'
 import { shockedRatios, whatBreaksFirst } from '../core/risk.js'
-import { cashLegError, DEX_NAME, hyperliquidConnector, unscale } from './hyperliquid.js'
+import { cashLegError, DEX_NAME, hyperliquidConnector, spotAsset, unscale, usableDexName } from './hyperliquid.js'
+import { CHAINS } from './chains.js'
 import { PartialRead, refreshScope } from './types.js'
 
 const ADDRESS = '0x0000000000000000000000000000000000000abc'
@@ -1145,4 +1146,34 @@ describe('an area of the account that does not answer', () => {
       expect(read).not.toBeInstanceOf(PartialRead)
     })
   }
+})
+
+describe('a dex name cannot forge a scoped asset', () => {
+  /**
+   * `DEX_NAME` admits every chain id, and a dex's name becomes the `dex:TICKER`
+   * scope on its markets — the same shape `assetOn` gives a bridged token. A dex
+   * called `optimism` would put `optimism:USDT` on the book, netting into the
+   * real bridged row and drawing that bridge's price.
+   */
+  test('a dex named after a chain in the build is refused', () => {
+    for (const chain of CHAINS) {
+      expect({ id: chain.id, matchesShape: DEX_NAME.test(chain.id), usable: usableDexName(chain.id) }).toEqual({
+        id: chain.id,
+        matchesShape: true,
+        usable: false,
+      })
+    }
+  })
+
+  test('a dex name that collides with nothing is still usable', () => {
+    for (const name of ['xyz', 'abc123', 'unit']) {
+      expect({ name, usable: usableDexName(name) }).toEqual({ name, usable: true })
+    }
+  })
+
+  test('a spot token cannot spell the scope separator', () => {
+    expect(spotAsset('optimism:USDT')).toBe('OPTIMISM.USDT')
+    expect(spotAsset('polygon:WETH')).toBe('POLYGON.WETH')
+    expect(spotAsset('purr')).toBe('PURR')
+  })
 })

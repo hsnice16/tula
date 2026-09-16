@@ -70,8 +70,8 @@ describe('request', () => {
 describe('the size of an answer', () => {
   const MB = new Uint8Array(1_000_000).fill(0x20)
   let server: ReturnType<typeof Bun.serve> | undefined
-  afterEach(() => {
-    server?.stop(true)
+  afterEach(async () => {
+    await server?.stop(true)
     server = undefined
   })
 

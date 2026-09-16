@@ -7,7 +7,7 @@ import type { Position, Venue } from '../core/position.js'
  *
  * A venue spread over several chains has several independent ways to fail, and
  * an all-or-nothing throw makes the whole book hostage to whichever public node
- * is rate-limiting: three chains read fine and the reader is shown nothing.
+ * is rate-limiting: every other chain reads fine and the reader is shown nothing.
  * Thrown rather than returned so a caller that has not been taught about it
  * still degrades loudly — it is a `TulaError`, so the failure text is what
  * reaches the screen, and the rows are lost rather than passed off as complete.
