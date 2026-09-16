@@ -11,6 +11,8 @@ CI and build plumbing, refactors, and doc-only edits — stays in commit message
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-09-16
+
 ### Fixed
 
 - **A venue being read no longer reports itself as holding nothing.** For the seconds a venue takes to answer — a wallet spread over nine chains is the slow one — the status line said `0 positions` and the `/` menu said `0 tokens`. Both now say the venue is being read, and say `not read` with the command to run if the read failed rather than leaving a spinner over nothing. The same gap covered a venue connected after the shell opened: the store held it at once, the book did not, and every surface read the difference as an empty account.
@@ -351,7 +353,8 @@ what breaks first.
 - `KeyScope` is tri-state. Kraken exposes no endpoint reporting a key's permissions, and every endpoint gated on trade permission mutates an order, so `canTrade` is `unknown` rather than guessed at. Withdraw scope is provable, and is proven.
 - Kraken margin and open orders are not read yet, so on a margin account this is not a complete Kraken picture.
 
-[Unreleased]: https://github.com/hsnice16/tula/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/hsnice16/tula/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/hsnice16/tula/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/hsnice16/tula/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/hsnice16/tula/compare/v0.1.3...v0.2.0
 [0.1.3]: https://github.com/hsnice16/tula/compare/v0.1.2...v0.1.3
