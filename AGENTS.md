@@ -210,7 +210,7 @@ src/
     types.ts            # Connector, KeyScope (tri-state), isOverScoped, unverified, retired venues,
                         # storedVenues — the one split every count of venues reads off — and Coverage
     symbols.ts          # one canonical spelling per asset, so one holding is one row
-    kraken.ts           # HMAC over the payload digest; scope partly unprovable
+    kraken.ts           # HMAC over the payload digest; scope from GetApiKeyInfo
     binance.ts          # HMAC over the query string; scope fully provable
     coinbase.ts         # CDP keys over JWT (ES256 / EdDSA); scope fully provable
     hyperliquid.ts      # public address — every account mode, every dex, borrowing, holds, staking, vaults, sub-accounts
@@ -560,7 +560,6 @@ Two rules, and they are the reason the architecture exists:
   modal ones included. Ink's own `kittyKeyboard` detection is not used: under Bun
   it handed one reply to the input over and over, and a late one was typed into
   the line.
-- **Comments say why.** A comment that restates the code is a second copy that drifts.
 - **The model's failures are ours to translate.** `explain()` in `src/agent/agent.ts`
   turns an API error into a sentence with a next step. A raw `overloaded_error`
   envelope printed at somebody asking about their money is not an answer.
@@ -677,17 +676,9 @@ The agent reads that task for goal and acceptance criteria, the milestone's
   published example; if it drifts, every private call fails as
   `EAPI:Invalid signature`, which reads as a bad key.
 - The caps in `decodeString` (`src/connectors/evm.ts`), `symbol()`
-  (`src/cli/session.ts`) and `remote()` (`src/core/errors.ts`), and the one
-  filter every one of them shares,
-  `visible()` in `src/core/untrusted.ts`. A decoded symbol, a venue's error text
-  and the model provider's are the strings somebody else writes that are
-  rendered *and* sent to the model; each is capped and flattened to one line so
-  none can pose as an instruction. A Hyperliquid builder dex name is the fourth,
-  held to `DEX_NAME` because a venue label cannot be cut. A fifth has to reach `SECURITY.md` and the
-  `SOURCES` list in `src/site-claims.test.ts` in the same commit — that list is
-  what fails the build when a surface names fewer sources than the build has,
-  and the third got in without it, so two published surfaces disagreed about
-  how many there were. The filter is one function because it was three
+  (`src/cli/session.ts`) and `remote()` (`src/core/errors.ts`), `DEX_NAME`, and
+  the one filter they share, `visible()` in `src/core/untrusted.ts` — rule 4
+  under Security says why. The filter is one function because it was three
   copies that had to agree.
 - The tri-state `KeyScope`. Collapsing it to booleans reintroduces the lie. It
   is also per-power on purpose: when trading ships, `isOverScoped` drops its
@@ -957,24 +948,10 @@ bun run build              # -> site/out, static
 The install path is part of the security product: someone runs it immediately
 before pasting keys tied to their net worth.
 
-- **A manual run is a dry run.** `workflow_dispatch` defaults `publish` to
-  false, because `GITHUB_REF_TYPE` is `branch` there and the tag-matches-version
-  check cannot protect it — without the gate a manual run would cut a real
-  release from whatever was on the branch. A pre-release tag (`v0.4.0-rc.1`)
-  exercises the real channels without touching the stable ones.
-
-  **Attestation is gated with the publish steps, not run beside them.** It had
-  been unconditional, on the reasoning that a dry run should exercise every
-  step. But an attestation is a public transparency-log entry, and `install.sh`
-  pins the signing workflow but not the ref it ran from — so a dry run from any
-  branch minted proof that a build off that branch came from this workflow, which
-  is indistinguishable from a release at the only place anybody checks. That is
-  why a dry run publishes nothing at all, and why the input says so.
-- **One tag produces every artifact.** `.github/workflows/release.yml` checks the
-  tag against `src/version.ts`, runs `bun run check`, cross-compiles
-  darwin/linux × arm64/x64 with Bun, signs the macOS binaries when Apple
-  credentials are configured, attests every archive, then publishes to GitHub
-  Releases, npm and the Homebrew tap. Any failing step fails the release.
+- **One tag produces every artifact, and a manual run is a dry run that attests
+  nothing.** `install.sh` pins the signing workflow but not the ref it ran from,
+  so an attestation minted on a dry run would vouch for any branch.
+  CONTRIBUTING.md's Releasing section says what `release.yml` checks.
 - **Attestation, not a signing key.** GitHub artifact attestations are
   sigstore-backed and keyless, so this project has no key to generate, publish,
   rotate or lose. `install.sh` verifies one and **refuses** on failure; without
@@ -989,9 +966,9 @@ before pasting keys tied to their net worth.
   rather than reaching the download as a version number and failing as "No build
   of latest for <target>" — a working release reading as a broken one. It
   resolves what GitHub's own `/releases/latest` and npm's `latest` tag both mean:
-  the newest release that is not a pre-release. Homebrew spells it `tula` and
-  `tula-latest`, because `@` there means a pinned version and `tula@latest` would
-  be a contradiction that installed `keg_only` and reached nobody's PATH.
+  the newest release that is not a pre-release. Homebrew spells it `tula`, and
+  the rolling channel `tula-latest`: `@` there means a pinned version, so
+  `tula@latest` would install `keg_only` and reach nobody's PATH.
 - **A version is reachable after the channels move past it, on every channel.**
   The installer takes `TULA_VERSION` and keeps each build under
   `~/.tula/versions`; npm keeps every version it has published. Homebrew keeps
@@ -999,11 +976,12 @@ before pasting keys tied to their net worth.
   writes `Formula/tula@<version>.rb` beside the two channel formulae and the tap
   accumulates them. Going back is the direction that matters when a build is
   showing somebody a wrong number, and it is not worth having on two channels
-  out of three. The pinned formulae are `keg_only`: they cannot name each other
-  in a `conflicts_with` because none of the later files exist when one is
-  rendered, and an old build belongs on PATH only when somebody links it on
-  purpose. `homebrew-formula.sh` mirrors Homebrew's own `Formulary.class_s`
-  rather than the two names we happen to ship — `tula@0.1.0` must declare
+  out of three. The pinned formulae are `keg_only`: an old build belongs on PATH
+  only when somebody links it on purpose. No formula declares `conflicts_with`:
+  Homebrew 6+ refuses to load a named formula from a tap the user has not
+  trusted, and the install line trusts only the formula it names.
+  `homebrew-formula.sh` mirrors Homebrew's own `Formulary.class_s` rather than
+  the two names we happen to ship — `tula@0.1.0` must declare
   `TulaAT010`, and a class name that disagrees with its file name fails the
   whole tap for every user at once.
 - **Artifact names are a contract** between `release-build.sh`, the formula, the

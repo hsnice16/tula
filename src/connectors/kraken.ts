@@ -60,7 +60,7 @@ function decodeSecret(secret: string): Buffer {
   const buf = Buffer.from(secret, 'base64')
   // Buffer.from is lenient: bad base64 yields a short buffer and a signature
   // that fails as EAPI:Invalid signature, which reads as the wrong problem.
-  if (buf.length < 32) throw new KrakenAuthError('Kraken API secret is not valid base64.')
+  if (buf.length < 32) throw new KrakenAuthError(`Kraken API secret is not valid base64.\n  Copy the Private Key from Kraken again and reconnect with ${connectCommand(KRAKEN.id)}.`)
   return buf
 }
 

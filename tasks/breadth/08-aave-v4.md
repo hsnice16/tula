@@ -62,5 +62,5 @@ V4's base64 `chain::address::id` tuples, which is the one criterion there that
 needs a venue tula is already reading — so that bullet lands here, and the field
 itself does not wait for this task.
 
-Do not touch the `NOT READ` declaration ahead of the connector. The gap is real
+Do not touch the `doesNotRead` declaration ahead of the connector. The gap is real
 until V4 is read, and the declaration is what tells the user so.

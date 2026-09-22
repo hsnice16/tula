@@ -181,7 +181,7 @@ describe('/update', () => {
 
     const before = await linkedVersion()
     const { output } = await update(['install'])
-    expect(output).toContain('brew upgrade tula')
+    expect(output).toContain('brew upgrade hsnice16/tap/tula')
     expect(await linkedVersion()).toBe(before)
   })
 })

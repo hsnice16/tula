@@ -1,5 +1,6 @@
 import Decimal from 'decimal.js'
 import { TulaError } from '../core/errors.js'
+import { typed } from '../core/surface.js'
 import type { AssetId } from '../core/position.js'
 import { UNITY, usablePrice, type PriceOracle, type Quote } from '../core/prices.js'
 import { request } from '../core/http.js'
@@ -50,13 +51,14 @@ export class CoinPaprikaOracle implements PriceOracle {
     const res = await this.fetcher(TICKERS)
     if (!res.ok) {
       throw new TulaError(
-        res.status === 429
+        (res.status === 429
           ? 'CoinPaprika rate limit reached. Prices are unavailable; quantities are still correct.'
-          : `CoinPaprika returned HTTP ${res.status}. Prices are unavailable; quantities are still correct.`,
+          : `CoinPaprika returned HTTP ${res.status}. Prices are unavailable; quantities are still correct.`) +
+          `\n  Try ${typed('refresh')} in a moment.`,
       )
     }
     const rows = (await res.json()) as Ticker[]
-    if (!Array.isArray(rows)) throw new TulaError('CoinPaprika returned an unexpected response.')
+    if (!Array.isArray(rows)) throw new TulaError(`CoinPaprika returned an unexpected response.\n  Try ${typed('refresh')} in a moment.`)
 
     this.cache = { at: Date.now(), rows: bestBySymbol(rows) }
     return this.cache

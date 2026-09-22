@@ -62,15 +62,15 @@ export function loadKey(raw: string): KeyObject {
   }
 }
 
+/** ES256 signs over P-256, so r and s are 32 bytes each. */
+const P256_INT = 32
+
 /**
  * ECDSA signatures come back DER-wrapped; JOSE wants a fixed 64-byte r||s.
  * Node can do this with `dsaEncoding: 'ieee-p1363'`, but bun's crypto throws on
  * that option, so the conversion is done here — a silently wrong signature would
  * present as "Coinbase rejected your key".
  */
-/** ES256 signs over P-256, so r and s are 32 bytes each. */
-const P256_INT = 32
-
 export function derToJose(der: Buffer): Buffer {
   // Not a TulaError: this is tula's own signing code disagreeing with itself,
   // which the user can do nothing about and which should keep its stack.

@@ -58,7 +58,7 @@ Labelling, which is the half this task was open for:
   reason as those two: one signal could not tell two states apart. It renders as
   `ALTERED` on `/positions`, `/exposure`, `/breaks`, `/shock`, `/refresh`,
   `/venues` and `/<venue> status`, saying in its first line that nothing is
-  missing — it is not `INCOMPLETE`, `REMOVED`, `NOT READ` or a venue holding
+  missing — it is not `INCOMPLETE`, `REMOVED`, an area never read or a venue holding
   nothing, and it raises no exit code. Rule 7: the venue is named on every line,
   and where the row came off a chain so is the `TULA_<CHAIN>_RPC` that chooses
   the node that sent it.

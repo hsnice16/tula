@@ -1,4 +1,5 @@
 import { TulaError } from '../core/errors.js'
+import { typed } from '../core/surface.js'
 import { APP_VERSION, REPO_URL, SITE_URL } from '../version.js'
 import { applyUpdate, type DownloadProgress } from './apply.js'
 import { availableNow } from './check.js'
@@ -28,7 +29,10 @@ export async function update(
 ): Promise<UpdateResult> {
   const sub = args[0]?.toLowerCase()
   if (sub && sub !== 'install') {
-    return { output: `/update has no "${sub}". Run /update, or /update install.`, failed: true }
+    return {
+      output: `${typed('update')} has no "${sub}". Run ${typed('update')}, or ${typed('update install')}.`,
+      failed: true,
+    }
   }
 
   const native = await nativeInstall()
@@ -45,7 +49,7 @@ export async function update(
         'current is unknown. Nothing was downloaded and nothing changed.',
         '',
         `  Check the releases yourself: ${REPO_URL}/releases/latest`,
-        '  Then run /update again.',
+        `  Then run ${typed('update')} again.`,
       ].join('\n'),
       failed: true,
     }
@@ -80,7 +84,7 @@ export async function update(
         'The download is checked against its published checksum. Who built it',
         'is not checked: that needs the GitHub CLI, signed in.',
         '',
-        '  /update install   download it and switch to it',
+        `  ${typed('update install')}   download it and switch to it`,
       ].join('\n'),
     }
   }

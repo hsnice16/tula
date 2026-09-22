@@ -295,10 +295,10 @@ interface Forget {
 function loadLabel(step: LoadStep): string {
   if (step.kind !== 'venue') return `pricing ${step.assets} asset${step.assets === 1 ? '' : 's'}`
   const where = `reading ${step.venue}${step.account ? ` (${step.account})` : ''}`
-  // One unchanging label over a nine-chain read is what a hang looks like.
-  // The count only ever goes up,
-  // and it is a count rather than the name of whichever chain is outstanding:
-  // a label that churns through nine names is the motion AGENTS.md rules out.
+  // One unchanging label over a nine-chain read is what a hang looks like. The
+  // count only ever goes up, and it is a count rather than the name of whichever
+  // chain is outstanding: a label that churns through nine names is the motion
+  // AGENTS.md rules out.
   return step.total !== undefined && step.total > 1 && step.done !== undefined
     ? `${where} · ${step.done} of ${step.total} chains`
     : where
@@ -1263,7 +1263,7 @@ export function App({
       if (historyOff()) {
         return {
           output:
-            'Nothing is saved: TULA_NO_HISTORY=1 is set.\n' +
+            'Nothing is saved: TULA_NO_HISTORY is set.\n' +
             "  ↑ and ctrl+r reach this session's lines, and they go when tula closes.",
         }
       }

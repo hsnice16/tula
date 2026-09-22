@@ -22,7 +22,7 @@ const API_BASE_URL = 'https://api.anthropic.com'
 /**
  * The SDK's default is 2. A terminal question is cheap to retry and expensive
  * to lose: the user typed it, the spinner is already on screen, and an
- * `overloaded_error` means "later", not "no". Five attempts is the difference
+ * `overloaded_error` means "later", not "no". Five retries is the difference
  * between a transient blip and a raw API envelope printed at somebody who
  * asked what their ETH exposure was.
  */
@@ -236,7 +236,7 @@ export class Agent {
     this.history.length = before
     throw new TulaError(
       `Gave up after ${MAX_TURNS} tool rounds without an answer.\n` +
-        'Ask for one thing at a time, or use a command — type / for the list.',
+        '  Ask for one thing at a time, or use a command — type / for the list.',
     )
   }
 
@@ -269,10 +269,8 @@ export class Agent {
  */
 export function explain(err: unknown): string {
   // Every one of these carries text tula did not write, so every one goes
-  // through `remote()` — the same bound each venue's error takes. The argument
-  // there is about what an escape sequence in outside text can repaint, and it
-  // does not stop at the venue boundary: this is the third source of it on
-  // screen, and it was the one left unbounded.
+  // through `remote()`: an escape sequence repaints the screen whichever side
+  // of the venue boundary it came from.
 
   const fallback = 'Type / for the commands — they answer without the model.'
 
@@ -292,7 +290,7 @@ export function explain(err: unknown): string {
     if (status === 429) {
       return `Over your Anthropic rate limit. Wait a minute and ask again.\n  ${fallback}`
     }
-    if (status === 529 || status >= 500) {
+    if (status >= 500) {
       return (
         `Anthropic is overloaded. tula retried ${MAX_RETRIES} times and kept getting the same answer.\n` +
         `  This is their side, not yours — ask again in a moment.\n  ${fallback}`

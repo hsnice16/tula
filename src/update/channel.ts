@@ -47,4 +47,4 @@ export async function nativeInstall(): Promise<NativeInstall | null> {
  * 0.3.x install on 0.3.x for every release that matters.
  */
 export const OTHER_CHANNELS =
-  'Installed with Homebrew or npm: brew upgrade tula, or npm install -g @hsnice16/tula'
+  'Installed with Homebrew or npm: brew upgrade hsnice16/tap/tula, or npm install -g @hsnice16/tula'

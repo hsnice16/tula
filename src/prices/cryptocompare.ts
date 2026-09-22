@@ -3,7 +3,7 @@ import { remote, TulaError } from '../core/errors.js'
 import type { AssetId } from '../core/position.js'
 import { byTicker, UNITY, usablePrice, type PriceOracle, type Quote } from '../core/prices.js'
 import { request } from '../core/http.js'
-import { inShell } from '../core/surface.js'
+import { inShell, typed } from '../core/surface.js'
 
 const PRICEMULTI = 'https://min-api.cryptocompare.com/data/pricemulti'
 
@@ -81,7 +81,7 @@ function failure(status: number): TulaError {
     )
   }
   if (status === 429) {
-    return new TulaError('CryptoCompare rate limit reached. Prices are unavailable; quantities are still correct.')
+    return new TulaError(`CryptoCompare rate limit reached. Prices are unavailable; quantities are still correct.\n  Try ${typed('refresh')} in a moment.`)
   }
-  return new TulaError(`CryptoCompare returned HTTP ${status}. Prices are unavailable; quantities are still correct.`)
+  return new TulaError(`CryptoCompare returned HTTP ${status}. Prices are unavailable; quantities are still correct.\n  Try ${typed('refresh')} in a moment.`)
 }

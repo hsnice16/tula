@@ -247,12 +247,6 @@ describe('the tree an update will and will not go into', () => {
     expect((await stat(join(into.versions, NEW, 'tula'))).mode & 0o777).toBe(0o755)
   })
 
-  /**
-   * install.sh reads a matching `.tula-sha256` as *this script downloaded,
-   * verified and unpacked that binary* and answers "already installed". Nothing
-   * here checks provenance, so a receipt written here would have the repair run
-   * — the thing somebody does to a tree they suspect — skip the attestation.
-   */
   test('refuses a verified build that does not start, and leaves the launcher alone', async () => {
     const build = join(root, 'dead')
     await mkdir(build, { recursive: true })
@@ -265,6 +259,12 @@ describe('the tree an update will and will not go into', () => {
     expect(await stillOnOld()).toBe(true)
   })
 
+  /**
+   * install.sh reads a matching `.tula-sha256` as *this script downloaded,
+   * verified and unpacked that binary* and answers "already installed". Nothing
+   * here checks provenance, so a receipt written here would have the repair run
+   * — the thing somebody does to a tree they suspect — skip the attestation.
+   */
   test('writes no install receipt, so the installer still re-verifies this tree', async () => {
     ok()
     await applyUpdate(NEW, into)

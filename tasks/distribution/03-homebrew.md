@@ -12,7 +12,7 @@ Second channel, and the one most users will actually use.
 - `brew install hsnice16/tap/tula`. The bare `brew install tula` needs
   homebrew-core, which wants a public release with real usage behind it, so it
   is a 1.0 follow-up rather than something to claim now.
-- Two channels: a stable one that deliberately lags and skips known-bad builds, and `@latest`.
+- Two channels: a stable one that deliberately lags and skips known-bad builds, and `tula-latest`.
 - Channel selected by formula name rather than configuration.
 
 ## Notes

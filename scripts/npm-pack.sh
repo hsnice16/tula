@@ -7,7 +7,7 @@
 # Staged rather than published from the repository root, because the wrapper
 # needs optionalDependencies on packages that do not exist until this release —
 # putting them in the root manifest would break `bun install` for every
-# contributor between now and the first publish.
+# contributor until that release is published.
 set -euo pipefail
 
 RELEASE=${1:?usage: npm-pack.sh <release-dir> [staging-dir]}

@@ -1,5 +1,6 @@
 import Decimal from 'decimal.js'
 import { TulaError } from '../core/errors.js'
+import { typed } from '../core/surface.js'
 import type { AssetId } from '../core/position.js'
 import { UNITY, usablePrice, type PriceOracle, type Quote } from '../core/prices.js'
 import { request } from '../core/http.js'
@@ -116,7 +117,7 @@ export const PINNED: Readonly<Record<string, string>> = {
 
 interface MarketRow {
   id: string
-  symbol: string
+  symbol?: string
   current_price: number | null
 }
 
@@ -157,19 +158,21 @@ export class CoinGeckoOracle implements PriceOracle {
       const res = await this.fetcher(url)
       if (!res.ok) {
         throw new TulaError(
-          res.status === 429
+          (res.status === 429
             ? 'CoinGecko rate limit reached. Prices are unavailable; quantities are still correct.'
-            : `CoinGecko returned HTTP ${res.status}. Prices are unavailable; quantities are still correct.`,
+            : `CoinGecko returned HTTP ${res.status}. Prices are unavailable; quantities are still correct.`) +
+            `\n  Try ${typed('refresh')} in a moment.`,
         )
       }
       const rows = (await res.json()) as MarketRow[]
-      if (!Array.isArray(rows)) throw new TulaError('CoinGecko returned an unexpected response.')
+      if (!Array.isArray(rows)) throw new TulaError(`CoinGecko returned an unexpected response.\n  Try ${typed('refresh')} in a moment.`)
 
       for (const row of rows) {
         const price = usablePrice(row.current_price)
         if (!price) continue
         byId.set(row.id, price)
-        const symbol = row.symbol.toUpperCase()
+        const symbol = row.symbol?.toUpperCase()
+        if (!symbol) continue
         // Market-cap order means the first symbol seen is the largest holder of it.
         if (!prices.has(symbol)) prices.set(symbol, price)
       }

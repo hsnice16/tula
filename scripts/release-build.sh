@@ -49,8 +49,9 @@ for entry in "${TARGETS[@]}"; do
   # Bun 1.2.16 emits darwin binaries whose ad-hoc signature does not verify, and
   # macOS 27 kills them on launch. The workflow's Developer ID step re-signs over
   # this when its secrets exist; without them, this is the signature that ships.
-  # No codesign means no fix, so refuse rather than build a binary that dies.
   if [[ $name == darwin-* ]]; then
+    command -v codesign >/dev/null ||
+      { echo "release-build: $name must be re-signed with codesign; run this on macOS" >&2; exit 1; }
     codesign --force -s - "$stage/tula"
     codesign --verify --strict "$stage/tula"
   fi

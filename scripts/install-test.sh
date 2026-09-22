@@ -76,13 +76,13 @@ chmod 755 "$SHIM/curl"
 # CLI is not installed" instead ran a real `gh attestation verify` against a
 # fixture tarball this repository genuinely did not build — which install.sh
 # correctly refused. The suite passed on a laptop without `gh` and failed on CI.
-# Presence of the tool is now something each case states, never inherits.
+# Presence of the tool is something each case states, never inherits.
 BIN="$WORK/bin"
 mkdir -p "$BIN"
 # gzip is here because GNU tar forks it to handle -z, while macOS's bsdtar
 # decompresses in-process — so a list built by reading install.sh on a laptop
 # misses it, and every extraction fails on Linux with "Cannot exec".
-for tool in sh env cp tar gzip gunzip uname mkdir grep cut sed basename dirname \
+for tool in sh env cp mv tar gzip gunzip uname mkdir grep cut sed basename dirname \
   mktemp chmod ln rm cat ls id readlink sha256sum shasum openssl sw_vers sysctl; do
   path=$(command -v "$tool" 2>/dev/null) && ln -sf "$path" "$BIN/$tool"
 done
@@ -487,12 +487,27 @@ else
   (cd "$RELEASE" && shasum -a 256 ./*.tar.gz | sed 's| \./| |' >checksums.txt)
 fi
 out=$(run "$H")
-rm -rf "$RELEASE" && mv "$WORK/release.bak" "$RELEASE"
 if [ ! -e "$H/.tula/bin/tula" ] && [ ! -e "$H/.tula/versions/9.9.9/.tula-sha256" ] &&
   case "$out" in *"does not start on this machine"*) true ;; *) false ;; esac; then
   ok "refuses a verified binary that does not start, and leaves the launcher alone"
 else
   bad "refuses a verified binary that does not start, and leaves the launcher alone" "$out"
+fi
+
+# TULA_FORCE over the version the launcher runs: the dead build must never
+# replace the working one, even for the length of the check.
+H="$WORK/h-dead-force"
+mkdir -p "$H"
+mv "$RELEASE" "$WORK/release.dead" && mv "$WORK/release.bak" "$RELEASE"
+run "$H" >/dev/null
+mv "$RELEASE" "$WORK/release.bak" && mv "$WORK/release.dead" "$RELEASE"
+out=$(run "$H" env TULA_FORCE=1)
+rm -rf "$RELEASE" && mv "$WORK/release.bak" "$RELEASE"
+if [ "$("$H/.tula/bin/tula" --version 2>/dev/null)" = "tula 9.9.9" ] &&
+  case "$out" in *"does not start on this machine"*) true ;; *) false ;; esac; then
+  ok "a forced reinstall of a dead build leaves the working one in place"
+else
+  bad "a forced reinstall of a dead build leaves the working one in place" "$out"
 fi
 
 # Nothing above may have touched a profile outside the sandbox. This test edits

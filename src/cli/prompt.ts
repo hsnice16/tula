@@ -58,6 +58,7 @@ function fromTty(label: string, hidden: boolean): Promise<string> {
           process.exit(130)
         }
         if (ch === DEL || ch === BACKSPACE) {
+          if (buf === '') continue
           buf = [...buf].slice(0, -1).join('')
           if (!hidden) stdout.write('\b \b')
           continue

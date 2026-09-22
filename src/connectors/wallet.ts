@@ -126,9 +126,9 @@ export function chainTokens(entries: readonly unknown[], chain: Chain): TokenEnt
 export interface Holding {
   symbol: string
   amount: Decimal
-  /** Absent for native ETH, which is the one holding with no contract behind it. */
+  /** Absent for the chain's gas token, the one holding with no contract behind it. */
   address?: string
-  /** True when another token on the list answers to the same symbol. */
+  /** True when another holding on the chain would be listed under the same name. */
   contested?: boolean
 }
 

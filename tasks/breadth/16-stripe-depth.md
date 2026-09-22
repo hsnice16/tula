@@ -44,8 +44,9 @@ this file is mostly for.
   were drawn by, and `available` keeps meaning available *in Stripe's sense* —
   payable on the payout schedule, not now. Do not reach for a `hides:
   'availability'` declaration to cover a bucket whose free figure is unclear:
-  `venueFacts` in `src/core/coverage.ts` reads it venue-wide, so one such entry
-  blanks the `FREE` column for every Stripe row, including the ones proven today.
+  `availabilityFacts` in `src/core/coverage.ts` reads it venue-wide, so one such
+  entry blanks the `FREE` column for every Stripe row, including the ones proven
+  today.
 - Each gap closed removes its `doesNotRead` entry and the test in
   `stripe.test.ts` holding it open, in the same change. The connected-account
   test asserts on request headers rather than URLs, because a `Stripe-Account`

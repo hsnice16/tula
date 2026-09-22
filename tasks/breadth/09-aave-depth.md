@@ -4,8 +4,8 @@
 
 ## Goal
 
-Read the rest of what an Aave account holds, so `NOT READ` on this venue is a
-list that shortens rather than a standing shape.
+Read the rest of what an Aave account holds, so this venue's list in `/venues`
+shortens rather than standing still.
 
 `src/connectors/aave.ts` declares five gaps. [`08`](./08-aave-v4.md) takes the
 largest; this takes the other four, three of which hide a liquidation and are

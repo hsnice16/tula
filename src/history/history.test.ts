@@ -207,6 +207,12 @@ describe('the file', () => {
     expect(await readHistory()).toEqual([])
   })
 
+  test('any value of TULA_NO_HISTORY keeps nothing, not only 1', async () => {
+    process.env['TULA_NO_HISTORY'] = 'true'
+    await recordHistory('/exposure')
+    expect(await readHistory()).toEqual([])
+  })
+
   // `/history` says ↑ and ctrl+r reach only this session's lines while it is set.
   test('TULA_NO_HISTORY=1 hands back nothing a file saved earlier holds', async () => {
     await recordHistory('/exposure')

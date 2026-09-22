@@ -2,8 +2,9 @@ import Decimal from 'decimal.js'
 import { claimed, RELEASES } from '../core/availability.js'
 import { freshness, healthFactor, marginRatio, pct, price, quantity, ratioFloor, ratioValue, usd } from '../core/format.js'
 import { unrankedVenues } from '../core/coverage.js'
+import { canonicalAsset } from '../core/exposure.js'
 import { belongsToVenue, type Position } from '../core/position.js'
-import type { Shock } from '../core/risk.js'
+import { SHOCK_CEILING, SHOCK_FLOOR, usableShock, type Shock } from '../core/risk.js'
 import { seal, untrusted, type Untrusted } from '../core/untrusted.js'
 import type { RiskEngine } from './engine.js'
 
@@ -102,7 +103,7 @@ const marked = (text: string | null): Untrusted | null => (text === null ? null 
 
 export function executeTool(engine: RiskEngine, name: string, input: unknown): unknown {
   const args = (input ?? {}) as Record<string, unknown>
-  const asset = typeof args['asset'] === 'string' ? args['asset'].toUpperCase() : undefined
+  const asset = typeof args['asset'] === 'string' ? canonicalAsset(args['asset']) : undefined
   const venue = typeof args['venue'] === 'string' ? args['venue'] : undefined
   const now = new Date()
   const at = (d: Date): string => freshness(d, now)
@@ -229,7 +230,7 @@ export function executeTool(engine: RiskEngine, name: string, input: unknown): u
         .positions()
         .filter(
           (p) =>
-            (asset === undefined || p.asset === asset) &&
+            (asset === undefined || canonicalAsset(p.asset) === asset) &&
             (venue === undefined || belongsToVenue(p.venue, venue)),
         )
         .map((p) => {
@@ -333,14 +334,21 @@ export function executeTool(engine: RiskEngine, name: string, input: unknown): u
       for (const entry of raw) {
         const e = entry as Record<string, unknown>
         if (typeof e['asset'] !== 'string' || typeof e['percent'] !== 'number') continue
-        shocks.push({ asset: e['asset'].toUpperCase(), pct: new Decimal(e['percent']).div(100) })
+        shocks.push({ asset: canonicalAsset(e['asset']), pct: new Decimal(e['percent']).div(100) })
       }
       if (shocks.length === 0) {
         return seal({ error: 'No valid shocks. Each needs an asset and a signed percent.' })
       }
+      // The command line refuses these too; repriced, -150% reads as an unpriced asset.
+      const outOfRange = shocks.find((s) => !usableShock(s.pct))
+      if (outOfRange) {
+        return seal({
+          error: `${pct(outOfRange.pct, 0)} is not a scenario: a move runs from ${pct(SHOCK_FLOOR, 0)}, where the asset is worth nothing, up to ${pct(SHOCK_CEILING, 0)}.`,
+        })
+      }
 
       const result = engine.scenario(shocks)
-      const moveOn = (a: string): Decimal | undefined => shocks.find((s) => s.asset === a)?.pct
+      const moveOn = (a: string): Decimal | undefined => shocks.find((s) => s.asset === canonicalAsset(a))?.pct
       const row = (p: Position) => ({
         ...named(p.venue),
         ...from(p),

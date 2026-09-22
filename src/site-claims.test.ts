@@ -628,7 +628,7 @@ describe('the security page names enforcement that exists', () => {
     const history = read('src/history/history.ts')
     expect(history).toContain('REQUIRED_MODE = 0o600')
     expect(history).toContain('O_NOFOLLOW')
-    expect(history).toContain("process.env['TULA_NO_HISTORY'] === '1'")
+    expect(history).toContain("Boolean(process.env['TULA_NO_HISTORY'])")
     expect(history).not.toMatch(/from '\.\.\/secrets\//)
 
     expect(guard).toContain('reaches the history write, which only src/ui/app.tsx may call')

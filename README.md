@@ -88,8 +88,8 @@ proves that check still catches one.
   wording on a connect screen makes it safe to store. Circle Mint was dropped for
   exactly this — a Mint key can create payouts and transfers, and Circle publishes
   no way to make one that cannot.
-- **Credentials stay on your machine**, at `~/.config/tula/credentials.json`,
-  mode 600 enforced on every read, and are sent only to the venue they belong to.
+- **Credentials stay on your machine**, and are sent only to the venue they
+  belong to.
 - **Credentials never enter model context.** The agent layer sees one interface —
   the risk engine — and cannot import a connector or the secret store. That is
   enforced by `scripts/guard.sh` in CI, not by convention.
@@ -211,10 +211,6 @@ useful thing you can send.
 | Hyperliquid's own EVM chain (HyperEVM) | planned — both legs or neither. A balance there is a HyperCore spot balance and an EVM ERC-20 scaled against each other, so one leg alone is a number that is not the holding ([`breadth/12`](./tasks/breadth/12-chain-reach.md)) |
 | Aave V4 | planned — v4 is Hubs and Spokes rather than Pools, so no call the connector makes reaches it ([`breadth/08`](./tasks/breadth/08-aave-v4.md)) |
 | Execution | later — see [ROADMAP.md](./ROADMAP.md) |
-
-On a Kraken margin account the positions are read, but the margin level Kraken
-would actually liquidate on is not, so those rows rank `unknown` rather than
-carrying a distance.
 
 ## Keys
 

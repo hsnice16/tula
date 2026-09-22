@@ -119,7 +119,7 @@ jobs:
       # ------------------------------------------------------------- signing --
       #
       # Gated on the certificate being configured rather than assumed: an
-      # unsigned build still installs correctly through curl and Homebrew,
+      # ad-hoc-signed build still installs through curl and Homebrew,
       # neither of which quarantines what it downloads. Once the secrets exist
       # this stops being optional — there is no continue-on-error below, so a
       # signing failure fails the release.
@@ -245,7 +245,7 @@ jobs:
       # workflow but not the ref it ran from — so a dry run would mint proof
       # that a build from an arbitrary branch came from this workflow, which is
       # indistinguishable from a released one at the only place anybody checks.
-      # The cost is that a dry run no longer exercises this step; the first real
+      # The cost is that a dry run does not exercise this step; the first real
       # tag does, before any channel points at it.
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         if: steps.version.outputs.publish == 'true'
@@ -421,9 +421,9 @@ jobs:
           bash scripts/homebrew-formula.sh dist/release "tula@$VERSION" \
             >"tap/Formula/tula@$VERSION.rb"
 
-          # Stable lags deliberately: a plain tag promotes, a pre-release never
-          # does, and a build discovered to be wrong is skipped by promoting the
-          # next one instead of this one.
+          # Stable lags deliberately: a plain tag promotes, a pre-release only
+          # when promote_stable says so, and a build discovered to be wrong is
+          # skipped by promoting the next one instead of this one.
           if [ "$PRERELEASE" = false ] || [ "$PROMOTE" = true ]; then
             bash scripts/homebrew-formula.sh dist/release tula >tap/Formula/tula.rb
           fi

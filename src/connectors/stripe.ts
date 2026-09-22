@@ -6,6 +6,9 @@ import { json, request } from '../core/http.js'
 import { connectCommand } from '../core/surface.js'
 
 const API = 'https://api.stripe.com/v1'
+const MAKE_ONE =
+  '\n' +
+  '  Make a restricted key with read access: https://dashboard.stripe.com/apikeys'
 
 export const STRIPE: Venue = { id: 'stripe', kind: 'payments', name: 'Stripe' }
 
@@ -111,20 +114,20 @@ export const stripeConnector: Connector = {
    */
   async verifyScope(creds: ConnectorCredentials): Promise<KeyScope> {
     const apiKey = creds['apiKey']?.trim()
-    if (!apiKey) throw new TulaError('Stripe needs a restricted API key.')
+    if (!apiKey) throw new TulaError(`Stripe needs a restricted API key.${MAKE_ONE}`)
 
     if (apiKey.startsWith('pk_')) {
       throw new TulaError(
-        'That is a publishable key. It cannot read your balance. You need a restricted key (rk_).',
+        `That is a publishable key. It cannot read your balance. You need a restricted key (rk_).${MAKE_ONE}`,
       )
     }
     if (apiKey.startsWith('sk_')) {
       throw new TulaError(
-        'Refused: a secret key (sk_) can move money. tula only holds a restricted key (rk_) with read access.',
+        `Refused: a secret key (sk_) can move money. tula only holds a restricted key (rk_) with read access.${MAKE_ONE}`,
       )
     }
     if (!apiKey.startsWith('rk_')) {
-      throw new TulaError('That does not look like a Stripe key. Restricted keys start with rk_.')
+      throw new TulaError(`That does not look like a Stripe key. Restricted keys start with rk_.${MAKE_ONE}`)
     }
 
     await get<BalanceResponse>('/balance', apiKey)

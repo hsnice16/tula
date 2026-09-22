@@ -117,19 +117,19 @@ async function connect(venueId: string | undefined): Promise<void> {
   if (!connector) fail(retired(venueId, forgetCommand(venueId)) ?? `Unknown venue "${venueId}". Available: ${known}`)
 
   console.log(`Connecting ${connector.venue.name}.`)
-  // Wallet, Hyperliquid and Aave read a public address and hold no credential
-  // at all, so this advice does not merely not apply there — it describes a key
-  // they will never be asked for.
-  if (connector.fields.some((f) => f.secret)) {
-    console.log(connector.readOnlyKey ?? 'Use a key that can only read.')
-  }
-  console.log('tula never asks for a seed phrase or private key.\n')
+  // Split as the connect screen splits it: Coinbase's signing key is a private
+  // key and Kraken calls its secret one, so the promise holds for addresses only.
+  const addressOnly = connector.fields.every((f) => !f.secret)
+  console.log(
+    addressOnly
+      ? 'A public address only. tula never asks for a seed phrase or private key.\n'
+      : `${connector.readOnlyKey ?? 'Use a key that can only read.'}\n`,
+  )
 
   for (const link of connector.help) console.log(`  ${link.label}  ${link.url}`)
   if (connector.help.length > 0) console.log()
 
   const command = `tula connect ${venueId}`
-  const addressOnly = connector.fields.every((f) => !f.secret)
   const held = await secrets.listCredentials(venueId)
   const replacing =
     held.length > 0
@@ -294,11 +294,8 @@ async function main(): Promise<void> {
       console.log(usage())
       return
     }
-    // No load here. The shell reads the book as it opens, behind a busy row that
-    // names the venue being read. Awaited here instead, a venue slow to answer
-    // left the terminal blank and still in cooked mode for as long as it took:
-    // nothing said what it was waiting on, the tty echoed what was typed, and
-    // the keys reached the shell as one run of text rather than commands.
+    // No load here: the shell reads the book behind its busy row. AGENTS.md's
+    // Conventions has why, and `src/cli/oneshot.test.ts` fails on a load here.
     // The environment wins over the stored key, so a shell export can override
     // what is on disk without editing the file.
     const apiKey = envApiKey() ?? (await secrets.getProviderKey())

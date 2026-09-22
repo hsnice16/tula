@@ -608,9 +608,9 @@ export const hyperliquidConnector: Connector = {
     ],
     doesNotRead: [
       // Declared here as well as in `wallet.ts`, which names it as an unread
-      // chain. The `NOT READ` line is built from connected venues, so somebody
-      // who connected Hyperliquid and no address would be told nothing at all
-      // — and the spot balances above are exactly the half of a HyperEVM
+      // chain: coverage is listed per connected venue, so somebody who
+      // connected Hyperliquid and no address would be told nothing at all —
+      // and the spot balances above are exactly the half of a HyperEVM
       // holding that reads as the whole of it.
       {
         what: 'balances on HyperEVM, Hyperliquid’s own EVM chain',

@@ -75,8 +75,8 @@ These are not style preferences.
 
 1. **A code path that can place an order or move funds.** Including "validate
    only" order endpoints. The absence is the product.
-2. **A prompt for a seed phrase or private key.** On-chain reads take a public
-   address.
+2. **A prompt for a seed phrase or a wallet's private key.** On-chain reads take
+   a public address.
 3. **Anything that widens access to `src/secrets/store.ts`.** The command layer
    and connectors read it; the agent layer never may.
 4. **Collapsing an unknown into a default.** `KeyScope.canTrade` is `'unknown'`

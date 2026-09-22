@@ -96,6 +96,5 @@ task lands, update its status line, add the `**Covered by**` line, and add a
 
 ## Versioning
 
-`0.x` while the read-only risk view is finding its shape. `1.0` when it is complete
-and trustworthy without an agent. Milestones: `ROADMAP.md`. Shipped work:
-`CHANGELOG.md`. Current version: `src/version.ts`.
+The rules: `ROADMAP.md`'s Versions section. Shipped work: `CHANGELOG.md`.
+Current version: `src/version.ts`.

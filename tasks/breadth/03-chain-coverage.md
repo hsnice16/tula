@@ -28,11 +28,10 @@ credential; HyperEVM and Solana are declared unread rather than built.
   "the Ethereum node", which on a multi-chain book sends the reader to fix the
   wrong endpoint. Each message is built from `chain.name` and names that chain's
   own variable, and no two chains offer the same one.
-- **A chain nothing is configured for is uncovered, not failed**, and it says so
-  on the view rather than being absent from it. `UNCOVERED_CHAINS` and each
-  chain-reading connector's `Coverage` block are what
-  [`open-pieces/01`](../open-pieces/01-scope-disclosure.md) assembles the
-  `NOT READ` line from. Nothing here can reach the failure state instead: every
+- **A chain nothing is configured for is uncovered, not failed**, and `/venues`
+  says so. `UNCOVERED_CHAINS` and each chain-reading connector's `Coverage`
+  block are what [`open-pieces/01`](../open-pieces/01-scope-disclosure.md)
+  assembles that list from. Nothing here can reach the failure state instead: every
   chain in `CHAINS` ships a public default RPC.
 - Every chain failing is `INCOMPLETE` and a non-zero exit, not an empty book.
   Every chain failing raises a plain `TulaError` rather than a `PartialRead`,
