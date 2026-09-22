@@ -34,18 +34,12 @@ into a directory anyone can replace it in. None of those failed a type check.
 
 ## Versioning
 
-[SemVer](https://semver.org), and the version describes a **release**, never a
-plan — the milestones live in `ROADMAP.md` precisely so a reordered plan cannot
-make a published number wrong. Pre-1.0: **patch** for fixes, security hardening
-and doc or site corrections; **minor** for a new venue, command or capability,
-and for anything breaking; **major** is reserved for `1.0.0` and `2.0.0`.
-
-A hyphen means pre-release. It is the only signal — `src/version.ts` derives
-`IS_PRE_RELEASE` from `APP_VERSION`, and `release.yml` reads the same hyphen to
-choose `--prerelease` over `--latest` and the npm dist-tag. They were once a
-hand-set boolean apart and had already drifted into a stable release whose
-binary called itself a pre-release; `guard.sh` now fails if the derivation is
-replaced by a literal.
+The version describes a **release**, never a plan; the bump rules are in
+`ROADMAP.md`'s Versions section. A hyphen means pre-release and is the only
+signal: `src/version.ts` derives `IS_PRE_RELEASE` from `APP_VERSION`, and
+`release.yml` reads the same hyphen for `--prerelease` and the npm dist-tag.
+`guard.sh` fails if the derivation is replaced by a literal — a hand-set boolean
+once shipped a stable release whose binary called itself a pre-release.
 
 ## Stack
 
@@ -198,7 +192,7 @@ src/
   version.ts            # APP_NAME, APP_VERSION, IS_PRE_RELEASE, REPO_URL, SITE_URL,
                         # APP_DESCRIPTION — single source; guard.sh reads four of them
   core/
-    position.ts         # canonical schema: Position, NetExposure, LiquidationParams
+    position.ts         # canonical schema: Position, NetExposure, LiquidationParams; rowIdentity
     untrusted.ts        # visible() — the one filter over text somebody else wrote
     exposure.ts         # netExposure, portfolioValue — equity, never a perp's notional; oldest
     risk.ts             # liquidation distance, scenario shocks, what breaks first
@@ -379,9 +373,9 @@ Two rules, and they are the reason the architecture exists:
   called in *in order*, so a venue in the book with an unread area that hides a
   liquidation makes the order wrong rather than short, and they say so.
   `ALTERED`, the fifth thing a view says about itself, is the only one about
-  text rather than holdings: a venue spelled an asset in characters this build
-  could not print, so the block names the venue, what was
-  done and the *bounded* name — never what the venue sent, which is the string
+  text rather than holdings: a venue spelled an asset, product or held-as name
+  in characters this build could not print, so the block names the venue, what
+  was done and the *bounded* name — never what the venue sent, which is the string
   the bound exists to keep off a terminal. `LoadResult.altered` carries it, and
   the first line says nothing is missing, or a reader has five states to tell
   apart and four of them mean go and fetch something.
@@ -390,9 +384,8 @@ Two rules, and they are the reason the architecture exists:
   goes — and `src/coverage-plan.test.ts` fails the build on a path that is not a
   real task, on one already `done`, on a liquidation-hiding gap filed under the
   aggregator, and on any plan `ROADMAP.md`'s table does not name. Declaring a
-  gap costs one object and used to create no obligation at all, which is how
-  thirty accumulated with thirteen in no plan and two named in no file in the
-  repository. The declaration and the plan are one edit now.
+  gap costs one object, so without this gaps accumulate with no plan behind
+  them. The declaration and the plan are one edit.
 - **`src/index.ts` reaches the terminal UI only through a dynamic import.** A
   one-shot command draws its tables through `src/ui/table.ts` and never needs a
   reconciler; loading Ink and React for one cost 82ms against 56ms on
@@ -618,7 +611,8 @@ venue in it.
    the error text of a venue or a price source, the error text of the model
    provider, and a Hyperliquid builder dex name, which is a venue label and so
    is refused unless it matches `DEX_NAME` rather than capped. The symbol is capped in
-   `src/cli/session.ts`, where every connector arrives; the error text is capped
+   `src/cli/session.ts`, where every connector arrives, and so are the venue's
+   `heldAs` spelling and `product` name beside it; the error text is capped
    by `remote()` in `src/core/errors.ts` where it enters, at the connector or
    the price source that received it, which is the only place that can tell
    tula's own words from somebody else's — and by `explain()` in
@@ -657,6 +651,11 @@ endpoint — including "validate only" variants. The absence is the product.
 7. Give it a colour in `src/ui/brand.ts`. A venue without one renders a hole
    beside the rest, and `src/ui/brand.test.ts` fails on it.
 8. Do not sort — the command layer does that.
+9. No two rows may read alike but for their figures. Where one label holds an
+   asset twice, say what the venue calls the difference: `product` for the
+   contract, margin book, vault or staking state, `heldAs` for the venue's own
+   spelling of an asset counted as another. Its test asserts `rowIdentity` is
+   unique over what it returns, as `kraken.test.ts` does.
 
 ## Working from tasks/
 
@@ -1014,10 +1013,9 @@ before pasting keys tied to their net worth.
 - **Never document an install path that does not work yet.** A published command
   that fetches nothing is an impersonation surface, not a convenience.
 
-### Before the first release
+### What a release needs outside the repository
 
-None of this lives in the repository, and each missing piece fails a different
-channel at a different moment. The tap and the npm scope fail *after* the GitHub
+Each missing piece fails a different channel at a different moment. The tap and the npm scope fail *after* the GitHub
 release is already public, while the site is telling people to use them.
 
 | What | Why it blocks | Check |
@@ -1029,16 +1027,15 @@ release is already public, while the site is telling people to use them.
 | `usetu.la` resolves, HTTPS enforced | the install command is the domain | `curl -sI https://usetu.la/install.sh` |
 | The Vercel root directory is `site` | `vercel.json`'s headers are read from there and nowhere else | `curl -sI https://usetu.la/` |
 | Vercel includes files outside that root | the build script copies `install.sh` in from there; without it the build fails | `curl -sI https://usetu.la/install.sh` |
-| `APPLE_*` secrets | optional; without them macOS ships unsigned | `gh secret list` |
+| `APPLE_*` secrets | optional; without them macOS ships ad-hoc signed | `gh secret list` |
 | A `release` environment with a required reviewer | `release.yml` names it on all three jobs, and naming it does nothing until it exists — GitHub silently creates an unprotected one on first use, and the run publishes unreviewed | `curl -s -o /dev/null -w '%{http_code}\n' https://api.github.com/repos/hsnice16/tula/environments/release` |
 
 Set each variable last, after its token exists: `true` without the token turns a
 skipped job into a failed one, and it fails after the GitHub release is public.
 
-The site is already deployed and already names all three channels, so the table
-above is not a checklist for later — every row that is not true when the tag is
-pushed is a published command that fetches nothing for as long as it takes to
-notice. Each can be checked without `gh` and without being signed in, which is
+The site names all three channels, so every row above that is not true when a
+tag is pushed is a published command that fetches nothing for as long as it
+takes to notice. Each can be checked without `gh` and without being signed in, which is
 also how a reader would find out before you do:
 
 ```bash

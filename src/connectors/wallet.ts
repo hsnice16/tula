@@ -21,9 +21,9 @@ import {
   toBigInt,
   words,
 } from './evm.js'
-import { assetOn, canonical } from './symbols.js'
+import { assetOn, canonical, spelledAs } from './symbols.js'
 import { PartialRead, type Connector, type ConnectorCredentials, type KeyScope, type PartProgress, type Refresh } from './types.js'
-import { typed } from '../core/surface.js'
+import { connectCommand, typed } from '../core/surface.js'
 import { host, request } from '../core/http.js'
 
 export const WALLET: Venue = {
@@ -155,32 +155,45 @@ export function toPositions(holdings: Holding[], asOf: Date, chain: Chain = ETHE
   const venue = venueOf(chain)
   return holdings
     .filter((h) => !h.amount.isZero())
-    .map((h) => ({
-      id: `${venue}:${h.address ?? canonical(h.symbol)}`,
-      venue,
-      kind: 'spot' as const,
-      asset: assetName(h, chain),
-      quantity: h.amount,
-      delta: h.amount,
-      asOf,
-    }))
+    .map((h) => {
+      const asset = assetName(h, chain)
+      const spelled = h.address ? spelledAs(h.symbol, asset) : undefined
+      return {
+        id: `${venue}:${h.address ?? canonical(h.symbol)}`,
+        venue,
+        kind: 'spot' as const,
+        asset,
+        quantity: h.amount,
+        delta: h.amount,
+        asOf,
+        ...(spelled ? { heldAs: spelled } : {}),
+      }
+    })
 }
 
 /**
- * Symbols more than one token on the list answers to.
+ * Names more than one holding on the chain would be listed under — the asset,
+ * and the list's spelling where that differs from it.
  *
  * Counted within one chain, never across them: USDC on Ethereum and USDC on
  * Base are one asset that has to net, and counted together every stablecoin on
  * the book would be contested and every one of them qualified into a row of its
- * own that nothing prices.
+ * own that nothing prices. The gas token is counted too, because an ERC-20
+ * calling itself `POL` on Polygon is otherwise a second `POL` row beside it.
  */
 export function contested(tokens: TokenEntry[], chain: Chain = ETHEREUM): Set<string> {
-  const seen = new Map<string, number>()
+  const seen = new Map<string, number>([[canonical(chain.nativeSymbol), 1]])
   for (const token of tokens) {
-    const key = assetOn(chain, token.address, token.symbol)
+    const key = listedAs(chain, token.address, token.symbol)
     seen.set(key, (seen.get(key) ?? 0) + 1)
   }
-  return new Set([...seen].filter(([, n]) => n > 1).map(([symbol]) => symbol))
+  return new Set([...seen].filter(([, n]) => n > 1).map(([name]) => name))
+}
+
+function listedAs(chain: Chain, address: string, symbol: string): string {
+  const asset = assetOn(chain, address, symbol)
+  const spelled = spelledAs(symbol, asset)
+  return spelled === undefined ? asset : `${asset} as ${spelled}`
 }
 
 /**
@@ -268,7 +281,7 @@ async function readChain(chain: Chain, address: string, tokens: TokenEntry[]): P
       symbol: token.symbol,
       amount: scale(raw[i]!, decimals[i]!),
       address: token.address.toLowerCase(),
-      contested: ambiguous.has(assetOn(chain, token.address, token.symbol)),
+      contested: ambiguous.has(listedAs(chain, token.address, token.symbol)),
     })),
   ]
 
@@ -354,7 +367,7 @@ export const walletConnector: Connector = {
     onPart?: PartProgress,
   ): Promise<Position[]> {
     const address = creds['address']
-    if (!address) throw new TulaError('A wallet needs a public address.')
+    if (!address) throw new TulaError(`A wallet needs a public address.\n  Reconnect with ${connectCommand(WALLET.id)}.`)
 
     const urls = [...new Set(CHAINS.map(tokenListUrl))]
     const lists = new Map(

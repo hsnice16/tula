@@ -1,11 +1,11 @@
 import Decimal from 'decimal.js'
 import { remote, TulaError } from '../core/errors.js'
 import type { Borrowing, HoldReason, MarginRatio, Position, RatioPool, Venue, VenueHold } from '../core/position.js'
-import { typed } from '../core/surface.js'
+import { connectCommand, typed } from '../core/surface.js'
 import { PartialRead, refreshScope, type Connector, type ConnectorCredentials, type KeyScope, type Refresh } from './types.js'
 import { request, TooSlow } from '../core/http.js'
 import { addressProblem } from './evm.js'
-import { canonical } from './symbols.js'
+import { spelledAs } from './symbols.js'
 import { CHAINS } from './chains.js'
 
 const INFO = 'https://api.hyperliquid.xyz/info'
@@ -58,6 +58,8 @@ interface ClearinghouseState {
 
 interface Balance {
   coin: string
+  /** The name the venue sent, before `spotAsset` folded it. */
+  said?: string
   token?: number
   total: string
   hold?: string
@@ -170,8 +172,10 @@ export const usableDexName = (name: string): boolean => DEX_NAME.test(name) && !
  * shape it must not be able to spell: a token called `optimism:USDT` would net
  * into the bridged row and price as it. Only the separator is taken away, so the
  * holding is still reported under a name the reader can see is not that asset.
+ * Not `canonical()` either: no contract here is a chain's own wrap, so a token
+ * called `WETH` would take ether's price.
  */
-export const spotAsset = (coin: string): string => canonical(coin).replaceAll(':', '.')
+export const spotAsset = (coin: string): string => coin.trim().toUpperCase().replaceAll(':', '.')
 
 /** Both ratios' explanation in the app: "When the value is greater than 95%, your portfolio may be liquidated." */
 const RATIO_THRESHOLD = new Decimal('0.95')
@@ -193,7 +197,7 @@ const agrees = (a: Decimal, b: Decimal): boolean =>
 /** Its own class so the line naming a part that did not load can say `HTTP 502` and no more. */
 class HttpStatus extends TulaError {
   constructor(readonly status: number) {
-    super(`Hyperliquid returned HTTP ${status}.\n  It may be rate-limiting you, or down. Try /refresh in a moment.`)
+    super(`Hyperliquid returned HTTP ${status}.\n  It may be rate-limiting you, or down. Try ${typed('refresh')} in a moment.`)
   }
 }
 
@@ -362,7 +366,7 @@ function readAccount(answers: Answers, listing: Listing, label: string): { posit
   const spotRow = (token: string): string => `${label}:spot:${token}`
   const perpsRow = (dexLabel: string, token: string): string => `${dexLabel}:perps:${token}`
   const positions: Position[] = []
-  const balances: Balance[] = (spot.balances ?? []).map((b) => ({ ...b, coin: spotAsset(b.coin) }))
+  const balances: Balance[] = (spot.balances ?? []).map((b) => ({ ...b, coin: spotAsset(b.coin), said: b.coin.trim() }))
   // A pool token the spot state leaves out holds nothing. Without a row, the
   // ratio it carries and the claims of the perps drawing on it land nowhere,
   // and the account ranks on prices past its trigger.
@@ -482,6 +486,8 @@ function readAccount(answers: Answers, listing: Listing, label: string): { posit
         venue: dex.label,
         kind: 'perp',
         asset,
+        // `kPEPE` is what the venue's screen and its order book say.
+        ...(scale === 1 ? {} : { heldAs: p.coin.slice(p.coin.indexOf(':') + 1) }),
         quantity: size,
         delta: size,
         // Its PnL is inside the balance it draws on: the dex's account value in
@@ -527,7 +533,12 @@ function readAccount(answers: Answers, listing: Listing, label: string): { posit
   for (const balance of balances) {
     const total = d(balance.total)
     const borrowed = d(balance.borrowed)
-    const id = spotRow(balance.coin)
+    // Upper-casing can fold two tokens into one name; each keeps the spelling
+    // it arrived in, or the book lists `PURR` twice with nothing to tell them by.
+    const folded = balances.filter((b) => b.coin === balance.coin).length > 1
+    const said = balance.said
+    const heldAs = said === undefined ? undefined : folded ? (said === balance.coin ? undefined : said) : spelledAs(said, balance.coin)
+    const id = heldAs && folded ? `${spotRow(balance.coin)}:${heldAs}` : spotRow(balance.coin)
     if (total.isZero() && !borrowed.gt(0) && id !== ratioRow && !encumbered.has(id)) continue
     const pooledHere = pooled ? read.filter((b) => b.collateral === balance.coin) : []
     const isolated = pooledHere.reduce((sum, b) => sum.plus(isolatedMargin(b.state)), ZERO)
@@ -541,6 +552,7 @@ function readAccount(answers: Answers, listing: Listing, label: string): { posit
       // the token — the row the venue offers Repay on.
       kind: portfolio && total.isNegative() ? 'debt' : collateralRows.includes(id) ? 'collateral' : 'spot',
       asset: balance.coin,
+      ...(heldAs ? { heldAs } : {}),
       quantity: total,
       delta: total,
       asOf,
@@ -648,7 +660,7 @@ export const hyperliquidConnector: Connector = {
    */
   async fetchPositions(creds: ConnectorCredentials, refresh: Refresh = refreshScope()): Promise<Position[]> {
     const address = creds['address']?.toLowerCase()
-    if (!address) throw new TulaError('Hyperliquid needs a public address.')
+    if (!address) throw new TulaError(`Hyperliquid needs a public address.\n  Reconnect with ${connectCommand(HYPERLIQUID.id)}.`)
 
     // Areas of the account rather than the account: one that fails is named and
     // the balances and positions still arrive. Settled, so a failure of the
@@ -714,18 +726,19 @@ export const hyperliquidConnector: Connector = {
       }
     }
 
-    // The staking account is "Staking Balance + Total Staked" in the app, and
-    // both leave through the unstaking queue; what is in the queue already waits.
-    const hype = (id: string, kind: Position['kind'], quantity: Decimal, held?: VenueHold): Position[] =>
+    // The app's Staking Balance panel: Available to Stake and Total Staked are
+    // both staked, so each takes the panel's name for it or the book lists
+    // staked HYPE twice. The unstaking queue already waits, and is its own kind.
+    const hype = (id: string, kind: Position['kind'], product: string | null, quantity: Decimal, held?: VenueHold): Position[] =>
       quantity.isZero()
         ? []
-        : [{ id: `hyperliquid:${id}:HYPE`, venue: HYPERLIQUID.id, kind, asset: 'HYPE', quantity, delta: quantity, asOf, ...(held ? { held } : {}) }]
+        : [{ id: `hyperliquid:${id}:HYPE`, venue: HYPERLIQUID.id, kind, asset: 'HYPE', ...(product ? { product } : {}), quantity, delta: quantity, asOf, ...(held ? { held } : {}) }]
     if (staking.status === 'fulfilled') {
       const summary = staking.value
       positions.push(
-        ...hype('staked', 'staked', d(summary.delegated)),
-        ...hype('staking-balance', 'staked', d(summary.undelegated)),
-        ...hype('unstaking', 'pending', d(summary.totalPendingWithdrawal), {
+        ...hype('staked', 'staked', 'Total Staked', d(summary.delegated)),
+        ...hype('staking-balance', 'staked', 'Available to Stake', d(summary.undelegated)),
+        ...hype('unstaking', 'pending', null, d(summary.totalPendingWithdrawal), {
           claims: [{ reason: 'wait', quantity: d(summary.totalPendingWithdrawal) }],
         }),
       )
@@ -752,6 +765,8 @@ export const hyperliquidConnector: Connector = {
         venue: HYPERLIQUID.id,
         kind: 'lp',
         asset: 'USDC',
+        // The address is all the equity response names a vault by.
+        product: `vault ${vault.vaultAddress.slice(0, 6).toLowerCase()}…${vault.vaultAddress.slice(-4).toLowerCase()}`,
         quantity: equity,
         delta: ZERO,
         asOf,

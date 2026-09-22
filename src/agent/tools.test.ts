@@ -376,6 +376,8 @@ const taintedEngine: RiskEngine = {
       venue: `${OUTSIDE}v`,
       kind: 'collateral',
       asset: `${OUTSIDE}a1`,
+      heldAs: `${OUTSIDE}h1`,
+      product: `${OUTSIDE}p1`,
       quantity: new Decimal('3'),
       delta: new Decimal('3'),
       asOf: FIXTURE_TIME,
@@ -625,6 +627,16 @@ describe('which of a venue’s accounts a row is about', () => {
   test('the same label is on the positions the distance was computed from', () => {
     const rows = call('get_positions', {}, engineOver(twoWallets)).positions
     expect(rows.map((r: { account: string }) => r.account)).toEqual(['hot (0xabc)', 'vault (0xdef)'])
+  })
+
+  test('a shocked health factor names the address whose market it is', () => {
+    const shocked = call('run_scenario', { shocks: [{ asset: FIXTURE_POSITIONS[2]!.asset, percent: -10 }] }, engineOver(twoWallets))
+    expect(shocked.health_factors.map((r: { account: string }) => r.account)).toEqual(['hot (0xabc)', 'vault (0xdef)'])
+  })
+
+  test('the venue’s own spelling and product reach the model beside the asset', () => {
+    const rows = call('get_positions', {}, engineOver([{ ...FIXTURE_POSITIONS[0]!, heldAs: 'WETH', product: 'BTCUSDT isolated' }])).positions
+    expect(rows[0]).toMatchObject({ held_as: 'WETH', product: 'BTCUSDT isolated' })
   })
 
   test('a venue holding one account says nothing about accounts at all', () => {

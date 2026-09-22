@@ -291,12 +291,11 @@ export const BATCH_SIZE = 40
 export async function ethCallBatch(
   chain: Chain,
   calls: RpcCall[],
-  chunkSize = BATCH_SIZE,
 ): Promise<Array<string | null>> {
   const out: Array<string | null> = new Array(calls.length).fill(null)
 
-  for (let start = 0; start < calls.length; start += chunkSize) {
-    const chunk = calls.slice(start, start + chunkSize)
+  for (let start = 0; start < calls.length; start += BATCH_SIZE) {
+    const chunk = calls.slice(start, start + BATCH_SIZE)
     const body = chunk.map((call, i) => ({
       jsonrpc: '2.0',
       id: start + i,

@@ -402,13 +402,12 @@ function operate(
   op: Op,
   start: number,
   end: number,
-  linewise = false,
 ): VimStep {
   const cs = [...ed.text]
   const from = offset(cs, start)
   const to = offset(cs, end)
   const register = ed.text.slice(from, to)
-  const kept = { ...state, register, linewise }
+  const kept = { ...state, register, linewise: false }
   if (op === 'y') return { state: kept, editor: onCharacter({ ...ed, cursor: from }), effect: null }
   const removed = remove(ed, from, to)
   if (op === 'd') return { state: kept, editor: onCharacter(removed), effect: null }

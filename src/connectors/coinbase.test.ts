@@ -7,6 +7,7 @@ import {
   verify as edVerify,
 } from 'node:crypto'
 import { readFileSync } from 'node:fs'
+import { rowIdentity } from '../core/position.js'
 import { whatBreaksFirst } from '../core/risk.js'
 import { buildJwt, coinbaseConnector, derToJose, loadKey, normalizeKey, perpAsset } from './coinbase.js'
 
@@ -202,6 +203,22 @@ describe('coinbase balances', () => {
 })
 
 describe('coinbase perpetuals', () => {
+  test('two contracts on one asset each name their product', async () => {
+    stub([ACCOUNTS], {
+      '/portfolios/': {
+        breakdown: {
+          perp_positions: [
+            { product_id: 'BTC-PERP-INTX', net_size: '1', position_side: 'FUTURES_POSITION_SIDE_LONG' },
+            { product_id: 'BTC-USDC-PERP-INTX', net_size: '2', position_side: 'FUTURES_POSITION_SIDE_LONG' },
+          ],
+        },
+      },
+    })
+    const rows = await coinbaseConnector.fetchPositions(CREDS)
+    expect(rows.filter((p) => p.kind === 'perp').map((p) => p.product)).toEqual(['BTC-PERP-INTX', 'BTC-USDC-PERP-INTX'])
+    expect(new Set(rows.map(rowIdentity)).size).toBe(rows.length)
+  })
+
   test('a perp is exposure to the asset, not just the cash beside it', async () => {
     stub([ACCOUNTS], { '/portfolios/': BREAKDOWN })
     const positions = await coinbaseConnector.fetchPositions(CREDS)

@@ -26,9 +26,10 @@ import {
   wordToAddress,
   words,
 } from './evm.js'
-import { assetOn } from './symbols.js'
+import { assetOn, spelledAs } from './symbols.js'
 import { PartialRead, type Connector, type ConnectorCredentials, type KeyScope, type PartProgress, type Refresh } from './types.js'
 import { plural } from '../core/format.js'
+import { connectCommand } from '../core/surface.js'
 
 export const AAVE: Venue = {
   id: 'aave',
@@ -470,12 +471,24 @@ async function readMarkets(
     const collateralIds: string[] = []
     const ofInstance: Position[] = []
 
+    // By contract: Arbitrum's and Polygon's markets each list Circle's USDC
+    // and a bridge's, and both answer `symbol()` with `USDC`. Two reserves no
+    // table there tells apart still get the contract's head, as the wallet
+    // does, or one market lists the same name twice.
+    const named = (reserve: Reserve) => {
+      const asset = assetOn(instance.chain, reserve.underlying, reserve.symbol)
+      return { asset, heldAs: spelledAs(reserve.symbol, asset) }
+    }
+    const mine = legs.filter((leg) => leg.instance === instance).map((leg) => named(leg.reserve))
+    const twice = (asset: string, heldAs: string | undefined): boolean =>
+      mine.filter((n) => n.asset === asset && n.heldAs === heldAs).length > 1
+
     legs.forEach((leg, at) => {
       if (leg.instance !== instance) return
       const reserve = leg.reserve
-      // By contract: Arbitrum's and Polygon's markets each list Circle's USDC
-      // and a bridge's, and both answer `symbol()` with `USDC`.
-      const asset = assetOn(instance.chain, reserve.underlying, reserve.symbol)
+      const { asset: shared, heldAs } = named(reserve)
+      const asset = twice(shared, heldAs) ? `${shared} (${reserve.underlying.slice(0, 10).toLowerCase()})` : shared
+      const spelled = heldAs ? { heldAs } : {}
 
       const supplied = toBigInt(words(balances[at] ?? '')[0])
       if (supplied > 0n) {
@@ -506,6 +519,7 @@ async function readMarkets(
           venue: instance.venue,
           kind: secures ? 'collateral' : 'spot',
           asset,
+          ...spelled,
           quantity,
           delta: quantity,
           asOf,
@@ -533,6 +547,7 @@ async function readMarkets(
           venue: instance.venue,
           kind: 'debt',
           asset,
+          ...spelled,
           quantity,
           delta: quantity,
           asOf,
@@ -633,7 +648,7 @@ export const aaveConnector: Connector = {
     onPart?: PartProgress,
   ): Promise<Position[]> {
     const address = creds['address']
-    if (!address) throw new TulaError('Aave needs a public address.')
+    if (!address) throw new TulaError(`Aave needs a public address.\n  Reconnect with ${connectCommand(AAVE.id)}.`)
 
     // Grouped by chain, in the order chains are declared, so the failures below
     // read down the book the way the book does.

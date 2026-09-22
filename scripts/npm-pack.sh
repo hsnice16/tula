@@ -116,8 +116,9 @@ cat >"$WRAPPER/scripts/postinstall.mjs" <<'POSTINSTALL'
  * link. The installed binary is the compiled executable, so running tula never
  * starts Node — Node is needed to install it, not to run it.
  */
-import { chmodSync, copyFileSync } from 'node:fs'
+import { chmodSync, copyFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import { release } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -125,10 +126,19 @@ const require = createRequire(import.meta.url)
 const here = dirname(fileURLToPath(import.meta.url))
 const target = `${process.platform}-${process.arch}`
 
+const launcher = join(here, '..', 'bin', 'tula')
+// Darwin 22 is macOS 13, the oldest Bun supports. Below it the binary is
+// untested, so the launcher says why instead of running it.
+const tooOld = process.platform === 'darwin' && Number(release().split('.')[0]) < 22
+
 try {
-  const source = require.resolve(`@hsnice16/tula-${target}/bin/tula`)
-  const launcher = join(here, '..', 'bin', 'tula')
-  copyFileSync(source, launcher)
+  if (tooOld) {
+    const why = ['tula needs macOS 13 (Ventura) or later.', '  Update it in System Settings > General > Software Update.']
+    writeFileSync(launcher, `#!/bin/sh\n${why.map((line) => `echo '${line}' >&2`).join('\n')}\nexit 1\n`)
+    console.error(why.join('\n'))
+  } else {
+    copyFileSync(require.resolve(`@hsnice16/tula-${target}/bin/tula`), launcher)
+  }
   chmodSync(launcher, 0o755)
 } catch {
   // Left as the placeholder, which says the same thing when run. Exiting

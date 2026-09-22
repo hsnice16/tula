@@ -34,8 +34,6 @@ jobs:
       # The install path ships to users the same way the binary does, and it is
       # the one piece nothing else exercises until a tag is pushed.
       - run: bash scripts/install-test.sh
-      - name: every release target still cross-compiles
-        run: bash scripts/release-build.sh dist/release
 
   # The release job runs `bun run check` on macOS, where the binary is signed, so
   # the same command runs here: a failure only macOS shows has to fail the pull
@@ -54,6 +52,20 @@ jobs:
           node-version: 22
       - run: bun install --frozen-lockfile
       - run: bun run check
+      # Here, not on Linux: the darwin targets are re-signed with codesign, and
+      # release-build.sh refuses without it.
+      - name: every release target still cross-compiles
+        run: bash scripts/release-build.sh dist/release
+      # Launched, not only signature-checked; the Intel build under Rosetta.
+      - name: both macOS builds start
+        run: |
+          set -euo pipefail
+          /usr/bin/pgrep -q oahd || sudo softwareupdate --install-rosetta --agree-to-license
+          for a in arm64:arm64 x64:x86_64; do
+            work=$(mktemp -d)
+            tar -xzf dist/release/tula-v*-darwin-"${a%%:*}".tar.gz -C "$work"
+            arch "-${a##*:}" "$work/tula" --version
+          done
 
   # The site is the published origin of install.sh and of every claim a reader
   # sees before installing anything. Vercel builds it too, but a preview that

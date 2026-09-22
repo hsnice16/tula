@@ -105,8 +105,8 @@ export function mouseReport(chunk: string): MouseReport | null {
  * `mouseReport` matches a chunk that is exactly one report, which is the shape
  * a click arrives in. Mode 1003 reports every *movement*, and a hand crossing
  * the screen produces them faster than stdin is drained — so they arrive
- * several to a chunk, the anchored match failed, and the whole run was typed
- * into the line as the punctuation it looks like.
+ * several to a chunk, the anchored match fails, and the whole run would be
+ * typed into the line as the punctuation it looks like.
  *
  * `rest` is what was between and around them. A trailing partial report stays
  * in `partial` for the caller to prepend to the next chunk.

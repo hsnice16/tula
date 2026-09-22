@@ -3,8 +3,9 @@ import { readFileSync } from 'node:fs'
 import Decimal from 'decimal.js'
 import { portfolioValue } from '../core/exposure.js'
 import { whatBreaksFirst } from '../core/risk.js'
+import { rowIdentity } from '../core/position.js'
 import { krakenConnector, normalizeAsset, sign } from './kraken.js'
-import { isOverScoped } from './types.js'
+import { isOverScoped, PartialRead } from './types.js'
 
 /**
  * Captured from https://api.kraken.com/0/public/Assets on 2026-09-10 — public,
@@ -237,6 +238,30 @@ describe('kraken balances', () => {
     ])
   })
 
+  test('a wallet list that did not load keeps the default wallet and says the rest is missing', async () => {
+    stub({ denied: ['/0/private/ListWalletAccounts'], balanceEx: { ZUSD: { balance: '1000' } } })
+    const err = await krakenConnector.fetchPositions(CREDS).catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(PartialRead)
+    const partial = err as PartialRead
+    expect(partial.positions.map((p) => p.asset)).toEqual(['USD'])
+    expect(partial.failures.join(' ')).toContain('only the default wallet was read')
+  })
+
+  test('a listed wallet with no id is named as not read', async () => {
+    stub({
+      wallets: [
+        { account_id: 'w-main', type: 'main' },
+        { account_id: '', type: 'spot' },
+      ],
+      balance: { 'w-main': { ZUSD: '1000.0000' } },
+    })
+    const err = await krakenConnector.fetchPositions(CREDS).catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(PartialRead)
+    const partial = err as PartialRead
+    expect(partial.positions.map((p) => `${p.venue}:${p.asset}`)).toEqual(['kraken-main:USD'])
+    expect(partial.failures).toEqual(['wallet 2 of 2 was listed with no account id, so it was not read'])
+  })
+
   test('held funds are their own row, not part of what you can move', async () => {
     stub({ balanceEx: { ZUSD: { balance: '1000', hold_trade: '250' } } })
     const positions = await krakenConnector.fetchPositions(CREDS)
@@ -262,6 +287,45 @@ describe('kraken balances', () => {
   test('a zero balance is not a row', async () => {
     stub({ balanceEx: { ZUSD: { balance: '0.0000' } } })
     expect(await krakenConnector.fetchPositions(CREDS)).toEqual([])
+  })
+})
+
+describe('no two kraken rows read alike', () => {
+  test('two wallets of one type are numbered, not listed under one label twice', async () => {
+    stub({
+      wallets: [
+        { account_id: 'w-a', type: 'spot' },
+        { account_id: 'w-b', type: 'spot' },
+        { account_id: 'w-c', type: 'main' },
+      ],
+      balance: { 'w-a': { ZUSD: '10' }, 'w-b': { ZUSD: '20' }, 'w-c': { ZUSD: '30' } },
+    })
+    const rows = await krakenConnector.fetchPositions(CREDS)
+    expect(rows.map((p) => p.venue).sort()).toEqual(['kraken-main', 'kraken-spot-1', 'kraken-spot-2'])
+  })
+
+  test('two positions on one pair and side are one exposure', async () => {
+    stub({
+      positions: {
+        TX1: { pair: 'XXBTZUSD', type: 'buy', vol: '1', vol_closed: '0', cost: '50000', margin: '10000' },
+        TX2: { pair: 'XXBTZUSD', type: 'buy', vol: '0.5', vol_closed: '0', cost: '26000', margin: '13000' },
+      },
+    })
+    const rows = await krakenConnector.fetchPositions(CREDS)
+    expect(rows.map((p) => `${p.kind} ${p.asset} ${p.quantity}`).sort()).toEqual(['collateral BTC 1.5', 'debt USD -76000'])
+    expect(rows.find((p) => p.asset === 'BTC')?.liquidation?.leverage?.toString()).toBe(new Decimal(76000).div(23000).toString())
+  })
+
+  test('one asset on two pairs names the pair each is held on', async () => {
+    stub({
+      positions: {
+        TX1: { pair: 'XXBTZUSD', type: 'buy', vol: '1', vol_closed: '0', cost: '50000', margin: '10000' },
+        TX2: { pair: 'XXBTZEUR', type: 'buy', vol: '1', vol_closed: '0', cost: '46000', margin: '9200' },
+      },
+    })
+    const rows = await krakenConnector.fetchPositions(CREDS)
+    expect(rows.filter((p) => p.asset === 'BTC').map((p) => p.product).sort()).toEqual(['BTC/EUR', 'BTC/USD'])
+    expect(new Set(rows.map(rowIdentity)).size).toBe(rows.length)
   })
 })
 

@@ -205,6 +205,22 @@ export interface Position {
    */
   account?: { id: string; label: string }
 
+  /**
+   * The venue's own name for what is held, where `asset` says something else —
+   * `WETH` under `ETH`, `USD₮0` under `USDT0`, `kPEPE` under `PEPE`. Without it a
+   * wallet holding ETH and WETH is two rows no column tells apart, and which one
+   * to unwrap is exactly what somebody moving it needs.
+   */
+  heldAs?: string
+
+  /**
+   * The venue's own name for what this row is held in, where one label holds
+   * the same asset in more than one: a contract (`BTCUSDT_250926`), a margin
+   * book (`BTCUSDT isolated`), a vault, a staking state. A number is never what
+   * tells two rows apart — the reader has to know which one to act on.
+   */
+  product?: string
+
   /** Sibling positions this one is margined against. A debt is meaningless alone. */
   encumbers?: string[]
 
@@ -224,6 +240,13 @@ export interface Position {
 export function belongsToVenue(positionVenue: VenueId, venueId: VenueId): boolean {
   return positionVenue === venueId || positionVenue.startsWith(`${venueId}-`)
 }
+
+/**
+ * Everything a reader tells one row from another by, numbers aside. Two rows
+ * sharing it read as one holding listed twice, whatever their quantities say.
+ */
+export const rowIdentity = (p: Position): string =>
+  [p.venue, p.account?.id ?? '', p.product ?? '', p.kind, p.asset, p.heldAs ?? ''].join('\u0000')
 
 export interface NetExposure {
   asset: AssetId

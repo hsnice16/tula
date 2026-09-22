@@ -2,8 +2,9 @@ import { createHash, createHmac } from 'node:crypto'
 import Decimal from 'decimal.js'
 import { remote, TulaError } from '../core/errors.js'
 import type { Position, PositionKind, Venue } from '../core/position.js'
-import type { Connector, ConnectorCredentials, KeyScope } from './types.js'
+import { PartialRead, type Connector, type ConnectorCredentials, type KeyScope } from './types.js'
 import { json, request } from '../core/http.js'
+import { connectCommand } from '../core/surface.js'
 
 const BASE = 'https://api.kraken.com'
 const ASSETS = '/0/public/Assets'
@@ -95,7 +96,7 @@ async function call<T>(
   const key = creds['apiKey']
   const secret = creds['apiSecret']
   if (!key || !secret) {
-    throw new KrakenAuthError('The stored Kraken credentials are incomplete.\n  Reconnect with /kraken connect.')
+    throw new KrakenAuthError('The stored Kraken credentials are incomplete.\n  Reconnect with ' + `${connectCommand(KRAKEN.id)}.`)
   }
 
   const body = new URLSearchParams({ nonce: nextNonce(), ...params })
@@ -228,16 +229,25 @@ interface OpenPosition {
   margin?: string
 }
 
-/** Every wallet reads under one label until there are two of them to tell apart. */
-function walletLabel(account: WalletAccount, total: number): string {
-  if (total <= 1) return KRAKEN.id
-  return `${KRAKEN.id}-${account.type ?? 'unknown'}`
+/**
+ * Every wallet reads under one label until there are two of them to tell apart,
+ * and two of one type are numbered in the order Kraken lists them — the id
+ * Kraken gives a wallet is not a name anybody has seen.
+ */
+function walletLabels(accounts: readonly WalletAccount[]): string[] {
+  if (accounts.length <= 1) return accounts.map(() => KRAKEN.id)
+  const types = accounts.map((a) => a.type ?? 'unknown')
+  return types.map((type, i) => {
+    const same = types.filter((t) => t === type).length
+    const nth = types.slice(0, i).filter((t) => t === type).length + 1
+    return same > 1 ? `${KRAKEN.id}-${type}-${nth}` : `${KRAKEN.id}-${type}`
+  })
 }
 
-const MISSING_POSITION_SCOPE =
+const missingPositionScope = (): string =>
   'This Kraken key cannot read open margin positions, so tula cannot tell you what would\n' +
   '  be liquidated first. Add "Query open orders & trades" to the key — it is a query\n' +
-  '  permission and does not allow trading — then reconnect with /kraken connect.'
+  `  permission and does not allow trading — then reconnect with ${connectCommand(KRAKEN.id)}.`
 
 export const krakenConnector: Connector = {
   venue: KRAKEN,
@@ -317,7 +327,7 @@ export const krakenConnector: Connector = {
     // and connect is where the user still has the key page open.
     const positions = await call<unknown>(OPEN_POSITIONS, creds)
     if (!positions.ok && permissionDenied(positions.errors)) {
-      throw new TulaError(MISSING_POSITION_SCOPE)
+      throw new TulaError(missingPositionScope())
     }
 
     const info = await call<ApiKeyInfo>(API_KEY_INFO, creds)
@@ -355,33 +365,41 @@ export const krakenConnector: Connector = {
 
     const open = await call<Record<string, OpenPosition>>(OPEN_POSITIONS, creds)
     if (!open.ok) {
-      throw permissionDenied(open.errors) ? new TulaError(MISSING_POSITION_SCOPE) : new KrakenApiError(open.errors)
+      throw permissionDenied(open.errors) ? new TulaError(missingPositionScope()) : new KrakenApiError(open.errors)
     }
     const margin = Object.entries(open.result)
 
     // Kraken's responses carry no timestamp, so freshness is when we received them.
     const asOf = new Date()
     const positions: Position[] = []
+    const failures: string[] = []
+    if (!wallets.ok) {
+      failures.push(`the wallet list did not load (${remote(wallets.errors.join(', '))}); only the default wallet was read`)
+    }
 
     if (accounts.length <= 1) {
       const balances = await call<Record<string, ExtendedBalance>>(BALANCE_EX, creds)
       if (!balances.ok) throw new KrakenApiError(balances.errors)
-      const label = accounts[0] ? walletLabel(accounts[0], accounts.length) : KRAKEN.id
-      positions.push(...spotRows(balances.result, names, label, asOf, margin.length === 0))
+      positions.push(...spotRows(balances.result, names, KRAKEN.id, asOf, margin.length === 0))
     } else {
-      for (const account of accounts) {
-        if (!account.account_id) continue
+      const labels = walletLabels(accounts)
+      for (const [i, account] of accounts.entries()) {
+        if (!account.account_id) {
+          failures.push(`wallet ${i + 1} of ${accounts.length} was listed with no account id, so it was not read`)
+          continue
+        }
         const balances = await call<Record<string, string>>(BALANCE, creds, {
           account_id: account.account_id,
         })
         if (!balances.ok) throw new KrakenApiError(balances.errors)
         const plain: Record<string, ExtendedBalance> = {}
         for (const [asset, amount] of Object.entries(balances.result)) plain[asset] = { balance: amount }
-        positions.push(...spotRows(plain, names, walletLabel(account, accounts.length), asOf, false))
+        positions.push(...spotRows(plain, names, labels[i]!, asOf, false))
       }
     }
 
     positions.push(...(await marginRows(margin, names, asOf)))
+    if (failures.length > 0) throw new PartialRead(positions, failures)
     return positions
   },
 }
@@ -440,8 +458,11 @@ async function marginRows(
   const pairCodes = [...new Set(entries.map(([, p]) => p.pair).filter((p): p is string => Boolean(p)))]
   const pairs = await publicGet<Record<string, PairInfo>>(ASSET_PAIRS, { pair: pairCodes.join(',') })
 
-  const positions: Position[] = []
-  for (const [txid, position] of entries) {
+  // Several positions on one pair and side are one exposure, as OpenPositions'
+  // own `consolidation=market` sums them; listed per txid they were rows that
+  // differed only in their figures.
+  const books = new Map<string, { base: string; quote: string; short: boolean; size: Decimal; cost: Decimal; initial: Decimal }>()
+  for (const [, position] of entries) {
     const pair = position.pair ? pairs[position.pair] : undefined
     if (!pair?.base || !pair.quote) {
       throw new KrakenApiError([`EGeneral:Unknown pair ${remote(position.pair ?? '')}`])
@@ -450,23 +471,39 @@ async function marginRows(
     const size = new Decimal(position.vol ?? '0').minus(position.vol_closed ?? '0')
     if (size.isZero()) continue
     const short = position.type === 'sell'
-    const cost = new Decimal(position.cost ?? '0')
-    const initial = new Decimal(position.margin ?? '0')
+    const key = `${position.pair}:${short ? 'sell' : 'buy'}`
+    const book = books.get(key) ?? {
+      base: normalizeAsset(pair.base, names).asset,
+      quote: normalizeAsset(pair.quote, names).asset,
+      short,
+      size: new Decimal(0),
+      cost: new Decimal(0),
+      initial: new Decimal(0),
+    }
+    books.set(key, {
+      ...book,
+      size: book.size.plus(size),
+      cost: book.cost.plus(position.cost ?? '0'),
+      initial: book.initial.plus(position.margin ?? '0'),
+    })
+  }
 
-    const base = normalizeAsset(pair.base, names).asset
-    const quote = normalizeAsset(pair.quote, names).asset
+  const positions: Position[] = []
+  for (const [key, { base, quote, short, size, cost, initial }] of books) {
     const exposure = short ? size.negated() : size
     const loan = short ? cost : cost.negated()
+    const product = `${base}/${quote}`
 
     positions.push({
-      id: `${label}:${short ? 'debt' : 'collateral'}:${base}:${txid}`,
+      id: `${label}:${short ? 'debt' : 'collateral'}:${base}:${key}`,
       venue: label,
       kind: short ? 'debt' : 'collateral',
       asset: base,
+      product,
       quantity: exposure,
       delta: exposure,
       asOf,
-      encumbers: [`${label}:${short ? 'collateral' : 'debt'}:${quote}:${txid}`],
+      encumbers: [`${label}:${short ? 'collateral' : 'debt'}:${quote}:${key}`],
       // Kraken publishes no liquidation price and liquidates the account rather
       // than the position, so the distance is unknown. The leverage is what
       // `liquidation` is written for at all — and writing it is what puts this
@@ -476,14 +513,15 @@ async function marginRows(
     })
 
     positions.push({
-      id: `${label}:${short ? 'collateral' : 'debt'}:${quote}:${txid}`,
+      id: `${label}:${short ? 'collateral' : 'debt'}:${quote}:${key}`,
       venue: label,
       kind: short ? 'collateral' : 'debt',
       asset: quote,
+      product,
       quantity: loan,
       delta: loan,
       asOf,
-      encumbers: [`${label}:${short ? 'debt' : 'collateral'}:${base}:${txid}`],
+      encumbers: [`${label}:${short ? 'debt' : 'collateral'}:${base}:${key}`],
     })
   }
 

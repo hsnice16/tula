@@ -59,8 +59,8 @@ async function dispatchVenue(
   if (!connected) {
     const output =
       `${connector.venue.name} is not connected yet.\n` +
-      `  Connect it with:  ${connectCommand(id)}\n` +
-      (connector.help[0] ? `  ${connector.help[0].label}:  ${connector.help[0].url}` : '')
+      `  Connect it with:  ${connectCommand(id)}` +
+      (connector.help[0] ? `\n  ${connector.help[0].label}:  ${connector.help[0].url}` : '')
     return { kind: 'output', output, note: output }
   }
 
@@ -129,10 +129,8 @@ async function dispatchVenue(
 }
 
 /**
- * Where to go when a source will not answer. This named the default whatever
- * had happened, so a failed switch to CoinGecko told the reader to re-run the
- * command that had just failed, and failing away from CoinPaprika sent them
- * somewhere they had never been.
+ * Where to go when a source will not answer. Never the default outright: after
+ * a failed switch to it, that is the command that just failed.
  */
 export function wayBack(previous: string, failed: string): string {
   if (previous !== failed) return `Go back with:  ${typed(`${previous} use`)}`
@@ -177,11 +175,9 @@ async function dispatchPrice(
     }
     const priced = loaded.prices.size
     const held = new Set(loaded.positions.map((p) => p.asset)).size
-    // A source that answers 200 and matches nothing prices the book at nothing,
-    // and `priceError` is null because nothing threw — so the branch above is
-    // never reached and this said `0 assets priced` with no way back beside it.
-    // Held apart from an empty book, which is the same count and not a source
-    // that failed at all.
+    // A source that answers 200 and matches nothing prices the book at nothing
+    // with `priceError` null, because nothing threw. Held apart from an empty
+    // book, which is the same count and not a source that failed at all.
     if (priced === 0 && held > 0) {
       const output =
         `${provider.name} answered, and priced none of your ${held} asset${held === 1 ? '' : 's'}.\n` +
@@ -301,9 +297,8 @@ export async function dispatchCommand(
         // the last one that may report success while a venue is still missing.
         output: `Refreshed ${plural(venueCount, 'venue')}, ${plural(loaded.positions.length, 'position')}.${note}`,
         note,
-        // Every risk command counts a price source that did not answer as part
-        // of what is missing, and this one did not: `tula refresh && tula
-        // exposure` exited 0 and then 1 for the same state.
+        // As every risk command counts it, price source included, or `tula
+        // refresh && tula exposure` exits 0 and then 1 for one state.
         incomplete: commands.isIncomplete(session),
       }
     }
@@ -327,7 +322,7 @@ export async function dispatchCommand(
 
     case 'forget': {
       const target = args[0]
-      if (!target) return { kind: 'output', output: 'Usage: /forget <venue>', usageError: true }
+      if (!target) return { kind: 'output', output: `Usage: ${typed('forget <venue>')}`, usageError: true }
       const stored = await secrets.listVenues()
       if (!stored.includes(target)) {
         return {

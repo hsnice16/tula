@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import Decimal from 'decimal.js'
 import { readFileSync } from 'node:fs'
+import { rowIdentity } from '../core/position.js'
 import { whatBreaksFirst } from '../core/risk.js'
 import { binanceConnector, contractAsset, sign } from './binance.js'
 
@@ -231,6 +232,34 @@ describe('binance contract symbols', () => {
     const positions = await binanceConnector.fetchPositions(CREDS)
     expect(positions[0]?.asset).toBe('BTC')
     expect(whatBreaksFirst(positions, new Map([['BTC', new Decimal(60000)]]))).toHaveLength(1)
+  })
+})
+
+describe('no two binance rows read alike', () => {
+  test('cross margin and an isolated pair holding one asset name the book each is in', async () => {
+    stub({
+      '/api/v3/account': { balances: [] },
+      '/fapi/v2/positionRisk': [],
+      '/sapi/v1/margin/isolated/account': ISOLATED,
+      '/sapi/v1/margin/account': { userAssets: [{ asset: 'BTC', netAsset: '0.2' }] },
+    })
+    const rows = await binanceConnector.fetchPositions(CREDS)
+    expect(rows.filter((p) => p.asset === 'BTC').map((p) => p.product).sort()).toEqual(['BTCUSDT isolated', 'cross'])
+    expect(new Set(rows.map(rowIdentity)).size).toBe(rows.length)
+  })
+
+  test('two contracts on one asset, and both sides of a hedge-mode symbol, are rows of their own', async () => {
+    stub({
+      '/api/v3/account': { balances: [] },
+      '/fapi/v2/positionRisk': [
+        { symbol: 'BTCUSDT', positionSide: 'LONG', positionAmt: '1', liquidationPrice: '0' },
+        { symbol: 'BTCUSDT', positionSide: 'SHORT', positionAmt: '-0.5', liquidationPrice: '0' },
+        { symbol: 'BTCUSDT_250926', positionSide: 'BOTH', positionAmt: '2', liquidationPrice: '0' },
+      ],
+    })
+    const rows = (await binanceConnector.fetchPositions(CREDS)).filter((p) => p.kind === 'perp')
+    expect(rows.map((p) => p.product)).toEqual(['BTCUSDT long', 'BTCUSDT short', 'BTCUSDT_250926'])
+    expect(new Set(rows.map((p) => p.id)).size).toBe(3)
   })
 })
 

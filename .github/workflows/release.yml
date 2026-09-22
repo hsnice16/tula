@@ -134,7 +134,7 @@ jobs:
             echo "configured=true" >>"$GITHUB_OUTPUT"
           else
             echo "configured=false" >>"$GITHUB_OUTPUT"
-            echo "::warning::Apple signing is not configured; macOS binaries ship unsigned."
+            echo "::warning::Apple signing is not configured; macOS binaries ship ad-hoc signed."
           fi
 
       - name: sign and notarize macOS binaries
@@ -218,14 +218,23 @@ jobs:
       # verifies, and a binary that starts. A signed Mach-O that Gatekeeper or a
       # bad re-tar has broken passes every check above and fails on first run.
       - name: the shipped archives verify and run
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
           cd dist/release
           shasum -a 256 -c checksums.txt
-          work=$(mktemp -d)
-          tar -xzf "tula-v${{ steps.version.outputs.version }}-darwin-arm64.tar.gz" -C "$work"
-          "$work/tula" --version
-          rm -rf "$work"
+          # The runner's macOS may still run a binary with a broken signature
+          # that a newer one kills, so launching it alone proves nothing. The
+          # Intel build runs under Rosetta, the path it takes on Apple silicon.
+          /usr/bin/pgrep -q oahd || sudo softwareupdate --install-rosetta --agree-to-license
+          for a in arm64:arm64 x64:x86_64; do
+            work=$(mktemp -d)
+            tar -xzf "tula-v$VERSION-darwin-${a%%:*}.tar.gz" -C "$work"
+            codesign --verify --strict --verbose=2 "$work/tula"
+            arch "-${a##*:}" "$work/tula" --version
+            rm -rf "$work"
+          done
 
       # Signed by GitHub's workflow identity through sigstore: keyless, so there
       # is no signing key for this project to generate, publish, rotate or lose.

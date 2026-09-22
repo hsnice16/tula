@@ -1,9 +1,12 @@
+import type { ConnectorCredentials, CredentialField } from '../connectors/types.js'
+import { TulaError } from '../core/errors.js'
+
 const ETX = '\u0003'
 const DEL = '\u007f'
 const BACKSPACE = '\u0008'
-
-import type { ConnectorCredentials, CredentialField } from '../connectors/types.js'
-import { TulaError } from '../core/errors.js'
+/** An arrow or function key. Its ESC is dropped as a control character and the
+ *  rest would land in the field: ← typed while entering a key made it `…[D`. */
+const ESCAPE = /\u001b(?:\[[0-?]*[ -/]*[@-~]|O.|.)?/g
 
 let piped: string[] | null = null
 
@@ -44,7 +47,7 @@ function fromTty(label: string, hidden: boolean): Promise<string> {
     }
 
     const onData = (chunk: string): void => {
-      for (const ch of chunk) {
+      for (const ch of chunk.replace(ESCAPE, '')) {
         if (ch === '\r' || ch === '\n') {
           restore()
           resolve(buf.trim())
@@ -55,7 +58,7 @@ function fromTty(label: string, hidden: boolean): Promise<string> {
           process.exit(130)
         }
         if (ch === DEL || ch === BACKSPACE) {
-          buf = buf.slice(0, -1)
+          buf = [...buf].slice(0, -1).join('')
           if (!hidden) stdout.write('\b \b')
           continue
         }
@@ -78,12 +81,11 @@ export async function ask(
   opts: { hidden: boolean; command: string },
 ): Promise<string> {
   if (!process.stdin.isTTY) {
-    // A secret is never taken from a pipe, and the prompt no longer tells
-    // anyone to build one: `printf 'KEY\nSECRET\n' | tula connect <venue>` puts
-    // an exchange key in the shell history and in the process list, where it
-    // outlives the command that used it. `src/index.ts` refuses a price-source
-    // key on the command line for the same reason, and the two disagreeing
-    // meant the stricter one was decoration.
+    // A secret is never taken from a pipe: `printf 'KEY\nSECRET\n' | tula
+    // connect <venue>` puts an exchange key in the shell history and in the
+    // process list, where it outlives the command that used it. `src/index.ts`
+    // refuses a price-source key on the command line for the same reason, and
+    // the two disagreeing would make the stricter one decoration.
     if (opts.hidden) {
       throw new TulaError(
         `${opts.command} asks for a secret, so it needs an interactive terminal.\n` +
@@ -98,11 +100,9 @@ export async function ask(
 }
 
 /**
- * One prompt per field the connectable declares, which is the same list the
- * in-app flow walks. A hardcoded key/secret pair here asked Wallet,
- * Hyperliquid and Aave for an API key they do not have — so none of them could
- * be connected from the command line at all — and typed a single-field
- * restricted key in the clear because the pair's first prompt was not secret.
+ * One prompt per field the connectable declares, the same list the in-app flow
+ * walks, each hidden exactly where the field is secret. A fixed key/secret pair
+ * would ask an address venue for a key it does not have.
  */
 export async function askFields(
   fields: readonly CredentialField[],
@@ -124,7 +124,9 @@ export async function askFields(
       hidden: field.secret,
       command: opts.command,
     })
-    if (!value) throw new TulaError(`${field.label} is required.`)
+    if (!value) {
+      throw new TulaError(`${field.label} is required. Nothing was saved; run ${opts.command} again.`)
+    }
     creds[field.name] = value
   }
   return creds

@@ -6,7 +6,7 @@ import { Session } from './cli/session.js'
 import { dispatchCommand, parseCommand } from './cli/shell.js'
 import { CONNECTORS } from './connectors/registry.js'
 import { isOverScoped, overScopedRefusal, retired, unverified } from './connectors/types.js'
-import { remote, TulaError } from './core/errors.js'
+import { failureText, TulaError } from './core/errors.js'
 import { buildOracle } from './prices/providers.js'
 import { envApiKey } from './agent/agent.js'
 import * as secrets from './secrets/store.js'
@@ -107,7 +107,12 @@ async function confirmReplace(
 
 async function connect(venueId: string | undefined): Promise<void> {
   const known = [...CONNECTORS.keys()].join(', ')
-  if (!venueId) fail(`Usage: tula connect <venue>\nAvailable: ${known}`)
+  const connectUsage = `Usage: tula connect <venue>\nAvailable: ${known}`
+  if (venueId === '--help' || venueId === '-h') {
+    console.log(connectUsage)
+    return
+  }
+  if (!venueId) fail(connectUsage)
   const connector = CONNECTORS.get(venueId)
   if (!connector) fail(retired(venueId, forgetCommand(venueId)) ?? `Unknown venue "${venueId}". Available: ${known}`)
 
@@ -140,7 +145,9 @@ async function connect(venueId: string | undefined): Promise<void> {
     scope = await connector.verifyScope(creds)
   } catch (err) {
     console.log('failed.')
-    fail(err instanceof Error ? err.message : remote(String(err)))
+    // The same split the in-app connect screen makes, so a bug is not printed
+    // bare, as though it were the venue's refusal.
+    fail(failureText(err))
   }
   console.log('done.\n')
 
@@ -295,17 +302,8 @@ async function main(): Promise<void> {
     // The environment wins over the stored key, so a shell export can override
     // what is on disk without editing the file.
     const apiKey = envApiKey() ?? (await secrets.getProviderKey())
-    // Imported here rather than at the top, because this is the only branch
-    // that needs Ink and React. The others draw too — `result.output` below is
-    // a table — but they render it themselves through `src/ui/table.ts`, and a
-    // one-shot command was loading a whole reconciler to print it: 82ms to
-    // 56ms on `--version`, measured.
-    //
-    // Not only the cost. Measured on Linux, importing this module leaves
-    // `process.stdin` empty for whatever reads it next when the input came
-    // from a spawned parent rather than a shell pipe — so `tula connect wallet`
-    // reading an address a script fed it was refused on one platform and not
-    // the other. `src/cli/oneshot.test.ts` holds the import where it is.
+    // Imported here, never at the top: the reason is under AGENTS.md's
+    // Conventions, and `src/cli/oneshot.test.ts` holds the import where it is.
     const { runApp } = await import('./ui/run.js')
     await runApp(session, CONNECTORS, apiKey, await secrets.listVenues())
     return
@@ -342,10 +340,8 @@ async function main(): Promise<void> {
       process.exitCode = 1
       return
     }
-    // The usage block on its own says every command there is and not which of
-    // them the typed word failed to be. The shell has named the word and
-    // offered the nearest match since the first release; this path printed a
-    // wall of text and exited 1, which reads as the command having run.
+    // The usage block alone lists every command but not which one the typed
+    // word missed, and exiting 1 under it reads as the command having run.
     const guess = parsed && nearestCommand(parsed.name)
     console.error(
       `Unknown command "${command}".` +

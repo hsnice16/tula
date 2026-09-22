@@ -75,7 +75,10 @@ Highest severity first:
      a column is drawn in, whichever comes first, so a cut never lands inside a
      code point and a wide script cannot push the columns beside it off the row.
      `src/connectors/evm.ts` caps its own decode as well, so a lying ABI length
-     prefix is never allocated.
+     prefix is never allocated. The venue's text beside a symbol — its own
+     spelling where the symbol nets as another (`WETH` beside `ETH`), and the
+     contract or margin book a row is held in (`BTCUSDT isolated`) — is the same
+     listing and takes the same cap in the same place.
 
      What is stripped is every codepoint that is invisible or moves what is
      drawn — `visible()` in `src/core/untrusted.ts`, the one filter all three

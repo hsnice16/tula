@@ -13,11 +13,11 @@ import { forgetCommand } from './registry.js'
 /** What `symbol()` did to a name the venue sent, in the words the reader gets. */
 export type Alteration = 'hidden' | 'empty' | 'long'
 
-/** One asset name a venue spelled in text this build could not print as sent. */
+/** One asset, `heldAs` or `product` name this build could not print as the venue sent it. */
 export interface Altered {
   venue: string
   /**
-   * The bounded name — the one the ASSET column already draws. What the venue
+   * The bounded name — the one the table already draws. What the venue
    * actually sent never travels: it is precisely the string that repaints a
    * line, and printing it to show the reader it was dangerous would be the
    * defect `symbol()` exists to prevent.
@@ -79,22 +79,19 @@ const EMPTY: LoadResult = {
   loadedAt: new Date(0),
 }
 
-// Two of the three strings tula did not write are on this screen: a venue's
-// error text and an asset symbol. Both are drawn in the tables *and* returned
-// to the model as tool results. The symbol is bounded here, the one place every
-// connector arrives; the error text is bounded by `remote()` at the connector
-// that received it, which is the only place that can tell it from tula's own
-// words. The third is the model provider's own error, bounded in
-// `src/agent/agent.ts` and never in a tool result. A fourth has to reach
-// `SECURITY.md` and the `SOURCES` list in `src/site-claims.test.ts` in the same
-// commit — that list is what fails the build when a surface names fewer.
+// Every string tula did not write, and where each is bounded, is listed under
+// AGENTS.md's threat surface. Two arrive here, drawn in the tables *and*
+// returned to the model: a venue's error text and the names on a row. The
+// names are bounded here, the one place every connector arrives; the error
+// text by `remote()` at the connector that received it, the only place that can
+// tell it from tula's own words.
 //
 // Bounding one quietly is what `LoadResult.altered` exists to stop, and it
-// covers the symbol alone. The error text needs no second record: it is already
-// on screen as the venue's own words, on a line opening with that venue's id,
-// under a block saying the venue failed — the reader knows whose text it is
-// reading. A symbol has none of that. It lands in the ASSET column of tula's
-// own table, where it reads as tula's own word for the asset.
+// covers the symbol and the `heldAs` and `product` names beside it. The error
+// text needs no second record: it is already on screen as the venue's own
+// words, on a line opening with that venue's id, under a block saying the venue
+// failed — the reader knows whose text it is reading. A name has none of that:
+// it lands in tula's own table, where it reads as tula's own word.
 
 /**
  * A failure is read as a row, and a break in it reads as a second message. Used
@@ -199,10 +196,20 @@ export function alteration(raw: string): Alteration | null {
  */
 function attributed(p: Position, account: { id: string; label: string } | undefined): Position {
   const asset = symbol(p.asset)
-  if (!account) return asset === p.asset ? p : { ...p, asset }
-  return {
-    ...p,
+  // The venue's spelling beside the asset, and the name of the contract or
+  // book it sits in, are venue text on the same screen as the symbol.
+  const { heldAs: rawHeld, product: rawProduct, ...rest } = p
+  const heldAs = rawHeld === undefined ? '' : symbol(rawHeld)
+  const product = rawProduct === undefined ? '' : symbol(rawProduct)
+  const bounded: Position = {
+    ...rest,
     asset,
+    ...(heldAs !== '' && heldAs !== asset ? { heldAs } : {}),
+    ...(product !== '' ? { product } : {}),
+  }
+  if (!account) return bounded
+  return {
+    ...bounded,
     id: `${account.id}:${p.id}`,
     ...(p.encumbers ? { encumbers: p.encumbers.map((ref) => `${account.id}:${ref}`) } : {}),
     account,
@@ -384,23 +391,24 @@ export class Session {
             read = await connector.fetchPositions(held.credentials, scope, step)
           } catch (err) {
             // A venue spread over several chains has several independent ways to
-            // fail, and catching per connector made the whole book hostage to
-            // whichever public node was rate-limiting: every other chain read
-            // fine and the reader saw none of it. The rows that came back are kept and each
-            // chain's failure is its own line, so what is missing is named and
-            // what is not missing is still on screen. One address of several is
-            // the same shape: the loop carries on to the next one.
+            // fail, and catching per connector would make the whole book hostage
+            // to whichever public node was rate-limiting. The rows that came back
+            // are kept and each chain's failure is its own line, so what is
+            // missing is named and what is not missing is still on screen. One
+            // address of several is the same shape: the loop moves to the next.
             if (err instanceof PartialRead) {
               read = err.positions
               for (const failure of err.failures) say(flat(failure))
             } else say(reason(err))
           }
           for (const p of read) {
-            const why = alteration(p.asset)
-            if (why !== null) {
+            for (const raw of [p.asset, p.heldAs, p.product]) {
+              if (raw === undefined) continue
+              const why = alteration(raw)
+              if (why === null) continue
               const entry: Altered = {
                 venue: venueId,
-                asset: symbol(p.asset),
+                asset: symbol(raw),
                 why,
                 ...(p.chain ? { chain: p.chain } : {}),
               }

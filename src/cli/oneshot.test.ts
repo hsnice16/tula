@@ -384,7 +384,15 @@ describe('a one-shot command keeps its data on stdout and its warnings on stderr
     const { stdout, stderr, status } = run(dir, ['shock', 'ETH'])
     expect(status).toBe(1)
     expect(stdout).toBe('')
-    expect(stderr).toContain('Usage: shock')
+    expect(stderr).toContain('Usage: tula shock <ASSET> <PERCENT>   e.g. tula shock ETH -20')
+  })
+
+  test('connect --help prints its usage rather than refusing a venue', async () => {
+    const dir = await configWith({})
+    const { stdout, stderr, status } = run(dir, ['connect', '--help'])
+    expect(status).toBe(0)
+    expect(stdout).toContain('Usage: tula connect <venue>')
+    expect(stderr).toBe('')
   })
 
   test('a shell-only command prints nothing on stdout', async () => {

@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import Decimal from 'decimal.js'
 import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -36,4 +37,31 @@ test('one refresh hands every address of a venue the same scope, and the next re
   expect(seen[1]).toBe(seen[0])
   expect(seen[3]).toBe(seen[2])
   expect(seen[2]).not.toBe(seen[0])
+})
+
+test('a product or venue spelling the bound changed is reported, as a symbol is', async () => {
+  process.env['TULA_CONFIG_DIR'] = await mkdtemp(join(tmpdir(), 'tula-session-'))
+  await secrets.put('hyperliquid', { address: '0xabc' })
+  const connector: Connector = {
+    ...CONNECTORS.get('hyperliquid')!,
+    fetchPositions: async () => [
+      {
+        id: 'hl:vault',
+        venue: 'hyperliquid',
+        kind: 'spot',
+        asset: 'USDC',
+        heldAs: 'US\u001b[2JDC',
+        product: 'v'.repeat(40),
+        quantity: new Decimal('1'),
+        delta: new Decimal('1'),
+        asOf: new Date(),
+      },
+    ],
+  }
+  const session = new Session(new Map([['hyperliquid', connector]]), oracle)
+
+  const { altered } = await session.refresh()
+
+  expect(altered.map((a) => a.why).sort()).toEqual(['hidden', 'long'])
+  expect(altered.map((a) => a.asset)).toContain('v'.repeat(32))
 })

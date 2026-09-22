@@ -1,4 +1,6 @@
 import type { ChainId } from '../core/position.js'
+import { typed } from '../core/surface.js'
+
 /**
  * The chains tula reads, and how to reach each one.
  *
@@ -17,7 +19,6 @@ import type { ChainId } from '../core/position.js'
  * same way once several chains share them, so only Base lists one, beside two
  * nodes that pass.
  */
-
 
 export interface Chain {
   readonly id: ChainId
@@ -302,7 +303,7 @@ export const tokenListUrl = (chain: Chain): string =>
  * name sent the reader to replace an endpoint that was answering.
  */
 export const rpcRemedy = (chain: Chain): string =>
-  `\n  Retry with /refresh, or set ${chain.rpcEnv[0] ?? 'the chain’s RPC variable'} to another ${chain.name} node.`
+  `\n  Retry with ${typed('refresh')}, or set ${chain.rpcEnv[0] ?? 'the chain’s RPC variable'} to another ${chain.name} node.`
 
 /**
  * What every connector that reads a chain must say it cannot see. Held here so

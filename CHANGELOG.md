@@ -11,6 +11,23 @@ CI and build plumbing, refactors, and doc-only edits — stays in commit message
 
 ## [Unreleased]
 
+### Fixed
+
+- **tula starts on macOS 27.** The macOS binaries shipped with a code signature that did not verify, which earlier releases of macOS let run and macOS 27 kills on launch — `zsh: killed tula`. They are signed on the build machine now, and a release whose binaries do not verify is not published. A tula that is killed cannot update itself: re-run the install line, `brew upgrade`, or `npm install -g @hsnice16/tula`.
+- **No two rows read alike.** Wherever tula lists holdings — the tables, the lines under `/shock` and `/breaks`, a venue's `status`, and what the model is handed — two rows now differ in something other than a number.
+  - An asset counted as another says what the venue calls it: `ETH (as WETH)`, `USDT0 (as USDT)`, `PEPE (as kPEPE)`.
+  - A `PRODUCT` column names the contract, margin book, vault or staking state a row is held in: Binance's cross and isolated margin; each Coinbase perp; Kraken's margin pairs; Hyperliquid's vaults, and staked HYPE under the names its staking panel gives it, Total Staked and Available to Stake.
+  - A venue's own views gain a `VENUE` column wherever its rows come from sub-accounts, builder dexes, markets or chains: `/<venue> positions`, `/<venue> breaks`, and the borrowing table in `/<venue> status`.
+  - Two Kraken wallets of one type are numbered, `kraken-spot-1` and `kraken-spot-2`. Several margin positions on one pair and side are one row, summed as Kraken's own `consolidation=market` sums them.
+  - A token calling itself the chain's gas token, and two Aave reserves one market would list under one name, carry their contract.
+- **Two addresses on one Aave market are two health factors under `/shock`.** They were pooled into one market: the second address's factor was never printed, and the one shown moved on collateral from both.
+- **An update that does not start is never installed.** `install.sh` and `/update install` run the new build once before pointing `tula` at it; one that fails leaves you on the version you had.
+- **tula runs on every Mac from macOS 13.** The Intel build no longer needs AVX2, so it also runs under Rosetta on macOS 13 and 14. The installer fetches the native build on Apple silicon even from a shell running under Rosetta. The installer, Homebrew and npm say so on an older macOS.
+- **An arrow key pressed while typing a key at `tula connect` is not saved into it.** Its escape sequence was stored as part of the secret, and the venue then refused a key that looked right.
+- **A Kraken wallet tula did not read is named.** When Kraken's wallet list fails to load, only the default wallet is read, and the book now says so instead of reading as whole.
+- **A Hyperliquid spot token called `WETH` is not ether.** It netted with ETH and took ether's price; any deployer can list a token under that name.
+- **`tula connect --help` prints connect's usage.** It answered `Unknown venue "--help"`.
+
 ## [0.3.1] - 2026-09-16
 
 ### Fixed

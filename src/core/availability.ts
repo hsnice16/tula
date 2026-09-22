@@ -30,7 +30,7 @@ export interface VenueFacts {
   /**
    * How the venue holds money. A payment processor's hold clears with time and
    * an exchange's clears when you cancel the order, and telling somebody to
-   * wait for a hold they could release now is the dead end rule 7 forbids.
+   * wait for a hold they could release now is a dead end.
    */
   readonly kind: VenueKind
   /**

@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process'
+import { execFile, execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import type { Stats } from 'node:fs'
 import { access, chmod, mkdir, mkdtemp, rename, rm, stat, symlink, writeFile } from 'node:fs/promises'
@@ -32,9 +32,19 @@ const UNPACK_TIMEOUT_MS = 120_000
  */
 export function target(): string {
   const os = process.platform === 'darwin' ? 'darwin' : process.platform === 'linux' ? 'linux' : ''
-  const arch = process.arch === 'arm64' ? 'arm64' : process.arch === 'x64' ? 'x64' : ''
+  const native = process.arch === 'arm64' || (os === 'darwin' && appleSilicon())
+  const arch = native ? 'arm64' : process.arch === 'x64' ? 'x64' : ''
   if (!os || !arch) throw new TulaError(`tula has no build for ${process.platform}-${process.arch}.`)
   return `${os}-${arch}`
+}
+
+/** An Intel build running under Rosetta reports x64; the chip is asked instead. */
+function appleSilicon(): boolean {
+  try {
+    return execFileSync('sysctl', ['-n', 'hw.optional.arm64'], { encoding: 'utf8', timeout: 5_000 }).trim() === '1'
+  } catch {
+    return false
+  }
 }
 
 /**
@@ -270,6 +280,21 @@ export async function applyUpdate(
     // what it unpacks, so a umask of 077 leaves a binary the launcher points at
     // and nothing else on the machine can run.
     await chmod(binary, 0o755)
+
+    // Verified is not runnable: a macOS newer than the build kills a binary
+    // that passed its checksum. The launcher only moves to one that started.
+    try {
+      await run(binary, ['--version'], {
+        timeout: UNPACK_TIMEOUT_MS,
+        killSignal: 'SIGKILL',
+        env: { ...process.env, TULA_NO_UPDATE_CHECK: '1' },
+      })
+    } catch {
+      throw new TulaError(
+        `tula ${version} was downloaded and verified, but does not start on this machine.\n` +
+          `  You are still on ${APP_VERSION}. Report it with your OS version: ${REPO_URL}/issues`,
+      )
+    }
 
     // Renamed over rather than unlinked and remade: a link replaced in two
     // steps has a moment with nothing at the end of it, and that moment is

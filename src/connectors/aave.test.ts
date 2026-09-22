@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { aaveConnector, DEPLOYMENTS, reserveConfig, usedAsCollateral } from './aave.js'
 import { CHAINS, type ChainId, resetRotation } from './chains.js'
+import { rowIdentity } from '../core/position.js'
 import { PartialRead } from './types.js'
 
 /**
@@ -394,7 +395,26 @@ describe('aave across every market on the chain', () => {
   test('WETH nets as ETH wherever the market reports it', async () => {
     stubNode()
     const positions = await aaveConnector.fetchPositions(CREDS)
-    expect(positions.find((p) => p.venue === 'aave-prime')?.asset).toBe('ETH')
+    const row = positions.find((p) => p.venue === 'aave-prime')
+    expect(`${row?.asset} ${row?.heldAs}`).toBe('ETH WETH')
+  })
+
+  test('two reserves one market would list under one name carry their contracts', async () => {
+    const saved = MARKETS[HORIZON.toLowerCase()]!
+    const one = reserve({ id: 0, symbol: 'RWA', supplied: 1n * 10n ** 18n, underlying: '0x1111111100000000000000000000000000000001' })
+    const other = reserve({ id: 1, symbol: 'RWA', supplied: 2n * 10n ** 18n, underlying: '0x2222222200000000000000000000000000000002' })
+    MARKETS[HORIZON.toLowerCase()] = { reserves: [one, other], config: 0n, account: EMPTY_ACCOUNT }
+    try {
+      stubNode()
+      const rows = await aaveConnector.fetchPositions(CREDS)
+      expect(rows.filter((p) => p.venue === 'aave-horizon').map((p) => p.asset)).toEqual([
+        `RWA (${one.underlying.slice(0, 10)})`,
+        `RWA (${other.underlying.slice(0, 10)})`,
+      ])
+      expect(new Set(rows.map(rowIdentity)).size).toBe(rows.length)
+    } finally {
+      MARKETS[HORIZON.toLowerCase()] = saved
+    }
   })
 
   test('a market holding nothing at all contributes no rows', async () => {

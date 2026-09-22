@@ -253,6 +253,18 @@ describe('the tree an update will and will not go into', () => {
    * here checks provenance, so a receipt written here would have the repair run
    * — the thing somebody does to a tree they suspect — skip the attestation.
    */
+  test('refuses a verified build that does not start, and leaves the launcher alone', async () => {
+    const build = join(root, 'dead')
+    await mkdir(build, { recursive: true })
+    await writeFile(join(build, 'tula'), '#!/bin/sh\nexit 137\n')
+    await chmod(join(build, 'tula'), 0o755)
+    await run('tar', ['-czf', join(root, 'dead.tar.gz'), '-C', build, 'tula'])
+    const dead = await readFile(join(root, 'dead.tar.gz'))
+    serve((url) => (url.endsWith('checksums.txt') ? sums(dead, name()) : url.endsWith(name()) ? dead : null))
+    await expect(applyUpdate(NEW, into)).rejects.toThrow(/does not start on this machine/)
+    expect(await stillOnOld()).toBe(true)
+  })
+
   test('writes no install receipt, so the installer still re-verifies this tree', async () => {
     ok()
     await applyUpdate(NEW, into)

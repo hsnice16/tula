@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import type { ConnectorCredentials } from '../connectors/types.js'
 import { TulaError } from '../core/errors.js'
 import { configDir, homeRelative } from '../core/paths.js'
+import { typed } from '../core/surface.js'
 import { visible } from '../core/untrusted.js'
 
 /**
@@ -106,11 +107,6 @@ export class NotARegularFileError extends TulaError {
 }
 
 /**
- * Refusing beats reading the parts we recognise: a venue this build cannot see
- * in the file renders as not connected, and a tool offering to take a key it is
- * already holding is the shape of a phishing page.
- */
-/**
  * Neither a bug nor unfixable, so it names the way out like every other refusal
  * here: without it a truncated or hand-edited store threw a bare `SyntaxError`,
  * which `failureText` renders as "This is a bug in tula, not something you did."
@@ -125,12 +121,17 @@ export class StoreUnreadableError extends TulaError {
   }
 }
 
+/**
+ * Refusing beats reading the parts we recognise: a venue this build cannot see
+ * in the file renders as not connected, and a tool offering to take a key it is
+ * already holding is the shape of a phishing page.
+ */
 export class StoreTooNewError extends TulaError {
   constructor(path: string, version: number) {
     super(
       `${path} was written by a newer tula (format ${version}; this one reads ${FORMAT_VERSION}).\n` +
         '  Reading it would show venues you have connected as unconnected.\n' +
-        '  Run: tula update install\n' +
+        `  Run: ${typed('update install')}\n` +
         `  Or, to start over from nothing: mv ${path} ${path}.old`,
     )
   }
