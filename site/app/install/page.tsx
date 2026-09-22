@@ -180,9 +180,6 @@ const CHANNELS: Channel[] = [
       <>
         <Terminal title="homebrew">{'brew install hsnice16/tap/tula'}</Terminal>
         <p className="mt-5 text-dim">
-          Or run <Code>brew tap hsnice16/tap</Code> once, then <Code>brew install tula</Code>.
-        </p>
-        <p className="mt-4 text-dim">
           Homebrew checks the download against the checksum in the formula.
         </p>
         <p className="mt-4 mb-6 text-dim">
@@ -206,6 +203,10 @@ const CHANNELS: Channel[] = [
         </Step>
 
         <Step title="Update">
+          <p className="mb-4 text-dim">
+            If Homebrew refuses an untrusted tap, run{' '}
+            <Code>brew trust --formula hsnice16/tap/tula</Code> once.
+          </p>
           <Command label="update">{'brew upgrade tula'}</Command>
         </Step>
 
