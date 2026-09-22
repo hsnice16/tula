@@ -85,6 +85,7 @@ need mktemp
 need chmod
 need ln
 need rm
+need mv
 need cat
 need ls
 need id
@@ -295,10 +296,10 @@ check_dir "$BIN_DIR"
 check_dir "$VERSION_DIR"
 
 # Every version stays on disk under its own number, so a run asking for one that
-# is already there has nothing to fetch. It downloaded and re-verified the whole
-# archive regardless — minutes of it, on a link where that is minutes — to arrive
-# at the file it already had. The launcher and the PATH line are still put right
-# below, because repairing those is the other reason to run this twice.
+# is already there has nothing to fetch — re-verifying the archive costs minutes
+# on a slow link to arrive at the file it already has. The launcher and the PATH
+# line are still put right below, because repairing those is the other reason to
+# run this twice.
 #
 # What makes the short cut safe is that every part of it has to be this script's
 # own work: the launcher is a symlink, it points at *this* version directory,
@@ -340,25 +341,34 @@ if [ -z "$ALREADY" ]; then
   note "checking it was built by $REPO"
   verify_attestation "$TMP/$ARCHIVE"
 
-  mkdir -p "$VERSION_DIR" "$BIN_DIR"
-  chmod go-w "$INSTALL_DIR" "$VERSION_DIR" "$BIN_DIR" 2>/dev/null || true
-  tar -xzf "$TMP/$ARCHIVE" -C "$VERSION_DIR" ||
+  mkdir -p "$INSTALL_DIR/versions" "$BIN_DIR"
+  chmod go-w "$INSTALL_DIR" "$INSTALL_DIR/versions" "$BIN_DIR" 2>/dev/null || true
+  # Unpacked beside the version directory, not into it: TULA_FORCE reinstalls
+  # the version the launcher already runs, and a dead build unpacked over it
+  # would be running before the check below could refuse it. Same filesystem,
+  # so the move after the check is a rename; not $TMP, which may be noexec.
+  STAGE=$(mktemp -d "$INSTALL_DIR/versions/.tula.XXXXXX") ||
+    die "Could not write to $(tilde "$INSTALL_DIR/versions")." "Check its permissions, then try again."
+  trap 'rm -rf "$TMP" "$STAGE"' EXIT INT TERM
+  tar -xzf "$TMP/$ARCHIVE" -C "$STAGE" ||
     die "Could not unpack $ARCHIVE." "The download may be truncated; try again."
-  [ -f "$VERSION_DIR/tula" ] || die "$ARCHIVE did not contain a tula binary." \
+  [ -f "$STAGE/tula" ] || die "$ARCHIVE did not contain a tula binary." \
     "Report it: https://github.com/$REPO/issues"
-  chmod 755 "$VERSION_DIR/tula"
+  chmod 755 "$STAGE/tula"
   # A checksum and an attestation prove what was built, not that this machine
   # will run it — a macOS newer than the build kills a binary that passed both.
-  # So it runs once before the receipt or the launcher can name it.
   note "checking it starts"
   # In a subshell that cannot exec it in place, so the shell's own "Killed: 9"
   # report lands in the redirect rather than above the message below.
-  if ! (TULA_NO_UPDATE_CHECK=1 "$VERSION_DIR/tula" --version; exit $?) >/dev/null 2>&1; then
-    rm -f "$RECEIPT"
+  if ! (TULA_NO_UPDATE_CHECK=1 "$STAGE/tula" --version; exit $?) >/dev/null 2>&1; then
     die "tula $VERSION was downloaded and verified, but does not start on this machine." \
-      "Your launcher was left as it was. Report it with your OS version:" \
+      "Nothing was changed. Report it with your OS version:" \
       "https://github.com/$REPO/issues — or pin an earlier release with TULA_VERSION."
   fi
+  mkdir -p "$VERSION_DIR"
+  chmod go-w "$VERSION_DIR" 2>/dev/null || true
+  mv -f "$STAGE/tula" "$VERSION_DIR/tula"
+  [ ! -f "$STAGE/LICENSE" ] || mv -f "$STAGE/LICENSE" "$VERSION_DIR/LICENSE"
   # What the fast path above compares against on the next run. Written after the
   # archive passed its checksum and its attestation, so it records a binary this
   # script verified rather than one it merely found.

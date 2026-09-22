@@ -26,7 +26,7 @@ const made = new Map<string, VenueManifest>([
 ])
 
 /**
- * `/venues` is where the whole of this is read: it is no longer printed beside
+ * `/venues` is where the whole of this is read: it is not printed beside
  * every figure, because coverage does not resolve the way a failure does and a
  * count that never reaches zero teaches the reader to skip the block. The
  * properties below are the same ones, checked on the surface that kept them.

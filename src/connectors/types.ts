@@ -12,7 +12,7 @@ import type { Position, Venue } from '../core/position.js'
  * still degrades loudly — it is a `TulaError`, so the failure text is what
  * reaches the screen, and the rows are lost rather than passed off as complete.
  *
- * `failures` are already sentences: each one names the chain it happened on,
+ * `failures` are already sentences: each one names the part that did not load,
  * which is the whole point of separating them.
  */
 export class PartialRead extends TulaError {

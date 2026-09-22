@@ -3,7 +3,7 @@ import { TulaError } from '../core/errors.js'
 import type { AssetId } from '../core/position.js'
 import { byTicker, UNITY, usablePrice, type PriceOracle, type Quote } from '../core/prices.js'
 import { request } from '../core/http.js'
-import { inShell } from '../core/surface.js'
+import { inShell, typed } from '../core/surface.js'
 
 const QUOTES = 'https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest'
 
@@ -93,5 +93,5 @@ function failure(status: number): TulaError {
         '  Every plan caps calls per month; the free one caps them soonest.',
     )
   }
-  return new TulaError(`CoinMarketCap returned HTTP ${status}. Prices are unavailable; quantities are still correct.`)
+  return new TulaError(`CoinMarketCap returned HTTP ${status}. Prices are unavailable; quantities are still correct.\n  Try ${typed('refresh')} in a moment.`)
 }

@@ -39,8 +39,8 @@ const REQUIRED_MODE = 0o600
 
 export const historyPath = (): string => join(configDir(), 'history.jsonl')
 
-/** The documented way to keep nothing, in the spelling `TULA_NO_UPDATE_CHECK` set. */
-export const historyOff = (): boolean => process.env['TULA_NO_HISTORY'] === '1'
+/** Any value, as `TULA_NO_UPDATE_CHECK` reads it: `=true` recording anyway would be a privacy trap. */
+export const historyOff = (): boolean => Boolean(process.env['TULA_NO_HISTORY'])
 
 /**
  * `.githooks/scan-staged`'s credential patterns, as that script spells them,

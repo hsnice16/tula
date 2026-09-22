@@ -20,11 +20,12 @@ key cannot withdraw.
   `XTZ` intact.
 - `.S`/`.M`/`.B` yield suffixes map to `staked` and `.HOLD` to `pending`;
   duplicates merge into one exposure.
-- `verifyScope` proves withdraw scope and reports trade scope as `unknown`.
+- `verifyScope` proves both powers from `GetApiKeyInfo`, which is gated on none;
+  where it does not answer, trade is `unknown`.
 - No order endpoint is called, including validate-only variants.
 
 ## Notes
 
-Kraken exposes no endpoint that reports a key's permissions, and every endpoint
-gated on trade permission mutates an order. `WithdrawMethods` is gated on
-"Withdraw Funds" but only lists methods, so a success there is proof.
+Every endpoint gated on trade permission mutates an order, so the fallback never
+probes trade. `WithdrawMethods` is gated on "Withdraw Funds" but only lists
+methods, so a success there is proof.

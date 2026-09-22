@@ -100,7 +100,6 @@ const SCHEMA = {
       offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
       softwareVersion: VERSION,
       license: `${REPO}/blob/main/LICENSE`,
-      codeRepository: REPO,
       // The other places this same software is published, so a search engine
       // can tell the repository, the package and the tap are one thing.
       sameAs: [

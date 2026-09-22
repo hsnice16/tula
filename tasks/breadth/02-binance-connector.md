@@ -22,14 +22,14 @@ and belongs in tier 1.
 - Futures positions carry a liquidation price. **Written and unreachable**:
   `enableFutures` sets `canTrade`, so connect refuses every key that could read
   them. Kept because the refusal is the thing that could change.
-- `verifyScope` uses `apiRestrictions`, which unlike Kraken does report permissions.
+- `verifyScope` uses `apiRestrictions`.
 - A key with trade or withdraw permission is refused, and so is one that can take
   a margin loan or move funds between wallets — `enableMargin`,
   `enableInternalTransfer` and `permitsUniversalTransfer` are none of them a
   trade or a withdrawal, and all three passed the gate until `KeyScope` gained
   the axis they sit on.
 - What is left unread is declared in the connector's own `coverage`, so it
-  reaches the `NOT READ` line: the margin level a cross account is liquidated at,
+  reaches `/venues`: the margin level a cross account is liquidated at,
   COIN-M and Portfolio Margin, the funding wallet and the earn products,
   balances frozen or withdrawing, and sub-accounts.
 

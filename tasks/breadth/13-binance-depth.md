@@ -4,7 +4,7 @@
 
 ## Goal
 
-Read the rest of what a Binance account holds. Binance's `NOT READ` line is the
+Read the rest of what a Binance account holds. Binance's list in `/venues` is the
 longest tula prints, because Binance is the venue that keeps money in the most
 places at once — spot, margin, a funding wallet, the earn products, and any
 number of sub-accounts under one login.

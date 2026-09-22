@@ -139,7 +139,7 @@ export function isIncomplete(session: Session): boolean {
  *
  * A venue is out of it only where nothing at all came back from it: a venue
  * that answered in part is exactly what this line is about, and a venue
- * watching several addresses now fails one of them at a time — dropped on the
+ * watching several addresses fails one of them at a time — dropped on the
  * first failure, the wallet that did answer would go undisclosed with it.
  */
 function uncovered(session: Session): Disclosure {
@@ -839,7 +839,7 @@ export async function shock(session: Session, args: string[]): Promise<CommandRe
     return {
       output:
         `"${args[args.length - 1]}" has no percentage after it, so nothing here would move it.\n` +
-        '  Each asset takes one: shock ETH -20 BTC -10\n' +
+        `  Each asset takes one: ${typed('shock ETH -20 BTC -10')}\n` +
         `  ${shockUsage()}`,
       usageError: true,
     }

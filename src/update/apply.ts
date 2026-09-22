@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { promisify } from 'node:util'
 import { TulaError } from '../core/errors.js'
+import { typed } from '../core/surface.js'
 import { DOWNLOAD_TIMEOUT_MS, host, request } from '../core/http.js'
 import { APP_VERSION, REPO_URL, SITE_URL } from '../version.js'
 import type { NativeInstall } from './channel.js'
@@ -24,6 +25,9 @@ const run = promisify(execFile)
  */
 const UNPACK_TIMEOUT_MS = 120_000
 
+/** `--version` answers at once; a build that has not by now is not going to. */
+const LAUNCH_TIMEOUT_MS = 30_000
+
 /**
  * What this machine's build is called in a release. Mirrors `detect_target` in
  * `install.sh`, and is exported for the tests: they have to name the archive
@@ -34,7 +38,11 @@ export function target(): string {
   const os = process.platform === 'darwin' ? 'darwin' : process.platform === 'linux' ? 'linux' : ''
   const native = process.arch === 'arm64' || (os === 'darwin' && appleSilicon())
   const arch = native ? 'arm64' : process.arch === 'x64' ? 'x64' : ''
-  if (!os || !arch) throw new TulaError(`tula has no build for ${process.platform}-${process.arch}.`)
+  if (!os || !arch) {
+    throw new TulaError(
+      `tula has no build for ${process.platform}-${process.arch}.\n  Build from source instead: ${REPO_URL}`,
+    )
+  }
   return `${os}-${arch}`
 }
 
@@ -68,7 +76,7 @@ async function fetchBytes(url: string, onProgress?: DownloadProgress): Promise<B
   if (!response.ok) {
     throw new TulaError(
       `Could not download the update: ${host(url)} returned ${response.status}.\n` +
-        `  Nothing was installed. Try /update again, or ${REPO_URL}/releases`,
+        `  Nothing was installed. Try ${typed('update install')} again, or ${REPO_URL}/releases`,
     )
   }
   // Read in chunks rather than one `arrayBuffer()`, so the caller can say how
@@ -103,7 +111,7 @@ async function fetchBytes(url: string, onProgress?: DownloadProgress): Promise<B
   } catch {
     throw new TulaError(
       `The download from ${host(url)} stopped part-way.\n` +
-        '  Nothing was installed. Try /update install again.',
+        `  Nothing was installed. Try ${typed('update install')} again.`,
     )
   } finally {
     // Released however the read ends. On the very failure the catch above
@@ -260,13 +268,10 @@ export async function applyUpdate(
     } catch {
       throw new TulaError(
         `Could not unpack ${archive}. Nothing was installed.\n` +
-          '  The download may be truncated, or tar may be missing. Try /update install again.',
+          `  The download may be truncated, or tar may be missing. Try ${typed('update install')} again.`,
       )
     }
 
-    // `access` rather than `stat`, whose ENOENT would throw past the message
-    // below as a stack trace — leaving the one archive that unpacks to nothing
-    // as the only failure here that does not say what went wrong.
     const binary = join(dir, 'tula')
     try {
       await access(binary)
@@ -285,7 +290,7 @@ export async function applyUpdate(
     // that passed its checksum. The launcher only moves to one that started.
     try {
       await run(binary, ['--version'], {
-        timeout: UNPACK_TIMEOUT_MS,
+        timeout: LAUNCH_TIMEOUT_MS,
         killSignal: 'SIGKILL',
         env: { ...process.env, TULA_NO_UPDATE_CHECK: '1' },
       })

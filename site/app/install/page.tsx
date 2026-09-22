@@ -183,12 +183,13 @@ const CHANNELS: Channel[] = [
           Homebrew checks the download against the checksum in the formula.
         </p>
         <p className="mt-4 mb-6 text-dim">
-          <Code>tula</Code> gets stable releases; <Code>tula-latest</Code> gets every release.
+          <Code>tula</Code> gets stable releases; <Code>hsnice16/tap/tula-latest</Code> gets every
+          release.
         </p>
         <Aside>
           The tula shell checks for a new release each time it opens. It never installs one without
-          asking, and on Homebrew it does not install one at all: run <Code>brew upgrade tula</Code>
-          .
+          asking, and on Homebrew it does not install one at all: run{' '}
+          <Code>brew upgrade hsnice16/tap/tula</Code>.
         </Aside>
 
         <Step title="One exact version">
@@ -203,11 +204,7 @@ const CHANNELS: Channel[] = [
         </Step>
 
         <Step title="Update">
-          <p className="mb-4 text-dim">
-            If Homebrew refuses an untrusted tap, run{' '}
-            <Code>brew trust --formula hsnice16/tap/tula</Code> once.
-          </p>
-          <Command label="update">{'brew upgrade tula'}</Command>
+          <Command label="update">{'brew upgrade hsnice16/tap/tula'}</Command>
         </Step>
 
         <Step title="Go back">

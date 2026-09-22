@@ -13,7 +13,13 @@ CI and build plumbing, refactors, and doc-only edits — stays in commit message
 
 ### Fixed
 
-- **`brew install hsnice16/tap/tula` works on Homebrew 6 and later.** The formula named `tula-latest` as a conflict, and Homebrew refuses to load a formula from a tap you have not trusted, so the install line failed before downloading anything.
+- **`brew install hsnice16/tap/tula` works on Homebrew 6 and later.** The formula named `tula-latest` as a conflict, and Homebrew refuses to load a formula from a tap you have not trusted, so the install line failed before downloading anything. To update, name the formula in full — `brew upgrade hsnice16/tap/tula` — since Homebrew refuses the short name for an install it holds no trust for.
+- **`TULA_NO_HISTORY` keeps nothing whatever it is set to.** Only `1` turned it off, so `TULA_NO_HISTORY=true` went on saving every line typed.
+- **Asking the assistant about an asset matches however the venue spells it.** A position Hyperliquid names `purr` was missed by a question about `PURR`, and a shock the assistant was asked for below -100% now gets the same refusal `/shock` gives.
+- **`tula connect` no longer says it never asks for a private key** before asking Kraken and Coinbase users for theirs. Address venues are told an address is all tula needs; keyed venues get the read-only key advice the in-app screen gives.
+- **A forced reinstall of a build that does not start leaves the working one in place.** `TULA_FORCE=1` unpacked over the version in use before checking it.
+- **More failures say what to do next:** a price source that is rate-limited or down, a Stripe key of the wrong kind, a redirected request, and every `update` hint, which now spells the command for where it is printed.
+- **Backspace in an empty field at `tula connect`** no longer erases the prompt.
 
 ## [0.3.2] - 2026-09-22
 

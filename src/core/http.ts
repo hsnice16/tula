@@ -81,7 +81,8 @@ const redirected = (url: string): Intercepted =>
   new Intercepted(
     `${host(url)} redirected the request, and tula does not follow redirects.\n` +
       '  Nothing was sent on. This is normal for a captive portal or a proxy\n' +
-      '  that intercepts TLS; on a plain network it is worth treating as suspect.',
+      '  that intercepts TLS; on a plain network it is worth treating as suspect.\n' +
+      '  Sign in to the portal or change networks, then try again.',
   )
 
 /**

@@ -84,6 +84,13 @@ describe('get_positions', () => {
     expect(rows.map((r: { sub_account?: string }) => r.sub_account)).toContain('cex-margin')
   })
 
+  test('an asset filter finds a symbol the venue spelled in lower case', () => {
+    // `get_net_exposure` buckets by the canonical spelling, so the two tools
+    // disagreed about whether the book held it.
+    const rows = call('get_positions', { asset: 'purr' }, engineOver([{ ...FIXTURE_POSITIONS[0]!, asset: 'purr' }])).positions
+    expect(rows).toHaveLength(1)
+  })
+
   test('names a venue the user connected, never a sub-account label they never chose', () => {
     const engine = engineOver([{ ...FIXTURE_POSITIONS[2]!, id: 'sub', venue: 'lend-prime' }])
     // `get_venue_status` folds `lend-prime` under `lend`, because that is the
@@ -147,6 +154,12 @@ describe('run_scenario', () => {
 
   test('malformed shocks are refused rather than guessed at', () => {
     expect(call('run_scenario', { shocks: [{ asset: 'ETH' }] }).error).toContain('signed percent')
+  })
+
+  test('refuses a move the command line refuses, instead of repricing past zero', () => {
+    const error = call('run_scenario', { shocks: [{ asset: 'ETH', percent: -150 }] }).error
+    expect(error).toContain('is not a scenario')
+    expect(error).toContain('-100%')
   })
 
   test('the health factor the tool advertises is in the payload, not left to the model', () => {
@@ -575,7 +588,7 @@ describe('what the venues were never asked for', () => {
   })
 
   test('the tool that carries it says when to call it, so the model can still be right', () => {
-    // Nothing else prompts the model now, so the description is the whole of
+    // Nothing else prompts the model, so the description is the whole of
     // what makes a completeness question reach the list.
     const status = TOOLS.find((t) => t.name === 'get_venue_status')
     expect(status?.description).toContain('never_asked_for')
