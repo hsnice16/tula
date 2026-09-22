@@ -87,6 +87,7 @@ class $CLASS < Formula
   license "MIT"
 
   on_macos do
+    depends_on macos: :ventura
     on_arm do
       url "$BASE/tula-v$VERSION-darwin-arm64.tar.gz"
       sha256 "$SUM_DARWIN_ARM64"

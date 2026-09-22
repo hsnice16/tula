@@ -3,6 +3,7 @@ import { remote, TulaError } from '../core/errors.js'
 import type { Position, Venue } from '../core/position.js'
 import type { Connector, ConnectorCredentials, KeyScope } from './types.js'
 import { json, request } from '../core/http.js'
+import { connectCommand } from '../core/surface.js'
 
 const API = 'https://api.stripe.com/v1'
 
@@ -132,7 +133,7 @@ export const stripeConnector: Connector = {
 
   async fetchPositions(creds: ConnectorCredentials): Promise<Position[]> {
     const apiKey = creds['apiKey']?.trim()
-    if (!apiKey) throw new TulaError('Stripe needs a restricted API key.')
+    if (!apiKey) throw new TulaError(`Stripe needs a restricted API key.\n  Reconnect with ${connectCommand(STRIPE.id)}.`)
 
     const balance = await get<BalanceResponse>('/balance', apiKey)
     const asOf = new Date()

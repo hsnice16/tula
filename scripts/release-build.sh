@@ -11,9 +11,11 @@ VERSION=$(grep -m1 'APP_VERSION' src/version.ts | sed "s/.*'\([^']*\)'.*/\1/")
 
 # The names the installer builds its URLs from. Changing one here without
 # changing install.sh produces a release nobody can install.
+# Baseline on Intel macOS: Bun 1.2's default x64 build needs AVX2, which Rosetta
+# before macOS 15 does not emulate.
 TARGETS=(
   "darwin-arm64:bun-darwin-arm64"
-  "darwin-x64:bun-darwin-x64"
+  "darwin-x64:bun-darwin-x64-baseline"
   "linux-x64:bun-linux-x64"
   "linux-arm64:bun-linux-arm64"
 )
@@ -44,6 +46,14 @@ for entry in "${TARGETS[@]}"; do
   echo "building $name"
   bun build src/index.ts --compile --target="$target" --outfile "$stage/tula"
   chmod 755 "$stage/tula"
+  # Bun 1.2.16 emits darwin binaries whose ad-hoc signature does not verify, and
+  # macOS 27 kills them on launch. The workflow's Developer ID step re-signs over
+  # this when its secrets exist; without them, this is the signature that ships.
+  # No codesign means no fix, so refuse rather than build a binary that dies.
+  if [[ $name == darwin-* ]]; then
+    codesign --force -s - "$stage/tula"
+    codesign --verify --strict "$stage/tula"
+  fi
   # Before the archive exists, so a binary carrying a debug listener is never a
   # file anybody can pick up. Every target, because what gets bundled is decided
   # by what resolves at build time and that is the same for all four.

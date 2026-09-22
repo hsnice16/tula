@@ -4,6 +4,7 @@ import { remote, TulaError } from '../core/errors.js'
 import type { Position, Venue } from '../core/position.js'
 import type { Connector, ConnectorCredentials, KeyScope } from './types.js'
 import { request } from '../core/http.js'
+import { connectCommand } from '../core/surface.js'
 
 const SPOT = 'https://api.binance.com'
 const FUTURES = 'https://fapi.binance.com'
@@ -35,16 +36,14 @@ async function signedGet<T>(
   base: string,
   path: string,
   creds: ConnectorCredentials,
-  params: Record<string, string> = {},
 ): Promise<T> {
   const key = creds['apiKey']
   const secret = creds['apiSecret']
   if (!key || !secret) {
-    throw new TulaError('The stored Binance credentials are incomplete.\n  Reconnect with /binance connect.')
+    throw new TulaError('The stored Binance credentials are incomplete.\n  Reconnect with ' + `${connectCommand(BINANCE.id)}.`)
   }
 
   const query = new URLSearchParams({
-    ...params,
     timestamp: String(Date.now()),
     recvWindow: '10000',
   }).toString()
@@ -97,6 +96,8 @@ interface SpotAccount {
 
 interface FuturesPosition {
   symbol: string
+  /** `BOTH` in one-way mode; `LONG` and `SHORT` are two rows on one symbol in hedge mode. */
+  positionSide?: string
   positionAmt: string
   liquidationPrice?: string
   leverage?: string
@@ -264,12 +265,14 @@ export const binanceConnector: Connector = {
       if (size.isZero()) continue
       const asset = contractAsset(p.symbol)
       const liquidation = p.liquidationPrice ? new Decimal(p.liquidationPrice) : null
+      const side = p.positionSide === 'LONG' || p.positionSide === 'SHORT' ? p.positionSide.toLowerCase() : null
 
       positions.push({
-        id: `binance:perp:${p.symbol}`,
+        id: `binance:perp:${p.symbol}${side ? `:${side}` : ''}`,
         venue: BINANCE.id,
         kind: 'perp',
         asset,
+        product: side ? `${p.symbol} ${side}` : p.symbol,
         quantity: size,
         delta: size,
         asOf,
@@ -301,7 +304,9 @@ async function marginPositions(creds: ConnectorCredentials, asOf: Date): Promise
   const label = `${BINANCE.id}-margin`
   const positions: Position[] = []
 
-  const row = (asset: string, raw: string | undefined, id: string, price?: Decimal) => {
+  // Cross and every isolated pair are separate books under one label, and
+  // Binance names them so: Cross Margin, and Isolated Margin by pair.
+  const row = (asset: string, raw: string | undefined, id: string, product: string, price?: Decimal) => {
     const quantity = new Decimal(raw ?? '0')
     if (quantity.isZero()) return
     positions.push({
@@ -309,6 +314,7 @@ async function marginPositions(creds: ConnectorCredentials, asOf: Date): Promise
       venue: label,
       kind: quantity.isNegative() ? 'debt' : 'collateral',
       asset,
+      product,
       quantity,
       delta: quantity,
       asOf,
@@ -321,7 +327,7 @@ async function marginPositions(creds: ConnectorCredentials, asOf: Date): Promise
 
   const cross = await optional<CrossMarginAccount>(SPOT, '/sapi/v1/margin/account', creds)
   for (const asset of cross?.userAssets ?? []) {
-    if (asset.asset) row(asset.asset, asset.netAsset, `${label}:cross:${asset.asset}`)
+    if (asset.asset) row(asset.asset, asset.netAsset, `${label}:cross:${asset.asset}`, 'cross')
   }
 
   const isolated = await optional<IsolatedMarginAccount>(SPOT, '/sapi/v1/margin/isolated/account', creds)
@@ -332,8 +338,8 @@ async function marginPositions(creds: ConnectorCredentials, asOf: Date): Promise
     const quote = pair.quoteAsset?.asset
     // The liquidation price is quoted in the quote asset and reached by the
     // base asset moving, so it belongs to the base leg and nowhere else.
-    if (base) row(base, pair.baseAsset?.netAsset, `${label}:${pair.symbol}:${base}`, price)
-    if (quote) row(quote, pair.quoteAsset?.netAsset, `${label}:${pair.symbol}:${quote}`)
+    if (base) row(base, pair.baseAsset?.netAsset, `${label}:${pair.symbol}:${base}`, `${pair.symbol} isolated`, price)
+    if (quote) row(quote, pair.quoteAsset?.netAsset, `${label}:${pair.symbol}:${quote}`, `${pair.symbol} isolated`)
   }
 
   return positions

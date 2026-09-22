@@ -38,6 +38,19 @@ export function canonical(symbol: string): string {
   return WRAPS[upper] ?? upper
 }
 
+/**
+ * The venue's spelling of a holding, where the asset it nets as names another
+ * ticker — `WETH` under `ETH`, Polygon's `USDT` under `USDT0`, a bridge's
+ * `USDC` under `arbitrum:USDC.E`. Only the ticker is compared: a chain scope or
+ * an address head says where the token is, not that it is called something
+ * else, and case alone is presentation.
+ */
+export function spelledAs(raw: string, asset: string): string | undefined {
+  const ticker = asset.replace(/^[a-z]+:/, '').replace(/(@[0-9a-f]+)?( \(0x[0-9a-f]+\))?$/, '')
+  const said = raw.trim()
+  return said.toUpperCase() === ticker.toUpperCase() ? undefined : said
+}
+
 const key = (chain: Chain, address: string): string => `${chain.eip155}:${address.toLowerCase()}`
 
 /**

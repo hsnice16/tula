@@ -80,7 +80,7 @@ const FLAGS = [
  * the rows most worth printing, and a target list cannot carry them.
  */
 const SYSTEMS = [
-  ['macOS', 'Yes', 'Intel and ARM, 64-bit.'],
+  ['macOS 13 or later', 'Yes', 'Intel and ARM, 64-bit.'],
   ['Linux', 'Yes', 'Intel and ARM, 64-bit. Needs glibc.'],
   ['Alpine, or any musl Linux', 'No', 'The installer says so and stops.'],
   ['Windows', 'Through WSL', 'Install inside WSL. There is no native build.'],
@@ -242,12 +242,12 @@ const CHANNELS: Channel[] = [
         <p className="mb-6 text-dim">Node is needed to install it, not to run it.</p>
         <Aside>
           The tula shell checks for a new release each time it opens. It never installs one without
-          asking, and on npm it does not install one at all: run <Code>npm update</Code>.
+          asking, and on npm it does not install one at all: run the update below.
         </Aside>
 
         <Step title="One exact version">
           <p className="mb-4 text-dim">
-            Name the version. <Code>npm update</Code> moves you back to the newest.
+            Name the version. Installing without one moves you back to the newest.
           </p>
           <Command label="npm, one version">{'npm install -g @hsnice16/tula@<version>'}</Command>
         </Step>
@@ -358,7 +358,7 @@ export default function Page() {
         </div>
         <Terminal title="verify">
           {
-            "curl --proto '=https' --tlsv1.2 -fLO https://github.com/hsnice16/tula/releases/download/v0.3.1/tula-v0.3.1-darwin-arm64.tar.gz\ngh attestation verify tula-v0.3.1-darwin-arm64.tar.gz --repo hsnice16/tula --signer-workflow hsnice16/tula/.github/workflows/release.yml"
+            "curl --proto '=https' --tlsv1.2 -fLO https://github.com/hsnice16/tula/releases/download/v0.3.2/tula-v0.3.2-darwin-arm64.tar.gz\ngh attestation verify tula-v0.3.2-darwin-arm64.tar.gz --repo hsnice16/tula --signer-workflow hsnice16/tula/.github/workflows/release.yml"
           }
         </Terminal>
         <p className="mt-4 text-dim">

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import Decimal from 'decimal.js'
-import { belongsToVenue } from '../core/position.js'
+import { belongsToVenue, rowIdentity } from '../core/position.js'
 import { minorUnits, stripeConnector } from './stripe.js'
 
 const original = globalThis.fetch
@@ -130,6 +130,12 @@ describe('stripe balance buckets', () => {
     const prefunding = positions.filter((p) => p.venue === 'stripe-prefunding')
     expect(prefunding.find((p) => p.kind === 'spot')?.quantity.toString()).toBe('100')
     expect(prefunding.find((p) => p.kind === 'pending')?.quantity.toString()).toBe('50')
+  })
+
+  test('no two rows read alike', async () => {
+    stub(BALANCE)
+    const positions = await stripeConnector.fetchPositions({ apiKey: 'rk_live_x' })
+    expect(new Set(positions.map(rowIdentity)).size).toBe(positions.length)
   })
 
   test('every row belongs to Stripe however its bucket is labelled', async () => {

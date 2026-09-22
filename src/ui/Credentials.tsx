@@ -16,9 +16,9 @@ const MASK_CELLS = 48
 /**
  * `first-run` is someone who has nothing and has not seen the tool yet;
  * `manage` is /login, reached by someone mid-session who wants to know what
- * they are signed in with and change it. Showing the first-run screen for both
- * was the bug: it re-announced the product, told a user with venues connected
- * to go connect one, and never said what the current credential was.
+ * they are signed in with and change it. The first-run screen there would
+ * re-announce the product, tell a user with venues to connect one, and never
+ * say what the current credential is.
  */
 export type CredentialsMode = 'first-run' | 'manage'
 
@@ -166,7 +166,9 @@ export function Credentials({ mode, source, onDone }: Props) {
       if (enter || pasted.submits) {
         const candidate = insert(key, pasted.text).text.trim()
         if (!candidate.startsWith('sk-ant-')) {
-          setError('That does not look like an Anthropic key — they start with sk-ant-.')
+          setError(
+            'That does not look like an Anthropic key — they start with sk-ant-. Make one at console.anthropic.com/settings/keys.',
+          )
           setKey(lineEditor('', { secret: true }))
           return
         }

@@ -5,9 +5,15 @@ dist/
 # Belt and braces: credentials live in ~/.config/tula, never the repo.
 # This catches a stray copy before it reaches a commit.
 *.key
+*.pem
+.npmrc
 credentials.json
 .env
 .env.*
+# What TULA_CONFIG_DIR holds, should a scratch run point it inside the tree.
+history.jsonl
+state.json
+preferences.json
 
 # The site is a separate package: its dependencies never enter the binary.
 site/node_modules

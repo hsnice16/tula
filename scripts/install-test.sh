@@ -83,7 +83,7 @@ mkdir -p "$BIN"
 # decompresses in-process — so a list built by reading install.sh on a laptop
 # misses it, and every extraction fails on Linux with "Cannot exec".
 for tool in sh env cp tar gzip gunzip uname mkdir grep cut sed basename dirname \
-  mktemp chmod ln rm cat ls id readlink sha256sum shasum openssl; do
+  mktemp chmod ln rm cat ls id readlink sha256sum shasum openssl sw_vers sysctl; do
   path=$(command -v "$tool" 2>/dev/null) && ln -sf "$path" "$BIN/$tool"
 done
 
@@ -426,6 +426,74 @@ else
   bad "refuses an install tree other users can write to, and installs nothing" "$out"
 fi
 
+
+# A Mac, whatever this suite runs on: `uname`, `sw_vers` and `sysctl` answer as
+# one would, and each case restores the real tools after itself.
+as_mac() {
+  mv "$BIN/uname" "$BIN/uname.real"
+  # Unlinked first: writing through the symlink would target the real tool.
+  rm -f "$BIN/sw_vers" "$BIN/sysctl"
+  printf '#!/bin/sh\ncase "$1" in -s) echo Darwin ;; -m) echo %s ;; esac\n' "$1" >"$BIN/uname"
+  printf '#!/bin/sh\necho %s\n' "$2" >"$BIN/sw_vers"
+  printf '#!/bin/sh\necho %s\n' "$3" >"$BIN/sysctl"
+  chmod 755 "$BIN/uname" "$BIN/sw_vers" "$BIN/sysctl"
+}
+real_platform() {
+  rm -f "$BIN/uname" "$BIN/sw_vers" "$BIN/sysctl"
+  mv "$BIN/uname.real" "$BIN/uname"
+  for tool in sw_vers sysctl; do
+    path=$(command -v "$tool" 2>/dev/null) && ln -sf "$path" "$BIN/$tool"
+  done
+}
+
+H="$WORK/h-old-mac"
+mkdir -p "$H"
+as_mac arm64 12.7.4 1
+out=$(run "$H")
+real_platform
+if [ ! -e "$H/.tula/bin/tula" ] && case "$out" in *"needs macOS 13"*"12.7.4"*) true ;; *) false ;; esac; then
+  ok "refuses a macOS older than the runtime supports, and installs nothing"
+else
+  bad "refuses a macOS older than the runtime supports, and installs nothing" "$out"
+fi
+
+H="$WORK/h-rosetta"
+mkdir -p "$H"
+as_mac x86_64 15.1 1
+out=$(run "$H")
+real_platform
+case "$out" in *"darwin-arm64"*) ok "installs the native build from a shell running under Rosetta" ;;
+  *) bad "installs the native build from a shell running under Rosetta" "$out" ;; esac
+
+H="$WORK/h-intel"
+mkdir -p "$H"
+as_mac x86_64 13.0 0
+out=$(run "$H")
+real_platform
+case "$out" in *"darwin-x64"*) ok "installs the Intel build on an Intel Mac" ;;
+  *) bad "installs the Intel build on an Intel Mac" "$out" ;; esac
+
+# Verified and still dead on arrival: the launcher must not be pointed at it.
+H="$WORK/h-dead"
+mkdir -p "$H"
+cp -R "$RELEASE" "$WORK/release.bak"
+printf '#!/bin/sh\nexit 137\n' >"$RELEASE/stage/tula"
+for t in darwin-arm64 darwin-x64 linux-x64 linux-arm64; do
+  tar -czf "$RELEASE/tula-v9.9.9-$t.tar.gz" -C "$RELEASE/stage" tula LICENSE
+done
+if command -v sha256sum >/dev/null 2>&1; then
+  (cd "$RELEASE" && sha256sum ./*.tar.gz | sed 's| \./| |' >checksums.txt)
+else
+  (cd "$RELEASE" && shasum -a 256 ./*.tar.gz | sed 's| \./| |' >checksums.txt)
+fi
+out=$(run "$H")
+rm -rf "$RELEASE" && mv "$WORK/release.bak" "$RELEASE"
+if [ ! -e "$H/.tula/bin/tula" ] && [ ! -e "$H/.tula/versions/9.9.9/.tula-sha256" ] &&
+  case "$out" in *"does not start on this machine"*) true ;; *) false ;; esac; then
+  ok "refuses a verified binary that does not start, and leaves the launcher alone"
+else
+  bad "refuses a verified binary that does not start, and leaves the launcher alone" "$out"
+fi
 
 # Nothing above may have touched a profile outside the sandbox. This test edits
 # shell config, so a leak is silent, permanent and in someone's real home.

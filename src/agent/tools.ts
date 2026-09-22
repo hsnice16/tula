@@ -28,7 +28,7 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: 'get_positions',
     description:
-      'Individual positions, un-netted, as each venue reports them, with how much of each holding is free to move and what is holding the rest. free_to_move is the answer to "can I actually spend this"; the quantity beside it is exposure and moves with the price whether it can be moved or not.',
+      'Individual positions, un-netted, as each venue reports them, with how much of each holding is free to move and what is holding the rest. free_to_move is the answer to "can I actually spend this"; the quantity beside it is exposure and moves with the price whether it can be moved or not. held_as is the venue’s own name for an asset counted as another (WETH counted as ETH), and product is the contract, margin book, vault or staking state a row is held in: name them whenever two rows share a venue, kind and asset.',
     input_schema: {
       type: 'object',
       properties: {
@@ -94,7 +94,7 @@ const money = (value: Decimal | null): string | null => (value === null ? null :
  * job is that they never look alike: a figure `money`, `quantity` and the rest
  * rendered, or text a venue wrote. The second kind goes through `untrusted()`,
  * which types it so it cannot be assigned to a field declared as the first, and
- * `seal()` then publishes the paths it sits at. Nothing is wrapped — rule 2 has
+ * `seal()` then publishes the paths it sits at. Nothing is wrapped — rule 6 has
  * the model quote these back verbatim, so the mark has to live beside the value
  * rather than around it.
  */
@@ -134,6 +134,16 @@ export function executeTool(engine: RiskEngine, name: string, input: unknown): u
    */
   const from = (p: Position): { account?: string } =>
     p.account ? { account: p.account.label } : {}
+
+  /**
+   * What tells two rows apart where venue, kind and asset do not: the venue's
+   * own spelling of the asset, and the contract, book or vault it is held in.
+   * Both are the venue's text.
+   */
+  const held = (p: Position): { held_as?: Untrusted; product?: Untrusted } => ({
+    ...(p.heldAs ? { held_as: untrusted(p.heldAs) } : {}),
+    ...(p.product ? { product: untrusted(p.product) } : {}),
+  })
 
   // Every numeric answer carries whether the book behind it was complete.
   // The CLI has said this since the first release; the model was told only in
@@ -229,6 +239,7 @@ export function executeTool(engine: RiskEngine, name: string, input: unknown): u
             ...from(p),
             kind: p.kind,
             asset: untrusted(p.asset),
+            ...held(p),
             quantity: quantity(p.quantity),
             // Absent on a debt or a short: it is not a holding, so there is
             // nothing about it to free.
@@ -272,6 +283,7 @@ export function executeTool(engine: RiskEngine, name: string, input: unknown): u
         ...named(r.position.venue),
         ...from(r.position),
         asset: untrusted(r.position.asset),
+        ...held(r.position),
         kind: r.position.kind,
         move_to_liquidation:
           r.liquidatable ? 'liquidatable now' : r.move === null ? null : pct(r.move),
@@ -300,6 +312,7 @@ export function executeTool(engine: RiskEngine, name: string, input: unknown): u
               liquidated_with_this_account: (r.members ?? []).map((p) => ({
                 kind: p.kind,
                 asset: untrusted(p.asset),
+                ...held(p),
                 ...(p.liquidation?.price ? { liquidation_price: price(p.liquidation.price) } : {}),
               })),
             }
@@ -333,6 +346,7 @@ export function executeTool(engine: RiskEngine, name: string, input: unknown): u
         ...from(p),
         kind: p.kind,
         asset: untrusted(p.asset),
+        ...held(p),
       })
 
       // The description promised these and the payload carried none, so the
@@ -347,6 +361,7 @@ export function executeTool(engine: RiskEngine, name: string, input: unknown): u
       // the one who has to know which of the two they are looking at.
       const healthFactors = engine.shockedHealthFactors(shocks).map((r) => ({
         ...named(r.venue),
+        ...(r.account ? { account: r.account.label } : {}),
         health_factor_before: healthFactor(r.before),
         health_factor_after: r.after === null ? null : healthFactor(r.after),
         debt_this_shock_moves: r.debt === null ? null : r.debt.assets.map(untrusted),
@@ -384,6 +399,7 @@ export function executeTool(engine: RiskEngine, name: string, input: unknown): u
         health_factors: healthFactors,
         account_ratios: result.ratios.map((r) => ({
           ...named(r.position.venue),
+          ...from(r.position),
           name: r.ratio.name,
           before: ratioValue(r.ratio),
           after: r.after === null ? null : marginRatio(r.after),

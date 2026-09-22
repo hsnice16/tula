@@ -95,8 +95,8 @@ interface Entry {
   /**
    * The tail of `text` that truncation may not hold back. A total omitting a
    * venue prints `INCOMPLETE` beneath it, and that block is appended last —
-   * exactly where the preview cuts, so past twelve rows the answer arrived
-   * looking whole and the caveat did not arrive at all.
+   * exactly where the preview cuts, so past twelve rows the answer would look
+   * whole and the caveat would not be on screen at all.
    */
   pinned?: string
 }
@@ -295,8 +295,8 @@ interface Forget {
 function loadLabel(step: LoadStep): string {
   if (step.kind !== 'venue') return `pricing ${step.assets} asset${step.assets === 1 ? '' : 's'}`
   const where = `reading ${step.venue}${step.account ? ` (${step.account})` : ''}`
-  // A venue over nine chains held one unchanging label for the whole read, and
-  // an unchanging label is what a hang looks like. The count only ever goes up,
+  // One unchanging label over a nine-chain read is what a hang looks like.
+  // The count only ever goes up,
   // and it is a count rather than the name of whichever chain is outstanding:
   // a label that churns through nine names is the motion AGENTS.md rules out.
   return step.total !== undefined && step.total > 1 && step.done !== undefined
@@ -551,10 +551,9 @@ export function App({
         ? new Agent(riskEngineFor(session), initialApiKey ? { apiKey: initialApiKey } : {})
         : null),
   )
-  // An ambient profile is a credential, so it settles this screen exactly as it
-  // settles the agent above. Gating on the key string alone asked a user who was
-  // already signed in to sign in again on every start, while the status line
-  // beside it reported the agent live.
+  // An ambient profile settles this screen exactly as it settles the agent
+  // above, or a user already signed in is asked to sign in on every start
+  // while the status line reports the agent live.
   const [credentials, setCredentials] = useState<CredentialsScreen | null>(() =>
     initialApiKey === undefined && !hasAmbientCredentials()
       ? { mode: 'first-run', source: 'none' }
@@ -616,7 +615,7 @@ export function App({
   /**
    * `editor`, as the last key left it. Ink hands over every key of one read
    * before a render, and each reading state edits the line from before the
-   * first: `abc`, backspace and Enter sent an empty line.
+   * first: `abc`, backspace and Enter would send an empty line.
    */
   const editorNow = useRef(editor)
   const setEditor = useCallback((next: LineEditor | ((ed: LineEditor) => LineEditor)) => {
@@ -680,7 +679,7 @@ export function App({
   const [keysOpen, setKeysOpen] = useState(false)
   /** Null while vim editing is off, which it is until somebody turns it on. */
   const [vim, commitVim] = useState<VimState | null>(null)
-  /** `vim`, as the last key left it, for the reason `editorNow` is: `dw` then `.` in one read repeated nothing. */
+  /** `vim`, as the last key left it, for the reason `editorNow` is: `dw` then `.` in one read would repeat nothing. */
   const vimNow = useRef<VimState | null>(null)
   const setVim = useCallback(
     (next: VimState | null | ((v: VimState | null) => VimState | null)) => {
@@ -761,9 +760,8 @@ export function App({
     async (result: CredentialsResult) => {
       // The two reads are inside it too. `store.load()` throws by design on a
       // store whose mode drifted, one reached through a symlink, or one a newer
-      // build wrote — the refusals it exists to make — and left outside the
-      // catch those became an unhandled rejection at the moment somebody had
-      // just signed in, with the sentence explaining why never drawn.
+      // build wrote — and outside the catch that is an unhandled rejection, with
+      // the sentence explaining why never drawn.
       let source: Awaited<ReturnType<typeof credentialSource>>
       let key: string | undefined
       try {
@@ -796,7 +794,7 @@ export function App({
         )
       }
       if (source === 'none') {
-        return push('error', 'Nothing signed in. Try again, or paste an API key.')
+        return push('error', 'Nothing signed in. Run /login to try again, or to paste an API key.')
       }
       push(
         'notice',
@@ -906,10 +904,9 @@ export function App({
         return { id, connected: true, addressOnly, detail }
       }
       const mine = positions.filter((p) => belongsToVenue(p.venue, id))
-      // reduce() over no rows answers with its seed, so a venue connected and
-      // holding nothing drew the current time as the age of data it does not
-      // have — in the menu AGENTS.md calls the venue overview. Same fix as
-      // `venueStatus` in src/cli/commands.ts.
+      // Seeded with null, not now: reduce() over no rows answers with its seed,
+      // and a venue holding nothing has no age to show. `venueStatus` in
+      // src/cli/commands.ts does the same.
       const stalest = mine.reduce<Date | null>((min, p) => (min && min < p.asOf ? min : p.asOf), null)
       const held = holdings(connector.venue.kind, mine)
       return {
@@ -1104,7 +1101,7 @@ export function App({
   const status = useMemo(() => {
     const { positions, failures } = session.current
     // The venues the user connected that this build reads — the same split the
-    // banner names, so the two can no longer state different numbers about one
+    // banner names, so the two cannot state different numbers about one
     // store. Counted off the store rather than off the rows: one Aave address
     // holding positions in three of its markets is one venue, and a venue that
     // answered with nothing is still one that is connected.
@@ -1127,10 +1124,9 @@ export function App({
     }
     parts.push(`${positions.length} position${positions.length === 1 ? '' : 's'}`)
     if (stalest) parts.push(freshness(stalest))
-    // Removed, failed and never-asked are three different things. Counting a
-    // venue this build dropped among the failures reported an outage about a
-    // venue nothing was asked of, eight lines under a block saying so.
-    // By venue, and a venue that answered in part is not one that failed.
+    // Removed, failed and never-asked are three different things: a venue this
+    // build dropped, counted as failed, is an outage about a venue nothing was
+    // asked of. By venue, and a venue that answered in part is not one that failed.
     const failed = new Set(failures.map(failedVenue).filter((v) => !removed.includes(v)))
     const partial = answeredInPart(session.current).length
     if (failed.size > partial) parts.push(`${failed.size - partial} failed`)
@@ -1344,8 +1340,7 @@ export function App({
             parsed,
             venueEntries,
             // `/update install` pulls tens of megabytes. Without a label the
-            // spinner reads `working` for the whole of it, which is the hang
-            // `install.sh` used to look like before it kept curl's meter.
+            // spinner reads `working` for the whole of it, which reads as a hang.
             (received, total) => setActivity(downloaded(received, total)),
           )
           if (result.kind === 'connect') {
@@ -1391,9 +1386,8 @@ export function App({
           } else {
             push('output', result.output, caveat(result))
             // Both commands that take credentials off disk, not just the one
-            // spelled as a subcommand: /forget left the menu drawing a venue as
-            // connected, and /<venue> status answering from the connected branch,
-            // for the rest of the session.
+            // spelled as a subcommand: unread after /forget, the menu draws the
+            // venue as connected for the rest of the session.
             if (parsed.args[0] === 'disconnect' || parsed.name === 'forget') {
               await refreshConnected()
             }
@@ -1407,33 +1401,33 @@ export function App({
           let repeats = 0
           let lastTool = ''
           // A turn boundary is where the model stopped to use a tool, and the
-          // deltas do not carry it. Concatenating across it ran the sentence it
-          // left off on straight into the answer that came back.
+          // deltas do not carry it. Concatenated across it, the sentence it left
+          // off on runs straight into the answer that came back.
           let seam = false
           const controller = new AbortController()
           stopper.current = controller
           try {
-          await agent.ask(trimmed, {
-            onTurn: () => {
-              seam = answer !== ''
-              setActivity('thinking')
-            },
-            onText: (delta) => {
-              if (seam) {
-                answer += '\n\n'
-                seam = false
-              }
-              answer += delta
-              setStreaming(answer)
-              setActivity(RESPONDING)
-            },
-            onTool: (name) => {
-              repeats = name === lastTool ? repeats + 1 : 0
-              lastTool = name
-              const label = TOOL_LABELS[name] ?? name
-              setActivity(repeats > 0 ? `${label} (${repeats + 1}×)` : label)
-            },
-          }, controller.signal)
+            await agent.ask(trimmed, {
+              onTurn: () => {
+                seam = answer !== ''
+                setActivity('thinking')
+              },
+              onText: (delta) => {
+                if (seam) {
+                  answer += '\n\n'
+                  seam = false
+                }
+                answer += delta
+                setStreaming(answer)
+                setActivity(RESPONDING)
+              },
+              onTool: (name) => {
+                repeats = name === lastTool ? repeats + 1 : 0
+                lastTool = name
+                const label = TOOL_LABELS[name] ?? name
+                setActivity(repeats > 0 ? `${label} (${repeats + 1}×)` : label)
+              },
+            }, controller.signal)
           } catch (err) {
             if (!(err instanceof StoppedError)) throw err
             // What already arrived stays where it was read, and the line under
@@ -2031,8 +2025,9 @@ export function App({
     if (enter === 'ignore') return
 
     // ctrl+s, because ctrl+k is Readline's kill-line:
-    // `tasks/field-report/07-readline-keys.md` gives the sources. Seeded from the line, so a half-typed command becomes the
-    // search rather than something to close the palette and go back to.
+    // `tasks/field-report/07-readline-keys.md` gives the sources. Seeded from
+    // the line, so a half-typed command becomes the search rather than
+    // something to close the palette and go back to.
     if (command === 'forward-search-history') {
       if (forgetting) return
       if (palette) return setPalette(null)
@@ -2247,9 +2242,9 @@ export function App({
         }
         // What the same chunk held besides the reports is what the user typed.
         // A hand resting on the trackpad puts a movement report in front of the
-        // next character, and dropping it turned `/shock ETH -20` into a
-        // scenario nobody asked for with nothing on screen to say a character
-        // had gone missing.
+        // next character, and dropping it turns `/shock ETH -20` into a
+        // scenario nobody asked for, with nothing on screen to say a character
+        // went missing.
         const also = alsoTyped(rest)
         if (also) onKey(also, TEXT_ONLY)
         return
@@ -2340,11 +2335,11 @@ export function App({
         push(outcome.ok ? 'notice' : 'output', outcome.message)
         if (!outcome.ok) return
         // Busy from here, not from `showState`. The venue is actually read by
-        // the refresh below — seconds of it, on a book like this one — and that
-        // used to run with the spinner off, so the screen sat on "Connected"
-        // with nothing moving. By the time `showState` raised it the cache was
-        // warm and it flashed for a frame. One span covers the whole wait, and
-        // `session.onProgress` names the venue being read while it does.
+        // the refresh below — seconds of it, on a book like this one — so with
+        // the spinner off the screen sits on "Connected" with nothing moving,
+        // and raised by `showState` it flashes for a frame over a warm cache.
+        // One span covers the whole wait, and `session.onProgress` names the
+        // venue being read while it does.
         setWorking(true)
         try {
           if (provider) {
@@ -2364,7 +2359,7 @@ export function App({
           // `onDone` is a void-typed prop, so a throw out of this async handler
           // is an unhandled rejection rather than a line on screen — and the
           // store read above throws on exactly the tampering it exists to
-          // refuse. The `finally` restored the spinner and let the crash run.
+          // refuse.
           push('error', failureText(err))
         } finally {
           setWorking(false)

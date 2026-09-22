@@ -109,6 +109,21 @@ detect_target() {
     *) die "tula has no build for $arch." \
         "Build from source instead: https://github.com/$REPO" ;;
   esac
+  if [ "$os" = darwin ]; then
+    # Bun, which tula is compiled with, supports macOS 13 and later; on an older
+    # one nothing about the binary is tested, so it is refused here by name.
+    if command -v sw_vers >/dev/null 2>&1; then
+      macos=$(sw_vers -productVersion)
+      [ "${macos%%.*}" -ge 13 ] 2>/dev/null ||
+        die "tula needs macOS 13 (Ventura) or later; this Mac runs $macos." \
+          "Update it in System Settings > General > Software Update."
+    fi
+    # A shell under Rosetta reports x86_64 on Apple silicon. The native build is
+    # the one to install there; the chip is asked rather than the shell.
+    if [ "$arch" = x64 ] && [ "$(sysctl -n hw.optional.arm64 2>/dev/null)" = 1 ]; then
+      arch=arm64
+    fi
+  fi
   # Builds link against glibc. musl silently fails at exec time with a message
   # about a missing loader, which reads as a corrupt download rather than an
   # unsupported libc — so it is caught here instead.
@@ -332,6 +347,18 @@ if [ -z "$ALREADY" ]; then
   [ -f "$VERSION_DIR/tula" ] || die "$ARCHIVE did not contain a tula binary." \
     "Report it: https://github.com/$REPO/issues"
   chmod 755 "$VERSION_DIR/tula"
+  # A checksum and an attestation prove what was built, not that this machine
+  # will run it — a macOS newer than the build kills a binary that passed both.
+  # So it runs once before the receipt or the launcher can name it.
+  note "checking it starts"
+  # In a subshell that cannot exec it in place, so the shell's own "Killed: 9"
+  # report lands in the redirect rather than above the message below.
+  if ! (TULA_NO_UPDATE_CHECK=1 "$VERSION_DIR/tula" --version; exit $?) >/dev/null 2>&1; then
+    rm -f "$RECEIPT"
+    die "tula $VERSION was downloaded and verified, but does not start on this machine." \
+      "Your launcher was left as it was. Report it with your OS version:" \
+      "https://github.com/$REPO/issues — or pin an earlier release with TULA_VERSION."
+  fi
   # What the fast path above compares against on the next run. Written after the
   # archive passed its checksum and its attestation, so it records a binary this
   # script verified rather than one it merely found.

@@ -1,4 +1,5 @@
 import { TulaError } from './errors.js'
+import { typed } from './surface.js'
 
 /**
  * Every outbound request goes through here, because nothing else bounds how
@@ -37,7 +38,7 @@ export class TooSlow extends TulaError {}
 const tooSlow = (url: string, timeoutMs: number = REQUEST_TIMEOUT_MS): TooSlow =>
   new TooSlow(
     `${host(url)} did not answer within ${timeoutMs / 1000}s.\n` +
-      '  It may be rate-limiting you, or down. Try /refresh in a moment.',
+      `  It may be rate-limiting you, or down. Try ${typed('refresh')} in a moment.`,
   )
 
 /**
@@ -101,7 +102,7 @@ export const MAX_BODY_BYTES = 16_000_000
 const tooLarge = (url: string): TulaError =>
   new TulaError(
     `${host(url)} sent more than ${MAX_BODY_BYTES / 1_000_000} MB in one answer, so it was not read.\n` +
-      '  Nothing tula asks for is near that size. Try /refresh; if it persists, the endpoint is misbehaving.',
+      `  Nothing tula asks for is near that size. Try ${typed('refresh')}; if it persists, the endpoint is misbehaving.`,
   )
 
 const isTimeout = (err: unknown): boolean =>
@@ -199,7 +200,7 @@ export async function json<T>(res: Response, venue: string): Promise<T> {
     throw new TulaError(
       `${venue} did not answer with JSON (HTTP ${res.status}).\n` +
         '  Something between you and it — a proxy, a captive portal, or the venue itself —\n' +
-        '  answered with something else. Try /refresh in a moment.',
+        `  answered with something else. Try ${typed('refresh')} in a moment.`,
     )
   }
 }

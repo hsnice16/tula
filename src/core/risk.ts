@@ -205,6 +205,12 @@ export function shockPrices(prices: PriceMap, shocks: Shock[]): PriceMap {
 }
 
 /**
+ * One Aave market as one address holds it. Two addresses on one market are two
+ * health factors, and pooled they blended one's collateral into the other's.
+ */
+export const marketOf = (p: Position): string => (p.account ? `${p.account.id}@${p.venue}` : p.venue)
+
+/**
  * How far a market's whole collateral base moves when part of it is shocked.
  *
  * One health factor covers everything pledged in a market, so a shock on one
@@ -233,17 +239,17 @@ export function collateralMoveUnder(
   positions: Position[],
   prices: PriceMap,
   shocks: Shock[],
-): Map<VenueId, Decimal | null> {
-  const byMarket = new Map<VenueId, Position[]>()
+): Map<string, Decimal | null> {
+  const byMarket = new Map<string, Position[]>()
   for (const p of positions) {
     if (p.kind !== 'collateral' || p.liquidation?.healthFactor === undefined) continue
-    const legs = byMarket.get(p.venue)
+    const legs = byMarket.get(marketOf(p))
     if (legs) legs.push(p)
-    else byMarket.set(p.venue, [p])
+    else byMarket.set(marketOf(p), [p])
   }
 
-  const moves = new Map<VenueId, Decimal | null>()
-  for (const [venue, legs] of byMarket) {
+  const moves = new Map<string, Decimal | null>()
+  for (const [market, legs] of byMarket) {
     const exact = legs.every((l) => l.liquidation?.liquidationThreshold !== undefined)
     let base = ZERO
     let moved = ZERO
@@ -260,7 +266,7 @@ export function collateralMoveUnder(
       const shock = shockFor(shocks, leg.asset)
       if (shock && usableShock(shock.pct)) moved = moved.plus(weight.times(shock.pct))
     }
-    moves.set(venue, unpriced || base.isZero() ? null : moved.div(base))
+    moves.set(market, unpriced || base.isZero() ? null : moved.div(base))
   }
   return moves
 }
@@ -288,6 +294,8 @@ export interface ShockedDebt {
 
 export interface ShockedHealthFactor {
   venue: VenueId
+  /** Which of the venue's addresses the market is, where it holds more than one. */
+  account?: { id: string; label: string }
   before: Decimal
   /** Null when a leg of that market could not be priced, so its share of the
    *  collateral — and therefore the new factor — is unknown. */
@@ -296,12 +304,12 @@ export interface ShockedHealthFactor {
   debt: ShockedDebt | null
 }
 
-function shockedDebtIn(positions: Position[], venue: VenueId, shocks: Shock[]): ShockedDebt | null {
+function shockedDebtIn(positions: Position[], market: string, shocks: Shock[]): ShockedDebt | null {
   const assets: AssetId[] = []
   let up = false
   let down = false
   for (const p of positions) {
-    if (p.kind !== 'debt' || p.venue !== venue) continue
+    if (p.kind !== 'debt' || marketOf(p) !== market) continue
     const shock = shockFor(shocks, p.asset)
     if (!shock || !usableShock(shock.pct) || shock.pct.isZero()) continue
     if (!assets.includes(p.asset)) assets.push(p.asset)
@@ -320,17 +328,19 @@ export function shockedHealthFactors(
 ): ShockedHealthFactor[] {
   const moves = collateralMoveUnder(positions, prices, shocks)
   const rows: ShockedHealthFactor[] = []
-  const seen = new Set<VenueId>()
+  const seen = new Set<string>()
   for (const p of positions) {
     const before = p.liquidation?.healthFactor
-    if (p.kind !== 'collateral' || before === undefined || seen.has(p.venue)) continue
-    seen.add(p.venue)
-    const move = moves.get(p.venue) ?? null
+    const market = marketOf(p)
+    if (p.kind !== 'collateral' || before === undefined || seen.has(market)) continue
+    seen.add(market)
+    const move = moves.get(market) ?? null
     rows.push({
       venue: p.venue,
+      ...(p.account ? { account: p.account } : {}),
       before,
       after: move === null ? null : healthFactorUnder(before, move),
-      debt: shockedDebtIn(positions, p.venue, shocks),
+      debt: shockedDebtIn(positions, market, shocks),
     })
   }
   return rows
@@ -339,7 +349,7 @@ export function shockedHealthFactors(
 function liquidatesUnder(
   risk: LiquidationRisk,
   shocks: Shock[],
-  collateral: Map<VenueId, Decimal | null>,
+  collateral: Map<string, Decimal | null>,
 ): boolean {
   // Already past the trigger: it is gone whatever the shock does, and asking
   // whether a further move would reach it is the reassuring wrong answer. The
@@ -349,7 +359,7 @@ function liquidatesUnder(
   if (risk.move === null) return false
 
   if (risk.position.liquidation?.healthFactor !== undefined) {
-    const move = collateral.get(risk.position.venue)
+    const move = collateral.get(marketOf(risk.position))
     return move !== null && move !== undefined && move.lte(risk.move)
   }
 

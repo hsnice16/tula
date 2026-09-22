@@ -21,10 +21,9 @@ const FATAL: NodeJS.Signals[] = ['SIGINT', 'SIGTERM', 'SIGHUP', 'SIGQUIT']
  * Every undo, in registration order, behind one handler per signal.
  *
  * One registry rather than a handler per caller, because re-raising ends the
- * process: a per-caller handler that cleaned up and re-raised took the process
- * down before the handlers registered after it ran, so only the first mode
- * registered was ever handed back. Raw mode and mouse reporting both register
- * after the keyboard protocol, and both survived a `kill`.
+ * process: a per-caller handler that cleans up and re-raises takes the process
+ * down before the handlers registered after it run, so only the first mode
+ * registered is ever handed back.
  */
 const undos: Array<() => void> = []
 let armed = false

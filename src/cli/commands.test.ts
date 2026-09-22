@@ -243,6 +243,19 @@ describe('which of a venue’s accounts a row is about', () => {
     expect(output).toContain('vault (0xdef)')
   })
 
+  test('a shock names the account behind each health factor and each liquidation', async () => {
+    const underwater = map(
+      holding('aave', [
+        at('aave', 'collateral', 'ETH', '10', { liquidation: { healthFactor: d('0.95'), liquidationThreshold: d('0.83') } }),
+      ]),
+    )
+    const { output } = await commands.shock(await sessionOver(underwater, ['aave']), ['ETH', '-50'])
+    for (const label of ['hot (0xabc)', 'vault (0xdef)']) {
+      expect(output).toContain(`aave ${label}  health factor`)
+      expect(output).toContain(`aave ${label}  collateral ETH`)
+    }
+  })
+
   test('one wallet’s debt does not claim the other wallet’s collateral', async () => {
     // The ids are namespaced per account and `encumbers` moves with them, so
     // this holds without anything here reading meaning out of an id.
@@ -253,6 +266,66 @@ describe('which of a venue’s accounts a row is about', () => {
       .filter((l) => l.startsWith('aave') && l.includes('securing a debt'))
     expect(pledged).toHaveLength(2)
     expect(pledged.map((l) => /\b(6|10)\s/.test(l))).toEqual([true, true])
+  })
+})
+
+describe('two rows the table would otherwise spell identically', () => {
+  test('a wrap is named beside the asset it nets as', async () => {
+    const book = map(
+      holding('wallet', [
+        at('wallet', 'spot', 'ETH', '7.5'),
+        at('wallet', 'spot', 'ETH', '3.1', { id: 'wallet:0x4200', heldAs: 'WETH' }),
+      ]),
+    )
+    const { output } = await commands.positions(await sessionOver(book))
+    expect(output).toContain('ETH (as WETH)')
+  })
+
+  test('a venue’s own view names the sub-account each balance sits in', async () => {
+    const book = map(
+      holding('hyperliquid', [
+        at('hyperliquid', 'spot', 'USDC', '3209.47'),
+        at('hyperliquid-sub-1', 'spot', 'USDC', '0.00001697'),
+      ]),
+    )
+    const { output } = await commands.positionsAt(await sessionOver(book), 'hyperliquid', 'perp-dex')
+    expect(output).toContain('VENUE')
+    expect(output).toMatch(/hyperliquid-sub-1\s+spot\s+USDC/)
+  })
+
+  test('a venue’s own ranking names the sub-account each liquidation sits in', async () => {
+    const book = map(
+      holding('hyperliquid', [
+        at('hyperliquid', 'perp', 'BTC', '1', { liquidation: { price: d('40000') } }),
+        at('hyperliquid-sub-1', 'perp', 'BTC', '2', { liquidation: { price: d('45000') } }),
+      ]),
+    )
+    const { output } = await commands.breaksAt(await sessionOver(book), 'hyperliquid', 'perp-dex')
+    expect(output).toMatch(/^VENUE\s/)
+    expect(output).toMatch(/hyperliquid-sub-1\s+BTC/)
+  })
+
+  test('one asset held in two margin books names the book each is in', async () => {
+    const book = map(
+      holding('binance', [
+        at('binance-margin', 'collateral', 'BTC', '0.2', { id: 'm:cross:BTC', product: 'cross' }),
+        at('binance-margin', 'collateral', 'BTC', '1.5', { id: 'm:BTCUSDT:BTC', product: 'BTCUSDT isolated' }),
+      ]),
+    )
+    const { output } = await commands.positions(await sessionOver(book))
+    expect(output).toContain('PRODUCT')
+    expect(output).toMatch(/cross\s+collateral\s+BTC/)
+    expect(output).toMatch(/BTCUSDT isolated\s+collateral\s+BTC/)
+  })
+
+  test('a book naming no product gains no product column', async () => {
+    const { output } = await commands.positions(await sessionOver(heldBook()))
+    expect(output).not.toContain('PRODUCT')
+  })
+
+  test('a venue with one label gains no venue column', async () => {
+    const { output } = await commands.positionsAt(await sessionOver(heldBook()), 'aave', 'lending')
+    expect(output).not.toContain('VENUE')
   })
 })
 

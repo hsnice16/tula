@@ -886,7 +886,10 @@ describe('venue commands', () => {
     const result = await run('/testvenue positions')
     if (result.kind !== 'output') throw new Error('expected output')
     expect(result.output).toContain('collateral')
-    expect(result.output).not.toContain('VENUE')
+    // Two ETH rows and two USDC rows here differ only by sub-label.
+    expect(result.output).toContain('VENUE')
+    expect(result.output).toContain('testvenue-perp')
+    expect(result.output).toContain('testvenue-lend')
   })
 
   test('venue breaks are scoped to that venue', async () => {

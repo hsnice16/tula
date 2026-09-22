@@ -31,7 +31,7 @@ declare const outside: unique symbol
 /**
  * A string tula did not write, boxed on its way into a tool result.
  *
- * The box is a type, not a delimiter. Rule 2 has the model quote these values
+ * The box is a type, not a delimiter. Rule 6 has the model quote these values
  * back exactly as they arrive, so anything wrapped around one becomes part of
  * what the reader sees — and a venue that spells its token after the wrapper
  * closes it. The box never reaches the model: `seal()` takes it apart and names

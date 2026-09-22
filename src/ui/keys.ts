@@ -14,9 +14,9 @@ export interface Typed {
  * newline — that trailing newline is the submit and must not land in the line.
  * Interior newlines become spaces so a multi-line paste stays one editable line.
  *
- * Order matters: strip the trailing newline first, then translate the rest. An
- * earlier version ran `.trimEnd()` after the translation, which also swallowed a
- * plain typed space — making `/shock ETH -20` impossible to type at all.
+ * Order matters: strip the trailing newline first, then translate the rest. A
+ * `.trimEnd()` after the translation also takes a typed space, and
+ * `/shock ETH -20` can then not be typed at all.
  */
 export function typed(chunk: string): Typed {
   const submits = /[\r\n]$/.test(chunk)

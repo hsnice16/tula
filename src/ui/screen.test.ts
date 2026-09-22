@@ -1475,7 +1475,7 @@ test('a name tula had to clean is accounted for, and never repainted to prove it
     const said = rows.find((row) => row.includes('hidden characters removed')) ?? ''
     expect(said).toContain('node')
     expect(said).toContain('ETH')
-    // Rule 7: whoever answers as the node writes every symbol tula reads there.
+    // No dead end: whoever answers as the node writes every symbol tula reads there.
     expect(rows.some((row) => row.includes('TULA_ETHEREUM_RPC'))).toBe(true)
     // Nothing is missing, so none of the four states that mean something is.
     for (const other of ['INCOMPLETE', 'REMOVED', 'NOT READ']) {

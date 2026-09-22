@@ -182,10 +182,10 @@ const ALTERED_SHOWN = 6
  * The fifth thing a view says about itself, and the only one where nothing is
  * missing and nothing failed — so it raises no exit code, prints no
  * `INCOMPLETE`, and says in its first line that there is nothing to go and get.
- * A venue spelled an asset in text this build could not draw as sent, so the
- * ASSET column holds tula's printable reading of it and the reader was told
- * nothing: the `untrusted` sidecar says it to the model, and every view here
- * works without one.
+ * A venue sent an asset, `heldAs` or `product` name in text this build could
+ * not draw as sent, so the table holds tula's printable reading of it and the
+ * reader was told nothing: the `untrusted` sidecar says it to the model, and
+ * every view here works without one.
  *
  * What it shows is the venue and the *bounded* name — the one already in the
  * table, so the two can be matched by eye. What the venue actually sent is
@@ -201,7 +201,7 @@ function alteredLines(altered: readonly Altered[]): string[] {
   }
 
   const lines = [
-    `ALTERED — ${plural(altered.length, 'asset name')} ${altered.length === 1 ? 'is' : 'are'} not as the venue sent them. Nothing is missing.`,
+    `ALTERED — ${plural(altered.length, 'name')} ${altered.length === 1 ? 'is' : 'are'} not as the venue sent them. Nothing is missing.`,
   ]
   for (const rows of groups.values()) {
     const [first] = rows as [Altered, ...Altered[]]
@@ -219,7 +219,7 @@ function alteredLines(altered: readonly Altered[]): string[] {
     )
   }
 
-  // Rule 7. Whoever answers as the node writes every reserve symbol tula reads
+  // No dead end. Whoever answers as the node writes every reserve symbol tula reads
   // on that chain, and the variable is the whole of the way out — so it is
   // named wherever a chain is involved. A venue that is not a chain has no node
   // to swap: the name is its own listing, and being told which venue sent it is
@@ -513,6 +513,19 @@ function movable(session: Session): Map<string, Availability> {
  */
 const account = (p: Position): string => p.account?.label ?? '—'
 
+const assetCell = (p: Position): string => (p.heldAs ? `${p.asset} (as ${p.heldAs})` : p.asset)
+
+/** After whatever a view sorts by, so rows that share it keep one order between two reads. */
+const tieBreak = (a: Position, b: Position): number =>
+  account(a).localeCompare(account(b)) ||
+  (a.product ?? '').localeCompare(b.product ?? '') ||
+  (a.heldAs ?? '').localeCompare(b.heldAs ?? '')
+
+/** A row named on one line, for the lists that are not tables — every part a table column would show. */
+const where = (p: Pick<Position, 'venue' | 'account'>): string =>
+  p.account ? `${p.venue} ${p.account.label}` : p.venue
+const what = (p: Position): string => `${p.kind} ${assetCell(p)}${p.product ? ` in ${p.product}` : ''}`
+
 /**
  * The FREE and UNAVAILABLE cells for one row. A debt or a short has no entry at
  * all — it is not a holding, and there is nothing about it to free — so both
@@ -577,6 +590,23 @@ const accountColumn = <T>(rows: readonly T[], of: (row: T) => Position): Column<
     : []
 
 /**
+ * A venue's own view drops the column only while every row has one label. Its
+ * sub-accounts, builder dexes, markets and chains are labels of their own, and
+ * without the column a sub-account's USDC is a second USDC row with nothing to
+ * say whose it is.
+ */
+const labelColumn = <T>(rows: readonly T[], of: (row: T) => Position): Column<T>[] =>
+  new Set(rows.map((row) => of(row).venue)).size > 1
+    ? [{ head: 'VENUE', align: 'left', cell: (row) => of(row).venue }]
+    : []
+
+/** The contract, margin book, vault or staking state a row is held in, where any row names one. */
+const productColumn = <T>(rows: readonly T[], of: (row: T) => Position): Column<T>[] =>
+  rows.some((row) => of(row).product)
+    ? [{ head: 'PRODUCT', align: 'left', cell: (row) => of(row).product ?? '—' }]
+    : []
+
+/**
  * The columns a positions table has, which is deliberately not a fixed list.
  * The account appears only where a venue holds more than one, and the free/held
  * pair only where something is actually held: a column that says the same thing
@@ -599,8 +629,9 @@ function positionColumns(
     : []
   return [
     ...accountColumn(rows, (p) => p),
+    ...productColumn(rows, (p) => p),
     { head: 'KIND', align: 'left', cell: (p) => p.kind },
-    { head: 'ASSET', align: 'left', cell: (p) => p.asset },
+    { head: 'ASSET', align: 'left', cell: assetCell },
     { head: 'QUANTITY', align: 'right', cell: (p) => quantity(p.quantity) },
     ...availability,
     { head: 'AS OF', align: 'left', cell: (p) => freshness(p.asOf, now) },
@@ -615,7 +646,8 @@ function positionColumns(
 function riskColumns(risks: readonly LiquidationRisk[], now: Date): Column<LiquidationRisk>[] {
   return [
     ...accountColumn(risks, (r) => r.position),
-    { head: 'ASSET', align: 'left', cell: (r) => r.position.asset },
+    ...productColumn(risks, (r) => r.position),
+    { head: 'ASSET', align: 'left', cell: (r) => assetCell(r.position) },
     { head: 'KIND', align: 'left', cell: (r) => r.position.kind },
     {
       head: 'MOVE TO LIQ',
@@ -636,11 +668,11 @@ function accountNote(risks: readonly LiquidationRisk[]): string {
   const lines = risks.flatMap((r) => {
     const ratio = r.position.liquidation?.ratio
     if (!ratio || !r.members || r.members.length === 0) return []
-    const held = r.members.map((p) => `${p.asset} ${p.kind}`)
+    const held = r.members.map((p) => `${assetCell(p)} ${p.kind}${p.product ? ` in ${p.product}` : ''}`)
     const shown = held.slice(0, 6).join(', ')
     const floor = ratioFloor(ratio)
     return [
-      `  ${r.position.venue}  liquidated past ${marginRatio(ratio.threshold)}: ${shown}${
+      `  ${where(r.position)}  liquidated past ${marginRatio(ratio.threshold)}: ${shown}${
         held.length > 6 ? `, and ${held.length - 6} more` : ''
       }`,
       ...(floor ? [`    Ranked on what loaded: ${floor}.`] : []),
@@ -667,7 +699,10 @@ export async function positions(session: Session): Promise<CommandResult> {
   const now = new Date()
   const sorted = [...all].sort(
     (a, b) =>
-      a.venue.localeCompare(b.venue) || a.asset.localeCompare(b.asset) || a.kind.localeCompare(b.kind),
+      a.venue.localeCompare(b.venue) ||
+      a.asset.localeCompare(b.asset) ||
+      a.kind.localeCompare(b.kind) ||
+      tieBreak(a, b),
   )
   const free = movable(session)
   const columns: Column<Position>[] = [
@@ -758,7 +793,7 @@ function ratioLines(ratios: readonly ShockedRatio[]): string[] {
   const lines = ['', 'Account ratios, liquidated past the level shown:']
   for (const r of ratios) {
     lines.push(
-      `  ${r.position.venue}  ${r.ratio.name} ${ratioValue(r.ratio)} -> ${marginRatio(r.after)}  (past ${marginRatio(r.ratio.threshold)})`,
+      `  ${where(r.position)}  ${r.ratio.name} ${ratioValue(r.ratio)} -> ${marginRatio(r.after)}  (past ${marginRatio(r.ratio.threshold)})`,
     )
     if (r.why !== null) lines.push(`    Not recomputed: ${r.why}.`)
   }
@@ -784,29 +819,28 @@ function debtHeldStill(markets: ShockedHealthFactor[]): string[] {
     lower: 'so the real one is lower.',
     unknown: 'so the real one moves with that debt as well.',
   }
-  return markets.flatMap(({ venue, debt }) =>
-    debt === null
+  return markets.flatMap((market) =>
+    market.debt === null
       ? []
       : [
-          `  ${venue} borrows ${debt.assets.join(', ')}, which this shock moves. The factor above`,
-          `  reprices its collateral only, ${REAL[debt.real]}`,
+          `  ${where(market)} borrows ${market.debt.assets.join(', ')}, which this shock moves. The factor above`,
+          `  reprices its collateral only, ${REAL[market.debt.real]}`,
         ],
   )
 }
 
-const SHOCK_USAGE = 'Usage: shock <ASSET> <PERCENT>   e.g. shock ETH -20'
+const shockUsage = (): string => `Usage: ${typed('shock <ASSET> <PERCENT>')}   e.g. ${typed('shock ETH -20')}`
 
 export async function shock(session: Session, args: string[]): Promise<CommandResult> {
   const shocks: Shock[] = []
-  // Stepping by two dropped an odd trailing word and the heading listed only
-  // what parsed, so `shock ETH -20 BTC` priced a scenario without BTC in it and
-  // nothing on screen said BTC had been left out.
+  // The loop below steps by two, so an odd trailing word would be dropped and
+  // `shock ETH -20 BTC` priced without BTC, with nothing saying so.
   if (args.length % 2 !== 0) {
     return {
       output:
         `"${args[args.length - 1]}" has no percentage after it, so nothing here would move it.\n` +
         '  Each asset takes one: shock ETH -20 BTC -10\n' +
-        `  ${SHOCK_USAGE}`,
+        `  ${shockUsage()}`,
       usageError: true,
     }
   }
@@ -814,7 +848,7 @@ export async function shock(session: Session, args: string[]): Promise<CommandRe
     const asset = args[i]?.toUpperCase()
     const raw = args[i + 1]?.replace('%', '')
     if (!asset || raw === undefined || raw === '' || Number.isNaN(Number(raw))) {
-      return { output: SHOCK_USAGE, usageError: true }
+      return { output: shockUsage(), usageError: true }
     }
     const move = new Decimal(raw).div(100)
     // Refused rather than answered: `Number('1e400')` is Infinity and not NaN,
@@ -825,14 +859,14 @@ export async function shock(session: Session, args: string[]): Promise<CommandRe
       return {
         output:
           `${raw}% is not a scenario: a move runs from ${pct(SHOCK_FLOOR, 0)}, where the asset is\n` +
-          `  worth nothing, up to ${pct(SHOCK_CEILING, 0)}.\n  ${SHOCK_USAGE}`,
+          `  worth nothing, up to ${pct(SHOCK_CEILING, 0)}.\n  ${shockUsage()}`,
         usageError: true,
       }
     }
     shocks.push({ asset, pct: move })
   }
   if (shocks.length === 0) {
-    return { output: SHOCK_USAGE, usageError: true }
+    return { output: shockUsage(), usageError: true }
   }
 
   const { positions: all, prices } = await session.ensureLoaded()
@@ -853,7 +887,7 @@ export async function shock(session: Session, args: string[]): Promise<CommandRe
       output:
         `${list(absent)} ${absent.length === 1 ? 'is' : 'are'} not in this book, so a move on ${absent.length === 1 ? 'it' : 'them'} changes nothing here.\n` +
         `  Held: ${shown}${held.length > 12 ? `, and ${held.length - 12} more` : ''}.\n` +
-        `  ${SHOCK_USAGE}` +
+        `  ${shockUsage()}` +
         note,
       note,
       usageError: true,
@@ -878,7 +912,7 @@ export async function shock(session: Session, args: string[]): Promise<CommandRe
   // reported 1.42 -> 0.99 and a liquidation for a market that ends at 1.25.
   const markets = shockedHealthFactors(all, prices, shocks)
   const shockedHealth = markets.map(
-    (r) => `  ${r.venue}  health factor ${healthFactor(r.before)} -> ${healthFactor(r.after)}`,
+    (r) => `  ${where(r)}  health factor ${healthFactor(r.before)} -> ${healthFactor(r.after)}`,
   )
   if (shockedHealth.length > 0) {
     lines.push('', 'Health factors:', ...shockedHealth, ...debtHeldStill(markets))
@@ -899,7 +933,7 @@ export async function shock(session: Session, args: string[]): Promise<CommandRe
     )
   } else {
     lines.push('LIQUIDATED:')
-    for (const p of result.liquidated) lines.push(`  ${p.venue}  ${p.kind} ${p.asset}`)
+    for (const p of result.liquidated) lines.push(`  ${where(p)}  ${what(p)}`)
   }
 
   const unpriced = unpricedNote(result.before)
@@ -962,9 +996,8 @@ export async function venues(
       const gone = retired(venueId, forgetCommand(venueId))
       return gone ? ['', `  ${gone}`] : []
     }),
-    // Where the one line every other view carries sends the reader. It is held
-    // back to here on purpose: twenty areas printed under every table is the
-    // wallpaper that line is written to avoid.
+    // Held to this view on purpose: twenty areas printed under every table is
+    // wallpaper, and the lines about today's money go unread with it.
     ...(detail.length > 0 ? ['', ...detail] : []),
     '',
     // This table is the venue overview, so a venue whose text tula had to
@@ -992,11 +1025,13 @@ export async function positionsAt(
   if (unread !== null) return { output: unread + note, note, incomplete: isIncomplete(session) }
   const now = new Date()
   const sorted = mine.sort(
-    (a, b) => a.asset.localeCompare(b.asset) || a.kind.localeCompare(b.kind),
+    (a, b) =>
+      a.asset.localeCompare(b.asset) || a.kind.localeCompare(b.kind) || a.venue.localeCompare(b.venue) || tieBreak(a, b),
   )
   const free = movable(session)
+  const columns: Column<Position>[] = [...labelColumn(sorted, (p) => p), ...positionColumns(sorted, free, now)]
   return {
-    output: draw(positionColumns(sorted, free, now), sorted) + legendFor(sorted, free) + note,
+    output: draw(columns, sorted) + legendFor(sorted, free) + note,
     note,
     incomplete: isIncomplete(session),
   }
@@ -1021,7 +1056,7 @@ export async function breaksAt(
   const risks = whatBreaksFirst(mine, prices)
   // The venue answered, and what it holds cannot be called in. That is the one
   // state this sentence is true of; the two above it are a venue nobody read
-  // and an account with nothing in it, and both used to read as this one.
+  // and an account with nothing in it, and neither may read as this one.
   const tail = unrankedNote(session, mine) + note
   if (risks.length === 0) {
     return {
@@ -1037,7 +1072,7 @@ export async function breaksAt(
   const now = new Date()
   return {
     incomplete: isIncomplete(session),
-    output: draw(riskColumns(risks, now), risks) + accountNote(risks) + tail,
+    output: draw([...labelColumn(risks, (r) => r.position), ...riskColumns(risks, now)], risks) + accountNote(risks) + tail,
     note: tail,
   }
 }
@@ -1050,13 +1085,16 @@ export async function breaksAt(
 function borrowingLines(rows: readonly Position[]): string[] {
   const lines: string[] = []
   const seen = new Set<string>()
+  // A master and its sub-accounts each carry a ratio of their own, under one
+  // name, so the account says which figure is whose once there are two.
+  const accounts = new Set(rows.flatMap((p) => p.liquidation?.ratio?.account ?? [])).size
   for (const p of rows) {
     const ratio = p.liquidation?.ratio
     if (!ratio || seen.has(ratio.account)) continue
     seen.add(ratio.account)
     lines.push(
       '',
-      `  ${ratio.name} ${ratioValue(ratio)}, liquidated past ${marginRatio(ratio.threshold)}` +
+      `  ${accounts > 1 ? `${where(p)}  ` : ''}${ratio.name} ${ratioValue(ratio)}, liquidated past ${marginRatio(ratio.threshold)}` +
         (ratio.borrowCapUsed !== undefined ? ` · Borrow Cap Used ${marginRatio(ratio.borrowCapUsed)}` : ''),
     )
     const floor = ratioFloor(ratio)
@@ -1071,17 +1109,18 @@ function borrowingLines(rows: readonly Position[]): string[] {
   }
   const borrowing = rows.filter((p) => p.borrowing !== undefined)
   if (borrowing.length > 0) {
-    const table = renderTable(
-      ['TOKEN', 'NET BALANCE', 'BORROWED', 'SUPPLIED', 'LTV', 'PM CAP USED'],
-      borrowing.map((p) => [
-        p.asset,
-        quantity(p.quantity),
-        quantity(p.borrowing!.borrowed),
-        quantity(p.borrowing!.supplied),
-        marginRatio(p.borrowing!.ltv),
-        marginRatio(p.borrowing!.capUsed),
-      ]),
-      ['left', 'right', 'right', 'right', 'right', 'right'],
+    const table = draw(
+      [
+        ...labelColumn(borrowing, (p) => p),
+        ...accountColumn(borrowing, (p) => p),
+        { head: 'TOKEN', align: 'left', cell: assetCell },
+        { head: 'NET BALANCE', align: 'right', cell: (p) => quantity(p.quantity) },
+        { head: 'BORROWED', align: 'right', cell: (p) => quantity(p.borrowing!.borrowed) },
+        { head: 'SUPPLIED', align: 'right', cell: (p) => quantity(p.borrowing!.supplied) },
+        { head: 'LTV', align: 'right', cell: (p) => marginRatio(p.borrowing!.ltv) },
+        { head: 'PM CAP USED', align: 'right', cell: (p) => marginRatio(p.borrowing!.capUsed) },
+      ],
+      borrowing,
     )
     lines.push('', ...table.split('\n').map((line) => `  ${line}`))
   }
@@ -1111,8 +1150,8 @@ export async function venueStatus(
         : '  Numbers elsewhere in tula do not include this venue.',
     )
   } else {
-    // reduce() over no rows answers with its seed, so an empty venue used to
-    // report the current time as the age of data it does not have.
+    // Seeded with null: a seed of now reports the current time as the age of
+    // data an empty venue does not have.
     const stalest = mine.reduce<Date | null>((min, p) => (min && min < p.asOf ? min : p.asOf), null)
     const held = holdings(connector.venue.kind, mine)
     lines.push(stalest ? `  ${held}, oldest ${freshness(stalest, now)}` : `  ${held}`)
@@ -1161,7 +1200,11 @@ export async function venueStatus(
 
 export function venueDocs(connector: Connector): CommandResult {
   if (connector.help.length === 0) {
-    return { output: `No official links recorded for ${connector.venue.name}.` }
+    return {
+      output:
+        `No official links recorded for ${connector.venue.name}.\n` +
+        `  ${typed(`${connector.venue.id} status`)} shows what tula reads there.`,
+    }
   }
   const width = Math.max(...connector.help.map((l) => l.label.length))
   return {

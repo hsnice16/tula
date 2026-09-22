@@ -4,7 +4,7 @@ import Decimal from 'decimal.js'
 import { availability, availabilityById } from '../core/availability.js'
 import { marginRatio } from '../core/format.js'
 import { portfolioValue } from '../core/exposure.js'
-import type { Position } from '../core/position.js'
+import { rowIdentity, type Position } from '../core/position.js'
 import { shockedRatios, whatBreaksFirst } from '../core/risk.js'
 import { cashLegError, DEX_NAME, hyperliquidConnector, spotAsset, unscale, usableDexName } from './hyperliquid.js'
 import { CHAINS } from './chains.js'
@@ -818,6 +818,14 @@ describe('the ratio an account is liquidated on', () => {
 })
 
 describe('one asset, one row', () => {
+  for (const account of ACCOUNTS) {
+    test(`${account.name}: no two rows read alike`, async () => {
+      stubAccount(account)
+      const rows = await positions().catch((err: unknown) => (err instanceof PartialRead ? err.positions : Promise.reject(err)))
+      expect(new Set(rows.map(rowIdentity)).size).toBe(rows.length)
+    })
+  }
+
   test('a coin the venue spells in lower case does not become a second holding', async () => {
     stub(
       standard(EMPTY_STATE, {
@@ -829,6 +837,32 @@ describe('one asset, one row', () => {
     )
     const rows = await positions()
     expect(new Set(rows.map((p) => p.asset))).toEqual(new Set(['PURR']))
+  })
+
+  test('two balances the upper-casing folds into one name each keep the spelling they came in', async () => {
+    stub(
+      standard(EMPTY_STATE, {
+        balances: [
+          { coin: 'purr', token: 7, total: '100', hold: '0.0' },
+          { coin: 'PURR', token: 1, total: '20.5', hold: '0.0' },
+        ],
+      }),
+    )
+    const rows = (await positions()).filter((p) => p.asset === 'PURR')
+    expect(rows.map((p) => p.heldAs)).toEqual(['purr', undefined])
+    expect(new Set(rows.map((p) => p.id)).size).toBe(2)
+  })
+
+  test('a perp quoted in thousands says so beside the asset it is counted in', async () => {
+    stub(
+      standard({
+        ...EMPTY_STATE,
+        marginSummary: { accountValue: '10', totalRawUsd: '10', totalNtlPos: '0', totalMarginUsed: '0' },
+        assetPositions: [{ position: { coin: 'kPEPE', szi: '2', liquidationPx: null } }],
+      }),
+    )
+    const perp = (await positions()).find((p) => p.kind === 'perp')
+    expect(`${perp?.asset} ${perp?.heldAs}`).toBe('PEPE kPEPE')
   })
 })
 
@@ -913,6 +947,25 @@ describe('the rest of a Hyperliquid account', () => {
     const free = availabilityById(rows).get('hyperliquid:staked:HYPE')
     expect(free?.free?.toString()).toBe('0')
     expect(free?.claims.map((c) => c.reason)).toEqual(['staked'])
+  })
+
+  test('each part of the staking balance is named as the app’s panel names it, and every vault by its address', async () => {
+    const [vault] = account.userVaultEquities
+    stubAccount(account, {
+      delegatorSummary: { delegated: '10', undelegated: '4', totalPendingWithdrawal: '2', nPendingWithdrawals: 1 },
+      userVaultEquities: [vault!, { ...vault!, vaultAddress: '0x00000000000000000000000000000000000000ff' }],
+    })
+    const rows = await positions()
+    expect(rows.filter((p) => p.asset === 'HYPE' && (p.kind === 'staked' || p.kind === 'pending')).map((p) => `${p.kind} ${p.product}`)).toEqual([
+      'staked Total Staked',
+      'staked Available to Stake',
+      'pending undefined',
+    ])
+    expect(rows.filter((p) => p.kind === 'lp').map((p) => p.product)).toEqual([
+      `vault ${vault!.vaultAddress.slice(0, 6).toLowerCase()}…${vault!.vaultAddress.slice(-4).toLowerCase()}`,
+      'vault 0x0000…00ff',
+    ])
+    expect(new Set(rows.map(rowIdentity)).size).toBe(rows.length)
   })
 
   test('HYPE already in the unstaking queue waits, and is never told to cancel an order', async () => {
@@ -1175,5 +1228,6 @@ describe('a dex name cannot forge a scoped asset', () => {
     expect(spotAsset('optimism:USDT')).toBe('OPTIMISM.USDT')
     expect(spotAsset('polygon:WETH')).toBe('POLYGON.WETH')
     expect(spotAsset('purr')).toBe('PURR')
+    expect(spotAsset('WETH')).toBe('WETH')
   })
 })

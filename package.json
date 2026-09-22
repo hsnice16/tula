@@ -1,6 +1,6 @@
 {
   "name": "@hsnice16/tula",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Your true exposure, what breaks first, and more, across every venue at once.",
   "license": "MIT",
   "type": "module",
@@ -12,7 +12,7 @@
   },
   "scripts": {
     "dev": "bun run src/index.ts",
-    "build": "bun build src/index.ts --compile --outfile dist/tula",
+    "build": "bun build src/index.ts --compile --outfile dist/tula && if [ \"$(uname)\" = Darwin ]; then codesign --force -s - dist/tula && codesign --verify --strict dist/tula; fi",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "check": "tsc --noEmit && bun test && bash scripts/install-test.sh && bash scripts/guard.sh && bash scripts/guard-test.sh && bash scripts/scan-test.sh",

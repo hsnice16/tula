@@ -162,8 +162,7 @@ export function ConnectFlow({ target, onDone, existing = [], save: store, doneMe
         finish(scope)
       } catch (err) {
         // The store's own refusals are `TulaError`s that name their remedy; an
-        // `ENOSPC` out of `secrets.put` is not, and it reached this screen as
-        // one bare line — on the surface a user least knows what to do on.
+        // `ENOSPC` out of `secrets.put` is not, and `failureText` gives it one.
         refuse(failureText(err))
       } finally {
         setBusy(false)
@@ -333,10 +332,9 @@ export function ConnectFlow({ target, onDone, existing = [], save: store, doneMe
       {step.kind === 'pick' && (
         <Box flexDirection="column" marginTop={1}>
           <Text>{`  ${target.name} already holds ${existing.length} ${existing.length === 1 ? noun : nouns}:`}</Text>
-          {/* A list of one needs no index — and given one, the same digit stood
+          {/* A list of one needs no index — given one, the same digit stands
               in the key column twice: once labelling the address, once as the
-              key that deletes it. Numbered only where there is something to
-              tell apart. */}
+              key that deletes it. */}
           {existing.map((entry, at) => (
             <Text key={entry.id}>
               <Text color={theme.accent}>
@@ -352,8 +350,8 @@ export function ConnectFlow({ target, onDone, existing = [], save: store, doneMe
             </Text>
             {/* The one key here that destroys something, drawn in the colour
                 this screen already uses for that. The digits above are the same
-                keys, so in one accent column a reader met `1` as a bullet and
-                `1` as delete, in the same colour, four rows apart. */}
+                keys, so in one accent column `1` reads as a bullet and as
+                delete, four rows apart. */}
             <Text>
               <Text color={theme.danger}>
                 {`  ${existing.length === 1 ? '1' : `1-${Math.min(existing.length, PICKABLE)}`}`}

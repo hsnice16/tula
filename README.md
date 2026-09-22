@@ -141,14 +141,14 @@ curl --proto '=https' --tlsv1.2 -LsSf https://usetu.la/install.sh | sh
 brew install hsnice16/tap/tula     # or: npm install -g @hsnice16/tula
 ```
 
-macOS and Linux, on 64-bit Intel and ARM. Alpine and other musl systems are not
+macOS 13 or later and Linux, on 64-bit Intel and ARM. Alpine and other musl systems are not
 supported, and there is no native Windows build — install inside WSL. The
 installer always checks the download against its published checksum, and checks
 the sigstore-backed attestation proving this repository's release workflow built
 it wherever the GitHub CLI can — saying so either way. Check one by hand:
 
 ```bash
-gh attestation verify tula-v0.3.1-darwin-arm64.tar.gz --repo hsnice16/tula \
+gh attestation verify tula-v0.3.2-darwin-arm64.tar.gz --repo hsnice16/tula \
   --signer-workflow hsnice16/tula/.github/workflows/release.yml
 ```
 

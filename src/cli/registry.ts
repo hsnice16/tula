@@ -374,11 +374,11 @@ export function parseCommand(line: string, venueIds: string[] = []): ParsedComma
 }
 
 /**
- * Whether a line already tells the reader what to type. The test used to be
- * whether the text held a slash, and a venue's own error carries one whenever
- * it quotes a URL — a Cloudflare 503 names `/cdn-cgi/...` in its body — so a
- * venue that named a problem and no way out silenced the remedy line meant to
- * supply one. What makes a line a remedy is that it names a command tula has,
+ * Whether a line already tells the reader what to type. Holding a slash is not
+ * the test: a venue's own error carries one whenever it quotes a URL — a
+ * Cloudflare 503 names `/cdn-cgi/...` in its body — so a venue that named a
+ * problem and no way out would silence the remedy line meant to supply one.
+ * What makes a line a remedy is that it names a command tula has,
  * which is a fact about tula rather than about somebody else's prose.
  */
 export function namesCommand(text: string, venueIds: string[] = []): boolean {
@@ -391,7 +391,7 @@ export function namesCommand(text: string, venueIds: string[] = []): boolean {
 
 /**
  * The command list as the user sees it: the fixed commands plus one entry per
- * connected venue. The venues carry their own status, which is why there is no
+ * venue it is handed. The venues carry their own status, which is why there is no
  * `/venues` command in the menu — the menu is the overview.
  */
 export function buildCommands(

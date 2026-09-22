@@ -75,7 +75,10 @@ Highest severity first:
      a column is drawn in, whichever comes first, so a cut never lands inside a
      code point and a wide script cannot push the columns beside it off the row.
      `src/connectors/evm.ts` caps its own decode as well, so a lying ABI length
-     prefix is never allocated.
+     prefix is never allocated. The venue's text beside a symbol — its own
+     spelling where the symbol nets as another (`WETH` beside `ETH`), and the
+     contract or margin book a row is held in (`BTCUSDT isolated`) — is the same
+     listing and takes the same cap in the same place.
 
      What is stripped is every codepoint that is invisible or moves what is
      drawn — `visible()` in `src/core/untrusted.ts`, the one filter all three
@@ -288,7 +291,7 @@ keyless, so there is no signing key for this project to generate, publish, rotat
 or lose.
 
 ```bash
-gh attestation verify tula-v0.3.1-darwin-arm64.tar.gz --repo hsnice16/tula \
+gh attestation verify tula-v0.3.2-darwin-arm64.tar.gz --repo hsnice16/tula \
   --signer-workflow hsnice16/tula/.github/workflows/release.yml
 ```
 

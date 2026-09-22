@@ -89,6 +89,8 @@ const RETRACTED = [
   'nothing is published half-done',
   'the same attested binary',
   'the same attested archive',
+  // npm reads a 0.x minor as breaking, so `npm update` stays on the old one.
+  'npm update',
   'memos and protocol descriptions are attacker-controlled',
   'memo fields',
   'Expect an acknowledgement within 72 hours',

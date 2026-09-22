@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import Decimal from 'decimal.js'
 import { CHAINS, chainById, ETHEREUM, type ChainId } from './chains.js'
 import { SELECTOR } from './evm.js'
+import { rowIdentity } from '../core/position.js'
 import { PartialRead } from './types.js'
 import {
   assetName,
@@ -160,6 +161,49 @@ describe('positions', () => {
       asOf,
     )
     expect(out.map((p) => p.asset)).toEqual(['ETH'])
+  })
+
+  test('a wrap netted as its gas token says which of the two rows it is', () => {
+    const rows = toPositions(
+      [
+        { symbol: 'ETH', amount: new Decimal('7.5') },
+        { symbol: 'WETH', amount: new Decimal('3.1'), address: '0x4200000000000000000000000000000000000006' },
+      ],
+      asOf,
+      chainById('base'),
+    )
+    expect(rows.map((p) => p.asset)).toEqual(['ETH', 'ETH'])
+    expect(rows.map((p) => p.heldAs)).toEqual([undefined, 'WETH'])
+  })
+
+  test('a token netted under another ticker says what the list calls it', () => {
+    const polygon = chainById('polygon')
+    const [row] = toPositions(
+      [{ symbol: 'USDT', amount: new Decimal(5), address: '0xc2132d05d31c914a87c6611c10748aeb04b58e8f' }],
+      asOf,
+      polygon,
+    )
+    expect(`${row?.asset} ${row?.heldAs}`).toBe('USDT0 USDT')
+  })
+
+  test('an ERC-20 calling itself the gas token is not a second gas-token row', () => {
+    const polygon = chainById('polygon')
+    const pol = token({ chainId: polygon.eip155, symbol: 'POL', address: '0x1111111100000000000000000000000000000001' })
+    expect(contested([pol], polygon)).toEqual(new Set(['POL']))
+    const rows = toPositions(
+      [
+        { symbol: polygon.nativeSymbol, amount: new Decimal(1) },
+        { symbol: 'POL', amount: new Decimal(2), address: pol.address, contested: true },
+      ],
+      asOf,
+      polygon,
+    )
+    expect(rows.map((p) => p.asset)).toEqual(['POL', 'POL (0x11111111)'])
+  })
+
+  test('a token under its own name carries no held-as', () => {
+    const [position] = toPositions([{ symbol: 'dai', amount: new Decimal(1), address: token({}).address }], asOf)
+    expect(position?.heldAs).toBeUndefined()
   })
 
   test('spot holdings are positive and carry their own delta and asOf', () => {
@@ -340,6 +384,23 @@ const read = (): Promise<import('../core/position.js').Position[]> =>
   walletConnector.fetchPositions({ address: ADDRESS })
 
 describe('one address, every chain', () => {
+  test('no two rows read alike', async () => {
+    const arbitrum = chainById('arbitrum')
+    const base = chainById('base')
+    const polygon = chainById('polygon')
+    stubChains({
+      tokens: [
+        ...everywhere('USDC'),
+        { chainId: arbitrum.eip155, address: CIRCLE[arbitrum.eip155]!, symbol: 'USDC', decimals: 6 },
+        { chainId: arbitrum.eip155, address: ARBITRUM_BRIDGED_USDC, symbol: 'USDC', decimals: 6 },
+        { chainId: base.eip155, address: '0x4200000000000000000000000000000000000006', symbol: 'WETH', decimals: 18 },
+        { chainId: polygon.eip155, address: at(polygon.eip155, 99), symbol: 'POL', decimals: 18 },
+      ],
+    })
+    const rows = await read()
+    expect(new Set(rows.map(rowIdentity)).size).toBe(rows.length)
+  })
+
   test('a second chain is read without the address being entered again', async () => {
     // The credential is the address and there is one of it. A chain that
     // needed its own would be a second venue to connect, which is the thing

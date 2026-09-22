@@ -70,7 +70,7 @@ ${INSTALL_COMMAND}
 \`\`\`
 
 Also \`brew install hsnice16/tap/tula\` and \`npm install -g @hsnice16/tula\` — the same
-binary. macOS and Linux, 64-bit Intel and ARM; Windows through WSL. Every release
+binary. macOS 13 or later and Linux, 64-bit Intel and ARM; Windows through WSL. Every release
 carries a published checksum, which the installer always checks and refuses on,
 and a sigstore-backed build attestation, which it checks wherever the GitHub CLI
 is installed and signed in to read one.

@@ -320,6 +320,23 @@ describe('scenario', () => {
     expect(scenario(legs, market, shocks).liquidated).toHaveLength(0)
   })
 
+  test('two addresses on one market are two health factors, never one blended', () => {
+    // One address all WETH, the other all WBTC. Pooled, a 30% WETH fall moved
+    // both factors 12% and the second address's row was never printed.
+    const market = new Map([
+      ['WETH', d(4000)],
+      ['WBTC', d(60000)],
+    ])
+    const a = { id: 'a', label: '0xaaaa…aaaa' }
+    const b = { id: 'b', label: '0xbbbb…bbbb' }
+    const legs = [
+      { ...pos({ id: 'a:weth', venue: 'aave', asset: 'WETH', quantity: '10', kind: 'collateral', liquidation: { healthFactor: d('1.42') } }), account: a },
+      { ...pos({ id: 'b:wbtc', venue: 'aave', asset: 'WBTC', quantity: '1', kind: 'collateral', liquidation: { healthFactor: d('1.42') } }), account: b },
+    ]
+    const rows = shockedHealthFactors(legs, market, [{ asset: 'WETH', pct: d('-0.3') }])
+    expect(rows.map((r) => `${r.account?.label} ${r.after?.toFixed(2)}`)).toEqual(['0xaaaa…aaaa 0.99', '0xbbbb…bbbb 1.42'])
+  })
+
   test('a market holding a leg nobody could price reports no new factor', () => {
     // The shares of the base are unknowable, and a share guessed at is the
     // wrong number this replaces.

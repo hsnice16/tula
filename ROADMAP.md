@@ -33,50 +33,21 @@ is only worth the check behind it, so a task marked `done` names the tests
 covering its acceptance and `src/tasks.test.ts` fails on one that does not —
 [`tasks/README.md`](./tasks/README.md) has the convention.
 
-Three milestones are ◐ — **4**, **8** and **13** — and every open piece is named
-here rather than left to the reader. A bullet that did not land is marked
-`**Not met.**`, that spelling and no other, so `grep -rn 'Not met' tasks/*/`
+The table names no versions: 6 landed alongside 4 and 5 rather than after them,
+and a plan that moves makes a published number wrong.
+
+Three milestones are ◐ — **4**, **8** and **13**. A bullet that did not land is
+marked `**Not met.**`, that spelling and no other, so `grep -rn 'Not met' tasks/*/`
 lists every one — the directories, not `tasks/README.md`, which documents the
-marker and so contains it — and this paragraph can be checked rather than
-believed. 8's open pieces are bullets that missed, each saying why in its own
+marker. 8's open pieces are bullets that missed, each saying why in its own
 task; so is the one in 4's [`breadth/10`](./tasks/breadth/10-hyperliquid-depth.md),
-which the venue's own documentation argues against doing. The rest of 4 and 13
-is open work rather than work that missed. 4's is the aggregator, which waits
-for 11; Aave V4, which does not; [`breadth/12`](./tasks/breadth/12-chain-reach.md),
-part-shipped; and the per-venue depth tasks 09, 11 and 13–16. 13 is ◐ the
-other way round from every other row: the docs site shipped, and of the
-hardening pass two bullets already hold on their own — no panic path leaves the
-terminal in raw mode, on both the shell and the one-shot prompt, and every
-venue-supplied string is treated as data on every path that renders it — while
-the rest of that milestone has not started.
-
-**1**, **2** and **6** closed. 2's last bullet was the reader-facing half of the
-injection work: venue text was labelled for the model — every tool result
-carries a sidecar naming the paths its outside text sits at — and said nothing
-to the reader, who is on the surface that works with no model at all. A name a
-venue spelled in text tula could not print is `ALTERED` on every view now,
-naming the venue, the bounded name and the `TULA_<CHAIN>_RPC` that chooses the
-node that sent it; what the venue actually sent is not shown, because that
-string is the one that repaints a line.
-
-1's last bullet accepted a `redact()` helper for the log and error paths; what
-shipped instead is the property it would only have approximated — no module
-holding a credential may hand one to a log, an error, a file or another process,
-and `src/secrets/` has no way out of the process at all, both failing the build
-in `scripts/guard.sh`. 6's was a shocked health factor computed as though the
-debt stood still, which is a stablecoin borrow and not a same-asset one: the
-assumption is checked against the book now and stated to the reader where it
-breaks, rather than sitting in a comment on `healthFactorUnder`.
-
-**7** shipped. It closed 3's last gap — the credential store holds an ordered
-set, every entry is read, and each row carries the account it came from — and it
-added the line that says what tula never asked for: a chain never queried is not
-a venue that *failed*, so `INCOMPLETE` stayed quiet and the total was short with
-nothing saying so. Availability landed beside it, under 6, which is why 6
-closed on one unstated assumption rather than on four connectors summing a free
-balance away. Labelling venue text *to the model* was 7's item; saying
-so on screen was 2's, and both now hold — `ALTERED` is the fifth thing a view
-says about itself.
+which the venue's own documentation argues against doing. The rest of 4 is open
+work: the aggregator, which waits for 11; Aave V4, which does not;
+[`breadth/12`](./tasks/breadth/12-chain-reach.md), part-shipped; and the depth
+tasks 09, 11 and 13–16. 13 is the other way round: the docs site shipped, and two
+hardening bullets already hold — no panic path leaves the terminal in raw mode,
+and every venue-supplied string is treated as data on every path that renders
+it — while the rest has not started.
 
 The aggregator and Aave V4 are scheduled in different places, and one rule puts
 each where it is: everything uncovered that *can* be liquidated is hand-built,
@@ -87,31 +58,19 @@ add is exposure nobody can be liquidated on, and it could not supply a health
 factor for it anyway. It completes a total rather than repairing one, which is
 the line 7 was drawn on.
 
-**Aave V4 stays in 4**, and is the one piece of it scheduled here. It is live on
-Ethereum, it holds real deposits, and it hides a *liquidation* — the connector
-declares it unread and `scripts/conformance.live.ts` re-checks against the live
-address book that the gap is still real. It was filed as deliberately deferred
-on the grounds that V4 is Hubs and Spokes rather than Pools, which is a statement
-about effort and not a decision: it is the venue tula already claims to read, one
-major version on, and as v3 drains into v4 an Aave position tula cannot see is a
-liquidation tula cannot rank. [`breadth/08`](./tasks/breadth/08-aave-v4.md) is
-the task, and it is honest about what is unknown — the account model, whether a
-health factor is per Hub, whether `getUserAccountData` has an equivalent. The
-declaration stands until the connector reads V4, and `/venues` is where the
-reader meets it — that, or the sentence under an Aave book that came back
-empty, which is where somebody on V4 actually lands.
-
-The risk engine (6) landed alongside breadth and distribution rather than after
-them, and that reordering is why this table stopped naming versions: it used to,
-and a plan that moves makes a published number wrong.
+**Aave V4 stays in 4.** It is live on Ethereum, holds real deposits, and hides a
+*liquidation*; the connector declares it unread and `scripts/conformance.live.ts`
+re-checks that the gap is still real. Hubs and Spokes rather than Pools is a
+statement about effort, not a decision: as v3 drains into v4, an Aave position
+tula cannot see is a liquidation tula cannot rank.
+[`breadth/08`](./tasks/breadth/08-aave-v4.md) is the task, and names what is
+unknown.
 
 8, 9 and 10 come before any of 11 through 17, as 7 did. A gap inside something
 shipped outranks new scope — a wrong number and a rule only a good model keeps
 are both shipped, in a product that already stores exchange keys. 8 led
-because it was the wrong number: 0.2.0 overstated the USDC row of a Hyperliquid
-unified or portfolio-margin account by the account's whole value, after a fix
-that did not remove it. Its input-line half
-is not a gap in a figure, and [`field-report`](./tasks/field-report) orders it
+because it was a wrong number in a shipped view. Its input-line half is not a
+gap in a figure, and [`field-report`](./tasks/field-report) orders it
 behind every task that changes one. 10 is there rather than later because a
 risk tool you have to remember to open is a tool you forget.
 
@@ -144,9 +103,8 @@ model. Nothing left in 8–12 changes that: a corrected figure, a second model
 provider, a venue read over MCP, and a user-added venue are all still reads.
 
 **2.0 is 15**, because that is where signing authority enters the product and
-the read-only promise is retracted by plan. Retracting it is one commit across
-the nine surfaces `src/site-claims.test.ts` pins the caveat to, which is what
-makes it one commit rather than nine.
+the read-only promise is retracted by plan. Retracting it is one commit, because
+`src/site-claims.test.ts` pins the caveat to every surface that carries it.
 
 **14 sits between them on purpose.** A diff that states a proposed change in
 exposure terms — fees, slippage, the resulting move in liquidation distance,
@@ -164,14 +122,11 @@ the list. That declaration exists so a half-read account is never served as a
 whole one — it was never meant to be a standing statement about the product, and
 a count of it beside every figure was one, so the count came off the view.
 
-The obligation it creates is answered here instead. Twenty-four areas are
-declared across seven venues, and each one names the task that would close it in the
-manifest itself: `src/coverage-plan.test.ts` fails the build on a gap whose
-plan is not a real task, on one filed under a task already finished, on one
-hiding a liquidation filed under the aggregator, and on any plan this table
-does not name. Declared-and-unfiled is what that test exists to make
-impossible — thirteen of the thirty were in that state when it was written, two
-of them mentioned in no file at all.
+The obligation it creates is answered here instead. Each declared area names
+the task that would close it in the manifest itself: `src/coverage-plan.test.ts`
+fails the build on a gap whose plan is not a real task, on one filed under a task
+already finished, on one hiding a liquidation filed under the aggregator, and on
+any plan this table does not name.
 
 | What | Where |
 |---|---|
@@ -185,18 +140,12 @@ of them mentioned in no file at all.
 | Stripe Treasury and connected accounts under a platform | [`breadth/16`](./tasks/breadth/16-stripe-depth.md) |
 | What an LP or vault receipt token is a claim on | [`breadth/01`](./tasks/breadth/01-aggregator-api.md) |
 
-Ordered by venue rather than by size. An earlier draft of this paragraph called
-three of them "a decode of bytes already fetched", and reading the code rather
-than the declarations showed that claim was worth what such claims usually are.
-The bytes are in hand; decoding them changes no figure on any screen, and
-retiring a declaration for that would shorten the list without the reader seeing
-anything new. What the exercise turned up instead was a gap nobody had declared
-— the eMode category Aave liquidates an account against — and it was a wrong
-number rather than a missing one, sitting under a health factor Aave did state,
-which is why nothing about it looked wrong. It is fixed rather than listed
-above; [`breadth/09`](./tasks/breadth/09-aave-depth.md) records what reading it
-against the chain turned out to require, including the field that looks like
-the answer and is not.
+Ordered by venue rather than by size. Decoding bytes already fetched retires no
+area here unless it changes a figure the reader sees: otherwise it shortens the
+list and shows nobody anything new. Reading the code rather than the
+declarations is what found the one gap nobody had declared — the eMode category
+Aave liquidates against, a wrong number under a health factor Aave did state —
+and [`breadth/09`](./tasks/breadth/09-aave-depth.md) records what fixing it took.
 
 Nothing here is a promise about a date. What it is is the difference between a
 gap somebody chose and a gap nobody has looked at, and the two sections at the

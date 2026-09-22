@@ -4,6 +4,7 @@ import { remote, TulaError } from '../core/errors.js'
 import type { Position, Venue } from '../core/position.js'
 import type { Connector, ConnectorCredentials, KeyScope } from './types.js'
 import { request } from '../core/http.js'
+import { connectCommand } from '../core/surface.js'
 
 const HOST = 'api.coinbase.com'
 
@@ -67,7 +68,10 @@ export function loadKey(raw: string): KeyObject {
  * that option, so the conversion is done here — a silently wrong signature would
  * present as "Coinbase rejected your key".
  */
-export function derToJose(der: Buffer, size = 32): Buffer {
+/** ES256 signs over P-256, so r and s are 32 bytes each. */
+const P256_INT = 32
+
+export function derToJose(der: Buffer): Buffer {
   // Not a TulaError: this is tula's own signing code disagreeing with itself,
   // which the user can do nothing about and which should keep its stack.
   if (der[0] !== 0x30) throw new Error('Unexpected ECDSA signature format.')
@@ -80,7 +84,7 @@ export function derToJose(der: Buffer, size = 32): Buffer {
     const value = der.subarray(offset + 2, offset + 2 + length)
     offset += 2 + length
     const trimmed = value[0] === 0 ? value.subarray(1) : value
-    return Buffer.concat([Buffer.alloc(Math.max(0, size - trimmed.length)), trimmed])
+    return Buffer.concat([Buffer.alloc(Math.max(0, P256_INT - trimmed.length)), trimmed])
   }
   const r = readInt()
   const s = readInt()
@@ -110,7 +114,9 @@ export function buildJwt(keyName: string, signingKey: string, method: string, pa
 async function get<T>(path: string, creds: ConnectorCredentials): Promise<T> {
   const keyName = creds['keyName']?.trim()
   const signingKey = creds['signingKey']
-  if (!keyName || !signingKey) throw new TulaError('Coinbase needs a key name and its signing key.')
+  if (!keyName || !signingKey) {
+    throw new TulaError(`Coinbase needs a key name and its signing key.\n  Reconnect with ${connectCommand(COINBASE.id)}.`)
+  }
 
   const res = await request(`https://${HOST}${path}`, {
     headers: {
@@ -334,6 +340,7 @@ async function perpPositions(creds: ConnectorCredentials, asOf: Date): Promise<P
       venue: COINBASE.id,
       kind: 'perp',
       asset: perpAsset(product),
+      product,
       quantity: signed,
       delta: signed,
       ...(pnl === undefined ? {} : { equity: new Decimal(pnl) }),

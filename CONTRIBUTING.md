@@ -120,7 +120,7 @@ goes on telling people to use that channel, so the run prints a warning naming
 each channel that is off. Read it before you announce anything.
 
 ```bash
-bash scripts/release-build.sh dist/release   # the same artifacts, locally
+bash scripts/release-build.sh dist/release   # the same artifacts; macOS only, it needs codesign
 bash scripts/install-test.sh                 # runs install.sh against a fake release
 bash scripts/npm-pack.sh dist/release        # the npm tree that would be published
 bash scripts/homebrew-formula.sh dist/release tula   # the formula, real checksums
@@ -134,7 +134,7 @@ Two ways, neither of which publishes anything by accident.
 `publish` off. It builds all four targets, verifies them and runs the installer
 against them — then stops, and leaves the artifacts and `checksums.txt` on the
 run to inspect. It signs only where `secrets.APPLE_CERT_P12` is set; without it
-the macOS binaries are unsigned and the run says so. Publishing is off by default
+the macOS binaries ship ad-hoc signed and the run says so. Publishing is off by default
 because `GITHUB_REF_TYPE` is `branch` on a manual run, so the tag-matches-version
 check cannot protect it; without the gate, a manual run would cut a real release
 from whatever was on the branch. **It does not attest.** That step is gated with

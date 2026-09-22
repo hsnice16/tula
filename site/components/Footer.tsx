@@ -42,7 +42,9 @@ export function Footer() {
   return (
     <footer className="border-t border-rule bg-bg/85 py-10 font-mono text-[0.8rem] text-dim backdrop-blur">
       <div className="wrap flex flex-wrap items-start justify-between gap-x-16 gap-y-10">
-        <div>
+        {/* The badge's 296px is a floor only when it fails to load: a broken
+            image stops shrinking with its box and pans the page sideways. */}
+        <div className="max-w-full">
           <p className="flex min-h-8 flex-wrap items-center gap-x-2">
             <span>©</span>
             <Ext href={AUTHOR.url} className={LINK}>
@@ -72,9 +74,10 @@ export function Footer() {
 
         {/* Below `phone`, the two short columns share a row and Guides takes the
             full width under them: three columns wrapping on their own leave one
-            stranded beside nothing. */}
-        <div className="flex flex-wrap gap-x-16 gap-y-8 max-phone:grid max-phone:w-full max-phone:grid-cols-2">
-          <Column title="Pages">
+            stranded beside nothing. Flex rather than a two-column grid, so at
+            200% zoom the pair stacks instead of spilling past a column. */}
+        <div className="flex flex-wrap gap-x-16 gap-y-8 max-phone:w-full">
+          <Column title="Pages" className="max-phone:flex-1">
             {NAV.filter((n) => n.group === 'site').map(({ href, label }) => (
               <Link key={href} href={href} className={LINK}>
                 {label}
@@ -84,14 +87,14 @@ export function Footer() {
           {/* Pages written for a search, linked here and nowhere more prominent.
               A crawler weighs a page by the links to it, and a hidden link is
               spam by Google's own policy. */}
-          <Column title="Guides" className="max-phone:order-last max-phone:col-span-2">
+          <Column title="Guides" className="max-phone:order-last max-phone:basis-full">
             {NAV.filter((n) => n.group === 'guide').map(({ href, label }) => (
               <Link key={href} href={href} className={LINK}>
                 {label}
               </Link>
             ))}
           </Column>
-          <Column title="More links">
+          <Column title="More links" className="max-phone:flex-1">
             <Ext href={REPO} className={LINK}>
               GitHub
             </Ext>
