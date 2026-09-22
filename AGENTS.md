@@ -999,11 +999,12 @@ before pasting keys tied to their net worth.
   writes `Formula/tula@<version>.rb` beside the two channel formulae and the tap
   accumulates them. Going back is the direction that matters when a build is
   showing somebody a wrong number, and it is not worth having on two channels
-  out of three. The pinned formulae are `keg_only`: they cannot name each other
-  in a `conflicts_with` because none of the later files exist when one is
-  rendered, and an old build belongs on PATH only when somebody links it on
-  purpose. `homebrew-formula.sh` mirrors Homebrew's own `Formulary.class_s`
-  rather than the two names we happen to ship — `tula@0.1.0` must declare
+  out of three. The pinned formulae are `keg_only`: an old build belongs on PATH
+  only when somebody links it on purpose. No formula declares `conflicts_with`:
+  Homebrew 6+ refuses to load a named formula from a tap the user has not
+  trusted, and the install line trusts only the formula it names.
+  `homebrew-formula.sh` mirrors Homebrew's own `Formulary.class_s` rather than
+  the two names we happen to ship — `tula@0.1.0` must declare
   `TulaAT010`, and a class name that disagrees with its file name fails the
   whole tap for every user at once.
 - **Artifact names are a contract** between `release-build.sh`, the formula, the

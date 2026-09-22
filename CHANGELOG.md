@@ -11,6 +11,10 @@ CI and build plumbing, refactors, and doc-only edits — stays in commit message
 
 ## [Unreleased]
 
+### Fixed
+
+- **`brew install hsnice16/tap/tula` works on Homebrew 6 and later.** The formula named `tula-latest` as a conflict, and Homebrew refuses to load a formula from a tap you have not trusted, so the install line failed before downloading anything.
+
 ## [0.3.2] - 2026-09-22
 
 ### Fixed

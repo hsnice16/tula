@@ -65,17 +65,14 @@ for t in darwin-arm64 darwin-x64 linux-arm64 linux-x64; do
   [ -n "${!var}" ] || die "no checksum for tula-v$VERSION-$t.tar.gz in $RELEASE/checksums.txt"
 done
 
-# Two tula binaries on one PATH is a coin toss about which liquidation number you
-# are reading, and the two channels and the pinned versions refuse that in the
-# two ways Homebrew offers. The channels conflict, because they are alternatives
-# and picking one is the point. A pinned version is keg_only instead: it cannot
-# name every other pinned version, those files do not exist yet when this one is
-# rendered — and keg_only is the stronger answer anyway, since an old build ends
-# up on PATH only when somebody links it on purpose.
+# A pinned version is keg_only, so an old build reaches PATH only when somebody
+# links it on purpose. The two channels declare no conflicts_with: Homebrew 6+
+# loads the named formula to check it, and `brew install hsnice16/tap/tula`
+# trusts only tula — so the install line refused on an untrusted tula-latest.
+# Installing both still fails, at the link step, which names `brew unlink`.
 case "$NAME" in
   *@*) PATH_RULE="  keg_only :versioned_formula" ;;
-  *) OTHER=$([ "$NAME" = tula ] && echo tula-latest || echo tula)
-     PATH_RULE="  conflicts_with \"$OTHER\", because: \"both install a tula binary\"" ;;
+  *) PATH_RULE="" ;;
 esac
 
 cat <<FORMULA
