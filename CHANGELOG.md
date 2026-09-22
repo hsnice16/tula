@@ -11,6 +11,8 @@ CI and build plumbing, refactors, and doc-only edits — stays in commit message
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-09-22
+
 ### Fixed
 
 - **`brew install hsnice16/tap/tula` works on Homebrew 6 and later.** The formula named `tula-latest` as a conflict, and Homebrew refuses to load a formula from a tap you have not trusted, so the install line failed before downloading anything. To update, name the formula in full — `brew upgrade hsnice16/tap/tula` — since Homebrew refuses the short name for an install it holds no trust for.
@@ -382,7 +384,8 @@ what breaks first.
 - `KeyScope` is tri-state. Kraken exposes no endpoint reporting a key's permissions, and every endpoint gated on trade permission mutates an order, so `canTrade` is `unknown` rather than guessed at. Withdraw scope is provable, and is proven.
 - Kraken margin and open orders are not read yet, so on a margin account this is not a complete Kraken picture.
 
-[Unreleased]: https://github.com/hsnice16/tula/compare/v0.3.2...HEAD
+[Unreleased]: https://github.com/hsnice16/tula/compare/v0.3.3...HEAD
+[0.3.3]: https://github.com/hsnice16/tula/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/hsnice16/tula/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/hsnice16/tula/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/hsnice16/tula/compare/v0.2.0...v0.3.0
