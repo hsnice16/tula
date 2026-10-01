@@ -11,6 +11,8 @@ CI and build plumbing, refactors, and doc-only edits — stays in commit message
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-01
+
 ### Added
 
 - **One position in full, at any venue.** `/position BTC` opens a position in sections — the position, its PnL, what liquidates it, what of it is held, and where it came from. In the shell, ↓ on an empty line lists every position as a table to filter and pick from, and `/positions` says so on a line of its own. `tula position BTC` prints the same, and the assistant can read it too.
@@ -404,7 +406,8 @@ what breaks first.
 - `KeyScope` is tri-state. Kraken exposes no endpoint reporting a key's permissions, and every endpoint gated on trade permission mutates an order, so `canTrade` is `unknown` rather than guessed at. Withdraw scope is provable, and is proven.
 - Kraken margin and open orders are not read yet, so on a margin account this is not a complete Kraken picture.
 
-[Unreleased]: https://github.com/hsnice16/tula/compare/v0.3.3...HEAD
+[Unreleased]: https://github.com/hsnice16/tula/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/hsnice16/tula/compare/v0.3.3...v0.4.0
 [0.3.3]: https://github.com/hsnice16/tula/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/hsnice16/tula/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/hsnice16/tula/compare/v0.3.0...v0.3.1
