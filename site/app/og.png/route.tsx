@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og'
+import { CARD } from '@/lib/card'
 import { NAME, OG_IMAGE, SITE } from '@/lib/site'
 
 // Static export: the card is rendered once at build time, like every page.
@@ -19,15 +20,16 @@ const ROWS = [
   ['aave', 'ETH collateral', '+4.64'],
 ] as const
 
-// site/app/globals.css, restated because a PNG cannot read a stylesheet.
-const BG = '#131211'
-const PANEL = '#1b1a19'
-const PANEL_2 = '#201e1b'
-const RULE = '#312e2b'
-const ACCENT = '#d4a72c'
-const INK = '#eceae5'
-const DIM = '#8d877e'
-const FAINT = '#666159'
+const {
+  bg: BG,
+  panel: PANEL,
+  panel2: PANEL_2,
+  rule: RULE,
+  accent: ACCENT,
+  ink: INK,
+  dim: DIM,
+  faint: FAINT,
+} = CARD
 
 export function GET() {
   return new ImageResponse(

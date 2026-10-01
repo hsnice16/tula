@@ -111,6 +111,22 @@ export const NAV = [
       'Spot, perps and collateral netted per asset across venues, and an Equity total that never adds a perp’s notional.',
   },
   {
+    href: '/stress-test',
+    label: 'Stress test',
+    inHeader: false,
+    group: 'guide',
+    blurb:
+      'One price move across every venue at once: the new total, each health factor and account ratio, and what liquidates.',
+  },
+  {
+    href: '/wallets',
+    label: 'Wallets',
+    inHeader: false,
+    group: 'guide',
+    blurb:
+      'One public address read on nine EVM chains — the gas token and the ERC-20s a token list names — with no key.',
+  },
+  {
     href: '/hyperliquid',
     label: 'Hyperliquid',
     inHeader: false,
@@ -164,6 +180,9 @@ export const OG_IMAGE = {
   height: 630,
   alt: `${NAME} — one asset held three ways, netted, with the move that liquidates it`,
 } as const
+
+/** Where a guide's own share card is exported, beside the site's. */
+export const guideCard = (href: string) => `/og${href}.png`
 
 /**
  * The iOS home-screen icon. Declared rather than left to Next's

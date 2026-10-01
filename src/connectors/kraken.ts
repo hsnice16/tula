@@ -227,6 +227,8 @@ interface OpenPosition {
   vol_closed?: string
   cost?: string
   margin?: string
+  /** Unrealised P&L in the quote currency, signed with a leading `+` when up. Only with `docalcs`. */
+  net?: string
 }
 
 /**
@@ -363,7 +365,7 @@ export const krakenConnector: Connector = {
     const wallets = await call<{ accounts?: WalletAccount[] }>(WALLET_ACCOUNTS, creds)
     const accounts = wallets.ok ? (wallets.result.accounts ?? []) : []
 
-    const open = await call<Record<string, OpenPosition>>(OPEN_POSITIONS, creds)
+    const open = await call<Record<string, OpenPosition>>(OPEN_POSITIONS, creds, { docalcs: 'true' })
     if (!open.ok) {
       throw permissionDenied(open.errors) ? new TulaError(missingPositionScope()) : new KrakenApiError(open.errors)
     }
@@ -461,7 +463,10 @@ async function marginRows(
   // Several positions on one pair and side are one exposure, as OpenPositions'
   // own `consolidation=market` sums them; listed per txid they were rows that
   // differed only in their figures.
-  const books = new Map<string, { base: string; quote: string; short: boolean; size: Decimal; cost: Decimal; initial: Decimal }>()
+  const books = new Map<
+    string,
+    { base: string; quote: string; short: boolean; size: Decimal; cost: Decimal; initial: Decimal; net: Decimal | null }
+  >()
   for (const [, position] of entries) {
     const pair = position.pair ? pairs[position.pair] : undefined
     if (!pair?.base || !pair.quote) {
@@ -479,17 +484,20 @@ async function marginRows(
       size: new Decimal(0),
       cost: new Decimal(0),
       initial: new Decimal(0),
+      net: new Decimal(0),
     }
     books.set(key, {
       ...book,
       size: book.size.plus(size),
       cost: book.cost.plus(position.cost ?? '0'),
       initial: book.initial.plus(position.margin ?? '0'),
+      // One position without it leaves the sum unstated, not short.
+      net: book.net === null || !position.net ? null : book.net.plus(position.net),
     })
   }
 
   const positions: Position[] = []
-  for (const [key, { base, quote, short, size, cost, initial }] of books) {
+  for (const [key, { base, quote, short, size, cost, initial, net }] of books) {
     const exposure = short ? size.negated() : size
     const loan = short ? cost : cost.negated()
     const product = `${base}/${quote}`
@@ -510,6 +518,18 @@ async function marginRows(
       // row in "what breaks first" as unranked instead of leaving it out, so a
       // position Kraken reported no initial margin against is absent there.
       ...(initial.isZero() ? {} : { liquidation: { leverage: cost.div(initial).abs() } }),
+      // On the exposure leg alone: the loan beside it is the same position.
+      // The currency is printed beside figures, so a quote that is not a plain
+      // code leaves them unstated rather than carrying its text there.
+      ...((net === null && initial.isZero()) || !/^[A-Z]{3,4}$/.test(quote)
+        ? {}
+        : {
+            figures: {
+              ...(net === null ? {} : { unrealisedPnl: net }),
+              ...(initial.isZero() ? {} : { margin: initial }),
+              ...(quote === 'USD' ? {} : { currency: quote }),
+            },
+          }),
     })
 
     positions.push({

@@ -53,6 +53,7 @@ const COVERED_BY: Readonly<Record<string, string>> = {
   'general: Enter': 'src/ui/screen.test.ts: a line typed while a command runs is queued',
   'general: Esc · ctrl+c': 'src/ui/screen.test.ts: Esc stops a question, and what was queued runs next',
   'general: ↑': 'src/ui/screen.test.ts: a line typed while a command runs is queued',
+  'general: ↓': 'src/ui/screen.test.ts: ↓ on an empty line picks a position, and Esc steps back out',
   'lists: ↑ ↓ · ctrl+p ctrl+n': 'src/ui/screen.test.ts: both lists move on ctrl+n and ctrl+p',
   'lists: Enter': 'src/ui/screen.test.ts: an argument list opens from Enter on /shock',
   'lists: → · ctrl+f · ctrl+e': 'src/ui/screen.test.ts: a suggestion from history is cut at the edge',

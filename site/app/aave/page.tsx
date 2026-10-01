@@ -41,7 +41,9 @@ export default function Page() {
 
       <Section title="Ask what if">
         <p className="mb-4 text-dim">
-          <Code>shock</Code> reprices the book and shows each new health factor. See{' '}
+          A <Link href="/stress-test">stress test</Link>: <Code>shock</Code> reprices the book and
+          shows each new health factor, beside any{' '}
+          <Link href="/hyperliquid">Hyperliquid liquidation price</Link>. See{' '}
           <Link href="/liquidation-risk">liquidation risk across venues</Link>.
         </p>
         <Terminal title="shock">{'tula shock ETH -20'}</Terminal>

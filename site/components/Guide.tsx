@@ -2,18 +2,32 @@ import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 import { breadcrumb, JsonLd } from '@/components/JsonLd'
 import { Frame } from '@/components/Terminal'
-import { NAME, OG, pageUrl, SITE, TWITTER } from '@/lib/site'
+import { guideCard, NAME, NAV, OG, OG_IMAGE, pageUrl, SITE, TWITTER } from '@/lib/site'
 
-/** The metadata every other page spells out by hand, for the seven that share a shape. */
+/** The metadata every other page spells out by hand, for the guides that share a shape. */
 export function guideMetadata(path: string, title: string, description: string): Metadata {
+  // Alt is what the card shows: the guide's name and the sentence under it.
+  const card = NAV.find((n) => n.href === path)
+  const image = {
+    ...OG_IMAGE,
+    url: guideCard(path),
+    alt: card ? `${card.label} — ${card.blurb}` : `${title} · ${NAME}`,
+  }
   return {
     title,
     description,
     alternates: { canonical: path },
     // Both carry the brand: `title.template` does not reach an explicitly set
     // `openGraph.title`, so an unfurl was unbranded where a card was not.
-    openGraph: { ...OG, type: 'website', url: path, title: `${title} · ${NAME}`, description },
-    twitter: { ...TWITTER, title: `${title} · ${NAME}`, description },
+    openGraph: {
+      ...OG,
+      images: [image],
+      type: 'website',
+      url: path,
+      title: `${title} · ${NAME}`,
+      description,
+    },
+    twitter: { ...TWITTER, images: [image], title: `${title} · ${NAME}`, description },
   }
 }
 

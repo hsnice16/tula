@@ -173,3 +173,23 @@ export function downloaded(received: number, total: number | null): string {
 export function plural(n: number, noun: string): string {
   return `${n} ${noun}${n === 1 ? '' : 's'}`
 }
+
+/** An address cut to its ends, as a block explorer abbreviates one. */
+const shortAddress = (address: string) => `${address.slice(0, 6)}…${address.slice(-4)}`
+
+/**
+ * An account as the tables and lists name it: its name, with the address cut
+ * to its ends beside it, so two accounts sharing a name are still two. Whole,
+ * the address took more of a row than the figures did and wrapped the tables
+ * at an ordinary width. The detail's Source section and the model's tool
+ * results carry it whole.
+ */
+export function accountName(label: string): string {
+  const named = /^(.+) \((0x[0-9a-fA-F]{40})\)$/.exec(label)
+  if (named?.[1] && named[2]) return `${named[1]} (${shortAddress(named[2])})`
+  return /^0x[0-9a-fA-F]{40}$/.test(label) ? shortAddress(label) : label
+}
+
+/** An ACCOUNT cell: the account named by `accountName`, or an em dash for a row with none. */
+export const accountCell = (account: { label: string } | undefined): string =>
+  account ? accountName(account.label) : '—'

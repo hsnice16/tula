@@ -16,7 +16,7 @@ Per-milestone tasks in [`tasks/`](./tasks). Shipped work in [CHANGELOG.md](./CHA
 | **5** | ✅ Distribution — install script, attestations, Homebrew, npm · [`distribution`](./tasks/distribution) | The install path is part of the security product, not logistics |
 | **6** | ✅ Risk engine — liquidation distance, shocks, what breaks first · [`risk-engine`](./tasks/risk-engine) | The feature people tell friends about |
 | **7** | ✅ The open pieces — the gaps left in 2, 3, 4 and 6 · [`open-pieces`](./tasks/open-pieces) | None of it was new scope, and two of the gaps were live in the shipped product |
-| **8** | ◐ Field report — Hyperliquid as the venue states it, and the input line every shell has · [`field-report`](./tasks/field-report) | The first outside read of a real account found a wrong number in a shipped view, and a wrong number outranks new scope |
+| **8** | ◐ Field report — Hyperliquid as the venue states it, the input line every shell has, and one position's detail · [`field-report`](./tasks/field-report) | The first outside read of a real account found a wrong number in a shipped view, and a wrong number outranks new scope |
 | **9** | ○ Trust surface — `doctor`, staleness, scope audit · [`trust-surface`](./tasks/trust-surface) | Keys are stored today, so the obligation to prove what we do with them is already incurred |
 | **10** | ○ Watch mode and alerts · [`watch-and-alerts`](./tasks/watch-and-alerts) | "Tell me before my health factor breaks 1.3" is why someone opens this daily |
 | **11** | ○ Venue reach — the venue handle, user-added venues, MCP, the aggregator · [`venue-reach`](./tasks/venue-reach) | Reach past what we build ourselves, now that 7 has finished what we started |

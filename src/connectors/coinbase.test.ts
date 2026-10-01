@@ -241,6 +241,21 @@ describe('coinbase perpetuals', () => {
     expect(perps.find((p) => p.asset === 'SOL')?.equity).toBeUndefined()
   })
 
+  test('entry, mark, PnL and margin are the breakdown’s own, and absent where it omits them', async () => {
+    stub([ACCOUNTS], { '/portfolios/': BREAKDOWN })
+    const perps = (await coinbaseConnector.fetchPositions(CREDS)).filter((p) => p.kind === 'perp')
+    const btc = perps.find((p) => p.asset === 'BTC')
+    // 0.75 BTC from 64,000 to 62,000 is the -1,500 the breakdown states beside them.
+    expect(btc?.figures?.entry?.toString()).toBe('64000')
+    expect(btc?.liquidation?.mark?.toString()).toBe('62000')
+    expect(btc?.figures?.unrealisedPnl?.toString()).toBe('-1500')
+    expect(btc?.figures?.margin?.toString()).toBe('9300')
+    expect(btc?.figures?.marginMode).toBe('cross')
+    const sol = perps.find((p) => p.asset === 'SOL')
+    expect(sol?.figures).toEqual({ marginMode: 'isolated' })
+    expect(sol?.liquidation?.mark).toBeUndefined()
+  })
+
   test('a short is negative however Coinbase signed net_size', async () => {
     stub([ACCOUNTS], { '/portfolios/': BREAKDOWN })
     const eth = (await coinbaseConnector.fetchPositions(CREDS)).find((p) => p.kind === 'perp' && p.asset === 'ETH')

@@ -13,6 +13,7 @@ import {
   fixtureEngine,
   injectionEngine,
   INJECTION_PAYLOADS,
+  positionOver,
 } from './fixture.js'
 import type { RiskEngine } from './engine.js'
 import { executeTool, TOOLS } from './tools.js'
@@ -30,6 +31,7 @@ const engineOver = (positions: Position[]): RiskEngine => ({
   shockedHealthFactors: (shocks: Shock[]) =>
     shockedHealthFactors(positions, FIXTURE_PRICES, shocks),
   availability: () => availability(positions),
+  position: positionOver(positions),
 })
 
 describe('tool surface', () => {
@@ -292,6 +294,35 @@ describe('run_scenario', () => {
   })
 })
 
+describe('get_position', () => {
+  test('one position whole, every figure rendered and named as the screen names it', () => {
+    const result = call('get_position', { position: 'ETH perp' })
+    expect(result.kind).toBe('perp')
+    expect(result.asset).toBe('ETH')
+    const figures = result.figures as { name: string; value: string }[]
+    expect(figures.find((f) => f.name === 'Size')?.value).toBe('-4 short')
+    expect(figures.find((f) => f.name === 'Liq. Price')?.value).toBe('$5,200.00 (+30.0% to liquidation)')
+    expect(figures.find((f) => f.name === 'Funding')?.value).toBe('not stated by the venue')
+    expect(result.note).toContain('never zero')
+  })
+
+  test('words that name more than one position hand back the words for each, never a guess', () => {
+    const result = call('get_position', { position: 'ETH' })
+    expect(result.figures).toBeUndefined()
+    expect((result.matches as { name_it_with: string }[]).map((m) => m.name_it_with)).toEqual([
+      'ETH cex',
+      'ETH lend',
+      'ETH perp',
+    ])
+    expect(result.note).toContain('Ask which one')
+  })
+
+  test('no match says where the list is, and the tool never throws on empty input', () => {
+    expect(call('get_position', { position: 'ZZZ' }).note).toContain('get_positions')
+    expect(call('get_position', {}).error).toContain('asset first')
+  })
+})
+
 describe('get_venue_status', () => {
   test('surfaces failed venues so the model can qualify its answer', () => {
     const result = call('get_venue_status')
@@ -411,6 +442,7 @@ const taintedEngine: RiskEngine = {
   scenario: (shocks: Shock[]) => scenario(taintedEngine.positions(), new Map(), shocks),
   shockedHealthFactors: (shocks: Shock[]) =>
     shockedHealthFactors(taintedEngine.positions(), new Map(), shocks),
+  position: (words) => positionOver(taintedEngine.positions(), new Map())(words),
   venues: () => [
     { venue: `${OUTSIDE}v`, positions: 2, asOf: FIXTURE_TIME, status: `failed: ${OUTSIDE}why` },
   ],
@@ -444,7 +476,22 @@ describe('the mark is not optional', () => {
       ['what_breaks_first', {}],
       ['run_scenario', { shocks: [{ asset: `${OUTSIDE}a1`, percent: -30 }] }],
       ['get_venue_status', {}],
+      ['get_position', { position: `${OUTSIDE}a1` }],
     ]
+    const twice: RiskEngine = {
+      ...taintedEngine,
+      position: positionOver([
+        ...taintedEngine.positions(),
+        { ...taintedEngine.positions()[0]!, id: 't3', venue: `${OUTSIDE}w`, product: `${OUTSIDE}p3` },
+      ]),
+    }
+    const matches = call('get_position', { position: `${OUTSIDE}a1` }, twice)
+    expect(matches.matches).toHaveLength(2)
+    for (const path of new Set(pathsCarrying(matches, OUTSIDE))) {
+      expect(`get_position matches declare ${path}: ${matches.untrusted.fields.includes(path)}`).toBe(
+        `get_position matches declare ${path}: true`,
+      )
+    }
     for (const [name, input] of calls) {
       const result = call(name, input, taintedEngine)
       const declared: string[] = result.untrusted.fields

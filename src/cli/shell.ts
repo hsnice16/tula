@@ -30,10 +30,16 @@ import { plural } from '../core/format.js'
 export type UiAction = 'exit' | 'clear' | 'login' | 'history' | 'vim'
 
 export type DispatchResult =
-  | { kind: 'output'; output: string; note?: string; incomplete?: boolean; usageError?: boolean }
+  | { kind: 'output'; output: string; note?: string; hint?: string; incomplete?: boolean; usageError?: boolean }
   | { kind: 'ui'; action: UiAction }
   | { kind: 'connect'; venue: string }
   | { kind: 'connect-price'; provider: string }
+  /**
+   * One position, or the rows the words named. The shell opens it as its modal
+   * — the detail, or the picker filtered by what was typed — and the one-shot
+   * CLI prints `answer`.
+   */
+  | { kind: 'position'; id?: string; query: string; answer: commands.CommandResult }
 
 export { parseCommand }
 
@@ -66,7 +72,7 @@ async function dispatchVenue(
 
   switch (sub) {
     case 'positions':
-      return { kind: 'output', ...(await commands.positionsAt(session, id, connector.venue.kind)) }
+      return { kind: 'output', ...(await commands.positionsAt(session, id, connector.venue.kind, args.slice(1))) }
     case 'breaks':
       return { kind: 'output', ...(await commands.breaksAt(session, id, connector.venue.kind)) }
     case 'status':
@@ -272,7 +278,14 @@ export async function dispatchCommand(
 
   switch (name) {
     case 'positions':
-      return { kind: 'output', ...(await commands.positions(session)) }
+      return { kind: 'output', ...(await commands.positions(session, args)) }
+    case 'position': {
+      const { found, matches, result } = await commands.position(session, args)
+      if (matches.length === 0) return { kind: 'output', ...result }
+      return found
+        ? { kind: 'position', id: found.id, query: '', answer: result }
+        : { kind: 'position', query: args.join(' '), answer: result }
+    }
     case 'exposure':
       return { kind: 'output', ...(await commands.exposure(session)) }
     case 'breaks':

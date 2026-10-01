@@ -905,6 +905,68 @@ describe('perps', () => {
     expect(await positions()).toEqual([])
   })
 
+  // `Leg` leaves these out because nothing else here reads them; every capture has them.
+  type Stated = Leg & {
+    entryPx: string
+    unrealizedPnl: string
+    returnOnEquity: string
+    cumFunding: { allTime: string; sinceOpen: string }
+  }
+
+  for (const account of ACCOUNTS) {
+    const legs = books(account).flatMap(([dex, state]) =>
+      state.assetPositions.map(({ position }) => ({ dex, leg: position as Stated })),
+    )
+    if (legs.length === 0) continue
+    test(`${account.name}: every perp carries the figures the venue states, as it states them`, async () => {
+      stubAccount(account)
+      const rows = await positions()
+      for (const { dex, leg } of legs) {
+        const { asset, scale } = unscale(leg.coin, new Decimal(leg.szi))
+        const row = rows.find((p) => p.id === `${dex ? `hyperliquid-${dex}` : 'hyperliquid'}:perp:${asset}`)
+        const f = row?.figures
+        expect({ coin: leg.coin, entry: f?.entry?.times(scale).toString() }).toEqual({
+          coin: leg.coin,
+          entry: new Decimal(leg.entryPx).toString(),
+        })
+        expect(f?.unrealisedPnl?.toString()).toBe(new Decimal(leg.unrealizedPnl).toString())
+        expect(f?.returnOnEquity?.toString()).toBe(new Decimal(leg.returnOnEquity).toString())
+        expect(f?.funding?.sinceOpen?.toString()).toBe(new Decimal(leg.cumFunding.sinceOpen).toString())
+        expect(f?.funding?.allTime?.toString()).toBe(new Decimal(leg.cumFunding.allTime).toString())
+        expect(f?.margin?.toString()).toBe(new Decimal(leg.marginUsed).toString())
+        expect(f?.marginMode).toBe(leg.leverage.type as 'cross' | 'isolated')
+        // The PnL is the venue's figure, never `equity`, which is zero here by design.
+        expect(row?.equity?.toString()).toBe('0')
+      }
+    })
+  }
+
+  test('a per-thousand market states its entry per unit, beside the mark it is marked at', async () => {
+    const account = named('perp-isolated')
+    stubAccount(account)
+    const leg = account.perps.assetPositions.find(({ position }) => position.coin === 'kPEPE')!.position as Leg & {
+      entryPx: string
+    }
+    const pepe = (await positions()).find((p) => p.kind === 'perp' && p.heldAs === 'kPEPE')
+    expect(pepe?.figures?.entry?.toString()).toBe(new Decimal(leg.entryPx).div(1000).toString())
+    // Entry and mark in the same unit, or the move since entry reads 1000x.
+    const ratio = pepe!.liquidation!.mark!.div(pepe!.figures!.entry!)
+    expect(ratio.gt('0.5') && ratio.lt(2)).toBe(true)
+  })
+
+  test('a figure the venue left out is absent, never zero', async () => {
+    stub(
+      standard({
+        ...EMPTY_STATE,
+        marginSummary: { accountValue: '10', totalRawUsd: '10', totalNtlPos: '0', totalMarginUsed: '0' },
+        assetPositions: [{ position: { coin: 'ATOM', szi: '640.25', liquidationPx: null, entryPx: null, unrealizedPnl: '' } }],
+      }),
+    )
+    const atom = (await positions()).find((p) => p.asset === 'ATOM')
+    expect(atom).toBeDefined()
+    expect(atom?.figures).toBeUndefined()
+  })
+
   test('freshness comes from the venue clock, not ours', async () => {
     const account = named('perp-short')
     stubAccount(account)

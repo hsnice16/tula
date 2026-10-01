@@ -41,6 +41,8 @@ import {
   type ShockedRatio,
 } from '../core/risk.js'
 import {
+  accountCell,
+  accountName,
   freshness,
   healthFactor,
   holdings,
@@ -54,9 +56,21 @@ import {
   plural,
 } from '../core/format.js'
 import { renderTable, type Align } from '../ui/table.js'
+import { cells } from '../ui/wrap.js'
 import * as secrets from '../secrets/store.js'
 import { APP_DESCRIPTION, APP_NAME, APP_VERSION, IS_PRE_RELEASE, REPO_URL } from '../version.js'
-import { connectCommand, typed } from '../core/surface.js'
+import { connectCommand, isCli, tableColumns, typed } from '../core/surface.js'
+import {
+  assetName,
+  bookOrder,
+  holdsAsset,
+  lookupPosition,
+  positionDetail,
+  rowName,
+  tieBreak,
+  type PositionDetail,
+} from '../core/detail.js'
+import { PICK_KEY } from '../ui/keymap.js'
 import { forgetCommand, namesCommand, pickVenue, signInCommand } from './registry.js'
 import type { Altered, Alteration, Session } from './session.js'
 
@@ -72,6 +86,13 @@ export interface CommandResult {
    * block the output does not end with.
    */
   note?: string
+  /**
+   * How to go further than the view, kept out of `output`: the shell draws it
+   * as a line of its own under the answer, where a long table cannot cut it and
+   * it does not read as one more row, and the one-shot CLI prints it on stderr
+   * so `tula positions > book.txt` holds the table alone.
+   */
+  hint?: string
   /** Something the user must know is missing. Drives a non-zero exit. */
   incomplete?: boolean
   /** The command was not usable as written. Also a non-zero exit, so a typo in
@@ -511,30 +532,23 @@ function movable(session: Session): Map<string, Availability> {
  * "what breaks first" is unusable without it once there are two: it names the
  * venue to act at and not the address to act on.
  */
-const account = (p: Position): string => p.account?.label ?? '—'
+const account = (p: Position): string => accountCell(p.account)
 
-const assetCell = (p: Position): string => (p.heldAs ? `${p.asset} (as ${p.heldAs})` : p.asset)
-
-/** After whatever a view sorts by, so rows that share it keep one order between two reads. */
-const tieBreak = (a: Position, b: Position): number =>
-  account(a).localeCompare(account(b)) ||
-  (a.product ?? '').localeCompare(b.product ?? '') ||
-  (a.heldAs ?? '').localeCompare(b.heldAs ?? '')
-
-/** A row named on one line, for the lists that are not tables — every part a table column would show. */
+/** The venue, and the account where there is one: where a row is held, for the lists that are not tables. */
 const where = (p: Pick<Position, 'venue' | 'account'>): string =>
-  p.account ? `${p.venue} ${p.account.label}` : p.venue
-const what = (p: Position): string => `${p.kind} ${assetCell(p)}${p.product ? ` in ${p.product}` : ''}`
+  p.account ? `${p.venue} ${accountName(p.account.label)}` : p.venue
 
 /**
- * The FREE and UNAVAILABLE cells for one row. A debt or a short has no entry at
- * all — it is not a holding, and there is nothing about it to free — so both
- * cells are em dashes rather than the negative quantity read as cash.
+ * The FREE, UNAVAILABLE and REASON cells for one row. A debt or a short has no
+ * entry at all — it is not a holding, and there is nothing about it to free — so
+ * its figures are em dashes rather than the negative quantity read as cash. The
+ * reason is a column of its own so a narrow screen can cut its words and never
+ * the figure.
  */
-function split(a: Availability | undefined): [string, string] {
-  if (!a) return ['—', '—']
-  if (a.claims.length === 0) return [quantity(a.free), '—']
-  return [quantity(a.free), `${quantity(claimed(a))} ${a.claims.map((c) => c.reason).join(', ')}`]
+function split(a: Availability | undefined): [string, string, string] {
+  if (!a) return ['—', '—', '—']
+  if (a.claims.length === 0) return [quantity(a.free), '—', '—']
+  return [quantity(a.free), quantity(claimed(a)), a.claims.map((c) => c.reason).join(', ')]
 }
 
 /**
@@ -565,51 +579,64 @@ function releaseNotes(rows: Availability[]): string[] {
 }
 
 /**
- * A table whose columns are chosen from the rows rather than fixed. Two of them
- * are conditional — the account a row came from, and the free/held split — and
- * spelling each condition once per header, cell and alignment is three places
- * that have to stay in step for the columns not to slide sideways.
+ * A table whose columns are chosen from the rows rather than fixed. Spelling
+ * each condition once per header, cell and alignment is three places that have
+ * to stay in step for the columns not to slide sideways.
  */
 interface Column<T> {
   head: string
   align: Align
   cell: (row: T) => string
+  /** Words that can be cut with `…` to fit the screen. Never a figure, a time or an account. */
+  elastic?: boolean
+  /** A shorter form of the same cell, for a shell the table does not fit. */
+  narrow?: (row: T) => string
 }
 
-const draw = <T>(columns: Column<T>[], rows: readonly T[]): string =>
-  renderTable(
-    columns.map((c) => c.head),
-    rows.map((row) => columns.map((c) => c.cell(row))),
-    columns.map((c) => c.align),
-  )
+const draw = <T>(columns: Column<T>[], rows: readonly T[], indent = 0): string => {
+  const width = tableColumns() - indent
+  const render = (short: boolean) =>
+    renderTable(
+      columns.map((c) => c.head),
+      rows.map((row) => columns.map((c) => (short && c.narrow ? c.narrow(row) : c.cell(row)))),
+      columns.map((c) => c.align),
+      Number.isFinite(width) ? { width, elastic: columns.map((c) => c.elastic === true) } : undefined,
+    )
+  const table = render(false)
+  // Only in the shell: a one-shot has no status line to carry what is dropped.
+  if (isCli() || !columns.some((c) => c.narrow)) return table
+  return table.split('\n').every((line) => cells(line) <= width) ? table : render(true)
+}
 
-/** Present only where the venue in question holds more than one account. */
+/** The clock time alone: the shell's status line carries the age, and keeps it current. */
+const clock = (when: Date): string => (Number.isNaN(when.getTime()) ? '—' : when.toTimeString().slice(0, 8))
+
+/** Present only where some row names the account it came from. */
 const accountColumn = <T>(rows: readonly T[], of: (row: T) => Position): Column<T>[] =>
   rows.some((row) => of(row).account)
     ? [{ head: 'ACCOUNT', align: 'left', cell: (row) => account(of(row)) }]
     : []
 
 /**
- * A venue's own view drops the column only while every row has one label. Its
- * sub-accounts, builder dexes, markets and chains are labels of their own, and
- * without the column a sub-account's USDC is a second USDC row with nothing to
- * say whose it is.
+ * Only where the rows span more than one label. Sub-accounts, builder dexes,
+ * markets and chains are labels of their own, and without the column a
+ * sub-account's USDC is a second USDC row with nothing to say whose it is.
  */
 const labelColumn = <T>(rows: readonly T[], of: (row: T) => Position): Column<T>[] =>
   new Set(rows.map((row) => of(row).venue)).size > 1
-    ? [{ head: 'VENUE', align: 'left', cell: (row) => of(row).venue }]
+    ? [{ head: 'VENUE', align: 'left', cell: (row) => of(row).venue, elastic: true }]
     : []
 
 /** The contract, margin book, vault or staking state a row is held in, where any row names one. */
 const productColumn = <T>(rows: readonly T[], of: (row: T) => Position): Column<T>[] =>
   rows.some((row) => of(row).product)
-    ? [{ head: 'PRODUCT', align: 'left', cell: (row) => of(row).product ?? '—' }]
+    ? [{ head: 'PRODUCT', align: 'left', cell: (row) => of(row).product ?? '—', elastic: true }]
     : []
 
 /**
  * The columns a positions table has, which is deliberately not a fixed list.
  * The account appears only where a venue holds more than one, and the free/held
- * pair only where something is actually held: a column that says the same thing
+ * columns only where something is actually held: a column that says the same thing
  * on every row costs attention and returns nothing.
  */
 function positionColumns(
@@ -624,17 +651,18 @@ function positionColumns(
   const availability: Column<Position>[] = held
     ? [
         { head: 'FREE', align: 'right', cell: (p) => split(free.get(p.id))[0] },
-        { head: 'UNAVAILABLE', align: 'left', cell: (p) => split(free.get(p.id))[1] },
+        { head: 'UNAVAILABLE', align: 'right', cell: (p) => split(free.get(p.id))[1] },
+        { head: 'REASON', align: 'left', cell: (p) => split(free.get(p.id))[2], elastic: true },
       ]
     : []
   return [
     ...accountColumn(rows, (p) => p),
     ...productColumn(rows, (p) => p),
     { head: 'KIND', align: 'left', cell: (p) => p.kind },
-    { head: 'ASSET', align: 'left', cell: assetCell },
+    { head: 'ASSET', align: 'left', cell: assetName },
     { head: 'QUANTITY', align: 'right', cell: (p) => quantity(p.quantity) },
     ...availability,
-    { head: 'AS OF', align: 'left', cell: (p) => freshness(p.asOf, now) },
+    { head: 'AS OF', align: 'left', cell: (p) => freshness(p.asOf, now), narrow: (p) => clock(p.asOf) },
   ]
 }
 
@@ -647,7 +675,7 @@ function riskColumns(risks: readonly LiquidationRisk[], now: Date): Column<Liqui
   return [
     ...accountColumn(risks, (r) => r.position),
     ...productColumn(risks, (r) => r.position),
-    { head: 'ASSET', align: 'left', cell: (r) => assetCell(r.position) },
+    { head: 'ASSET', align: 'left', cell: (r) => assetName(r.position) },
     { head: 'KIND', align: 'left', cell: (r) => r.position.kind },
     {
       head: 'MOVE TO LIQ',
@@ -655,7 +683,7 @@ function riskColumns(risks: readonly LiquidationRisk[], now: Date): Column<Liqui
       cell: (r) => (r.liquidatable ? 'liquidatable now' : r.move === null ? 'unknown' : pct(r.move)),
     },
     { head: 'TRIGGER', align: 'left', cell: (r) => trigger(r.position) },
-    { head: 'AS OF', align: 'left', cell: (r) => freshness(r.position.asOf, now) },
+    { head: 'AS OF', align: 'left', cell: (r) => freshness(r.position.asOf, now), narrow: (r) => clock(r.position.asOf) },
   ]
 }
 
@@ -668,7 +696,7 @@ function accountNote(risks: readonly LiquidationRisk[]): string {
   const lines = risks.flatMap((r) => {
     const ratio = r.position.liquidation?.ratio
     if (!ratio || !r.members || r.members.length === 0) return []
-    const held = r.members.map((p) => `${assetCell(p)} ${p.kind}${p.product ? ` in ${p.product}` : ''}`)
+    const held = r.members.map((p) => `${assetName(p)} ${p.kind}${p.product ? ` in ${p.product}` : ''}`)
     const shown = held.slice(0, 6).join(', ')
     const floor = ratioFloor(ratio)
     return [
@@ -689,31 +717,131 @@ function legendFor(rows: readonly Position[], free: Map<string, Availability>): 
   return lines.length === 0 ? '' : `\n\n${lines.join('\n')}`
 }
 
-export async function positions(session: Session): Promise<CommandResult> {
-  const { positions: all } = await session.ensureLoaded()
+/**
+ * The rows an asset argument leaves, or the answer to give instead: a usage
+ * line for more than one word, and for an asset nothing holds the command that
+ * lists what is held.
+ */
+function byAsset(rows: Position[], words: readonly string[], listAll: string): Position[] | CommandResult {
+  if (words.length > 1) return { output: `Usage: ${typed(`${listAll} [asset]`)}   e.g. ${typed(`${listAll} ETH`)}`, usageError: true }
+  const [asset] = words
+  if (asset === undefined) return rows
+  const held = rows.filter((p) => holdsAsset(p, asset))
+  if (held.length > 0 || rows.length === 0) return held
+  return {
+    output: `Nothing here holds “${asset}”. ${typed(listAll)} lists every position.`,
+    usageError: true,
+  }
+}
+
+export async function positions(session: Session, words: readonly string[] = []): Promise<CommandResult> {
+  const { positions: book } = await session.ensureLoaded()
   const note = incompleteNote(session)
+  const all = byAsset(book, words, 'positions')
+  if (!Array.isArray(all)) return { ...all, output: all.output + note, note, incomplete: isIncomplete(session) }
   if (all.length === 0) {
     return { output: (await emptyBook(session)) + note, note, incomplete: isIncomplete(session) }
   }
 
   const now = new Date()
-  const sorted = [...all].sort(
-    (a, b) =>
-      a.venue.localeCompare(b.venue) ||
-      a.asset.localeCompare(b.asset) ||
-      a.kind.localeCompare(b.kind) ||
-      tieBreak(a, b),
-  )
+  const sorted = [...all].sort(bookOrder)
   const free = movable(session)
-  const columns: Column<Position>[] = [
-    { head: 'VENUE', align: 'left', cell: (p) => p.venue },
-    ...positionColumns(sorted, free, now),
-  ]
+  const columns = [...labelColumn(sorted, (p) => p), ...positionColumns(sorted, free, now)]
   return {
     output: draw(columns, sorted) + legendFor(sorted, free) + note,
     note,
+    hint: expandHint(),
     incomplete: isIncomplete(session),
   }
+}
+
+/** The line under `/positions` that says any row opens in full, and how. */
+export function expandHint(): string {
+  return isCli()
+    ? `Any position in full: ${typed('position <asset>')}`
+    : `Any position in full: ${PICK_KEY}, or ${typed('position <asset>')}`
+}
+
+/** What `/position` resolved its words to: every row they named, and `found` where that is one. */
+export interface PositionAnswer {
+  found?: Position
+  matches: Position[]
+  result: CommandResult
+}
+
+/**
+ * One position in full, printed. Words that name more than one row list each
+ * with the words that name it alone, rather than picking one: two BTC rows at
+ * two venues are two different decisions.
+ */
+export async function position(session: Session, words: string[]): Promise<PositionAnswer> {
+  const usage = `Usage: ${typed('position <asset> [venue, kind, account or product]')}   e.g. ${typed('position BTC')}`
+  if (words.length === 0) return { matches: [], result: { output: usage, usageError: true } }
+
+  const { positions: book, prices, quotedAt } = await session.ensureLoaded()
+  const note = incompleteNote(session)
+  const free = movable(session)
+  const { detail, matches } = lookupPosition(words, { book, prices, quotedAt, availabilityOf: (p) => free.get(p.id) })
+  const asked = words.join(' ')
+
+  if (detail) {
+    return {
+      found: detail.position,
+      matches: [detail.position],
+      result: { output: detailText(detail) + note, note, incomplete: isIncomplete(session) },
+    }
+  }
+  if (matches.length === 0) {
+    const output =
+      book.length === 0
+        ? (await emptyBook(session)) + note
+        : `No position matches “${asked}”.\n` +
+          `  ${typed('positions')} lists every one; the asset comes first, e.g. ${typed(`position ${book[0]!.asset}`)}.` +
+          note
+    return { matches: [], result: { output, note, usageError: book.length > 0, incomplete: isIncomplete(session) } }
+  }
+  const commands = matches.map((m) => typed(`position ${m.words.join(' ')}`))
+  const width = Math.max(...commands.map((c) => c.length))
+  const output = [
+    `“${asked}” is ${matches.length} positions. Name one:`,
+    ...matches.map(
+      ({ position: p }, at) => `  ${commands[at]!.padEnd(width)}  ${where(p)}  ${rowName(p)}  ${quantity(p.quantity)}`,
+    ),
+  ].join('\n')
+  return {
+    matches: matches.map((m) => m.position),
+    result: { output: output + note, note, usageError: true, incomplete: isIncomplete(session) },
+  }
+}
+
+/**
+ * One row of the loaded book in full, by id — what the shell's modal shows.
+ * Null once a refresh has taken the row away. Reads the book as it stands and
+ * never loads one: opening a position is not a request to call every venue.
+ */
+export function detailFor(session: Session, id: string): PositionDetail | null {
+  const { positions: book, prices, quotedAt } = session.current
+  const p = book.find((row) => row.id === id)
+  if (!p) return null
+  const free = movable(session).get(p.id)
+  return positionDetail(p, { book, prices, quotedAt, ...(free ? { availability: free } : {}) })
+}
+
+/** The heading a detail opens with: the row as a table names it, and where it is held. */
+export function detailTitle(p: Position): string {
+  return `${rowName(p)} · ${where(p)}`
+}
+
+/** A detail as text — what the one-shot CLI prints: the title, each section under its name, then the notes. */
+export function detailText(detail: PositionDetail): string {
+  const rows = detail.sections.flatMap((s) => s.rows)
+  const width = Math.max(...rows.map((r) => cells(r.label)))
+  const label = (text: string) => text + ' '.repeat(width - cells(text))
+  return [
+    detailTitle(detail.position),
+    ...detail.sections.flatMap((s) => ['', s.title, ...s.rows.map((r) => `  ${label(r.label)}   ${r.value}`)]),
+    ...(detail.notes.length > 0 ? ['', ...detail.notes] : []),
+  ].join('\n')
 }
 
 export async function exposure(session: Session): Promise<CommandResult> {
@@ -773,10 +901,7 @@ export async function breaks(session: Session): Promise<CommandResult> {
   }
 
   const now = new Date()
-  const columns: Column<LiquidationRisk>[] = [
-    { head: 'VENUE', align: 'left', cell: (r) => r.position.venue },
-    ...riskColumns(risks, now),
-  ]
+  const columns = [...labelColumn(risks, (r) => r.position), ...riskColumns(risks, now)]
   return {
     output: draw(columns, risks) + accountNote(risks) + tail,
     note: tail,
@@ -933,7 +1058,7 @@ export async function shock(session: Session, args: string[]): Promise<CommandRe
     )
   } else {
     lines.push('LIQUIDATED:')
-    for (const p of result.liquidated) lines.push(`  ${where(p)}  ${what(p)}`)
+    for (const p of result.liquidated) lines.push(`  ${where(p)}  ${rowName(p)}`)
   }
 
   const unpriced = unpricedNote(result.before)
@@ -1017,12 +1142,15 @@ export async function positionsAt(
   session: Session,
   venueId: string,
   kind: VenueKind,
+  words: readonly string[] = [],
 ): Promise<CommandResult> {
-  const { positions: all } = await session.ensureLoaded()
+  const { positions: book } = await session.ensureLoaded()
   const note = incompleteNote(session)
-  const mine = all.filter((p) => belongsToVenue(p.venue, venueId))
-  const unread = unreadVenue(session, venueId, kind, mine.length)
+  const venueRows = book.filter((p) => belongsToVenue(p.venue, venueId))
+  const unread = unreadVenue(session, venueId, kind, venueRows.length)
   if (unread !== null) return { output: unread + note, note, incomplete: isIncomplete(session) }
+  const mine = byAsset(venueRows, words, `${venueId} positions`)
+  if (!Array.isArray(mine)) return { ...mine, output: mine.output + note, note, incomplete: isIncomplete(session) }
   const now = new Date()
   const sorted = mine.sort(
     (a, b) =>
@@ -1033,6 +1161,7 @@ export async function positionsAt(
   return {
     output: draw(columns, sorted) + legendFor(sorted, free) + note,
     note,
+    hint: expandHint(),
     incomplete: isIncomplete(session),
   }
 }
@@ -1113,7 +1242,7 @@ function borrowingLines(rows: readonly Position[]): string[] {
       [
         ...labelColumn(borrowing, (p) => p),
         ...accountColumn(borrowing, (p) => p),
-        { head: 'TOKEN', align: 'left', cell: assetCell },
+        { head: 'TOKEN', align: 'left', cell: assetName },
         { head: 'NET BALANCE', align: 'right', cell: (p) => quantity(p.quantity) },
         { head: 'BORROWED', align: 'right', cell: (p) => quantity(p.borrowing!.borrowed) },
         { head: 'SUPPLIED', align: 'right', cell: (p) => quantity(p.borrowing!.supplied) },
@@ -1121,6 +1250,7 @@ function borrowingLines(rows: readonly Position[]): string[] {
         { head: 'PM CAP USED', align: 'right', cell: (p) => marginRatio(p.borrowing!.capUsed) },
       ],
       borrowing,
+      2,
     )
     lines.push('', ...table.split('\n').map((line) => `  ${line}`))
   }

@@ -42,3 +42,17 @@ export function connectCommand(venueId: string): string {
 export function inShell(command: string): string {
   return surface === 'cli' ? `run tula, then /${command}` : `/${command}`
 }
+
+let columns = Number.POSITIVE_INFINITY
+
+/**
+ * The columns a table is laid out to. Unbounded until a screen sets it: a pipe
+ * or a file is read by something other than eyes, and gets every word.
+ */
+export function fitTablesTo(next: number): void {
+  columns = next
+}
+
+export function tableColumns(): number {
+  return columns
+}

@@ -1,4 +1,5 @@
 import type { Availability } from '../core/availability.js'
+import type { PositionLookup } from '../core/detail.js'
 import type { Disclosure } from '../core/coverage.js'
 import type { NetExposure, Position } from '../core/position.js'
 import type { LiquidationRisk, Scenario, Shock, ShockedHealthFactor } from '../core/risk.js'
@@ -43,6 +44,13 @@ export interface RiskEngine {
    * total — the same defect `incomplete` exists to stop one layer up.
    */
   coverage(): Disclosure
+  /**
+   * One position in full, picked by the words `/position` takes. Built here
+   * rather than from `positions()` because its value and liquidation distance
+   * need prices, which do not cross this boundary. More than one match comes
+   * back as the words that name each alone, never as a guess.
+   */
+  position(words: string[]): PositionLookup
   venues(): VenueStatus[]
   /** `loadedAt` is null before any load: the model quotes figures verbatim, so an unread book must not carry a date. */
   freshness(): { oldest: Date | null; loadedAt: Date | null; failures: string[]; priceError: string | null }

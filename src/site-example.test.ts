@@ -9,7 +9,14 @@ import {
   priceEntries,
   type VenueEntry,
 } from './cli/registry.js'
-import { trigger } from './cli/commands.js'
+import { mkdtemp } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { shock, trigger } from './cli/commands.js'
+import { Session } from './cli/session.js'
+import type { Connector } from './connectors/types.js'
+import type { PriceOracle } from './core/prices.js'
+import * as secrets from './secrets/store.js'
 import { CONNECTORS as SHIPPED } from './connectors/registry.js'
 import { disclosure, list, unrankedVenues } from './core/coverage.js'
 import { netExposure, portfolioValue } from './core/exposure.js'
@@ -509,6 +516,43 @@ describe('the guide pages quote the same book', () => {
       for (const row of printed) {
         expect({ route, row, onFront: page.includes(row) }).toEqual({ route, row, onFront: true })
       }
+    }
+  })
+
+  test('/stress-test prints what shock prints over this book, line for line', async () => {
+    // Run rather than recomputed from `scenario()`: the page quotes the
+    // command's layout as well as its figures.
+    const saved = process.env['TULA_CONFIG_DIR']
+    process.env['TULA_CONFIG_DIR'] = await mkdtemp(join(tmpdir(), 'tula-stress-'))
+    try {
+      const venues = [...new Set(BOOK.map((p) => p.venue))]
+      const connectors = new Map<string, Connector>(
+        venues.map((id) => [
+          id,
+          {
+            venue: { id, kind: 'cex', name: id },
+            fields: [{ name: 'address', label: 'Address', secret: false }],
+            help: [],
+            verifyScope: async () => ({ canRead: true, canTrade: false, canWithdraw: false }),
+            fetchPositions: async () => BOOK.filter((p) => p.venue === id),
+          },
+        ]),
+      )
+      for (const id of venues) await secrets.put(id, { address: `0x${id}` })
+      const oracle: PriceOracle = {
+        source: 'example',
+        quote: async (asset) => (PRICES.has(asset) ? { price: PRICES.get(asset)!, asOf: new Date() } : null),
+        quoteMany: async (assets) =>
+          new Map(assets.filter((a) => PRICES.has(a)).map((a) => [a, { price: PRICES.get(a)!, asOf: new Date() }])),
+      }
+      const session = new Session(connectors, oracle)
+      const { output } = await shock(session, ['ETH', '-20'])
+      const printed = rows(guide('stress-test')).filter((row) => row.trim() !== '')
+      expect(printed.length).toBeGreaterThan(5)
+      for (const row of printed) expect({ row, printed: output.includes(row) }).toEqual({ row, printed: true })
+    } finally {
+      if (saved === undefined) delete process.env['TULA_CONFIG_DIR']
+      else process.env['TULA_CONFIG_DIR'] = saved
     }
   })
 

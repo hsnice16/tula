@@ -139,6 +139,35 @@ export type VenueHold =
   | { readonly claims: readonly { readonly reason: HoldReason; readonly quantity: Decimal }[] }
   | { readonly unprovable: string }
 
+/**
+ * What a venue states about a position beyond its size and what liquidates it —
+ * mark and leverage are on `LiquidationParams` already, and are not repeated.
+ * Every figure is the venue's own. None is derived from a cost basis: P&L
+ * reporting is out of scope in `ROADMAP.md`, and a guessed entry is a wrong PnL
+ * that reads as the venue's. Each is absent where the venue does not state it,
+ * because a zero PnL or zero funding is a figure somebody acts on.
+ */
+export interface PositionFigures {
+  /** Per unit of `asset`, so a per-thousand market's price is divided down. */
+  entry?: Decimal
+  /**
+   * Not `equity`: that is zero wherever the PnL is already inside a balance row,
+   * which on Hyperliquid is every perp.
+   */
+  unrealisedPnl?: Decimal
+  /** A fraction, over the margin the venue counts it against. */
+  returnOnEquity?: Decimal
+  /** Positive is paid by the holder, negative received — Hyperliquid's sign. */
+  funding?: { sinceOpen?: Decimal; allTime?: Decimal }
+  margin?: Decimal
+  marginMode?: 'cross' | 'isolated'
+  /**
+   * What PnL, margin and funding are stated in, where it is not dollars — a
+   * Kraken EUR pair states them in euros, and `$` in front of one is a wrong number.
+   */
+  currency?: AssetId
+}
+
 /** A balance inside a venue's automatic borrowing, in the venue's own terms. */
 export interface Borrowing {
   borrowed: Decimal
@@ -166,6 +195,9 @@ export interface Position {
   delta: Decimal
 
   liquidation?: LiquidationParams
+
+  /** Absent where the venue states none of them. */
+  figures?: PositionFigures
 
   /**
    * A derivative's share of the portfolio's equity at the price its venue marked

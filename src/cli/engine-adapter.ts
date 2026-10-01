@@ -3,6 +3,7 @@ import { CONNECTORS } from '../connectors/registry.js'
 import { retired } from '../connectors/types.js'
 import { availability } from '../core/availability.js'
 import { availabilityFacts, disclosure } from '../core/coverage.js'
+import { lookupPosition } from '../core/detail.js'
 import { belongsToVenue } from '../core/position.js'
 import { scenario, shockedHealthFactors, whatBreaksFirst, type Shock } from '../core/risk.js'
 import { forgetCommand } from './registry.js'
@@ -35,6 +36,12 @@ export function riskEngineFor(session: Session): RiskEngine {
         session.current.connected,
         session.current.failures.map((f) => f.split(':')[0] ?? ''),
       ),
+
+    position: (words: string[]) => {
+      const { positions: book, prices, quotedAt, connected } = session.current
+      const free = new Map(availability(book, availabilityFacts(CONNECTORS, connected)).map((a) => [a.position.id, a]))
+      return lookupPosition(words, { book, prices, quotedAt, availabilityOf: (p) => free.get(p.id) })
+    },
 
     venues: (): VenueStatus[] => {
       const { positions, failures, connected, stale } = session.current

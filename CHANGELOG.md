@@ -11,6 +11,26 @@ CI and build plumbing, refactors, and doc-only edits — stays in commit message
 
 ## [Unreleased]
 
+### Added
+
+- **One position in full, at any venue.** `/position BTC` opens a position in sections — the position, its PnL, what liquidates it, what of it is held, and where it came from. In the shell, ↓ on an empty line lists every position as a table to filter and pick from, and `/positions` says so on a line of its own. `tula position BTC` prints the same, and the assistant can read it too.
+  - A perp shows size, value, entry and mark price, unrealised PnL with ROE, funding paid or received, liquidation price and how far away it is, and margin with leverage. Hyperliquid states all of it; Coinbase perps all but ROE and funding; a Kraken margin position its PnL and margin, in the pair's own currency.
+  - An Aave leg shows its market's health factor and liquidation threshold; a balance that margins something shows what it backs; a margin book's asset and loan are shown as one pair.
+  - A figure a venue does not state reads `not stated by the venue`, never zero, and a section with nothing to say for that kind of holding is left out.
+  - Where the venue liquidates the account rather than the position — Hyperliquid's unified account and portfolio margin — the account's ratio is shown as what triggers it.
+  - Words that fit more than one position list each with what to type to name it, rather than picking one.
+- **A question is suggested as you type one.** Type two letters of a question and the shell offers the rest — about the asset you asked about this session, or else the whole book, then your assets in order of risk. A line you typed before that starts the same way comes first. An asset you name is what the question is about; one you type past goes last. It keeps up whether you write `What is` or `What's`, the asset before the topic or after it. The word you are typing is finished in your case. Tab takes it. Suggestions name no figure, and appear only when a model is signed in to answer.
+
+### Fixed
+
+- **An idle shell no longer holds a CPU core at 100%.** Once a book was read, Bun's HTTP client kept polling the connections it had left open, so a shell doing nothing ran a core flat out — on some networks and not others, which is why it came and went. tula no longer keeps connections open between reads; a read of two accounts takes a few hundred milliseconds longer.
+- **`/positions ETH` lists only ETH.** An asset after `/positions` or `/<venue> positions` was ignored without a word, printing the whole book. It now narrows the table, matching the symbol in any case, a venue's own spelling (`WETH`) and a builder-dex market's bare name — the same rows `/position` and the assistant pick for that word. An asset nothing holds says so.
+- **Tab fills the suggestion the line shows.** Typing the start of a line you ran before — this session or an earlier one — shows the rest after the cursor, and Tab took the command menu's highlighted entry instead whenever the line began with `/`: `/pos` showed `/position eth hyperliquid perp` and Tab gave `/position `. It now fills what is shown; moving through the menu switches the suggestion to the entry you are on. A question you asked over several lines is suggested whole, marked `…` after its first line.
+- **An account's address no longer wraps the tables.** Where a venue holds more than one account, `/positions`, `/breaks` and the lines under them printed each address whole — 42 characters on every row — and wrapped at an ordinary terminal width. They name it `main (0x1111…1111)`, or `0x2222…2222` where it has no name; `/position`'s detail shows it whole, and so does the assistant.
+- **Tables fit the terminal.** `/positions` and `/breaks` wrapped every row on a book with two accounts and a held balance below about 150 columns. A word column — a product, a venue, why a holding cannot move — is now cut with `…` to fit, never so far that two rows read alike; in a shell too narrow for it, `AS OF` shows the clock time alone, and the status line keeps the age. A figure, a time or an account is never cut. What is held is its own `UNAVAILABLE` figure, with `REASON` beside it. `VENUE` appears only where the rows span more than one. Output to a pipe or a file is never cut.
+- **Closing the `?` panel puts the transcript back.** On a short terminal it left a blank screen above the input.
+- **ctrl+s runs `/history` and `/update` on Enter,** as the `/` menu does. Their argument is optional, and the palette treated it as one still to type.
+
 ## [0.3.3] - 2026-09-22
 
 ### Fixed

@@ -61,7 +61,8 @@ const MENU: readonly Row[] = [
   ['', 'your book'],
   ['/breaks', 'What gets liquidated first, and how far away that is'],
   ['/exposure', 'Net exposure per asset, across every venue'],
-  ['/positions', 'Every position, as each venue reports it'],
+  ['/position <asset>', 'One position in full: entry, PnL, funding, margin'],
+  ['/positions [asset]', 'Every position, as each venue reports it'],
   ['/shock <asset> <percent>', 'Reprice everything and see what survives'],
   ['', 'venues'],
   ['/aave', '1 position · 09:14:02 (4s ago)'],
@@ -69,11 +70,10 @@ const MENU: readonly Row[] = [
   ['/aave positions', 'Positions held here'],
   ['/aave breaks', 'What can be liquidated here'],
   ['/aave status', 'Freshness and last error — there is no key to scope'],
-  ['/aave docs', 'Official links for this venue'],
 ]
 
 /** What the menu has below its window, which is what the binary counts there. */
-const MENU_REST = 41
+const MENU_REST = 42
 
 /**
  * The palette while nothing is typed: the same commands, plus every
@@ -84,7 +84,8 @@ const BROWSE: readonly Row[] = [
   ['', 'your book'],
   ['/breaks', 'What gets liquidated first, and how far away that is'],
   ['/exposure', 'Net exposure per asset, across every venue'],
-  ['/positions', 'Every position, as each venue reports it'],
+  ['/position <asset>', 'One position in full: entry, PnL, funding, margin'],
+  ['/positions [asset]', 'Every position, as each venue reports it'],
   ['/shock <asset> <percent>', 'Reprice everything and see what survives'],
   ['', ''],
   ['', 'venues'],
@@ -92,14 +93,13 @@ const BROWSE: readonly Row[] = [
   ['/aave connect', 'Add or replace this venue’s public address'],
   ['/aave positions', 'Positions held here'],
   ['/aave breaks', 'What can be liquidated here'],
-  ['/aave status', 'Freshness and last error — there is no key to scope'],
 ]
 
 /** Matches below the window, counted in matches rather than rows, as the dialog does. */
-const BROWSE_BELOW = 60
+const BROWSE_BELOW = 61
 
 /** Rows the whole browse list draws as — the headings and the blanks included. */
-const BROWSE_ROWS = 76
+const BROWSE_ROWS = 77
 
 /**
  * The same palette once `brea` is typed: ranked and flat, headings dropped. Four
@@ -446,54 +446,69 @@ export function Session({ status, children }: { status: string; children: ReactN
               reflows — but the bars and rules still have to reach its edges. */}
           <div className="overflow-x-auto">
             <div className="w-full min-w-max px-[1ch]">
-              {/* Anchored to the bottom and clipped at the top, which is the
-                  only direction a terminal loses a row in. */}
+              {/* Fixed height, with the column inside sliding up by transform as
+                  the menu opens. Changing heights moved the line on every loop,
+                  which counts as layout shift. The 2px are the line's borders. */}
               <div
-                className="relative overflow-hidden transition-[height] duration-300 ease-out"
-                style={{ height: rows(BODY_ROWS - (beat.open === 'menu' ? MENU_ROWS : 0)) }}
+                className="relative overflow-hidden"
+                style={{ height: `calc(${rows(BODY_ROWS + 1)} + 2px)` }}
               >
-                <pre className="absolute inset-x-0 bottom-0 pb-[1.3rem] pl-[3ch] font-mono text-[0.8rem] leading-[1.3rem]">
-                  {children}
-                </pre>
-              </div>
+                <div
+                  className="transition-transform duration-300 ease-out"
+                  style={{
+                    transform:
+                      beat.open === 'menu' ? `translateY(calc(-1 * ${rows(MENU_ROWS)}))` : 'none',
+                  }}
+                >
+                  {/* Anchored to the bottom and clipped at the top, which is the
+                      only direction a terminal loses a row in. */}
+                  <div className="relative overflow-hidden" style={{ height: rows(BODY_ROWS) }}>
+                    <pre className="absolute inset-x-0 bottom-0 pb-[1.3rem] pl-[3ch] font-mono text-[0.8rem] leading-[1.3rem]">
+                      {children}
+                    </pre>
+                  </div>
 
-              <div
-                className="whitespace-pre border-y px-[1ch] transition-colors duration-500"
-                style={{ borderColor: palette ? TUI.muted : TUI.accent }}
-              >
-                <span style={{ color: palette ? TUI.muted : TUI.accent }}>{'❯ '}</span>
-                {beat.input === '' ? (
-                  <>
-                    <Cursor dim={palette} />
-                    <span className="text-dim">
-                      {' ask anything · / for commands · ctrl+s to search them · ? for shortcuts'}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    {beat.input}
-                    <Cursor dim={palette} />
-                  </>
-                )}
-              </div>
+                  <div
+                    className="whitespace-pre border-y px-[1ch] transition-colors duration-500"
+                    style={{ borderColor: palette ? TUI.muted : TUI.accent }}
+                  >
+                    <span style={{ color: palette ? TUI.muted : TUI.accent }}>{'❯ '}</span>
+                    {beat.input === '' ? (
+                      <>
+                        <Cursor dim={palette} />
+                        <span className="text-dim">
+                          {
+                            ' ask anything · / for commands · ctrl+s to search them · ? for shortcuts'
+                          }
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        {beat.input}
+                        <Cursor dim={palette} />
+                      </>
+                    )}
+                  </div>
 
-              <div
-                className={`overflow-hidden whitespace-pre pl-[2ch] transition-[height,opacity] duration-300 ease-out ${
-                  beat.open === 'menu' ? 'opacity-100' : 'opacity-0'
-                }`}
-                style={{ height: beat.open === 'menu' ? rows(MENU_ROWS) : 0 }}
-              >
-                {MENU.map((row, i) => (
-                  <ListRow
-                    key={row[0] || `h${i}`}
-                    row={row}
-                    width={menuWidth}
-                    selected={i === 1}
-                    bar={false}
-                  />
-                ))}
-                <div className="text-dim" style={{ height: ROW }}>
-                  {`  ${MENU_REST} more — keep typing to narrow it`}
+                  <div
+                    className={`whitespace-pre pl-[2ch] transition-opacity duration-300 ease-out ${
+                      beat.open === 'menu' ? 'opacity-100' : 'opacity-0'
+                    }`}
+                    style={{ height: rows(MENU_ROWS) }}
+                  >
+                    {MENU.map((row, i) => (
+                      <ListRow
+                        key={row[0] || `h${i}`}
+                        row={row}
+                        width={menuWidth}
+                        selected={i === 1}
+                        bar={false}
+                      />
+                    ))}
+                    <div className="text-dim" style={{ height: ROW }}>
+                      {`  ${MENU_REST} more — keep typing to narrow it`}
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -521,10 +536,18 @@ export function Session({ status, children }: { status: string; children: ReactN
           <div
             className={`w-[min(54em,100%)] transition-transform duration-500 ${palette ? '' : 'translate-y-1'}`}
           >
+            {/* Keyed apart, so the switch replaces the rows rather than moving
+                them: a moved row counts as layout shift, a new one does not. */}
             {beat.open === 'search' ? (
-              <PaletteDialog query={SEARCH_QUERY} list={SEARCH} below={0} thumb={0} />
+              <PaletteDialog key="search" query={SEARCH_QUERY} list={SEARCH} below={0} thumb={0} />
             ) : (
-              <PaletteDialog query="" list={BROWSE} below={BROWSE_BELOW} thumb={BROWSE_THUMB} />
+              <PaletteDialog
+                key="browse"
+                query=""
+                list={BROWSE}
+                below={BROWSE_BELOW}
+                thumb={BROWSE_THUMB}
+              />
             )}
           </div>
         </div>

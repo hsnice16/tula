@@ -4,9 +4,9 @@ import { Link } from '@/components/Link'
 import { Terminal } from '@/components/Terminal'
 
 const PATH = '/hyperliquid'
-const TITLE = 'Hyperliquid liquidation price and margin ratio'
+const TITLE = 'Hyperliquid liquidation price, unified and portfolio margin'
 const SUMMARY =
-  'How Hyperliquid liquidates a position or a whole account, and how tula reads every account mode, builder dex and sub-account.'
+  'How Hyperliquid liquidates under standard, unified and portfolio margin, and how tula reads every account mode, builder dex and sub-account.'
 
 export const metadata = guideMetadata(PATH, TITLE, SUMMARY)
 
@@ -43,7 +43,8 @@ export default function Page() {
         </p>
         <p className="text-dim">
           Under unified or portfolio margin, <Code>breaks</Code> ranks the whole account on its
-          ratio. See <Link href="/liquidation-risk">liquidation risk across venues</Link>.
+          ratio, beside any <Link href="/aave">Aave health factor</Link>. See{' '}
+          <Link href="/liquidation-risk">liquidation risk across venues</Link>.
         </p>
       </Section>
 

@@ -108,6 +108,12 @@ function takeCells(text: string, width: number): number {
   return at
 }
 
+/** Cut to a column count with `…`, on a cluster boundary, or the text whole where it fits. */
+export function clip(text: string, width: number): string {
+  if (cells(text) <= width) return text
+  return `${text.slice(0, takeCells(text, Math.max(0, width - 1)))}…`
+}
+
 /**
  * Hard-wrap to a column count, so a rendered row and a counted line are the
  * same unit. The transcript keeps the first N rows of an entry and counts the

@@ -57,7 +57,8 @@ ROADMAP.md, not a permanent shape.
 - \`/exposure\` — net exposure per asset across every venue, with notional and the venues that contributed
 - \`/breaks\` — everything that can be liquidated, nearest first, with the move required to get there
 - \`/shock <asset> <percent>\` — reprice the whole book and report what changes and what liquidates
-- \`/positions\` — every position, as each venue reports it
+- \`/positions [asset]\` — every position, as each venue reports it, or only those of one asset
+- \`/position <asset>\` — one position in full: entry, mark, PnL, funding, margin and what liquidates it
 - \`/venues\` — per-venue counts, freshness and failures
 
 A slash means a command; anything else is a question, answered in plain English

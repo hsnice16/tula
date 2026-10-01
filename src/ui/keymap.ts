@@ -51,6 +51,13 @@ export interface KeyEntry {
 
 const OPTION_AS_META = 'alt needs Option as Meta on macOS'
 
+/**
+ * How the picker opens, as the hint under `/positions` names it. Not a ctrl
+ * chord: Readline, tmux or screen holds each one —
+ * `tasks/field-report/16-position-picker.md`.
+ */
+export const PICK_KEY = '↓ on an empty line'
+
 export const KEYMAP: readonly KeyEntry[] = [
   {
     keys: ['?'],
@@ -95,7 +102,7 @@ export const KEYMAP: readonly KeyEntry[] = [
   },
   {
     keys: ['Esc'],
-    does: 'Close a list, the command search or these keys; cancel removing a venue',
+    does: 'Close a list, the command search, a position or these keys; cancel removing a venue',
     group: 'general',
     binding: { action: 'dismiss', sends: ['\x1b'] },
   },
@@ -113,6 +120,11 @@ export const KEYMAP: readonly KeyEntry[] = [
   {
     keys: ['↑'],
     does: 'On an empty line, bring back the last line waiting to run, to edit it',
+    group: 'general',
+  },
+  {
+    keys: ['↓'],
+    does: 'Past the newest line you sent, on an empty line: pick a position to open in full — Enter opens it, Esc steps back',
     group: 'general',
   },
 
@@ -242,7 +254,7 @@ export const KEYMAP: readonly KeyEntry[] = [
   },
   {
     keys: ['Tab'],
-    does: 'Put the highlighted command on the line; with no list open, accept the suggestion',
+    does: 'Accept the suggestion shown after the cursor; otherwise put the highlighted command on the line',
     group: 'lists',
     binding: { action: 'complete', sends: ['\t'] },
   },

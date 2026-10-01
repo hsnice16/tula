@@ -16,7 +16,7 @@ export default function Page() {
       path={PATH}
       label="Exposure"
       title={TITLE}
-      heading="Net crypto exposure across every venue"
+      heading={TITLE}
       description={SUMMARY}
       lead="Hold ETH on an exchange, short it on Hyperliquid and pledge it on Aave, and each venue shows one piece. tula nets them into one figure."
     >
@@ -47,8 +47,10 @@ ETH       6.64  $16,268.00  kraken hyperliquid aave  09:14:02 (4s ago)`}
 
       <Section title="Try it">
         <p className="mb-4 text-dim">
-          See <Link href="/liquidation-risk">liquidation risk</Link>,{' '}
-          <Link href="/hyperliquid">Hyperliquid</Link> and <Link href="/aave">Aave</Link>.{' '}
+          See <Link href="/liquidation-risk">liquidation risk</Link>, and what is read at{' '}
+          <Link href="/hyperliquid">Hyperliquid</Link>, <Link href="/aave">Aave</Link>,{' '}
+          <Link href="/kraken">Kraken</Link>, <Link href="/binance">Binance</Link> and{' '}
+          <Link href="/coinbase">Coinbase</Link>, and in <Link href="/wallets">wallets</Link>.{' '}
           <Link href="/install">Install tula</Link>, then:
         </p>
         <Terminal title="try it">{'tula exposure'}</Terminal>

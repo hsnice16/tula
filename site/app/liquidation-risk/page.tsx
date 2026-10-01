@@ -16,7 +16,7 @@ export default function Page() {
       path={PATH}
       label="Liquidation risk"
       title={TITLE}
-      heading="Liquidation risk across every venue"
+      heading={TITLE}
       description={SUMMARY}
       lead="Each venue shows its own liquidation risk. None can rank it against another venue’s. tula does."
     >
@@ -36,16 +36,21 @@ hyperliquid  ETH    perp             +39.3%  liq price $3,412.00  09:14:02 (4s a
       <Section title="How the move is found">
         <p className="mb-3 text-dim">
           <strong className="font-semibold text-ink">Aave:</strong> from the health factor.{' '}
-          <Link href="/aave">More on Aave</Link>.
+          <Link href="/aave">Aave health factor</Link>.
         </p>
         <p className="mb-3 text-dim">
           <strong className="font-semibold text-ink">Hyperliquid:</strong> from the liquidation
           price, or the account ratio under unified or portfolio margin.{' '}
-          <Link href="/hyperliquid">More on Hyperliquid</Link>.
+          <Link href="/hyperliquid">Hyperliquid liquidation price</Link>.
         </p>
         <p className="mb-3 text-dim">
           <strong className="font-semibold text-ink">Coinbase perps:</strong> from the liquidation
-          price Coinbase publishes. <Link href="/coinbase">More on Coinbase</Link>.
+          price Coinbase publishes. <Link href="/coinbase">Coinbase perps</Link>.
+        </p>
+        <p className="mb-3 text-dim">
+          <strong className="font-semibold text-ink">Binance isolated margin:</strong> from the
+          liquidation price Binance states for the pair. <Link href="/binance">Binance margin</Link>
+          .
         </p>
         <p className="text-dim">
           A position with nothing to rank on sorts last, as unknown, never as safe.
@@ -56,12 +61,13 @@ hyperliquid  ETH    perp             +39.3%  liq price $3,412.00  09:14:02 (4s a
         <p className="text-dim">
           When a venue has an area tula does not read that could hold a liquidation,{' '}
           <Code>breaks</Code> says so under the list. Kraken’s account margin level is one.{' '}
-          <Link href="/kraken">More on Kraken</Link>.
+          <Link href="/kraken">Kraken margin</Link>.
         </p>
       </Section>
 
       <Section title="Try it">
         <p className="mb-4 text-dim">
+          A <Link href="/stress-test">stress test</Link> shows what a move would call in.{' '}
           <Link href="/install">Install tula</Link>, connect your venues, then:
         </p>
         <Terminal title="try it">{'tula breaks\ntula shock ETH -20'}</Terminal>

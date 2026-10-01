@@ -22,7 +22,7 @@ kind except where noted:
 | Command menu (`/`) | runs the highlighted command; a command that takes arguments is put on the line instead, with its argument list opened; nothing highlighted sends the line as typed | inserts, never runs | Claude Code `commands` and `interactive-mode` docs; Gemini CLI PRs 13985 and 14584 ("Tab always auto-completes, never auto-executes"); opencode keybinds. Codex runs an argument-taking command with whatever follows its name — the split. |
 | Command palette (ctrl+s) | runs | — | GitHub command palette docs; VS Code user-interface docs |
 | Argument completion inside the line | inserts the candidate and closes the list; a second Enter runs the line | inserts | fish `reader.rs` ("return while navigating the pager… only clears the pager"); zsh `complist` (`accept-line` accepts the match "but do not cause the command line to be accepted"); IPython shortcuts; vim `popupmenu-keys`; Codex `@` menu. Bare prompt_toolkit and readline's `menu-complete` submit instead — the split. |
-| Ghost suggestion after the cursor | never takes it; runs what was typed | takes it, where no list is open | fish ("won't execute unless you accept it", → or ctrl+f); zsh-autosuggestions `config.zsh`; prompt_toolkit (→, ctrl+e); Warp (→, ctrl+f); Claude Code (Tab or →, "then Enter to submit") |
+| Ghost suggestion after the cursor | never takes it; runs what was typed | takes it; one from history even over an open list | fish ("won't execute unless you accept it", → or ctrl+f); zsh-autosuggestions `config.zsh`; prompt_toolkit (→, ctrl+e); Warp (→, ctrl+f); Claude Code (Tab or →, "then Enter to submit") |
 
 Candidates are declared per argument position, each with a description beside
 it: fish `complete -a` under `__fish_seen_subcommand_from`, prompt_toolkit's
@@ -52,11 +52,15 @@ zsh-autosuggestions' `(history completion)` strategy.
 - **A candidate that needs a load does not trigger one.** Before anything is
   loaded the asset list says it has nothing to offer and which command loads it,
   rather than fetching every venue because somebody typed a space.
-- **A ghost suggestion**, from saved history ([`08`](08-saved-history.md)) first
-  and the completion candidates second, drawn in the theme's dim colour after
-  the cursor. → or ctrl+f takes it whole at the end of the line, ctrl+e takes it
-  there too, alt+f takes one word, and Tab takes it whenever no list is open.
-  Enter runs the line as typed and never takes it.
+- **A ghost suggestion**, from saved history ([`08`](08-saved-history.md)) first,
+  then a suggested question, then the open list's candidate, drawn in the
+  theme's dim colour after the cursor. → or ctrl+f takes it whole at the end of
+  the line, ctrl+e takes it there too, alt+f takes one word, and Tab takes it —
+  one from history even over an open list, since the line drew
+  `/position eth hyperliquid perp` and Tab gave `/position `. Moving through the
+  list switches the suggestion to its candidate. A suggestion over several lines
+  is drawn to the end of its first, marked `…`, and taken whole. Enter runs the
+  line as typed and never takes it.
 - **A suggestion never shows a secret.** It draws only from what `08` records,
   so nothing typed into `ConnectFlow` can reach it, and it is off on any line the
   credential-deletion prompt owns.

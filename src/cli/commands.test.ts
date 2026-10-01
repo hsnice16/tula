@@ -7,6 +7,7 @@ import { CONNECTORS } from '../connectors/registry.js'
 import type { Connector } from '../connectors/types.js'
 import type { Position, PositionKind } from '../core/position.js'
 import type { PriceOracle } from '../core/prices.js'
+import { fitTablesTo, useSurface } from '../core/surface.js'
 import * as secrets from '../secrets/store.js'
 import { cells, wrapLines } from '../ui/wrap.js'
 import * as commands from './commands.js'
@@ -94,7 +95,7 @@ describe('how much of this can you move', () => {
   test('a pledged holding shows the split and what releases it, in the same view', async () => {
     const { output } = await commands.positions(await sessionOver(heldBook()))
     expect(output).toContain('FREE')
-    expect(output).toMatch(/\n.*\b6\s+4 securing a debt/)
+    expect(output).toMatch(/\n.*\b6\s+4\s+securing a debt/)
     expect(output).toContain('repay the debt')
   })
 
@@ -256,6 +257,28 @@ describe('which of a venue’s accounts a row is about', () => {
     }
   })
 
+  test('a screen too narrow for the table gets the clock alone, and every figure whole', async () => {
+    const session = await sessionOver(heldBook())
+    const wide = (await commands.positions(session)).output
+    fitTablesTo(80)
+    try {
+      const { output } = await commands.positions(session)
+      const table = output.split('\n\n')[0]!.split('\n')
+      for (const line of table) expect(cells(line)).toBeLessThanOrEqual(80)
+      // The status line carries the age; the clock says which read a row is from.
+      expect(output).not.toMatch(/\(\d+s ago\)/)
+      expect(output).toMatch(/\b\d\d:\d\d:\d\d\b/)
+      for (const figure of ['-8000', '1000', '6', '4']) expect(output).toMatch(new RegExp(`\\s${figure}\\s`))
+      expect(wide).toMatch(/\(\d+s ago\)/)
+      // A one-shot has no status line to carry the age, so it keeps it.
+      useSurface('cli')
+      expect((await commands.positions(session)).output).toMatch(/\(\d+s ago\)/)
+    } finally {
+      useSurface('shell')
+      fitTablesTo(Number.POSITIVE_INFINITY)
+    }
+  })
+
   test('one wallet’s debt does not claim the other wallet’s collateral', async () => {
     // The ids are namespaced per account and `encumbers` moves with them, so
     // this holds without anything here reading meaning out of an id.
@@ -263,7 +286,8 @@ describe('which of a venue’s accounts a row is about', () => {
     const { output } = await commands.positions(session)
     const pledged = output
       .split('\n')
-      .filter((l) => l.startsWith('aave') && l.includes('securing a debt'))
+      // Table rows, not the legend's indented line for the same reason.
+      .filter((l) => /^\S/.test(l) && l.includes('securing a debt'))
     expect(pledged).toHaveLength(2)
     expect(pledged.map((l) => /\b(6|10)\s/.test(l))).toEqual([true, true])
   })

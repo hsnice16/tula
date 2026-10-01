@@ -88,20 +88,25 @@ export function Footer() {
               A crawler weighs a page by the links to it, and a hidden link is
               spam by Google's own policy. */}
           <Column title="Guides" className="max-phone:order-last max-phone:basis-full">
-            {NAV.filter((n) => n.group === 'guide').map(({ href, label }) => (
-              <Link key={href} href={href} className={LINK}>
-                {label}
-              </Link>
-            ))}
+            {/* Alphabetical, so a reader scanning for a venue finds it where
+                they expect it, and a new guide lands in its place unasked. */}
+            {[...NAV.filter((n) => n.group === 'guide')]
+              .sort((a, b) => a.label.localeCompare(b.label))
+              .map(({ href, label }) => (
+                <Link key={href} href={href} className={LINK}>
+                  {label}
+                </Link>
+              ))}
           </Column>
+          {/* Alphabetical, as Guides is. */}
           <Column title="More links" className="max-phone:flex-1">
-            <Ext href={REPO} className={LINK}>
-              GitHub
-            </Ext>
             {/* Off-site on purpose: the changelog is edited and read as the same
                 file, and a rendered copy here is the one that goes stale. */}
             <Ext href={`${REPO}/blob/main/CHANGELOG.md`} className={LINK}>
               Changelog
+            </Ext>
+            <Ext href={REPO} className={LINK}>
+              GitHub
             </Ext>
             {/* The one link an assistant's crawler can follow to the summary
                 written for it: `llms.txt` has no discovery convention behind it. */}

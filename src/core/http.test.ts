@@ -20,6 +20,20 @@ describe('request', () => {
     expect(seen?.aborted).toBe(false)
   })
 
+  test('never pools a connection, whatever the caller passed', async () => {
+    // A pooled socket left idle is what Bun's client thread spun on, holding a
+    // core at 100% in a shell doing nothing.
+    let seen: RequestInit | undefined
+    globalThis.fetch = (async (_url: string, init: RequestInit) => {
+      seen = init
+      return new Response('ok')
+    }) as typeof fetch
+
+    await request('https://example.invalid/x', { keepalive: true, method: 'POST' })
+    expect(seen?.keepalive).toBe(false)
+    expect(seen?.method).toBe('POST')
+  })
+
   test('a venue that never answers is named, not left hanging', async () => {
     // What a half-open connection looks like from here: the promise rejects the
     // way an aborted fetch does, rather than resolving late.

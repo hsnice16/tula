@@ -1,7 +1,7 @@
 import { createPrivateKey, createSign, randomBytes, sign as edSign, type KeyObject } from 'node:crypto'
 import Decimal from 'decimal.js'
 import { remote, TulaError } from '../core/errors.js'
-import type { Position, Venue } from '../core/position.js'
+import type { Position, PositionFigures, Venue } from '../core/position.js'
 import type { Connector, ConnectorCredentials, KeyScope } from './types.js'
 import { request } from '../core/http.js'
 import { connectCommand } from '../core/surface.js'
@@ -169,10 +169,21 @@ interface PerpPosition {
   leverage?: string
   liquidation_price?: BalancePair
   unrealized_pnl?: BalancePair
+  /** The entry: volume-weighted average price. */
+  vwap?: BalancePair
+  mark_price?: BalancePair
+  /** Initial margin. */
+  im_notional?: BalancePair
+  margin_type?: string
 }
 
 interface BreakdownResponse {
   breakdown?: { perp_positions?: PerpPosition[] }
+}
+
+const MARGIN_MODE: Readonly<Record<string, 'cross' | 'isolated'>> = {
+  MARGIN_TYPE_CROSS: 'cross',
+  MARGIN_TYPE_ISOLATED: 'isolated',
 }
 
 const amount = (pair: BalancePair | undefined): string | undefined =>
@@ -334,6 +345,21 @@ async function perpPositions(creds: ConnectorCredentials, asOf: Date): Promise<P
     // what the position adds to the book's equity is its unrealised PnL. Where
     // Coinbase omits it the total names Coinbase rather than counting a notional.
     const pnl = amount(perp.unrealized_pnl)
+    // The figures take the settlement currency's value alone: `amount` falls
+    // back to the user's native currency, which may not be dollars, and the
+    // detail prints these as dollars.
+    const settled = (pair: BalancePair | undefined) => pair?.rawCurrency?.value
+    const entry = settled(perp.vwap)
+    const mark = settled(perp.mark_price)
+    const margin = settled(perp.im_notional)
+    const stated = settled(perp.unrealized_pnl)
+    const mode = MARGIN_MODE[perp.margin_type ?? '']
+    const figures: PositionFigures = {
+      ...(entry === undefined ? {} : { entry: new Decimal(entry) }),
+      ...(stated === undefined ? {} : { unrealisedPnl: new Decimal(stated) }),
+      ...(margin === undefined ? {} : { margin: new Decimal(margin) }),
+      ...(mode ? { marginMode: mode } : {}),
+    }
 
     positions.push({
       id: `coinbase:perp:${product}`,
@@ -344,12 +370,14 @@ async function perpPositions(creds: ConnectorCredentials, asOf: Date): Promise<P
       quantity: signed,
       delta: signed,
       ...(pnl === undefined ? {} : { equity: new Decimal(pnl) }),
+      ...(Object.keys(figures).length > 0 ? { figures } : {}),
       asOf,
       liquidation: {
         // Written even where Coinbase named no price: the leverage below is
         // still worth carrying, and `rankable` keeps a perp on its kind.
         ...(price && !price.isZero() ? { price } : {}),
         ...(perp.leverage ? { leverage: new Decimal(perp.leverage) } : {}),
+        ...(mark === undefined || new Decimal(mark).isZero() ? {} : { mark: new Decimal(mark) }),
       },
     })
   }

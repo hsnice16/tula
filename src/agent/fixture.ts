@@ -1,5 +1,6 @@
 import Decimal from 'decimal.js'
 import { availability } from '../core/availability.js'
+import { lookupPosition } from '../core/detail.js'
 import { netExposure } from '../core/exposure.js'
 import type { Position } from '../core/position.js'
 import { scenario, shockedHealthFactors, whatBreaksFirst, type Shock } from '../core/risk.js'
@@ -38,6 +39,11 @@ export const FIXTURE_POSITIONS: Position[] = [
  *  same prices, rather than restating them and drifting from this one. */
 export const FIXTURE_PRICES = new Map([['ETH', d('4000')]])
 
+/** `RiskEngine.position` over any book, as the session's adapter builds it. */
+export function positionOver(book: Position[], prices: Map<string, Decimal> = FIXTURE_PRICES): RiskEngine['position'] {
+  return (words) => lookupPosition(words, { book, prices, now: FIXTURE_TIME })
+}
+
 /** A RiskEngine over fixed data, so agent tests never touch a venue or a price API. */
 export const fixtureEngine: RiskEngine = {
   positions: () => FIXTURE_POSITIONS,
@@ -47,6 +53,7 @@ export const fixtureEngine: RiskEngine = {
   shockedHealthFactors: (shocks: Shock[]) =>
     shockedHealthFactors(FIXTURE_POSITIONS, FIXTURE_PRICES, shocks),
   availability: () => availability(FIXTURE_POSITIONS),
+  position: positionOver(FIXTURE_POSITIONS),
   // Fully covered on purpose: a test that wants the disclosure declares its own
   // gaps, so every other test here reads a result with nothing extra on it.
   coverage: () => ({ venues: [], areas: [] }),
@@ -172,6 +179,7 @@ export function injectionEngine(payload: InjectionPayload): RiskEngine {
     positions: () => positions,
     exposures: () => netExposure(positions, FIXTURE_PRICES),
     breaks: () => whatBreaksFirst(positions, FIXTURE_PRICES),
+    position: positionOver(positions),
     scenario: (shocks: Shock[]) => scenario(positions, FIXTURE_PRICES, shocks),
     shockedHealthFactors: (shocks: Shock[]) =>
       shockedHealthFactors(positions, FIXTURE_PRICES, shocks),

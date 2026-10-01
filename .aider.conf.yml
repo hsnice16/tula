@@ -1,0 +1,4 @@
+# AGENTS.md is the single source of truth for agent instructions in this repo.
+read: AGENTS.md
+# The same gate the pre-commit hook and CI run. Needs node >= 22 on PATH.
+test-cmd: bun run check

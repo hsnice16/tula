@@ -360,6 +360,44 @@ describe('kraken margin positions', () => {
     expect(portfolioValue(rows, prices).total?.toString()).toBe('2000')
   })
 
+  test('the unrealised PnL and margin are Kraken’s own, on the leg that is the exposure', async () => {
+    stub({
+      positions: {
+        // `net` as docs.kraken.com/api/docs/rest-api/get-open-positions shows it: signed with a `+`.
+        TX1: { ...LONG.TX1, net: '+2000.5' },
+        TX2: { pair: 'XXBTZUSD', type: 'buy', vol: '0.5', vol_closed: '0', cost: '26000', margin: '13000', net: '-250' },
+      },
+    })
+    const rows = await krakenConnector.fetchPositions(CREDS)
+    expect(reached.some((url) => url.endsWith('/OpenPositions'))).toBe(true)
+    const btc = rows.find((p) => p.asset === 'BTC')
+    expect(btc?.figures).toEqual({ unrealisedPnl: new Decimal('1750.5'), margin: new Decimal('23000') })
+    expect(rows.find((p) => p.asset === 'USD')?.figures).toBeUndefined()
+  })
+
+  test('P&L is asked for, and one position without it leaves the sum unstated', async () => {
+    let asked = ''
+    stub({ positions: { TX1: { ...LONG.TX1, net: '+1' }, TX2: { ...LONG.TX1 } } })
+    const answer = globalThis.fetch
+    globalThis.fetch = (async (input: unknown, init?: { body?: URLSearchParams }) => {
+      if (String(input).endsWith('/OpenPositions')) asked = init?.body?.get('docalcs') ?? ''
+      return answer(input as string, init as RequestInit)
+    }) as unknown as typeof fetch
+    const btc = (await krakenConnector.fetchPositions(CREDS)).find((p) => p.asset === 'BTC')
+    expect(asked).toBe('true')
+    expect(btc?.figures?.unrealisedPnl).toBeUndefined()
+  })
+
+  test('a euro pair states its figures in euros, never as dollars', async () => {
+    stub({
+      positions: {
+        TX1: { pair: 'XXBTZEUR', type: 'buy', vol: '1', vol_closed: '0', cost: '46000', margin: '9200', net: '-300' },
+      },
+    })
+    const btc = (await krakenConnector.fetchPositions(CREDS)).find((p) => p.asset === 'BTC')
+    expect(btc?.figures?.currency).toBe('EUR')
+  })
+
   test('a short is negative in the asset and long the proceeds', async () => {
     stub({
       positions: {

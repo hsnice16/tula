@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   // inherited whole, and a mistyped link unfurled in a chat as the front page —
   // the one page it is certainly not. No `url`: this file answers for every
   // address on the domain there is nothing at, so it has none of its own.
-  openGraph: { ...OG, type: 'website', title: TITLE, description: SUMMARY },
+  openGraph: { ...OG, type: 'website', title: `${TITLE} · ${NAME}`, description: SUMMARY },
   twitter: { ...TWITTER, title: `${TITLE} · ${NAME}`, description: SUMMARY },
 }
 

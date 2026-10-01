@@ -1,6 +1,6 @@
 import Decimal from 'decimal.js'
 import { remote, TulaError } from '../core/errors.js'
-import type { Borrowing, HoldReason, MarginRatio, Position, RatioPool, Venue, VenueHold } from '../core/position.js'
+import type { Borrowing, HoldReason, MarginRatio, Position, PositionFigures, RatioPool, Venue, VenueHold } from '../core/position.js'
 import { connectCommand, typed } from '../core/surface.js'
 import { PartialRead, refreshScope, type Connector, type ConnectorCredentials, type KeyScope, type Refresh } from './types.js'
 import { request, TooSlow } from '../core/http.js'
@@ -39,6 +39,10 @@ interface PerpPosition {
   leverage?: { type: string; value: number } | null
   marginUsed?: string | null
   maxLeverage?: number
+  entryPx?: string | null
+  unrealizedPnl?: string | null
+  returnOnEquity?: string | null
+  cumFunding?: { allTime?: string | null; sinceOpen?: string | null } | null
 }
 
 interface MarginSummary {
@@ -189,6 +193,29 @@ const UNSHOCKABLE =
 
 const ZERO = new Decimal(0)
 const d = (value: string | undefined | null): Decimal => new Decimal(value ?? '0')
+
+/** Unlike `d`, a figure the venue left out stays out. */
+const stated = (value: string | undefined | null): Decimal | undefined =>
+  value === undefined || value === null || value === '' ? undefined : new Decimal(value)
+
+function figures(p: PerpPosition, scale: number): PositionFigures | undefined {
+  const entry = stated(p.entryPx)
+  const pnl = stated(p.unrealizedPnl)
+  const roe = stated(p.returnOnEquity)
+  const sinceOpen = stated(p.cumFunding?.sinceOpen)
+  const allTime = stated(p.cumFunding?.allTime)
+  const margin = stated(p.marginUsed)
+  const mode = p.leverage?.type
+  const out: PositionFigures = {
+    ...(entry ? { entry: entry.div(scale) } : {}),
+    ...(pnl ? { unrealisedPnl: pnl } : {}),
+    ...(roe ? { returnOnEquity: roe } : {}),
+    ...(sinceOpen || allTime ? { funding: { ...(sinceOpen ? { sinceOpen } : {}), ...(allTime ? { allTime } : {}) } } : {}),
+    ...(margin ? { margin } : {}),
+    ...(mode === 'cross' || mode === 'isolated' ? { marginMode: mode } : {}),
+  }
+  return Object.keys(out).length === 0 ? undefined : out
+}
 
 /** Venue arithmetic is printed to six places; a difference inside that is its printing. */
 const agrees = (a: Decimal, b: Decimal): boolean =>
@@ -481,6 +508,7 @@ function readAccount(answers: Answers, listing: Listing, label: string): { posit
       const notional = p.positionValue ? new Decimal(p.positionValue) : null
       const liq = p.liquidationPx
       const leverage = p.leverage?.value
+      const perpFigures = figures(p, scale)
       positions.push({
         id: `${dex.label}:perp:${asset}`,
         venue: dex.label,
@@ -493,6 +521,7 @@ function readAccount(answers: Answers, listing: Listing, label: string): { posit
         // Its PnL is inside the balance it draws on: the dex's account value in
         // standard mode, the spot total — marked to market — under a pooled one.
         equity: ZERO,
+        ...(perpFigures ? { figures: perpFigures } : {}),
         asOf,
         // Cross positions share one pool and liquidate as one event; an
         // isolated one has only the margin posted to it and dies alone, at the

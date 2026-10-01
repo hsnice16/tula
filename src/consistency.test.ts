@@ -9,6 +9,8 @@ import { riskEngineFor } from './cli/engine-adapter.js'
 import { parseCommand, SLASH_COMMANDS } from './cli/registry.js'
 import { Session } from './cli/session.js'
 import { dispatchCommand } from './cli/shell.js'
+import { detailFor, position } from './cli/commands.js'
+import { accountName } from './core/format.js'
 import { hyperliquidConnector } from './connectors/hyperliquid.js'
 import type { Connector, KeyScope } from './connectors/types.js'
 import type { Position, PositionKind } from './core/position.js'
@@ -128,7 +130,11 @@ interface Book {
   tool: (name: string, input?: unknown) => Record<string, unknown>
 }
 
-async function book(venues: string[], connectors: Map<string, Connector> = CONNECTORS): Promise<Book> {
+async function book(
+  venues: string[],
+  connectors: Map<string, Connector> = CONNECTORS,
+  accounts: readonly { address: string; name?: string }[] = [],
+): Promise<Book> {
   // Pinned per book and re-set on every call. The store is reached through one
   // process-wide directory, so a second book silently repointed the first at
   // its own credentials — and `/refresh` then answered about the wrong one.
@@ -139,7 +145,10 @@ async function book(venues: string[], connectors: Map<string, Connector> = CONNE
   use()
   // Indexed, so the same venue named twice is that venue watching two
   // addresses rather than the same one refused as a duplicate.
-  for (const [at, id] of venues.entries()) await secrets.put(id, { address: `0x${id}${at}` })
+  for (const [at, id] of venues.entries()) {
+    const account = accounts[at]
+    await secrets.put(id, { address: account?.address ?? `0x${id}${at}` }, account?.name)
+  }
   const session = new Session(connectors, oracle)
   await session.ensureLoaded()
   const engine = riskEngineFor(session)
@@ -180,11 +189,11 @@ function tableRows(output: string, columns: number): string[][] {
 }
 
 /**
- * `/positions` grows FREE and UNAVAILABLE wherever a holding is held, which
+ * `/positions` grows FREE, UNAVAILABLE and REASON wherever a holding is held, which
  * this book's pledged collateral leg guarantees. Stated once so a change to the
  * table is one number here rather than a suite that silently matches no rows.
  */
-const POSITION_COLUMNS = 7
+const POSITION_COLUMNS = 8
 
 const rowsOf = (result: Record<string, unknown>, key: string): Record<string, unknown>[] =>
   (result[key] ?? []) as Record<string, unknown>[]
@@ -435,10 +444,11 @@ describe('an account liquidated on a ratio is one entry on every surface', () =>
 
   test('breaks ranks the account once and holds the perp under it, on screen and in the tool', async () => {
     const { output } = await account.run('/breaks')
-    const screen = tableRows(output, 6).map((r) => `${r[0]}:${r[1]}:${r[2]}`)
+    // One venue, so no VENUE column: every row is at it.
+    const screen = tableRows(output, 5).map((r) => `${r[0]}:${r[1]}`)
     const risks = rowsOf(account.tool('what_breaks_first'), 'risks')
-    expect(risks.map((r) => `${label(r)}:${r['asset']}:${r['kind']}`)).toEqual(screen)
-    expect(screen).toEqual(['pl:USDC:spot'])
+    expect(risks.map((r) => `${r['asset']}:${r['kind']}`)).toEqual(screen)
+    expect(screen).toEqual(['USDC:spot'])
     expect(output).toContain('Unified Account Ratio 20.00%')
     expect(output).toContain('liquidated past 95.00%: ETH perp')
     expect((risks[0]?.['liquidated_with_this_account'] as { asset: string }[]).map((p) => p.asset)).toEqual(['ETH'])
@@ -716,7 +726,7 @@ describe('how much of a holding can move is one answer', () => {
   test('what is unavailable is the same quantity and the same reason on both', async () => {
     const { output } = await partly.run('/positions')
     const screen = new Map(
-      tableRows(output, POSITION_COLUMNS).map((r) => [`${r[0]}:${r[1]}:${r[2]}`, r[5] as string]),
+      tableRows(output, POSITION_COLUMNS).map((r) => [`${r[0]}:${r[1]}:${r[2]}`, `${r[5]} ${r[6]}`]),
     )
     const rows = rowsOf(partly.tool('get_positions'), 'positions').filter((r) => r['unavailable'])
     expect(rows.length).toBeGreaterThan(0)
@@ -852,7 +862,12 @@ describe('a venue watching two addresses is one book on both surfaces', () => {
   let twice: Book
 
   beforeAll(async () => {
-    twice = await book(['aave', 'aave'], declared)
+    // Full-length addresses, one named: the screen shortens them, and the
+    // model is handed them whole.
+    twice = await book(['aave', 'aave'], declared, [
+      { address: '0x1111111111111111111111111111111111111111' },
+      { address: '0x2222222222222222222222222222222222222222', name: 'second' },
+    ])
   })
 
   test('the account on screen is the account the model is handed', async () => {
@@ -860,17 +875,20 @@ describe('a venue watching two addresses is one book on both surfaces', () => {
     // wallets at one venue rank as rows spelled identically otherwise, so a
     // screen and a model naming them differently is two books.
     const { output } = await twice.run('/positions')
-    const screen = tableRows(output, POSITION_COLUMNS + 1).map((r) => r[1] as string)
+    // One venue, so ACCOUNT leads where VENUE would.
+    const screen = tableRows(output, POSITION_COLUMNS).map((r) => r[0] as string)
     const rows = rowsOf(twice.tool('get_positions'), 'positions').map((r) => r['account'] as string)
-    expect(new Set(screen)).toEqual(new Set(rows))
+    // The same account, the screen's cut to fit a row by the one renderer.
+    expect(new Set(screen)).toEqual(new Set(rows.map(accountName)))
+    expect(new Set(screen)).toEqual(new Set(['0x1111…1111', 'second (0x2222…2222)']))
     expect(new Set(rows).size).toBe(2)
   })
 
   test('a liquidation distance names the same address in the table and in the tool', async () => {
     const { output } = await twice.run('/breaks')
-    const screen = tableRows(output, 7).map((r) => `${r[1]}:${r[2]}`)
+    const screen = tableRows(output, 6).map((r) => `${r[0]}:${r[1]}`)
     const rows = rowsOf(twice.tool('what_breaks_first'), 'risks').map(
-      (r) => `${r['account']}:${r['asset']}`,
+      (r) => `${accountName(r['account'] as string)}:${r['asset']}`,
     )
     expect(screen).toHaveLength(2)
     expect(rows).toEqual(screen)
@@ -1003,12 +1021,91 @@ describe('a venue that answered in part is one book on both surfaces', () => {
   })
 })
 
+describe('one position reads the same on screen, in the modal and to the model', () => {
+  test('every figure the tool hands over is the figure printed beside the same name', async () => {
+    const { found, result } = await position(whole.session, ['ETH', 'alpha-margin'])
+    const given = whole.tool('get_position', { position: 'ETH alpha-margin' })
+    const figures = given['figures'] as { section: string; name: string; value: string }[]
+    expect(figures.length).toBeGreaterThan(3)
+    for (const { name, value } of figures) {
+      expect(result.output).toMatch(new RegExp(`${name.replace(/[()%.]/g, '\\$&')} +${value.replace(/[$()+.]/g, '\\$&')}`))
+    }
+    // The modal builds from the same function, over the same row.
+    const modal = detailFor(whole.session, found!.id)?.sections.flatMap((s) =>
+      s.rows.filter((r) => !r.outside).map((r) => ({ section: s.title, name: r.label, value: r.value })),
+    )
+    expect(modal).toEqual(figures)
+  })
+
+  test('a position past its trigger is liquidatable now on both, as breaks says', async () => {
+    const { result } = await position(whole.session, ['ETH', 'alpha-margin'])
+    expect(result.output).toContain('liquidatable now')
+    const figures = whole.tool('get_position', { position: 'ETH alpha-margin' })['figures'] as { name: string; value: string }[]
+    expect(figures.find((f) => f.name === 'Liq. Price')?.value).toContain('liquidatable now')
+  })
+
+  test('words that name more than one position list the same rows, each named alone, on both', async () => {
+    const { matches, result } = await position(whole.session, ['ETH'])
+    const listed = whole.tool('get_position', { position: 'ETH' })['matches'] as { name_it_with: string }[]
+    expect(matches.length).toBe(3)
+    expect(listed.length).toBe(3)
+    expect(result.usageError).toBe(true)
+    for (const { name_it_with } of listed) {
+      expect(result.output).toContain(`/position ${name_it_with}`)
+      expect((await position(whole.session, name_it_with.split(' '))).found).toBeDefined()
+    }
+  })
+
+  test('the book being short is said beside one position too, and exits non-zero only then', async () => {
+    const short = await position(whole.session, ['SOL'])
+    expect(short.result.incomplete).toBe(true)
+    expect(short.result.output).toContain('epsilon: the venue did not answer')
+    expect((await position(clean.session, ['SOL'])).result.incomplete).toBe(false)
+  })
+})
+
+describe('one asset picks the same rows on every surface', () => {
+  /** The quantity column of a table, which is what tells its rows apart here. */
+  const quantities = (output: string) => tableRows(output, POSITION_COLUMNS).map((cells) => cells[3])
+
+  test('/positions <asset> is the rows get_positions hands over for it, however it is spelled', async () => {
+    for (const asked of ['ETH', 'eth']) {
+      const { output } = await whole.run(`/positions ${asked}`)
+      const given = rowsOf(whole.tool('get_positions', { asset: asked }), 'positions')
+      expect(given.length).toBe(3)
+      for (const row of given) expect(output).toContain(row['quantity'] as string)
+      expect(output).not.toContain('SOL')
+    }
+  })
+
+  test('a venue’s own positions narrow the same way, and so does the tool given both', async () => {
+    const { output } = await whole.run('/gamma positions WBTC')
+    const given = rowsOf(whole.tool('get_positions', { venue: 'gamma', asset: 'wbtc' }), 'positions')
+    expect(given.map((r) => r['asset'])).toEqual(['WBTC'])
+    expect(output).toContain('WBTC')
+    expect(output).not.toContain('USDC')
+  })
+
+  test('/position takes the same word for the same rows', async () => {
+    const { matches } = await position(whole.session, ['eth'])
+    expect(matches.length).toBe(rowsOf(whole.tool('get_positions', { asset: 'eth' }), 'positions').length)
+  })
+
+  test('an asset nothing holds says what to run, and so does a second word', async () => {
+    const none = await whole.run('/positions ZZZ')
+    expect(none.output).toContain('Nothing here holds “ZZZ”. /positions lists every position.')
+    expect(none.incomplete).toBe(true)
+    expect((await whole.run('/positions ETH SOL')).output).toContain('Usage: /positions [asset]')
+    expect(quantities((await clean.run('/positions')).output).length).toBeGreaterThan(3)
+  })
+})
+
 describe('the surfaces this suite claims to cover are all of them', () => {
   test('a new command or tool is put through this book, not merely added', () => {
     // The suite is only worth what it covers. A command added without a line
     // here is a surface back to being tested alone, which is the whole cause.
     const covered = new Set([
-      'positions', 'exposure', 'breaks', 'shock', 'venues', 'refresh',
+      'positions', 'position', 'exposure', 'breaks', 'shock', 'venues', 'refresh',
       // No book of their own: they answer about the build, the config or the
       // shell rather than about the positions this fixture holds.
       'about', 'clear', 'exit', 'help', 'login', 'update', 'connect', 'forget',
@@ -1017,7 +1114,7 @@ describe('the surfaces this suite claims to cover are all of them', () => {
     expect(SLASH_COMMANDS.map((c) => c.name).filter((n) => !covered.has(n))).toEqual([])
 
     const toolsCovered = new Set([
-      'get_net_exposure', 'get_positions', 'what_breaks_first', 'run_scenario', 'get_venue_status',
+      'get_net_exposure', 'get_positions', 'get_position', 'what_breaks_first', 'run_scenario', 'get_venue_status',
     ])
     expect(TOOLS.map((t) => t.name).filter((n) => !toolsCovered.has(n))).toEqual([])
   })

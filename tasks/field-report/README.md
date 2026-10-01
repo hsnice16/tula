@@ -19,7 +19,7 @@ position at different venues, on the front page included.
 ## Tasks
 
 The figures come before the keys, and within each half the order is the
-dependency order.
+dependency order. 14–16 answer the second report, below.
 
 - [01 · Capture every account mode Hyperliquid has](01-capture-every-account-mode.md) — done, except a capture on a non-USDC dex
 - [02 · Balances as the venue states them, in each account mode](02-balances-per-account-mode.md) — done
@@ -34,6 +34,16 @@ dependency order.
 - [11 · A question that runs over more than one line](11-multi-line-input.md) — done
 - [12 · Every key, listed where somebody looks for it](12-keys-reference.md) — done
 - [13 · Typing while an answer is still coming](13-type-while-working.md) — done
+- [14 · What each venue states about a position, kept](14-position-figures.md) — done, except Binance futures and Aave's rates
+- [15 · One position's detail, as a modal and as a command](15-position-detail.md) — done
+- [16 · Picking a position to expand](16-position-picker.md) — done
+
+## The second report
+
+The same tester, 2026-09-28, on `/positions`: expand a position to see PnL,
+funding and the rest, and have positions update in real time. 14–16 are the
+first half and one release. The second half is
+[`watch-and-alerts/01`](../watch-and-alerts/01-watch-mode.md), released after.
 
 ## The standard each task follows
 

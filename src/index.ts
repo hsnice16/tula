@@ -1,6 +1,6 @@
 import { streams } from './cli/commands.js'
 import { ask, askFields } from './cli/prompt.js'
-import { useSurface } from './core/surface.js'
+import { fitTablesTo, useSurface } from './core/surface.js'
 import { forgetCommand, nearestCommand } from './cli/registry.js'
 import { Session } from './cli/session.js'
 import { dispatchCommand, parseCommand } from './cli/shell.js'
@@ -277,6 +277,8 @@ async function main(): Promise<void> {
   // printed from here has to be something that can be typed at one: `/kraken
   // connect` pasted into a real shell is a path that does not exist.
   if (command !== undefined) useSurface('cli')
+  // A pseudo-terminal can report no width at all, and 0 would cut every word.
+  if (command !== undefined && process.stdout.isTTY && process.stdout.columns > 0) fitTablesTo(process.stdout.columns)
   // The one flag, and it means only "I have already read the confirmation".
   const confirmed = argv.includes('--yes')
   const args = argv.filter((a) => a !== '--yes')
@@ -391,10 +393,12 @@ async function main(): Promise<void> {
     process.exitCode = 1
     return
   }
-  const { stdout, stderr } = streams(result)
+  const printed = result.kind === 'position' ? result.answer : result
+  const { stdout, stderr } = streams(printed)
   if (stdout !== '') console.log(stdout)
   if (stderr !== '') console.error(stderr)
-  if (result.incomplete || result.usageError) process.exitCode = 1
+  if (printed.hint) console.error(printed.hint)
+  if (printed.incomplete || printed.usageError) process.exitCode = 1
 }
 
 try {

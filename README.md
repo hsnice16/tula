@@ -200,9 +200,10 @@ useful thing you can send.
 |---|---|
 | Net exposure, scenarios, liquidation distance | working |
 | More than one account per venue — a hot wallet and a cold one, two exchange keys | working; every figure counts all of them, each row carries the account it came from, and `INCOMPLETE` names the account that failed rather than only the venue |
-| How much of a holding you can move, and what is holding the rest | working; a `FREE` and an `UNAVAILABLE` column where something is held, and an em dash where the venue reports too little to prove it |
+| One position in full, at any venue — entry and mark, PnL and ROE, funding, margin, what liquidates it, what it backs | working; `/position <asset>`, or ↓ on an empty line to pick one. Each venue fills what it states, and a figure it does not state says so rather than reading zero. Figures are as of the last read — live updating is [planned](./tasks/watch-and-alerts/01-watch-mode.md) |
+| How much of a holding you can move, and what is holding the rest | working; `FREE`, `UNAVAILABLE` and `REASON` columns where something is held, and an em dash where the venue reports too little to prove it |
 | What tula never asked for | working; `/venues` names every area a connector declares it does not read, with what each may hide, and every one of them is scheduled work in [ROADMAP.md](./ROADMAP.md) |
-| Interactive shell — slash commands and arguments that complete, ctrl+s to search them, ctrl+r through saved history, Readline keys, questions over several lines (ctrl+j, or shift+Enter where the terminal sends it), opt-in vim editing, ctrl+o for long output, ? for every key, type and queue the next line while one runs with Esc to stop a question, plain English | working; both command lists take the mouse as well as the keyboard |
+| Interactive shell — slash commands and arguments that complete, suggestions from your history and the conversation that Tab takes, ctrl+s to search them, ctrl+r through saved history, Readline keys, questions over several lines (ctrl+j, or shift+Enter where the terminal sends it), opt-in vim editing, ctrl+o for long output, ? for every key, type and queue the next line while one runs with Esc to stop a question, plain English | working; both command lists take the mouse as well as the keyboard |
 | Prices — CoinGecko, CoinPaprika, CoinMarketCap, CryptoCompare | working; one active at a time, `/<source> use` switches |
 | Staying current — the shell checks each time it opens and says so in a line; `/update` checks there and then | working; nothing is installed until you type `/update install` |
 | Kraken's account margin level | planned — Kraken liquidates on an account-wide level and no position carries that figure, so those rows rank `unknown` until it is read |
@@ -227,10 +228,11 @@ useful thing you can send.
 | `ctrl+l` | Clear the screen |
 | `ctrl+c` | Clear the line; on an empty line, leave tula |
 | `ctrl+d` | Delete the character under the cursor; on an empty line, leave tula |
-| `Esc` | Close a list, the command search or these keys; cancel removing a venue |
+| `Esc` | Close a list, the command search, a position or these keys; cancel removing a venue |
 | `Enter` | While something is running, save what you typed to run next |
 | `Esc`, `ctrl+c` | Stop an answer while it is being written; ctrl+c clears what you typed first |
 | `↑` | On an empty line, bring back the last line waiting to run, to edit it |
+| `↓` | Past the newest line you sent, on an empty line: pick a position to open in full — Enter opens it, Esc steps back |
 
 ### Editing
 
@@ -266,7 +268,7 @@ useful thing you can send.
 |---|---|
 | `↑ ↓`, `ctrl+p ctrl+n` | Move through an open list |
 | `Enter` | Run the highlighted command; in a list of choices for a command, put the choice on the line |
-| `Tab` | Put the highlighted command on the line; with no list open, accept the suggestion |
+| `Tab` | Accept the suggestion shown after the cursor; otherwise put the highlighted command on the line |
 | `→`, `ctrl+f`, `ctrl+e` | At the end of the line, accept the suggestion shown after the cursor |
 | `alt+f` | Accept one word of the suggestion — alt needs Option as Meta on macOS |
 

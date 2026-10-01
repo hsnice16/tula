@@ -2,7 +2,7 @@
 
 Instructions for AI coding agents (Claude Code, Cursor, Codex, Devin, etc.) working on this repo.
 
-> `CLAUDE.md` is a one-line pointer to this file. AGENTS.md is the cross-agent standard; one source of truth avoids drift.
+> `CLAUDE.md`, `GEMINI.md`, `.cursor/rules/agents.mdc` and `.aider.conf.yml` point to this file, and `.openhands/setup.sh` installs what it needs. AGENTS.md is the cross-agent standard; one source of truth avoids drift.
 >
 > Human contributors should read [CONTRIBUTING.md](./CONTRIBUTING.md) — same rules, phrased for PR workflow.
 
@@ -196,6 +196,7 @@ src/
     untrusted.ts        # visible() — the one filter over text somebody else wrote
     exposure.ts         # netExposure, portfolioValue — equity, never a perp's notional; oldest
     risk.ts             # liquidation distance, scenario shocks, what breaks first
+    detail.ts           # one position in full, and the words that pick it — shared by /position, the picker and get_position
     availability.ts     # how much of a holding can move, and what is holding the rest
     coverage.ts         # what a connected venue was never asked for, from the connectors' own manifests; read on demand, never beside a figure
     surface.ts          # shell or one-shot CLI, and how a command is spelled for each — below every layer that prints a remedy
@@ -269,17 +270,19 @@ src/
     ConnectFlow.tsx     # in-app venue connect; masks secret fields
     SlashMenu.tsx       # filtered menu, grouped; fixed height, below the input
     Palette.tsx         # ctrl+s: the same surface flattened and ranked, floated over the screen
+    PositionPicker.tsx  # ↓ on an empty line: every position, filtered, opening into one in full — the palette's geometry
     theme.ts            # the palette; no colour literal belongs anywhere else
     brand.ts            # the venues' and price sources' own colours, sampled from their artwork
     TextInput.tsx       # presentational input line; no key handling
     line.ts             # one line being edited, as a value — Readline's commands by Readline's names
     vim.ts              # vim NORMAL mode over that same line model; INSERT is the readline line
     keys.ts             # paste vs. keystroke; what a trailing newline means; which Readline command a keypress is
+    suggest.ts          # the question offered after the cursor, from the book and what this session asked; never a figure
     keymap.ts           # every key, once — the ? panel, /keys, README's keys section and the site's /keys page render from it
     mouse.ts            # wheel and pointer reports; why tracking is on only while a list is up
     terminal.ts         # hands the terminal back — kitty keyboard protocol, bracketed paste — on exit, a fatal signal or a crash
     anchor.ts           # asks the terminal where its cursor is and whether it speaks the kitty protocol, and recognises the answers
-    scroll.ts           # windowing a list longer than its rows; shared by the menu and the palette
+    scroll.ts           # windowing a list longer than its rows; shared by the menu, the palette and the position picker
     wrap.ts             # rows, not lines — what truncation counts
     run.tsx             # render + waitUntilExit
     resize.ts           # redraws the screen on a width change; Ink's erase miscounts rewrapped rows
@@ -518,14 +521,15 @@ Two rules, and they are the reason the architecture exists:
   because a shell left in either turns every later keystroke into escape codes.
 - **Enter runs, tab completes** — in the `/` menu and in ctrl+s alike. Completing
   on both is what cost every command a second Enter, the first spent closing a
-  menu. The one exception is a command with arguments left to supply: those
-  cannot be guessed, so Enter puts it on the line with the cursor where the
-  first one goes, and opens that argument's list. In an argument list Enter
-  inserts and closes, and the next Enter runs — fish's pager and zsh's
-  `complist` behave the same. A suggestion after the cursor is taken with →,
-  ctrl+f, ctrl+e, alt+f for a word, or Tab where no list is open, and never
-  with Enter. `tasks/field-report/09-argument-completion.md` has the sources
-  for each. Enter sends; shift+Enter, alt+Enter, ctrl+Enter, ctrl+j and `\` then
+  menu. The one exception is a command with a required argument (`<…>`) left
+  to supply: it cannot be guessed, so Enter puts it on the line with the cursor
+  where the argument goes, and opens its list; an optional one (`[…]`) runs as
+  it is. In an argument list Enter inserts and closes, and the next Enter runs
+  — fish's pager and zsh's `complist` behave the same. A suggestion after the
+  cursor is taken with →, ctrl+f, ctrl+e, alt+f for a word, or Tab — even one
+  from history over an open list, so Tab puts what the line shows — and never
+  with Enter. Moving through a list switches the suggestion to its candidate.
+  `tasks/field-report/09-argument-completion.md` has the sources for each. Enter sends; shift+Enter, alt+Enter, ctrl+Enter, ctrl+j and `\` then
   Enter insert a newline, and a command still takes one line.
 - **A wait says what it is waiting on, for the whole of the wait.** `Session`
   reports each venue as it reads it and the spinner counts the seconds off.
@@ -738,8 +742,8 @@ bun run build              # -> site/out, static
   served for every path on the domain there is nothing at. It is not in `NAV`,
   which is the list of routes the sitemap and `llms.txt` publish, and a 404 in
   either is a 404 arrived at from a search result.
-- **The guides** — `app/liquidation-risk`, `app/exposure`, `app/hyperliquid`,
-  `app/aave`, `app/kraken`, `app/binance` and `app/coinbase`, built on
+- **The guides** — every `group: 'guide'` entry in `NAV` but Keys, each an
+  `app/<route>/page.tsx` built on
   `components/Guide.tsx` — are pages written for a search, linked from the
   footer's Guides column, beside Keys, and nowhere more prominent. A hidden link would be spam
   under Google's policy, and a page nothing links to ranks weakly.
@@ -871,7 +875,9 @@ bun run build              # -> site/out, static
   a static host serves as a byte stream — and a card crawler drops any image
   whose content type is not an image, a failure invisible from the site itself.
   A route handler whose path carries `.png` gets the type right, at the cost of
-  naming the image by hand in `OG_IMAGE` rather than having Next infer it.
+  naming the image by hand in `OG_IMAGE` rather than having Next infer it. Each
+  guide's card is `app/og/[card]/route.tsx`, one per `group: 'guide'` entry in
+  `NAV`, named `<route>.png` by `generateStaticParams` for the same reason.
 - **Every metadata route needs `export const dynamic = 'force-static'`.** Under
   `output: export` the build refuses to collect a route it cannot prove is
   static, and a `new Date()` in one is enough to make it doubt.
@@ -899,6 +905,9 @@ bun run build              # -> site/out, static
   `GOOGLE_SITE_VERIFICATION` sits beside the id: it is Search Console ownership,
   and it stays after the property verifies, because Google re-checks the tag and
   un-verifies when it goes — taking the sitemap and the index coverage with it.
+- **`public/<key>.txt` is the IndexNow key**, public by the protocol's design:
+  it proves to Bing and the other IndexNow engines that a submission of this
+  site's URLs came from whoever controls it. Submitting is by hand, after a deploy.
 - **`public/.well-known/security.txt`** is RFC 9116, at the domain root the
   spec requires; `Canonical` is what a copy found anywhere else has to be
   checked against. `guard.sh` fails 30 days before `Expires`: a lapsed one is a

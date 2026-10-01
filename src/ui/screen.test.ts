@@ -20,6 +20,7 @@ import * as secrets from '../secrets/store.js'
 import { historyPath } from '../history/history.js'
 import { App } from './app.js'
 import { cells } from './wrap.js'
+import { KEYMAP } from './keymap.js'
 import { guardResize } from './resize.js'
 
 /**
@@ -1896,7 +1897,8 @@ test('a venue that spells an asset in Chinese still lines its table up', async (
     await screen.press('/positions\r')
     const rows = await until(screen, '比特币')
 
-    const held = rows.filter((row) => /^\s*wide\s+spot/.test(row))
+    // One venue, so the rows start at KIND.
+    const held = rows.filter((row) => /^\s*spot\s/.test(row))
     expect(held).toHaveLength(3)
     // Every row of the table draws the same number of cells, which is what
     // says every column right of ASSET starts where the rows above start it.
@@ -2464,8 +2466,8 @@ test('both lists move on ctrl+n and ctrl+p, and their filters take the editing k
     const footer = () =>
       screen.visible().find((row) => /(enter (runs|puts)|nothing matches)/.test(row)) ?? ''
     expect(footer()).toContain('enter runs it')
-    // /shock is the fourth row, and the one entry the footer describes differently.
-    for (let at = 0; at < 3; at++) await screen.press(KEY.ctrlN)
+    // /shock is the fifth row, and the one entry the footer describes differently.
+    for (let at = 0; at < 4; at++) await screen.press(KEY.ctrlN)
     expect(footer()).toContain('still has to be typed')
     await screen.press(KEY.ctrlP)
     expect(footer()).toContain('enter runs it')
@@ -2818,6 +2820,26 @@ test('the keys panel on a short terminal ends on the way to the rest', async () 
     screen.stop()
   }
 })
+
+for (const [how, close] of [['Esc', '\x1b'], ['a key typed through it', 'x']] as const) {
+  test(`closing the keys panel with ${how} puts the transcript back above the frame`, async () => {
+    // The panel scrolls the transcript up to make room; the report was a blank
+    // screen above the input once it closed.
+    const screen = await openBook(80, 24)
+    try {
+      await screen.press('/positions\r')
+      await screen.press('?')
+      expect(onScreen(screen, 'General')).toBe(true)
+      await screen.press(close)
+      const rows = screen.visible()
+      expect(rows.some((row) => row.includes('❯ /positions'))).toBe(true)
+      expect(rows.some((row) => row.trim() === 'General')).toBe(false)
+      expectOneFrame(screen)
+    } finally {
+      screen.stop()
+    }
+  })
+}
 
 // Codex drops "? for shortcuts" first when its footer is narrow.
 test('the shortcuts hint is the part of the placeholder that goes when the row is narrow', async () => {
@@ -3288,3 +3310,611 @@ test('a stray cursor reply, and a reply that lost its ESC, are never typed', asy
   }
 }, 60_000)
 
+
+/** A perp book as a venue that states every figure would return it, and a spot row beside it. */
+function perpBook(extra = 0): Connector {
+  const at = new Date()
+  const perp = (asset: string, size: string, entry: string, mark: string, pnl: string): Position => ({
+    id: `book:perp:${asset}`,
+    venue: 'book',
+    kind: 'perp',
+    asset,
+    quantity: new Decimal(size),
+    delta: new Decimal(size),
+    equity: new Decimal(0),
+    asOf: at,
+    liquidation: { price: new Decimal(entry).times('0.6'), leverage: new Decimal(5), mark: new Decimal(mark) },
+    figures: {
+      entry: new Decimal(entry),
+      unrealisedPnl: new Decimal(pnl),
+      returnOnEquity: new Decimal('0.25'),
+      funding: { sinceOpen: new Decimal('12.5'), allTime: new Decimal('-3') },
+      margin: new Decimal('1000'),
+      marginMode: 'isolated',
+    },
+  })
+  return {
+    venue: { id: 'book', kind: 'perp-dex', name: 'Book' },
+    fields: [{ name: 'address', label: 'Address', secret: false }],
+    help: [],
+    async verifyScope() {
+      return { canRead: true, canTrade: false as const, canWithdraw: false as const }
+    },
+    async fetchPositions() {
+      return [
+        perp('ETH', '2', '3000', '3500', '1000'),
+        perp('BTC', '-0.1', '70000', '65000', '500'),
+        perp('SOL', '40', '150', '140', '-400'),
+        { id: 'book:spot:USDC', venue: 'book', kind: 'spot', asset: 'USDC', quantity: new Decimal('5000'), delta: new Decimal('5000'), asOf: at },
+        { id: 'book:spot:ETH', venue: 'book', kind: 'spot', asset: 'ETH', quantity: new Decimal('0.5'), delta: new Decimal('0.5'), asOf: at },
+        ...Array.from({ length: extra }, (_, n): Position => ({
+          id: `book:spot:T${n}`,
+          venue: 'book',
+          kind: 'spot',
+          asset: `T${String(n).padStart(2, '0')}`,
+          quantity: new Decimal(n + 1),
+          delta: new Decimal(n + 1),
+          asOf: at,
+        })),
+      ]
+    },
+  }
+}
+
+/**
+ * The store is shared across this file, so each test connects the book from
+ * nothing — and fails here, at the cause, if it never loads.
+ */
+async function openBook(columns: number, rows: number, extra = 0, agent?: Agent): Promise<Screen> {
+  await secrets.remove('book').catch(() => {})
+  const screen = await open(columns, rows, { connectors: new Map([['book', perpBook(extra)]]), ...(agent ? { agent } : {}) })
+  await screen.press('/book connect\r')
+  await screen.press('0xabc\r')
+  // The status line's count, which a long table cut short cannot hide.
+  const loaded = () => screen.visible().some((r) => / [1-9]\d* positions /.test(r))
+  for (let tries = 0; tries < 40 && !loaded(); tries++) {
+    await new Promise((r) => setTimeout(r, 100))
+  }
+  expect(loaded()).toBe(true)
+  return screen
+}
+
+const onScreen = (screen: Screen, text: string) => screen.visible().some((row) => row.includes(text))
+
+test('↓ on an empty line picks a position, and Esc steps back out', async () => {
+  const screen = await openBook(120, 40)
+  try {
+    expect(screen.mouseMode()).toBe('none')
+    await screen.press('\x1b[B')
+    expect(onScreen(screen, 'enter opens it')).toBe(true)
+    expect(screen.mouseMode()).toBe('any')
+    // A table, as /positions is: headings over the columns, the quantities right-aligned.
+    // One venue on every row, so no VENUE column.
+    for (const head of ['KIND', 'ASSET', 'QUANTITY', 'PNL']) expect(onScreen(screen, head)).toBe(true)
+    // Inside the dialog: the transcript behind it has /exposure's VENUES.
+    expect(screen.visible().some((row) => /│.*\bVENUE\b/.test(row))).toBe(false)
+    const listed = screen.visible().filter((row) => /│\s+(perp|spot)\s+[A-Z]+\s/.test(row))
+    expect(listed).toHaveLength(5)
+    const ends = new Set(listed.map((row) => row.search(/\d(?=\s{2,}(\+|-|—|\$))/)))
+    expect(ends.size).toBe(1)
+    const kinds = new Set(listed.map((row) => row.search(/(perp|spot)\s/)))
+    expect(kinds.size).toBe(1)
+    // Exactly the viewport, as every dialog here is.
+    expect(screen.visible().length).toBe(40)
+    expect(screen.wrapped()).toEqual([])
+
+    await screen.press('eth')
+    const row = (kind: string, asset: string) => screen.visible().some((r) => new RegExp(`${kind}\\s+${asset}\\s`).test(r))
+    expect(row('perp', 'ETH')).toBe(true)
+    expect(row('perp', 'BTC')).toBe(false)
+
+    await screen.press('\r')
+    for (const label of ['Position', 'PnL', 'Liquidation', 'Source', 'Size', 'Value', 'Entry Price', 'Mark Price', 'Unrealised PnL', 'Liq. Price', 'Margin', 'Funding']) {
+      expect({ label, shown: onScreen(screen, label) }).toEqual({ label, shown: true })
+    }
+    expect(onScreen(screen, '+$1,000.00 (ROE +25.0%)')).toBe(true)
+    // Funding in words: the API's positive is a payment.
+    expect(onScreen(screen, '$12.50 paid since open · $3.00 received all time')).toBe(true)
+    expect(onScreen(screen, '$1,000.00 (5x isolated)')).toBe(true)
+    expect(onScreen(screen, 'esc back to the list')).toBe(true)
+    // Typed while reading is not typed into the filter behind it.
+    await screen.press('x')
+    await screen.press('\x1b')
+    expect(row('perp', 'ETH')).toBe(true)
+    expect(row('perp', 'BTC')).toBe(false)
+
+    await screen.press('\x1b')
+    expect(onScreen(screen, 'enter opens it')).toBe(false)
+    expect(screen.mouseMode()).toBe('none')
+    expectOneFrame(screen)
+  } finally {
+    screen.stop()
+  }
+}, 120_000)
+
+test('↓ still walks history first, and opens the picker only past the newest line', async () => {
+  const screen = await openBook(120, 40)
+  try {
+    await screen.press('\x1b[A')
+    expect(typedText(screen)).toContain('/')
+    await screen.press('\x1b[B')
+    expect(onScreen(screen, 'enter opens it')).toBe(false)
+    expect(typedText(screen).trim()).toBe('')
+    await screen.press('\x1b[B')
+    expect(onScreen(screen, 'enter opens it')).toBe(true)
+  } finally {
+    screen.stop()
+  }
+}, 120_000)
+
+test('the picker answers the pointer, and a click outside closes it', async () => {
+  const screen = await openBook(120, 40)
+  try {
+    await screen.press('\x1b[B')
+    const sol = screen.visible().findIndex((row) => /perp\s+SOL\s/.test(row))
+    await screen.press(`\x1b[<0;40;${sol + 1}M`)
+    expect(onScreen(screen, 'Entry Price')).toBe(true)
+    expect(onScreen(screen, '-$400.00')).toBe(true)
+    await screen.press('\x1b')
+    await screen.press('\x1b[<0;2;2M')
+    expect(onScreen(screen, 'enter opens it')).toBe(false)
+    expect(screen.mouseMode()).toBe('none')
+    expectOneFrame(screen)
+  } finally {
+    screen.stop()
+  }
+}, 120_000)
+
+test('/position opens one position whole, and more than one as the picker', async () => {
+  const screen = await openBook(120, 40)
+  try {
+    await screen.press('/position btc\r')
+    expect(onScreen(screen, 'perp BTC · book')).toBe(true)
+    expect(onScreen(screen, 'one position in full')).toBe(true)
+    expect(onScreen(screen, '-0.1 short')).toBe(true)
+    // Opened on its own, so Esc has no list to go back to.
+    expect(onScreen(screen, 'esc closes')).toBe(true)
+    await screen.press('\x1b')
+    expect(onScreen(screen, 'Entry Price')).toBe(false)
+
+    // Two ETH rows: the picker, narrowed to them, rather than a guess at one.
+    await screen.press('/position eth\r')
+    const listed = (kind: string, asset: string) => screen.visible().some((r) => new RegExp(`${kind}\\s+${asset}\\s`).test(r))
+    expect(listed('perp', 'ETH')).toBe(true)
+    expect(listed('spot', 'ETH')).toBe(true)
+    expect(listed('perp', 'BTC')).toBe(false)
+    await screen.press('\r')
+    expect(onScreen(screen, 'esc back to the list')).toBe(true)
+    await screen.press('\x1b')
+    await screen.press('\x1b')
+
+    await screen.press('/position eth spot\r')
+    expect(onScreen(screen, 'Entry Price')).toBe(false)
+    expect(onScreen(screen, 'Liquidation')).toBe(false)
+    await screen.press('\x1b')
+    await screen.press('/position zzz\r')
+    expect(onScreen(screen, 'No position matches “zzz”')).toBe(true)
+    expectOneFrame(screen)
+  } finally {
+    screen.stop()
+  }
+}, 120_000)
+
+test('a detail taller than the dialog scrolls, and the dialog is still the viewport', async () => {
+  const screen = await openBook(80, 24)
+  try {
+    await screen.press('/position sol\r')
+    expect(screen.visible().length).toBe(24)
+    expect(screen.wrapped()).toEqual([])
+    expect(onScreen(screen, 'more below')).toBe(true)
+    for (let at = 0; at < 20; at++) await screen.press('\x1b[B')
+    expect(onScreen(screen, 'more below')).toBe(false)
+    expect(onScreen(screen, 'As Of')).toBe(true)
+    await screen.press('\x1b')
+    expectOneFrame(screen)
+  } finally {
+    screen.stop()
+  }
+}, 120_000)
+
+test('/positions says any row opens in full, and how — even where the table is cut short', async () => {
+  // A book longer than the preview: the hint is the way into what it cut, so it is what must survive.
+  const screen = await openBook(120, 40, 30)
+  try {
+    await screen.press('/positions\r')
+    expect(onScreen(screen, 'more lines · ctrl+o')).toBe(true)
+    // A line of its own under the answer, not the table's last row.
+    const rows = screen.visible()
+    const hint = rows.findIndex((row) => row.includes('Any position in full: ↓ on an empty line, or /position <asset>'))
+    expect(hint).toBeGreaterThan(rows.findIndex((row) => row.includes('more lines · ctrl+o')))
+    expect(rows[hint - 1]?.trim()).toBe('')
+    expect(screen.wrapped()).toEqual([])
+  } finally {
+    screen.stop()
+  }
+}, 120_000)
+
+/**
+ * The suggestion after the cursor is the newest line from history that starts
+ * with what is typed — this session's, or an earlier one's off the history
+ * file — and Tab puts exactly what is shown on the line, even over an open list.
+ */
+test('a line from an earlier session is suggested as you type, and Tab fills what is shown', async () => {
+  const restore = await credentialEnv({ profile: false })
+  const echoed = (screen: Screen, line: string) => screen.rows().some((row) => row.trim() === `❯ ${line}`)
+  try {
+    const earlier = await open(120, 40)
+    await earlier.press('how far is my eth from liquidation\r')
+    await earlier.press('/position eth hyperliquid perp\r')
+    await earlier.press('line one')
+    await earlier.press('\n')
+    await earlier.press('line two\r')
+    earlier.stop()
+
+    const screen = await open(120, 40)
+    try {
+      // A question: the ghost is the rest of it, and Tab takes it whole.
+      await screen.press('how far')
+      expect(typedText(screen)).toContain('how far is my eth from liquidation')
+      await screen.press('\t')
+      await screen.press('\r')
+      expect(echoed(screen, 'how far is my eth from liquidation')).toBe(true)
+
+      // A command, with the menu open under the line: Tab still fills the ghost.
+      await screen.press('/pos')
+      expect(typedText(screen)).toContain('/position eth hyperliquid perp')
+      await screen.press('\t')
+      // A character typed next lands after what Tab filled, not after a ghost still drawn.
+      await screen.press('Z')
+      expect(typedText(screen)).toContain('/position eth hyperliquid perpZ')
+      await screen.press(KEY.ctrlU)
+
+      // Moving through the menu says the highlighted command is the one wanted.
+      await screen.press('/pos')
+      await screen.press('\x1b[B')
+      expect(typedText(screen)).toContain('/positions')
+      expect(typedText(screen)).not.toContain('hyperliquid perp')
+      await screen.press('\t')
+      await screen.press('Z')
+      expect(typedText(screen)).toContain('/positions Z')
+      await screen.press(KEY.ctrlU)
+
+      // A question over two lines is marked as holding more, and taken whole.
+      await screen.press('line')
+      expect(typedText(screen)).toContain('line one …')
+      await screen.press('\t')
+      await screen.press('\r')
+      expect(echoed(screen, 'line one')).toBe(true)
+      expect(screen.rows().some((row) => row.trim() === 'line two')).toBe(true)
+      expectOneFrame(screen)
+    } finally {
+      screen.stop()
+    }
+  } finally {
+    await restore()
+  }
+}, 120_000)
+
+test('a question about this conversation is suggested as you type it, after your own lines', async () => {
+  // Never asked: the test takes the suggestion and never sends it.
+  const agent = new Agent(fixtureEngine, { client: {} as unknown as Anthropic })
+  const screen = await openBook(120, 40, 0, agent)
+  try {
+    // Nothing asked yet: an opener gets a question about the whole book.
+    await screen.press("What's ")
+    expect(typedText(screen)).toContain("What's closest to liquidation?")
+    await screen.press('\t')
+    await screen.press('Z')
+    expect(typedText(screen)).toContain('liquidation?Z')
+    await screen.press(KEY.ctrlU)
+
+    // Past the opener, the assets in order of risk: BTC is the short already past its price.
+    await screen.press('How close')
+    expect(typedText(screen)).toContain('How close is my BTC to liquidation?')
+    // Typed past, BTC goes last on this line.
+    await screen.press(' are')
+    await screen.press(KEY.ctrlW)
+    expect(typedText(screen)).toContain('How close is my')
+    expect(typedText(screen)).not.toContain('BTC')
+    await screen.press(KEY.ctrlU)
+
+    // Asked about SOL, the conversation is about SOL.
+    await screen.press('/position sol\r')
+    await screen.press('\x1b')
+    await screen.press("What's ")
+    expect(typedText(screen)).toContain("What's the liquidation price of my SOL perp?")
+    await screen.press(KEY.ctrlU)
+
+    // Typed past rather than taken, it follows what is typed now.
+    await screen.press("What's ")
+    expect(typedText(screen)).toContain('SOL perp?')
+    await screen.press('my eth')
+    expect(typedText(screen)).toContain("What's my eth liquidation price?")
+    await screen.press(KEY.ctrlU)
+    await screen.press('What is my btc p')
+    // What is typed is never rewritten, and Tab gives exactly what is shown.
+    expect(typedText(screen)).toContain('What is my btc pnl?')
+    await screen.press('\t')
+    await screen.press('Z')
+    expect(typedText(screen)).toContain('What is my btc pnl?Z')
+    await screen.press(KEY.ctrlU)
+    await screen.press("what's my s")
+    expect(typedText(screen)).toMatch(/what's my sol\b/)
+    expect(typedText(screen)).not.toContain('sOL')
+    await screen.press(KEY.ctrlU)
+
+    // A line typed this session is suggested before any question built for it.
+    await screen.press('/positions eth\r')
+    await screen.press('/positi')
+    expect(typedText(screen)).toContain('/positions eth')
+    await screen.press(KEY.ctrlU)
+    expectOneFrame(screen)
+  } finally {
+    screen.stop()
+  }
+}, 120_000)
+
+test('with no model to answer, no question is suggested', async () => {
+  // No key and no signed-in profile, whatever the machine running this has.
+  const restore = await credentialEnv({ profile: false })
+  const screen = await openBook(120, 40)
+  try {
+    await screen.press("What's ")
+    expect(typedText(screen).trim()).toBe("What's")
+  } finally {
+    screen.stop()
+    await restore()
+  }
+}, 120_000)
+
+/**
+ * The keys page, row by row, on the running shell: every byte sequence a row
+ * lists is sent, and the line or the screen is read back for what the row says
+ * it does. `keymap.test.ts` proves each reaches the handler as the right
+ * action; this proves the action does what the page promises.
+ */
+test('every key the keys page lists does what its row says, on the running shell', async () => {
+  const restore = await credentialEnv({ profile: false })
+  const screen = await open(120, 40)
+  const LINE = 'alpha beta gamma'
+  // Sent first, and unlike LINE, so no suggestion from history is drawn
+  // beside a line being edited — the screen would read it as typed.
+  const SENT = 'zeta eta theta'
+  const line = () => typedText(screen)
+  // ctrl+c rather than ctrl+u: on a line over several rows, ctrl+u clears one row.
+  const fresh = async () => {
+    if (line() !== '') await screen.press('\x03')
+    await screen.press(LINE)
+  }
+  const on = (text: string) => screen.visible().some((row) => row.includes(text))
+  const inputRows = () => {
+    const rows = screen.visible()
+    const top = rows.findIndex(isRule)
+    return rows.findIndex((row, at) => at > top && isRule(row)) - top - 1
+  }
+
+  /** What each action must do, from a line holding LINE with the cursor at its end. */
+  const checks: Record<string, (bytes: string) => Promise<void>> = {
+    'beginning-of-line': async (b) => {
+      await screen.press(b)
+      await screen.press('X')
+      expect(line()).toBe(`X${LINE}`)
+    },
+    'end-of-line': async (b) => {
+      await screen.press(KEY.ctrlA)
+      await screen.press(b)
+      await screen.press('X')
+      expect(line()).toBe(`${LINE}X`)
+    },
+    'backward-char': async (b) => {
+      await screen.press(b)
+      await screen.press('X')
+      expect(line()).toBe('alpha beta gammXa')
+    },
+    'forward-char': async (b) => {
+      await screen.press(KEY.ctrlA)
+      await screen.press(b)
+      await screen.press('X')
+      expect(line()).toBe('aXlpha beta gamma')
+    },
+    'backward-word': async (b) => {
+      await screen.press(b)
+      await screen.press('X')
+      expect(line()).toBe('alpha beta Xgamma')
+    },
+    'forward-word': async (b) => {
+      await screen.press(KEY.ctrlA)
+      await screen.press(b)
+      await screen.press('X')
+      expect(line()).toBe('alphaX beta gamma')
+    },
+    'unix-word-rubout': async (b) => {
+      await screen.press(b)
+      expect(line()).toBe('alpha beta')
+    },
+    'backward-kill-word': async (b) => {
+      await screen.press(b)
+      expect(line()).toBe('alpha beta')
+    },
+    'kill-word': async (b) => {
+      await screen.press(KEY.ctrlA)
+      await screen.press(b)
+      expect(line()).toBe('beta gamma')
+    },
+    'unix-line-discard': async (b) => {
+      await screen.press(b)
+      expect(line()).toBe('')
+    },
+    'kill-line': async (b) => {
+      await screen.press(KEY.ctrlA)
+      await screen.press(b)
+      expect(line()).toBe('')
+    },
+    yank: async (b) => {
+      await screen.press(KEY.ctrlW)
+      expect(line()).toBe('alpha beta')
+      await screen.press(b)
+      expect(line()).toBe(LINE)
+    },
+    'delete-char': async (b) => {
+      await screen.press(KEY.ctrlA)
+      await screen.press(b)
+      expect(line()).toBe('lpha beta gamma')
+    },
+    'transpose-chars': async (b) => {
+      await screen.press(b)
+      expect(line()).toBe('alpha beta gamam')
+    },
+    undo: async (b) => {
+      await screen.press(KEY.ctrlW)
+      expect(line()).toBe('alpha beta')
+      await screen.press(b)
+      expect(line()).toBe(LINE)
+    },
+    newline: async (b) => {
+      await screen.press(b)
+      await screen.press('X')
+      expect(inputRows()).toBe(2)
+      expect(line()).toBe(`${LINE} X`)
+    },
+    submit: async (b) => {
+      await screen.press(b)
+      expect(line()).toBe('')
+      expect(on(`❯ ${LINE}`)).toBe(true)
+    },
+    'previous-history': async (b) => {
+      await screen.press(KEY.ctrlU)
+      await screen.press(b)
+      expect(line()).toBe(SENT)
+    },
+    'next-history': async (b) => {
+      await screen.press(KEY.ctrlU)
+      await screen.press(KEY.ctrlP)
+      expect(line()).toBe(SENT)
+      await screen.press(b)
+      expect(line()).toBe('')
+      // Past the newest line it is the picker's key: nothing is loaded, so it says so.
+    },
+    'reverse-search-history': async (b) => {
+      await screen.press(KEY.ctrlU)
+      await screen.press(b)
+      expect(on('search history')).toBe(true)
+      await screen.press(KEY.ctrlG)
+      expect(on('search history')).toBe(false)
+    },
+    'forward-search-history': async (b) => {
+      await screen.press(KEY.ctrlU)
+      await screen.press(b)
+      expect(on('enter runs it')).toBe(true)
+      await screen.press('\x1b')
+      expect(on('enter runs it')).toBe(false)
+    },
+    'show-keys': async (b) => {
+      await screen.press(KEY.ctrlU)
+      await screen.press(b)
+      expect(on('Show or hide these keys')).toBe(true)
+      await screen.press(b)
+      expect(on('Show or hide these keys')).toBe(false)
+      // After text, it is a character.
+      await screen.press('a')
+      await screen.press(b)
+      expect(line()).toBe('a?')
+    },
+    'toggle-output': async (b) => {
+      await screen.press(b)
+      expect(on('every line is shown · ctrl+o to collapse')).toBe(true)
+      await screen.press(b)
+      expect(on('every line is shown')).toBe(false)
+    },
+    'clear-screen': async (b) => {
+      // Above the input box, which holds the same text as the echo.
+      const echoed = () => {
+        const rows = screen.visible()
+        return rows.slice(0, rows.findIndex(isRule)).some((row) => row.includes(`❯ ${SENT}`))
+      }
+      expect(echoed()).toBe(true)
+      await screen.press(b)
+      expect(echoed()).toBe(false)
+      expect(line()).toBe(LINE)
+    },
+    interrupt: async (b) => {
+      await screen.press(b)
+      expect(line()).toBe('')
+      expect(screen.exited()).toBe(false)
+    },
+    dismiss: async (b) => {
+      await screen.press(KEY.ctrlU)
+      await screen.press('/')
+      expect(on('your book')).toBe(true)
+      await screen.press(b)
+      expect(on('your book')).toBe(false)
+    },
+    complete: async (b) => {
+      await screen.press(KEY.ctrlU)
+      await screen.press('zet')
+      expect(line()).toBe(SENT)
+      await screen.press(b)
+      await screen.press('Z')
+      expect(line()).toBe(`${SENT}Z`)
+    },
+  }
+
+  try {
+    // Something sent first, so history and the transcript have a line to act on.
+    await screen.press(`${SENT}\r`)
+    const rows = KEYMAP.filter((entry) => entry.binding && entry.group !== 'vim')
+    for (const entry of rows) {
+      const { action, sends } = entry.binding!
+      const check = checks[action]
+      expect({ action, checked: check !== undefined }).toEqual({ action, checked: true })
+      for (const [at, bytes] of sends.entries()) {
+        await fresh()
+        try {
+          await check!(bytes)
+        } catch (err) {
+          dump(screen)
+          throw new Error(`${entry.keys[at]} (${action}): ${(err as Error).message}`)
+        }
+      }
+    }
+
+    // The two that leave: on an empty line, ctrl+d, and ctrl+c.
+    await screen.press('\x03')
+    expect(line()).toBe('')
+    await screen.press('\x04')
+    expect(screen.exited()).toBe(true)
+  } finally {
+    screen.stop()
+    await restore()
+  }
+}, 240_000)
+
+test('ctrl+c on an empty line leaves tula', async () => {
+  const screen = await open(100, 30)
+  try {
+    await screen.press('\x03')
+    expect(screen.exited()).toBe(true)
+  } finally {
+    screen.stop()
+  }
+}, 60_000)
+
+test('a key held down — several in one read — moves and deletes once per press in the picker', async () => {
+  const screen = await openBook(120, 40)
+  try {
+    await screen.press('\x1b[B')
+    // Four rows down in one read, as a held ↓ arrives.
+    await screen.press('\x1b[B\x1b[B\x1b[B\x1b[B')
+    await screen.press('\r')
+    // The fifth row of the list, sorted by venue, asset and kind: book · spot USDC.
+    expect(screen.visible().some((row) => row.includes('spot USDC · book'))).toBe(true)
+    await screen.press('\x1b')
+    // Three backspaces in one read take three characters off the filter.
+    await screen.press('ethzzz')
+    await screen.press('\x7f\x7f\x7f')
+    expect(screen.visible().some((row) => /perp\s+ETH\s/.test(row))).toBe(true)
+    expect(screen.visible().some((row) => row.includes('ethzz'))).toBe(false)
+  } finally {
+    screen.stop()
+  }
+}, 120_000)

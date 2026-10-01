@@ -49,7 +49,7 @@
           "keys": [
             "Esc"
           ],
-          "does": "Close a list, the command search or these keys; cancel removing a venue"
+          "does": "Close a list, the command search, a position or these keys; cancel removing a venue"
         },
         {
           "keys": [
@@ -69,6 +69,12 @@
             "↑"
           ],
           "does": "On an empty line, bring back the last line waiting to run, to edit it"
+        },
+        {
+          "keys": [
+            "↓"
+          ],
+          "does": "Past the newest line you sent, on an empty line: pick a position to open in full — Enter opens it, Esc steps back"
         }
       ]
     },
@@ -224,7 +230,7 @@
           "keys": [
             "Tab"
           ],
-          "does": "Put the highlighted command on the line; with no list open, accept the suggestion"
+          "does": "Accept the suggestion shown after the cursor; otherwise put the highlighted command on the line"
         },
         {
           "keys": [

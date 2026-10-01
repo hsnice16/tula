@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { DEPLOYMENTS } from './connectors/aave.js'
 import { CHAINS } from './connectors/chains.js'
+import { SLASH_COMMANDS } from './cli/registry.js'
 import { CONNECTORS } from './connectors/registry.js'
 import { RETIRED_VENUES } from './connectors/types.js'
 import { REPO_URL } from './version.js'
@@ -59,6 +60,8 @@ const GUIDES = [
   'site/app/kraken/page.tsx',
   'site/app/binance/page.tsx',
   'site/app/coinbase/page.tsx',
+  'site/app/stress-test/page.tsx',
+  'site/app/wallets/page.tsx',
 ] as const
 
 /**
@@ -114,7 +117,7 @@ const RETRACTED = [
   // Five lines follow the PATH note — the usage pair and the read-only notice —
   // so the reader sent to the last line found the security URL, not their fix.
   'its last line says which of the two you got',
-  // The check ran once a day until it moved to every shell start.
+  // The check runs at every shell start, not once a day.
   'once a day',
   // Binance's futures permission grants futures *trading*, so `verifyScope`
   // refuses any key that could read them: the page advertised a capability the
@@ -655,8 +658,8 @@ describe('the security page names enforcement that exists', () => {
   // one of them lives where the text enters.
   test('the outside text the surfaces name is bounded where it enters', () => {
     expect(read('src/cli/session.ts')).toContain('MAX_SYMBOL')
-    // The error cap moved to core/errors.ts, so whatever received the text can
-    // apply it as it enters rather than every render site remembering to.
+    // The error cap is in core/errors.ts so text is capped where it enters, not
+    // at every render site.
     expect(read('src/core/errors.ts')).toContain('MAX_REMOTE')
     expect(read('src/connectors/evm.ts')).toContain('MAX_SYMBOL_BYTES')
     expect(flat('README.md')).toContain('capped and flattened')
@@ -1157,6 +1160,46 @@ describe('the guide pages state what the build does', () => {
     expect(page).toContain('Kraken’s account margin level')
     expect(reads('coinbase')).toContain('the liquidation price and leverage Coinbase publishes')
     expect(page).toContain('liquidation price Coinbase publishes')
+    // Isolated pairs only: cross margin states no price, so it ranks as unknown.
+    expect(flat('src/connectors/binance.ts')).toContain('const price = pair.liquidatePrice ? new Decimal(pair.liquidatePrice) : undefined')
+    expect(page).toContain('Binance isolated margin:')
+    expect(page).toContain('liquidation price Binance states for the pair')
+  })
+
+  test('/wallets: the chains, the gas tokens, the netting and the gaps are the connector’s', () => {
+    const page = guide('wallets')
+    for (const chain of CHAINS) {
+      expect({ chain: chain.name, stated: page.includes(chain.name) }).toEqual({ chain: chain.name, stated: true })
+      expect({ native: chain.nativeSymbol, stated: page.includes(chain.nativeSymbol) }).toEqual({
+        native: chain.nativeSymbol,
+        stated: true,
+      })
+    }
+    expect(page).toContain(`nine EVM chains`)
+    expect(CHAINS.length).toBe(9)
+    expect(read('src/connectors/symbols.ts')).toContain("WETH: 'ETH'")
+    expect(page).toContain('WETH counts as ETH')
+    expect(CONNECTORS.get('wallet')?.fields.every((f) => !f.secret)).toBe(true)
+    for (const gap of ['stETH', 'LP', 'NFTs', 'Solana', 'HyperEVM']) {
+      expect({ gap, declared: gaps('wallet').some((what) => what.includes(gap.toLowerCase())) }).toEqual({
+        gap,
+        declared: true,
+      })
+    }
+    // The page says Hyperliquid's own EVM chain rather than its name.
+    expect(page).toContain('Hyperliquid’s own EVM chain')
+  })
+
+  test('/stress-test: what shock recomputes and takes is the command’s', () => {
+    const page = guide('stress-test')
+    const commands = flat('src/cli/commands.ts')
+    expect(commands).toContain("lines.push('', 'Health factors:'")
+    expect(commands).toContain('lines.push(...ratioLines(result.ratios))')
+    expect(commands).toContain('Not recomputed:')
+    expect(page).toContain('A ratio it cannot recompute is named, never assumed to survive')
+    expect(commands).toContain("lines.push('LIQUIDATED:')")
+    expect(SLASH_COMMANDS.find((c) => c.name === 'shock')?.repeats).toBe(true)
+    expect(page).toContain('tula shock ETH -20 BTC -10')
   })
 
   test('/exposure: the Equity rule and the bridged-token rule are the engine’s', () => {

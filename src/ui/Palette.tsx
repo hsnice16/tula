@@ -44,10 +44,11 @@ export const FRAME_ROWS = 4
 
 /**
  * Constant, not fitted to the matches: a dialog that resizes as you type walks
- * its own search line out from under the cursor.
+ * its own search line out from under the cursor. `fit` is for a body nothing
+ * is typed into — a position's detail — which takes the rows it has.
  */
-export function windowRows(rows: number): number {
-  return Math.max(3, Math.min(rows - CHROME_ROWS - FRAME_ROWS, WINDOW_ROWS))
+export function windowRows(rows: number, fit = WINDOW_ROWS): number {
+  return Math.max(3, Math.min(rows - CHROME_ROWS - FRAME_ROWS, Math.max(fit, WINDOW_ROWS)))
 }
 
 /**
@@ -93,8 +94,8 @@ export interface Geometry {
  * is on, so both sides measure from the same numbers rather than each deriving
  * their own.
  */
-export function paletteGeometry(columns: number, rows: number): Geometry {
-  const limit = windowRows(rows)
+export function paletteGeometry(columns: number, rows: number, fit?: number): Geometry {
+  const limit = windowRows(rows, fit)
   const width = Math.max(24, Math.min(DIALOG_COLUMNS, columns - 8))
   const height = limit + CHROME_ROWS
   const top = Math.max(0, Math.floor((rows - FRAME_ROWS - height) / 2))

@@ -3,6 +3,7 @@ import { claimed, RELEASES } from '../core/availability.js'
 import { freshness, healthFactor, marginRatio, pct, price, quantity, ratioFloor, ratioValue, usd } from '../core/format.js'
 import { unrankedVenues } from '../core/coverage.js'
 import { canonicalAsset } from '../core/exposure.js'
+import { holdsAsset } from '../core/detail.js'
 import { belongsToVenue, type Position } from '../core/position.js'
 import { SHOCK_CEILING, SHOCK_FLOOR, usableShock, type Shock } from '../core/risk.js'
 import { seal, untrusted, type Untrusted } from '../core/untrusted.js'
@@ -34,8 +35,20 @@ export const TOOLS: ToolDefinition[] = [
       type: 'object',
       properties: {
         venue: { type: 'string', description: 'Optional venue filter.' },
-        asset: { type: 'string', description: 'Optional symbol filter.' },
+        asset: { type: 'string', description: 'Optional asset filter: the symbol in any case, a venue’s own spelling (WETH), or a builder-dex market’s bare name.' },
       },
+    },
+  },
+  {
+    name: 'get_position',
+    description:
+      'One position in full: size, value, entry and mark price, unrealised PnL with ROE, funding paid or received, liquidation price and distance, margin and leverage, what it backs or is backed by, and freshness, in sections. Call it when the user asks about one holding in detail — its PnL, its funding, how far it is from liquidation. Name the position by its asset, then any of venue, kind, account or product to narrow it. Where the words match more than one position, matches lists each with the words that name it alone; ask which one, or call again with those words.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        position: { type: 'string', description: 'The asset first, then anything that narrows it, e.g. "BTC" or "BTC hyperliquid perp".' },
+      },
+      required: ['position'],
     },
   },
   {
@@ -103,7 +116,8 @@ const marked = (text: string | null): Untrusted | null => (text === null ? null 
 
 export function executeTool(engine: RiskEngine, name: string, input: unknown): unknown {
   const args = (input ?? {}) as Record<string, unknown>
-  const asset = typeof args['asset'] === 'string' ? canonicalAsset(args['asset']) : undefined
+  const rawAsset = typeof args['asset'] === 'string' ? args['asset'] : undefined
+  const asset = rawAsset === undefined ? undefined : canonicalAsset(rawAsset)
   const venue = typeof args['venue'] === 'string' ? args['venue'] : undefined
   const now = new Date()
   const at = (d: Date): string => freshness(d, now)
@@ -230,7 +244,7 @@ export function executeTool(engine: RiskEngine, name: string, input: unknown): u
         .positions()
         .filter(
           (p) =>
-            (asset === undefined || canonicalAsset(p.asset) === asset) &&
+            (rawAsset === undefined || holdsAsset(p, rawAsset)) &&
             (venue === undefined || belongsToVenue(p.venue, venue)),
         )
         .map((p) => {
@@ -275,6 +289,52 @@ export function executeTool(engine: RiskEngine, name: string, input: unknown): u
       return seal({
         positions: rows,
         note: 'Figures are final: quote them exactly as written. free_to_move null means the venue reports nothing that proves it, never that none of it is free; a negative one means the holding is claimed for more than it holds and is already liquidatable.',
+        ...incomplete,
+      })
+    }
+
+    case 'get_position': {
+      const words = typeof args['position'] === 'string' ? args['position'].split(/\s+/).filter(Boolean) : []
+      if (words.length === 0) return seal({ error: 'Name a position: its asset first, e.g. "BTC".', ...incomplete })
+      const { detail, matches } = engine.position(words)
+      if (!detail) {
+        return seal({
+          matches: matches.map(({ position: p, words: naming }) => ({
+            ...named(p.venue),
+            ...from(p),
+            kind: p.kind,
+            asset: untrusted(p.asset),
+            ...held(p),
+            quantity: quantity(p.quantity),
+            name_it_with: untrusted(naming.join(' ')),
+          })),
+          note:
+            matches.length === 0
+              ? 'No position matches those words. get_positions lists every one; the asset comes first.'
+              : 'Those words name more than one position. Ask which one is meant, or call again with its name_it_with words.',
+          ...incomplete,
+        })
+      }
+      const p = detail.position
+      return seal({
+        ...named(p.venue),
+        ...from(p),
+        kind: p.kind,
+        asset: untrusted(p.asset),
+        ...held(p),
+        ...(p.chain ? { chain: p.chain } : {}),
+        // Every value is rendered by the formatters `/position` prints with. A
+        // row naming other holdings is the venue's text, so it goes apart.
+        figures: detail.sections.flatMap((s) =>
+          s.rows.filter((r) => !r.outside).map((r) => ({ section: s.title, name: r.label, value: r.value })),
+        ),
+        tied_to: detail.sections
+          .flatMap((s) => s.rows)
+          .filter((r) => r.outside && ['Backs', 'Backed By', 'Paired With'].includes(r.label))
+          .map((r) => ({ how: r.label, holdings: untrusted(r.value) })),
+        // Ours, but one can name a dex that did not load, which is a venue's label.
+        notes: detail.notes.map(untrusted),
+        note: 'Figures are final: quote them exactly as written, by the names given. "not stated by the venue" means the venue gave no figure, never zero. Funding says paid or received in words; keep that word.',
         ...incomplete,
       })
     }

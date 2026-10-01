@@ -169,7 +169,11 @@ export async function request(
     const res = await Promise.race([
       // `redirect` first, so a caller that needs to follow one says so and the
       // rest cannot acquire the behaviour by omission. Only `src/update` does.
-      fetch(url, { redirect: 'error', ...init, signal: AbortSignal.timeout(timeoutMs) }),
+      // `keepalive: false` is Bun's switch for not pooling the connection: with
+      // a pool, Bun 1.2.16's HTTP client thread busy-polls the idle sockets a
+      // book read leaves behind, and an idle shell held a core at 100%. Not
+      // reusing them cost a read of two accounts a few hundred milliseconds.
+      fetch(url, { redirect: 'error', ...init, keepalive: false, signal: AbortSignal.timeout(timeoutMs) }),
       deadline,
     ])
     return bounded(res, url, timeoutMs)

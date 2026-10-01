@@ -2,9 +2,14 @@ import type { Metadata } from 'next'
 import { Code } from '@/components/Code'
 import { breadcrumb, JsonLd } from '@/components/JsonLd'
 import keys from '@/lib/keys.json'
-import { NAME, OG, TWITTER } from '@/lib/site'
+import { guideCard, NAME, NAV, OG, OG_IMAGE, TWITTER } from '@/lib/site'
 
-const TITLE = 'Keys — every shortcut in the shell'
+const TITLE = 'Keyboard shortcuts for tula’s shell'
+const IMAGE = {
+  ...OG_IMAGE,
+  url: guideCard('/keys'),
+  alt: `Keys — ${NAV.find((n) => n.href === '/keys')?.blurb ?? TITLE}`,
+}
 const SUMMARY =
   'Every key tula’s shell answers to, grouped by what it is for: commands, editing the line, history, lists and suggestions, more than one line, and vim mode.'
 
@@ -14,12 +19,13 @@ export const metadata: Metadata = {
   alternates: { canonical: '/keys' },
   openGraph: {
     ...OG,
+    images: [IMAGE],
     type: 'website',
     url: '/keys',
     title: `${TITLE} · ${NAME}`,
     description: SUMMARY,
   },
-  twitter: { ...TWITTER, title: `${TITLE} · ${NAME}`, description: SUMMARY },
+  twitter: { ...TWITTER, images: [IMAGE], title: `${TITLE} · ${NAME}`, description: SUMMARY },
 }
 
 interface Row {
@@ -39,7 +45,7 @@ export default function Page() {
     <main className="wrap pt-16 pb-step-3">
       <JsonLd schema={breadcrumb('Keys', '/keys')} />
       <h1 className="mb-5 text-[clamp(2rem,4.5vw,2.8rem)] font-medium leading-[1.1] tracking-[-0.025em]">
-        Keys
+        Keyboard shortcuts
       </h1>
       <p className="mb-8 max-w-[42rem] text-[1.08rem] text-dim">
         In the shell, <Code>?</Code> on an empty line shows these, and <Code>/keys</Code> prints

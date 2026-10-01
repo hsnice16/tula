@@ -74,13 +74,16 @@ const SCHEMA = {
       '@id': `${SITE}/#author`,
       name: AUTHOR.name,
       url: AUTHOR.url,
-      sameAs: [AUTHOR.url],
+      sameAs: [AUTHOR.url, 'https://www.npmjs.com/~hsnice16', 'https://peerlist.io/hsnice16'],
     },
     {
       '@type': 'WebSite',
       '@id': `${SITE}/#site`,
       url: `${SITE}/`,
       name: NAME,
+      // "tula" alone is also a skincare brand and a city; these are what tell
+      // a search engine which name to show for this site.
+      alternateName: ['tula CLI', 'usetu.la'],
       description: DESCRIPTION,
       inLanguage: 'en',
       author: { '@id': `${SITE}/#author` },
@@ -92,7 +95,7 @@ const SCHEMA = {
       url: `${SITE}/`,
       description: DESCRIPTION,
       applicationCategory: 'FinanceApplication',
-      applicationSubCategory: 'DeveloperApplication',
+      applicationSubCategory: 'Crypto portfolio risk',
       operatingSystem: 'macOS, Linux',
       // Windows is reachable through WSL, where it is Linux. Naming it here
       // would promise a native build the release does not produce.

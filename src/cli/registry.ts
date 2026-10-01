@@ -86,7 +86,7 @@ export interface VenueSubcommand {
 /** Everything you can do to one venue, reached as `/<venue> <sub>`. */
 export const VENUE_SUBCOMMANDS: readonly VenueSubcommand[] = [
   { name: 'connect', summary: 'Add or replace this venue’s read-only key', needsConnection: false },
-  { name: 'positions', summary: 'Positions held here', needsConnection: true },
+  { name: 'positions', summary: 'Positions held here', needsConnection: true, arguments: [{ kind: 'assets' }] },
   { name: 'breaks', summary: 'What can be liquidated here', needsConnection: true },
   { name: 'status', summary: 'Freshness, key scope, last error', needsConnection: true },
   { name: 'docs', summary: 'Official links for this venue', needsConnection: false },
@@ -194,7 +194,20 @@ export interface VenueEntry {
 export const SLASH_COMMANDS: readonly SlashCommand[] = [
   { name: 'breaks', group: 'risk', summary: 'What gets liquidated first, and how far away that is' },
   { name: 'exposure', group: 'risk', summary: 'Net exposure per asset, across every venue' },
-  { name: 'positions', group: 'risk', summary: 'Every position, as each venue reports it' },
+  {
+    name: 'positions',
+    group: 'risk',
+    args: '[asset]',
+    arguments: [{ kind: 'assets' }],
+    summary: 'Every position, as each venue reports it',
+  },
+  {
+    name: 'position',
+    group: 'risk',
+    args: '<asset>',
+    arguments: [{ kind: 'assets' }],
+    summary: 'One position in full: entry, PnL, funding, margin',
+  },
   {
     name: 'shock',
     group: 'risk',
@@ -297,7 +310,7 @@ export function argumentList(line: string, context: CandidateContext): ArgumentL
     const sub = VENUE_SUBCOMMANDS.find((s) => s.name === words[1]?.toLowerCase())
     if (!venue?.connected || !sub?.arguments) return null
     source = sub.arguments[words.length - 2]
-    heading = `/${venue.id} ${sub.name} <name>`
+    heading = `/${venue.id} ${sub.name} ${source?.kind === 'assets' ? '[asset]' : '<name>'}`
   }
   if (!source) return null
 
@@ -331,11 +344,11 @@ export function argumentList(line: string, context: CandidateContext): ArgumentL
           candidates: [],
           empty:
             context.stored.length === 0
-              ? 'nothing is connected, so there is no asset to shock — type / and pick a venue'
+              ? 'nothing is connected, so the book holds no asset — type / and pick a venue'
               : 'nothing is read yet — /refresh reads the book, and its assets are listed here',
         }
       }
-      return offered(context.assets, 'the book holds no asset to shock')
+      return offered(context.assets, 'the book holds no asset')
     case 'accounts': {
       // One entry needs no name to say which: `/<venue> disconnect` alone takes it.
       const held = context.accounts(head)
@@ -550,8 +563,9 @@ export function buildPalette(
         ...(c.args ? { args: c.args } : {}),
         summary: c.summary,
         group,
-        // A bare venue or price source runs its default sub, so it needs no typing.
-        runnable: c.args === undefined,
+        // A bare venue or price source runs its default sub, and an argument in
+        // brackets is optional — the `/` menu runs both outright too.
+        runnable: c.args === undefined || c.args.startsWith('['),
       },
       ...subs.map((sub) => ({
         path: `${c.name} ${sub.name}`,
@@ -567,7 +581,7 @@ export function buildPalette(
       ...(c.args ? { args: c.args } : {}),
       summary: c.summary,
       group: GROUP_LABELS[c.group ?? 'session'],
-      runnable: c.args === undefined,
+      runnable: c.args === undefined || c.args.startsWith('['),
       hidden: true,
     })
   }

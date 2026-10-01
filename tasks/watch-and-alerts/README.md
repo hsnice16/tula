@@ -5,5 +5,5 @@ this daily, and it is the natural bridge to autonomous mode later.
 
 ## Tasks
 
-- [01 · Watch mode](01-watch-mode.md) — planned
+- [01 · Watch mode](01-watch-mode.md) — planned, designed 2026-09-28 from the tester's second report
 - [02 · Threshold alerts](02-alerts.md) — planned

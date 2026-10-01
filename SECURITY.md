@@ -78,7 +78,10 @@ Highest severity first:
      prefix is never allocated. The venue's text beside a symbol — its own
      spelling where the symbol nets as another (`WETH` beside `ETH`), and the
      contract or margin book a row is held in (`BTCUSDT isolated`) — is the same
-     listing and takes the same cap in the same place.
+     listing and takes the same cap in the same place. The quote currency
+     printed beside a Kraken margin position's PnL and margin is the pair's own
+     listing too, admitted only as three or four capital letters in
+     `src/connectors/kraken.ts` and otherwise left unstated.
 
      What is stripped is every codepoint that is invisible or moves what is
      drawn — `visible()` in `src/core/untrusted.ts`, the one filter all three

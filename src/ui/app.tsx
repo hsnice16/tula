@@ -5,9 +5,12 @@ import {
   answeredInPart,
   credentialName,
   credentialSource,
+  detailFor,
+  detailTitle,
   failedVenue,
   type CredentialSource,
 } from '../cli/commands.js'
+import { bookOrder, matchPositions } from '../core/detail.js'
 import { riskEngineFor } from '../cli/engine-adapter.js'
 import { belongsToVenue } from '../core/position.js'
 import {
@@ -35,6 +38,7 @@ import type { Connector } from '../connectors/types.js'
 import { failureText } from '../core/errors.js'
 import * as secrets from '../secrets/store.js'
 import { homeRelative } from '../core/paths.js'
+import { fitTablesTo } from '../core/surface.js'
 import { APP_DESCRIPTION, APP_VERSION } from '../version.js'
 import { ConnectFlow } from './ConnectFlow.js'
 import {
@@ -63,6 +67,7 @@ import {
 import { readPreferences, writePreferences } from '../prefs/prefs.js'
 import { editingCommand, enterKey, isLineCommand, keyAction, pasted, typed, type ShellKey } from './keys.js'
 import { keysText } from './keymap.js'
+import { continues, questions, rest as unsaid, suggestQuestion } from './suggest.js'
 import { replay, vimEscape, vimState, vimTyped, vimUntracked, type VimState } from './vim.js'
 import {
   before,
@@ -79,6 +84,7 @@ import { askCursor, askKeyboard, terminalReply } from './anchor.js'
 import { mouseReports, trackMouse, type MouseReport } from './mouse.js'
 import { Credentials, type CredentialsMode, type CredentialsResult } from './Credentials.js'
 import { displayRows, FRAME_ROWS, Palette, paletteGeometry, windowRows } from './Palette.js'
+import { detailLines, pickerTable, pickerWindow, PositionPicker, type DetailLine } from './PositionPicker.js'
 import { offsetShowing, selectionIn, windowStart } from './scroll.js'
 import { clearForRedraw } from './resize.js'
 import { menuDisplay, SlashMenu, type MenuItem } from './SlashMenu.js'
@@ -87,6 +93,30 @@ import { theme } from './theme.js'
 import { cells, wrapLines } from './wrap.js'
 
 type EntryKind = 'prompt' | 'output' | 'answer' | 'error' | 'notice' | 'banner'
+
+/**
+ * The position picker, and the detail it opens into. `open` is the row being
+ * read; `direct` is a detail `/position` opened with no list behind it, so
+ * Esc closes instead of going back. `scroll` is the detail's own offset, kept
+ * apart so Esc returns to the list where it was left.
+ */
+interface Picker {
+  query: LineEditor
+  index: number
+  offset: number
+  open: string | null
+  direct: boolean
+  scroll: number
+}
+
+/** The rest of a line offered after the cursor, and where it came from. */
+interface Suggestion {
+  shown: string
+  fill: string
+  from: 'history' | 'question' | 'list'
+  /** The asset a suggested question is about, so typing past it can demote it. */
+  about?: string
+}
 
 interface Entry {
   id: number
@@ -167,6 +197,7 @@ function preview(
 const TOOL_LABELS: Readonly<Record<string, string>> = {
   get_net_exposure: 'netting your exposure',
   get_positions: 'reading your positions',
+  get_position: 'reading one position',
   what_breaks_first: 'ranking what breaks first',
   run_scenario: 'repricing the book',
   get_venue_status: 'checking every venue',
@@ -539,6 +570,12 @@ export function App({
   // Measured, not chosen: "22 more lines" is only true if it counts the rows the
   // block would really take, and Ink wraps it at the width the indent leaves.
   const bodyWidth = Math.max(20, frameWidth - OUTPUT_INDENT)
+  // Tables are laid out when a command runs, so one already printed keeps the
+  // width it was printed at; a resize redraws it, and does not refit it.
+  useEffect(() => {
+    fitTablesTo(bodyWidth)
+    return () => fitTablesTo(Number.POSITIVE_INFINITY)
+  }, [bodyWidth])
   // The input box's side padding and its `❯ ` come out of the frame.
   const textWidth = Math.max(10, frameWidth - 4)
 
@@ -653,6 +690,13 @@ export function App({
   const [frame, setFrame] = useState(0)
   const [elapsed, setElapsed] = useState(0)
   const [menuIndex, setMenuIndex] = useState(0)
+  /** Whether the reader moved through the open list, rather than it opening on its first row. */
+  const [menuChosen, setMenuChosen] = useState(false)
+  /**
+   * Assets a question was suggested about on this line and typed past — the
+   * reader saying it is not the one they want. Cleared with the line.
+   */
+  const [passedAssets, setPassedAssets] = useState<ReadonlySet<string>>(new Set())
   const [menuOffset, setMenuOffset] = useState(0)
   /**
    * The row the terminal says its cursor is on, which is the only fixed point
@@ -667,6 +711,17 @@ export function App({
     index: number
     offset: number
   } | null>(null)
+  const [picker, commitPicker] = useState<Picker | null>(null)
+  /**
+   * `picker`, as the last key left it, for the reason `editorNow` is: Ink
+   * hands every key of one read to the handler before a render, and four ↓
+   * in one read each moved from the same row.
+   */
+  const pickerNow = useRef<Picker | null>(null)
+  const setPicker = useCallback((next: Picker | null | ((p: Picker | null) => Picker | null)) => {
+    pickerNow.current = typeof next === 'function' ? next(pickerNow.current) : next
+    commitPicker(pickerNow.current)
+  }, [])
   // Whole-transcript rather than per-entry, and it outlives the entry it was
   // turned on for: after reading "18 more lines" you usually want the answer
   // above it whole too, and the next one as well.
@@ -1072,16 +1127,27 @@ export function App({
     setEditor((ed) => ({ ...lineEditor(value, { killed: ed.killed }), cursor: at }))
     setMenuDismissed(false)
     setMenuIndex(0)
+    setMenuChosen(false)
     setMenuOffset(0)
+    setPassedAssets(new Set())
   }, [])
 
   /** An edit to the line. The menu is re-derived only when the text changed, not the cursor. */
   const changeLine = (next: LineEditor) => {
-    const changed = next.text !== editorNow.current.text
+    const before = editorNow.current.text
+    const changed = next.text !== before
+    // A suggested question typed past, rather than taken or deleted back into.
+    const offered = changed ? suggestion(before, editorNow.current.cursor) : null
+    if (next.text === '') setPassedAssets(new Set())
+    else if (offered?.about && next.text.length > before.length && !continues(before + offered.fill, next.text)) {
+      const about = offered.about
+      setPassedAssets((passed) => new Set([...passed, about]))
+    }
     setEditor(next)
     if (!changed) return
     setMenuDismissed(false)
     setMenuIndex(0)
+    setMenuChosen(false)
     setMenuOffset(0)
   }
 
@@ -1355,6 +1421,7 @@ export function App({
             setPendingPrice(provider.id)
             return setConnecting(asConnectable(provider))
           }
+          if (result.kind === 'position') return openPicker(result.query, result.id)
           if (result.kind === 'ui') {
             if (result.action === 'exit') return exit()
             if (result.action === 'clear') return clearScreen()
@@ -1385,6 +1452,7 @@ export function App({
             }
           } else {
             push('output', result.output, caveat(result))
+            if (result.hint) push('notice', result.hint)
             // Both commands that take credentials off disk, not just the one
             // spelled as a subcommand: unread after /forget, the menu draws the
             // venue as connected for the rest of the session.
@@ -1648,6 +1716,46 @@ export function App({
   )
   const paletteLimit = windowRows(viewport.rows)
 
+  // Keyed on the loaded book rather than copied at open: a refresh while the
+  // picker is up replaces it, and a copy would go on listing the old rows.
+  const loaded = session.current
+  const pickerQuery = picker?.query.text
+  const pickerBook = useMemo(() => [...loaded.positions].sort(bookOrder), [loaded])
+  const pickerMatches = useMemo(
+    () => (pickerQuery === undefined ? [] : matchPositions(pickerBook, pickerQuery)),
+    [pickerBook, pickerQuery],
+  )
+  const pickerItems = useMemo(() => pickerMatches.map((_, at) => ({ kind: 'row' as const, at })), [pickerMatches])
+  const pickerWidth = paletteGeometry(frameWidth, rows).listWidth
+  const { head: pickerHead, rows: pickerBody } = useMemo(
+    () => pickerTable(pickerMatches, pickerWidth, pickerBook),
+    [pickerMatches, pickerWidth, pickerBook],
+  )
+  const pickerOpenId = picker?.open ?? null
+  const pickerDirect = picker?.direct ?? false
+  const openDetail = useMemo(
+    () => (pickerOpenId === null ? null : detailFor(session, pickerOpenId)),
+    // `loaded` is what detailFor reads through the session.
+    [session, loaded, pickerOpenId],
+  )
+  const pickerDetail = useMemo<DetailLine[] | null>(() => {
+    if (pickerOpenId === null) return null
+    if (openDetail) return detailLines(openDetail, pickerWidth)
+    return [
+      {
+        tone: 'note',
+        text: `That position is not in the book any more: the last read did not return it. Esc ${pickerDirect ? 'closes' : 'goes back to the list'}.`,
+      },
+    ]
+  }, [pickerOpenId, openDetail, pickerWidth, pickerDirect])
+  const pickerTitle = openDetail ? detailTitle(openDetail.position) : 'position'
+  const pickerBox = pickerWindow(frameWidth, rows, pickerDetail)
+  const pickerEmpty = session.isLoaded
+    ? session.current.positions.length === 0
+      ? 'the book holds no position — / lists the venues to connect, and /refresh reads them again'
+      : ''
+    : 'nothing is read yet — /refresh reads the book, and its positions are listed here'
+
   // Fixed, so filtering never resizes the block under the input line, but no
   // taller than the menu can fill or than the frame can afford: the input box,
   // the trailing count and the status line all come out of the same viewport —
@@ -1694,6 +1802,35 @@ export function App({
     })
   }, [stdout])
 
+  /**
+   * Opening the panel scrolls the transcript up to make room, and closing it
+   * leaves those rows empty: the frame lands at the top of a blank screen. The
+   * palette escapes this by filling the viewport, which Ink redraws whole; the
+   * panel has to stay shorter (see `keysPanel`), so it redraws on the way out.
+   */
+  const closeKeys = useCallback(() => {
+    setKeysOpen(false)
+    if (!stdout) return
+    clearForRedraw(stdout)
+    setGeneration((at) => at + 1)
+  }, [stdout])
+
+  /** Opened the way the palette is, and cleared first for the same reason. */
+  const openPicker = useCallback(
+    (query: string, id?: string) => {
+      if (stdout) clearForRedraw(stdout)
+      setPicker({
+        query: lineEditor(query, { killed: editorNow.current.killed }),
+        index: 0,
+        offset: 0,
+        open: id ?? null,
+        direct: id !== undefined,
+        scroll: 0,
+      })
+    },
+    [stdout],
+  )
+
   const runFromPalette = useCallback(
     (entry: PaletteEntry, fill: boolean) => {
       setPalette(null)
@@ -1739,6 +1876,7 @@ export function App({
         const offset = Math.max(0, Math.min(menuOffset + report.step, furthest))
         setMenuOffset(offset)
         setMenuIndex((i) => selectionIn(menuDisplayRows, menuRows, offset, i))
+        setMenuChosen(true)
         return
       }
       if (report.kind === 'release' || !menuBand) return
@@ -1754,7 +1892,10 @@ export function App({
       const item = menuDisplayRows[start + (row - menuBand.first)]
       if (item?.kind !== 'row') return
       if (report.kind === 'press') return runFromMenu(item.at)
-      if (item.at !== menuIndex) setMenuIndex(item.at)
+      if (item.at !== menuIndex) {
+        setMenuIndex(item.at)
+        setMenuChosen(true)
+      }
     },
     [menu, menuBand, menuDisplayRows, menuRows, menuOffset, menuIndex, runFromMenu],
   )
@@ -1762,7 +1903,7 @@ export function App({
   const onPaletteMouse = useCallback(
     (report: MouseReport): void => {
       if (!palette) return
-      const box = paletteGeometry(viewport.columns, viewport.rows)
+      const box = paletteGeometry(frameWidth, rows)
       const furthest = Math.max(0, paletteRows.length - box.limit)
       const scrollTo = (offset: number) =>
         setPalette((p) =>
@@ -1812,17 +1953,58 @@ export function App({
       // cell the pointer crosses, and a render for each one is the stutter.
       if (item.at !== palette.index) setPalette((p) => (p ? { ...p, index: item.at } : null))
     },
-    [palette, paletteRows, viewport, runFromPalette],
+    [palette, paletteRows, frameWidth, rows, runFromPalette],
   )
 
-  // Only while one of the two lists is up, and undone on the way out: see
-  // mouse.ts for what it costs the rest of the screen.
+  /** The palette's pointer rules, over the picker: the same dialog, the same geometry. */
+  const onPickerMouse = useCallback(
+    (report: MouseReport): void => {
+      if (!picker) return
+      const box = pickerWindow(frameWidth, rows, pickerDetail)
+      const total = pickerDetail ? pickerDetail.length : pickerItems.length
+      const furthest = Math.max(0, total - box.rowsLimit)
+      if (report.kind === 'wheel') {
+        if (pickerDetail) {
+          return setPicker((p) => (p ? { ...p, scroll: Math.max(0, Math.min(p.scroll + report.step, furthest)) } : null))
+        }
+        const offset = Math.max(0, Math.min(picker.offset + report.step, furthest))
+        return setPicker((p) => (p ? { ...p, offset, index: selectionIn(pickerItems, box.rowsLimit, offset, p.index) } : null))
+      }
+      if (report.kind === 'release') return
+
+      const row = report.row - 1
+      const column = report.column - 1
+      const inside =
+        row >= box.top && row < box.top + box.height && column >= box.left && column < box.left + box.width
+      if (!inside) {
+        if (report.kind === 'press') setPicker(null)
+        return
+      }
+      if (pickerDetail) return
+      const onList =
+        row >= box.rowsTop &&
+        row < box.rowsTop + box.rowsLimit &&
+        column >= box.listLeft &&
+        column < box.listLeft + box.listWidth
+      if (!onList) return
+      const at = windowStart(pickerItems, box.rowsLimit, picker.offset) + (row - box.rowsTop)
+      const chosen = pickerMatches[at]
+      if (!chosen) return
+      if (report.kind === 'press') return setPicker((p) => (p ? { ...p, index: at, open: chosen.id, scroll: 0 } : null))
+      if (at !== picker.index) setPicker((p) => (p ? { ...p, index: at } : null))
+    },
+    [picker, pickerDetail, pickerItems, pickerMatches, frameWidth, rows],
+  )
+
+  // Only while a list is up, and undone on the way out: see mouse.ts for what
+  // it costs the rest of the screen.
   const menuOpen = menu !== null
   const paletteOpen = palette !== null
+  const pickerOpen = picker !== null
   useEffect(() => {
-    if (!(paletteOpen || menuOpen) || !stdout) return
+    if (!(paletteOpen || menuOpen || pickerOpen) || !stdout) return
     return trackMouse(stdout)
-  }, [paletteOpen, menuOpen, stdout])
+  }, [paletteOpen, menuOpen, pickerOpen, stdout])
 
   /**
    * Asked again whenever the frame under the open menu can have moved, rather
@@ -1836,24 +2018,66 @@ export function App({
   }, [menuOpen, stdout, input, viewport, entries.length, busy, queue.length, keysOpen, streaming, generation])
 
   /**
-   * The rest of a line, suggested after the cursor: the newest history entry
-   * that starts with what is typed, then the highlighted candidate of an open
-   * list — zsh-autosuggestions' `(history completion)` order. History is only
-   * what `recordable` let in, so nothing typed while connecting a venue can
-   * surface here, and no line the deletion prompt owns gets one.
+   * Questions worth suggesting, from the book as read and what this session
+   * asked — only with a model to answer them, since a question the shell
+   * cannot put to anyone is a suggestion to hit a dead end.
    */
-  const suggestion = (text: string, at: number): string => {
-    if (forgetting || search || palette || text === '' || at !== text.length) return ''
-    for (let i = history.length - 1; i >= 0; i--) {
-      const entry = history[i] ?? ''
-      if (entry.length > text.length && entry.startsWith(text)) {
-        const rest = entry.slice(text.length).split('\n')[0] ?? ''
-        if (rest) return rest
+  const asked = useMemo(
+    () =>
+      entries
+        .filter((e) => e.kind === 'prompt')
+        .map((e) => e.text.replace(/^❯ /, ''))
+        .reverse(),
+    [entries],
+  )
+  const suggestable = useMemo(
+    () => (agent && session.isLoaded ? questions({ book: loaded.positions, prices: loaded.prices, asked }) : []),
+    [agent, session, loaded, asked],
+  )
+
+  /**
+   * The rest of a line, suggested after the cursor: the newest history entry
+   * that starts with what is typed — this session's before an earlier one's,
+   * since the file's lines come first — then a question (`suggestQuestion`
+   * ranks them), then the highlighted candidate of an open list —
+   * zsh-autosuggestions' `(history completion)` order — until the reader
+   * moves through that list, which says the candidate is the one they want.
+   * History is only what `recordable` let in, so nothing typed while connecting
+   * a venue can surface here, and no line the deletion prompt owns gets one.
+   *
+   * `shown` is what the line draws and `fill` what taking it inserts: a
+   * history line over several lines is drawn to the end of its first, marked
+   * as holding more, and taken whole.
+   */
+  const suggestion = (text: string, at: number): Suggestion | null => {
+    if (forgetting || search || palette || picker || text === '' || at !== text.length) return null
+    if (!(menu && menuChosen)) {
+      for (let i = history.length - 1; i >= 0; i--) {
+        const entry = history[i] ?? ''
+        if (entry.length > text.length && entry.startsWith(text)) {
+          const fill = entry.slice(text.length)
+          const [first = ''] = fill.split('\n')
+          if (first) return { shown: first === fill ? first : `${first} …`, fill, from: 'history' }
+        }
+      }
+    }
+    if (!menu) {
+      const question = suggestQuestion(text, suggestable, passedAssets)
+      if (question) {
+        const fill = unsaid(text, question.text)
+        return {
+          shown: fill,
+          fill,
+          from: 'question',
+          ...(question.asset ? { about: question.asset } : {}),
+        }
       }
     }
     const chosen = menu?.items[menuIndex]
     const full = chosen && menu ? `${menu.prefix}${chosen.name}` : ''
-    return full.length > text.length && full.startsWith(text) ? full.slice(text.length) : ''
+    if (!(full.length > text.length && full.startsWith(text))) return null
+    const rest = full.slice(text.length)
+    return { shown: rest, fill: rest, from: 'list' }
   }
   const ghost = suggestion(input, cursor)
 
@@ -1941,6 +2165,16 @@ export function App({
     setPalette({ query, index: same ? palette.index : 0, offset: same ? palette.offset : 0 })
   }
 
+  /** The picker's filter, a line like the palette's query, sharing the kill buffer. */
+  const editPickerQuery = (change: (query: LineEditor) => LineEditor) => {
+    const live = pickerNow.current
+    if (!live) return
+    const query = change(live.query)
+    if (query.killed !== editorNow.current.killed) setEditor((ed) => ({ ...ed, killed: query.killed }))
+    const same = query.text === live.query.text
+    setPicker({ ...live, query, index: same ? live.index : 0, offset: same ? live.offset : 0 })
+  }
+
   const onKey = (ch: string, key: ShellKey): void => {
     // Taken by the reply hook below; never a key.
     if (terminalReply(ch)) return
@@ -1968,9 +2202,10 @@ export function App({
     }
 
     if (action === 'interrupt') {
-      if (keysOpen) return setKeysOpen(false)
+      if (keysOpen) return closeKeys()
       if (search) return cancelSearch()
       if (palette) return setPalette(null)
+      if (picker) return setPicker(null)
       if (forgetting) return keepCredential()
       if (input.length > 0) {
         // Readline abandons the line and starts history over, so the next ↑ is
@@ -1984,8 +2219,8 @@ export function App({
       if (busyNow.current) return stop()
       return exit()
     }
-    // The palette's query and a search are lines too, where ctrl+d deletes.
-    if (action === 'delete-char' && key.ctrl && input.length === 0 && !search && !palette && !busyNow.current) {
+    // The palette's and the picker's queries and a search are lines too, where ctrl+d deletes.
+    if (action === 'delete-char' && key.ctrl && input.length === 0 && !search && !palette && !picker && !busyNow.current) {
       return exit()
     }
     if (action === 'clear-screen') return clearScreen()
@@ -1994,6 +2229,7 @@ export function App({
     // returned is the natural thing to do while the next one is in flight.
     if (action === 'toggle-output') {
       setPalette(null)
+      setPicker(null)
       return toggleExpanded()
     }
 
@@ -2002,7 +2238,7 @@ export function App({
     // Esc and `?` are what close the panel. Any other key closes it and then does
     // what it does, as Gemini CLI's panel does, rather than being swallowed.
     if (keysOpen) {
-      setKeysOpen(false)
+      closeKeys()
       if (action === 'dismiss' || action === 'show-keys') return
     }
     // On an empty line, as Claude Code, Codex and Gemini CLI open theirs; in
@@ -2011,6 +2247,7 @@ export function App({
     if (
       action === 'show-keys' &&
       !palette &&
+      !picker &&
       !forgetting &&
       !menu &&
       !vim?.pending &&
@@ -2031,10 +2268,11 @@ export function App({
     if (command === 'forward-search-history') {
       if (forgetting) return
       if (palette) return setPalette(null)
+      setPicker(null)
       return openPalette()
     }
     if (command === 'reverse-search-history') {
-      if (forgetting || palette) return
+      if (forgetting || palette || picker) return
       return setSearch({ query: '', at: -1, original: editor })
     }
 
@@ -2043,12 +2281,14 @@ export function App({
     // list moves on arrows and ctrl+n/ctrl+p alone — `j` and `k` are never
     // bound in one. Everything that is not a printable key goes on to the
     // readline keys below, in either mode.
-    if (vim?.mode === 'normal' && !palette && !forgetting && ch && command === null && enter === null) {
+    if (vim?.mode === 'normal' && !palette && !picker && !forgetting && ch && command === null && enter === null) {
       if (!key.ctrl && !key.meta && !key.return && !key.tab && !key.escape) {
         if (menu && (ch === 'j' || ch === 'k')) return
         const step = replay(vim, editor, ch)
         setVim(step.state)
         if (step.effect === 'previous-history' || step.effect === 'next-history') {
+          // `j` past the newest line, where ↓ opens the picker too.
+          if (step.effect === 'next-history' && input === '' && historyIndex.current === -1) return openPicker('')
           return recallHistory(step.effect === 'previous-history' ? -1 : 1)
         }
         // A slash means a command in either mode, as in Codex's NORMAL.
@@ -2063,7 +2303,7 @@ export function App({
     // An Esc that a list, the palette or a prompt takes also drops a half-typed
     // NORMAL command. Nothing on screen shows a pending `d`, so keeping it
     // would let the next key delete something no frame warned about.
-    if (key.escape && vim?.pending && (forgetting || palette || menu)) {
+    if (key.escape && vim?.pending && (forgetting || palette || picker || menu)) {
       setVim({ ...vim, pending: '' })
     }
 
@@ -2094,17 +2334,46 @@ export function App({
       const { text } = typed(ch)
       if (!text) return
       return editQuery((q) => insert(q, text))
+    } else if (pickerNow.current) {
+      // As the last key left it, not as this render drew it.
+      const live = pickerNow.current
+      if (key.escape) return setPicker(live.open && !live.direct ? { ...live, open: null, scroll: 0 } : null)
+      if (live.open !== null) {
+        // The detail is read, not edited: the arrows scroll it and nothing is typed.
+        if (moves !== 0 && pickerDetail) {
+          const furthest = Math.max(0, pickerDetail.length - pickerBox.rowsLimit)
+          setPicker({ ...live, scroll: Math.max(0, Math.min(live.scroll + moves, furthest)) })
+        }
+        return
+      }
+      if (moves !== 0) {
+        const index = Math.max(0, Math.min(pickerMatches.length - 1, live.index + moves))
+        return setPicker({ ...live, index, offset: offsetShowing(pickerItems, pickerBox.rowsLimit, live.offset, index) })
+      }
+      if (key.return) {
+        const chosen = pickerMatches[live.index]
+        if (chosen) setPicker({ ...live, open: chosen.id, scroll: 0 })
+        return
+      }
+      if (key.tab) return
+      if (command && isLineCommand(command)) return editPickerQuery((q) => edit(q, command))
+      if (key.ctrl || key.meta || !ch) return
+      const { text } = typed(ch)
+      if (!text) return
+      return editPickerQuery((q) => insert(q, text))
     }
 
     // Taking a suggestion: whole on → ctrl+f or ctrl+e at the end of the line,
-    // one word on alt+f, and on Tab where no list has anything to insert.
+    // one word on alt+f, and on Tab whenever it is not a list's own candidate —
+    // the words the line shows are the words Tab puts there, even with a list
+    // open. A list's own candidate goes through the list, which adds the space after.
     // Never on Enter, which runs what is typed.
     if (ghost) {
-      const whole = input + ghost
+      const whole = input + ghost.fill
       if (
         command === 'forward-char' ||
         command === 'end-of-line' ||
-        (key.tab && !(menu && menu.items.length > 0))
+        (key.tab && (ghost.from !== 'list' || !(menu && menu.items.length > 0)))
       ) {
         return changeLine(replace(editor, whole))
       }
@@ -2134,6 +2403,7 @@ export function App({
         const last = menu.items.length - 1
         const index = Math.max(0, Math.min(last, menuIndex + moves))
         setMenuIndex(index)
+        setMenuChosen(true)
         return setMenuOffset((o) => offsetShowing(menuDisplayRows, menuRows, o, index))
       }
       if (key.tab && menu.items.length > 0) return completeFromMenu()
@@ -2148,6 +2418,9 @@ export function App({
         setLine(newest)
         return setMenuDismissed(true)
       }
+      // ↓ past the newest line opens the picker, as Claude Code's ↓ reaches its
+      // footer item: there is nothing below the newest line for it to recall.
+      if (moves === 1 && input === '' && historyIndex.current === -1) return openPicker('')
       // Rows first, then history from the first and last — Claude Code and
       // Gemini CLI, and zsh's `up-line-or-history` where nothing wraps.
       if (moves !== 0) {
@@ -2238,6 +2511,7 @@ export function App({
       if (reports.length > 0) {
         for (const report of reports) {
           if (palette) onPaletteMouse(report)
+          else if (picker) onPickerMouse(report)
           else onMenuMouse(report)
         }
         // What the same chunk held besides the reports is what the user typed.
@@ -2277,6 +2551,7 @@ export function App({
     (text) => {
       const clean = pasted(text)
       if (palette) return editQuery((q) => insert(q, typed(clean).text))
+      if (picker) return picker.open ? undefined : editPickerQuery((q) => insert(q, typed(clean).text))
       if (forgetting) {
         const { text: name, submits } = typed(clean)
         const next = insert(editorNow.current, name)
@@ -2393,7 +2668,7 @@ export function App({
         cursor={search ? Math.max(0, searchMatches ? searched.indexOf(search.query) : searched.length) : cursor}
         dim={inert}
         width={textWidth}
-        {...(ghost && !inert ? { suggestion: ghost } : {})}
+        {...(ghost && !inert ? { suggestion: ghost.shown } : {})}
         placeholder={
           forgetting || search
             ? ''
@@ -2482,6 +2757,28 @@ export function App({
     </Box>
   )
 
+  /** The screen a dialog floats over, drawn again: see `Palette.tsx`. */
+  const backdrop = () => (
+    <>
+      {transcriptTail(entries, backdropRows, bodyWidth, expanded).map(({ entry, trimTop }) => (
+        <TranscriptEntry
+          key={entry.id}
+          entry={entry}
+          frameWidth={frameWidth}
+          bodyWidth={bodyWidth}
+          expanded={expanded}
+          dim
+          trimTop={trimTop}
+        />
+      ))}
+      {/* Only ever the shortfall when the whole transcript is shorter than the
+          screen, which is where the real one leaves it too. */}
+      <Box flexGrow={1} />
+      {renderInputBox(true)}
+      {statusBox}
+    </>
+  )
+
   return (
     <Box flexDirection="column" paddingRight={1}>
       <Static key={generation} items={[banner, ...entries]}>
@@ -2506,28 +2803,23 @@ export function App({
             offset={palette.offset}
             columns={frameWidth}
             rows={rows}
-            behind={
-              <>
-                {transcriptTail(entries, backdropRows, bodyWidth, expanded).map(
-                  ({ entry, trimTop }) => (
-                    <TranscriptEntry
-                      key={entry.id}
-                      entry={entry}
-                      frameWidth={frameWidth}
-                      bodyWidth={bodyWidth}
-                      expanded={expanded}
-                      dim
-                      trimTop={trimTop}
-                    />
-                  ),
-                )}
-                {/* Only ever the shortfall when the whole transcript is shorter
-                    than the screen, which is where the real one leaves it too. */}
-                <Box flexGrow={1} />
-                {renderInputBox(true)}
-                {statusBox}
-              </>
-            }
+            behind={backdrop()}
+          />
+        ) : picker ? (
+          <PositionPicker
+            query={picker.query.text}
+            cursor={picker.query.cursor}
+            head={pickerHead}
+            rows={pickerBody}
+            selected={picker.index}
+            offset={pickerDetail ? picker.scroll : picker.offset}
+            detail={pickerDetail}
+            title={pickerTitle}
+            direct={picker.direct}
+            empty={pickerEmpty}
+            columns={frameWidth}
+            screenRows={rows}
+            behind={backdrop()}
           />
         ) : (
           <>
