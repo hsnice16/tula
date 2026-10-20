@@ -33,8 +33,18 @@ const MAX_PATH = 64
  * itself by its tail.
  */
 export const homeRelative = (path: string): string => {
+  const short = tilded(path)
+  return short.length > MAX_PATH ? `…${short.slice(short.length - MAX_PATH + 1)}` : short
+}
+
+/**
+ * For a path inside a command to paste: uncapped, since an elided one names no
+ * file, and quoted where it needs to be — after the `~/`, which quotes would
+ * stop the shell expanding.
+ */
+export const tilded = (path: string): string => {
   const home = homedir()
   const clean = visible(path)
-  const short = clean === home ? '~' : clean.startsWith(`${home}/`) ? `~${clean.slice(home.length)}` : clean
-  return short.length > MAX_PATH ? `…${short.slice(short.length - MAX_PATH + 1)}` : short
+  const [head, rest] = clean === home ? ['~', ''] : clean.startsWith(`${home}/`) ? ['~/', clean.slice(home.length + 1)] : ['', clean]
+  return /^[\w@%+=:,./-]*$/.test(rest) ? head + rest : `${head}'${rest.replaceAll("'", `'\\''`)}'`
 }

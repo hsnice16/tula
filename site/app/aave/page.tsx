@@ -35,7 +35,6 @@ const TERMS = [
   ['No debt', 'Nothing to liquidate, so no health factor to fall.'],
 ] as const
 
-/** Health factor, and how far the collateral can fall from it. */
 const ROOM = [1.1, 1.25, 1.37, 1.5, 2, 3].map((hf) => [
   hf.toFixed(2),
   percent(dropToLiquidation(hf), 1),

@@ -338,17 +338,25 @@ describe('the Homebrew formula tests a string the binary prints', () => {
 describe('the site publishes the venues this build ships', () => {
   const SHIPPED = [...CONNECTORS.keys()]
 
-  /** The two surfaces that state the whole roster; the rest name a venue in passing. */
-  const ROSTER = ['site/app/llms.txt/route.ts', 'site/lib/site.ts'] as const
+  /**
+   * The two surfaces that state the whole roster; the rest name a venue in
+   * passing. In lib/site.ts it is the description every page carries, not the
+   * file, whose keyword list would answer for a venue the sentence leaves out.
+   */
+  const ROSTER = {
+    'site/app/llms.txt/route.ts': () => read('site/app/llms.txt/route.ts'),
+    'site/lib/site.ts': () => read('site/lib/site.ts').match(/export const DESCRIPTION =\s*'([^']+)'/)?.[1] ?? '',
+  }
 
   test('the roster is the one the build registers, so no sweep runs over an empty list', () => {
     expect(SHIPPED.length).toBeGreaterThan(5)
     expect(RETIRED_VENUES.length).toBeGreaterThan(0)
+    expect(ROSTER['site/lib/site.ts']()).toContain('Read-only')
   })
 
-  for (const path of ROSTER) {
+  for (const [path, stated] of Object.entries(ROSTER)) {
     test(`${path} names every venue that ships, so a new one cannot go unpublished`, () => {
-      const text = read(path).toLowerCase()
+      const text = stated().toLowerCase()
       for (const venue of SHIPPED) {
         expect({ venue, named: text.includes(venue) }).toEqual({ venue, named: true })
       }
@@ -763,7 +771,8 @@ describe('the security page names enforcement that exists', () => {
           .filter((entry) => typeof entry === 'string' && /\.tsx?$/.test(entry))
           .map((entry) => `site/${dir}/${entry}`),
       )
-      .filter((path) => read(path).includes('Anthropic'))
+      // A crawler's user agent in robots.ts names a bot, not the vendor tula sends to.
+      .filter((path) => /anthropic|claude/i.test(read(path).replace(/'(ClaudeBot|Claude-\w+|anthropic-ai)'/g, '')))
     expect(naming).toEqual(['site/app/security/page.tsx'])
     expect(flat('AGENTS.md')).toContain('One page names Anthropic and needs to: the security page')
   })
@@ -1319,7 +1328,7 @@ describe('analytics consent', () => {
 
   test('the privacy page is linked, and withdrawing is a control on it', () => {
     expect(flat('site/lib/site.ts')).toContain("href: '/privacy'")
-    expect(read('site/app/privacy/page.tsx')).toContain('<ConsentChoice />')
+    expect(read('site/app/privacy/page.tsx')).toContain('<ConsentChoice measured={measured()} />')
     expect(read('site/lib/consent.ts')).toContain("name.startsWith('_ga_')")
   })
 })
@@ -1363,7 +1372,9 @@ describe('the calculators', () => {
     const eip155 = new Map(CHAINS.map((c) => [c.id, c.eip155]))
     const deployed = DEPLOYMENTS.map((d) => `${d.pool.toLowerCase()}@${eip155.get(d.chain)}`)
     expect(named.sort()).toEqual(deployed.sort())
-    const aave = JSON.parse(read('site/lib/params/aave.json')) as { markets: unknown[] }
-    expect(aave.markets.length).toBe(DEPLOYMENTS.length)
+    const table = [...script.matchAll(/'0x[0-9a-fA-F]{40}@(\d+)': '([^']+)'/g)].map(([, chain, name]) => `${name}@${chain}`)
+    const aave = JSON.parse(read('site/lib/params/aave.json')) as { markets: { name: string; chainId: number }[] }
+    expect(table).toHaveLength(DEPLOYMENTS.length)
+    expect(aave.markets.map((m) => `${m.name}@${m.chainId}`).sort()).toEqual(table.sort())
   })
 })

@@ -11,7 +11,6 @@ const TITLE = 'Check token balances across EVM chains by address'
 const SUMMARY =
   'Look up native and ERC-20 token balances for one public address on Ethereum, Arbitrum, Base and six more EVM chains, with no key and no signing.'
 
-/** Chain, its gas token, and the token list its ERC-20s are found from. */
 const CHAINS = [
   ['Ethereum', 'ETH', 'Uniswap'],
   ['Arbitrum One', 'ETH', 'Uniswap'],

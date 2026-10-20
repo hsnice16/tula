@@ -35,17 +35,21 @@ if command -v node >/dev/null 2>&1; then
   [ "$major" -ge 22 ] 2>/dev/null ||
     fail "node $(node -v) is below the >= 22 this project requires — run: nvm use"
 fi
-bun run check >/tmp/tula-precommit.log 2>&1 || {
-  tail -30 /tmp/tula-precommit.log >&2
+# Not a fixed name in /tmp: another account could plant a link there for this
+# redirect to truncate a file of yours.
+log=$(mktemp)
+trap 'rm -f "$log"' EXIT
+bun run check >"$log" 2>&1 || {
+  tail -30 "$log" >&2
   fail 'bun run check failed'
 }
 
 # The site is a separate package with its own toolchain, and its formatter
 # rewrites files — so it runs only when something in it is actually staged.
-if git diff --cached --name-only --diff-filter=ACMR | grep -q '^site/'; then
+if git diff --cached --name-only --diff-filter=ACMRT | grep -q '^site/'; then
   if [ -d site/node_modules ]; then
-    (cd site && bun run lint) >/tmp/tula-precommit-site.log 2>&1 || {
-      tail -30 /tmp/tula-precommit-site.log >&2
+    (cd site && bun run lint) >"$log" 2>&1 || {
+      tail -30 "$log" >&2
       fail 'site lint failed — run: cd site && bun run format'
     }
   else

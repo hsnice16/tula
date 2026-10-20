@@ -164,10 +164,9 @@ export type AssetNames = ReadonlyMap<string, string>
  * `altname` is the answer Kraken publishes; the prefix rule is only the
  * fallback for a code the asset list did not carry.
  *
- * Any other suffix names a network (`USDC.CORE` is USDC on HyperCore,
- * `ETH.INK` ether on Ink). Kraken lists each as an asset of its own, so it is
- * its own row under that name in `heldAs` — while still the coin underneath,
- * which is what exposure and its price are.
+ * A suffix that is neither a yield form nor HOLD names a network (`USDC.CORE`
+ * is USDC on HyperCore): Kraken lists it as its own asset, so it is its own
+ * row, named in `heldAs`, and still the coin for exposure and price.
  */
 export function normalizeAsset(krakenAsset: string, names: AssetNames = new Map()): {
   asset: string
@@ -431,7 +430,7 @@ function spotRows(
     if (quantity.isZero()) return
     const id = `${label}:${kind}:${asset}${heldAs ? `:${heldAs}` : ''}`
     const existing = byId.get(id)
-    // ETH.S and ETH.M both normalize to staked ETH; they are one exposure.
+    // DOT.S and DOT.P both normalize to staked DOT; they are one exposure.
     const merged = existing ? existing.quantity.plus(quantity) : quantity
     byId.set(id, {
       id,

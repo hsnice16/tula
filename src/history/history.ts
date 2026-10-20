@@ -3,7 +3,7 @@ import { constants } from 'node:fs'
 import { chmod, lstat, mkdir, open, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { TulaError } from '../core/errors.js'
-import { configDir } from '../core/paths.js'
+import { configDir, homeRelative, tilded } from '../core/paths.js'
 import { WORDS as CHINESE_SIMPLIFIED } from './bip39/chinese-simplified.js'
 import { WORDS as CHINESE_TRADITIONAL } from './bip39/chinese-traditional.js'
 import { WORDS as CZECH } from './bip39/czech.js'
@@ -121,8 +121,9 @@ const fold = (text: string): string => text.normalize('NFKD').replace(/\p{M}/gu,
 function walletWords(text: string): boolean {
   wordSets ??= WORDLISTS.map((words) => new Set(fold(words).split(/\s+/)))
   const runs = wordSets.map(() => 0)
-  for (const token of fold(text).split(/[\s,;、，]+/u)) {
-    const word = token.replace(/^#?\d+[.):-]?/, '').replace(/[.:。]$/u, '')
+  // `-`, `.`, `/` and `|` too: a phrase pasted from a note is often joined by one.
+  for (const token of fold(text).split(/[\s,;、，\-./|]+/u)) {
+    const word = token.replace(/^#?\d+[):]?/, '').replace(/[:。]$/u, '')
     if (word === '') continue
     for (let at = 0; at < wordSets.length; at++) {
       const run = wordSets[at]?.has(word) ? (runs[at] ?? 0) + 1 : 0
@@ -133,10 +134,21 @@ function walletWords(text: string): boolean {
   return false
 }
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/
+/** Public identifiers long enough to look like a key: a bech32 address, a UUID. */
+const PUBLIC = /^(bc1|tb1)[02-9ac-hj-np-z]{11,71}$|^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * An address inside an explorer URL, `address/0x…/tokens`. Not a plain split on
+ * `/`: base64 secrets carry it too, and cut there they would pass as short runs.
+ */
+function explorerPath(run: string): boolean {
+  const parts = run.split('/')
+  return parts.some((p) => ADDRESS.test(p)) && parts.every((p) => p.length < 32 || ADDRESS.test(p))
+}
 
 function unbrokenSecret(text: string): boolean {
   for (const [run] of text.matchAll(LONG_RUN)) {
-    if (ADDRESS.test(run)) continue
+    if (ADDRESS.test(run) || PUBLIC.test(run) || explorerPath(run)) continue
     if (/[A-Za-z]/.test(run) && /[0-9]/.test(run)) return true
   }
   return false
@@ -180,17 +192,17 @@ async function checked(path: string): Promise<boolean> {
   }
   if (info.isSymbolicLink() || !info.isFile()) {
     throw new TulaError(
-      `${path} is not a regular file.\n` +
+      `${homeRelative(path)} is not a regular file.\n` +
         '  tula will not read what you typed through a link, or write it through one.\n' +
-        `  Inspect it, then remove it: ls -l ${path}`,
+        `  Inspect it, then remove it: ls -l ${tilded(path)}`,
     )
   }
   const mode = info.mode & 0o777
   if (mode !== REQUIRED_MODE) {
     throw new TulaError(
-      `${path} is mode ${mode.toString(8)}; expected 600.\n` +
+      `${homeRelative(path)} is mode ${mode.toString(8)}; expected 600.\n` +
         '  It holds what you typed into tula, so nobody else may read it.\n' +
-        `  Run: chmod 600 ${path}`,
+        `  Run: chmod 600 ${tilded(path)}`,
     )
   }
   await refuseOpenDirectory()
@@ -202,9 +214,9 @@ async function refuseOpenDirectory(): Promise<void> {
   const mode = (await stat(dir)).mode & 0o777
   if (mode & 0o022) {
     throw new TulaError(
-      `${dir} is mode ${mode.toString(8)}: anyone on this machine can write to it.\n` +
+      `${homeRelative(dir)} is mode ${mode.toString(8)}: anyone on this machine can write to it.\n` +
         '  A history file only you can read is one anyone can still replace.\n' +
-        `  Run: chmod 700 ${dir}`,
+        `  Run: chmod 700 ${tilded(dir)}`,
     )
   }
 }

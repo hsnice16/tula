@@ -227,12 +227,21 @@ verify_attestation() {
   # workflow publishes only from a tag: an attestation from any other ref is not
   # this release. And never one from a self-hosted runner, which releases do not
   # use. The comment against the attest step in release.yml is about these lines.
-  gh attestation verify "$archive" --repo "$REPO" \
+  #
+  # gh's own reason goes in the message: a dropped connection or a gh too old
+  # for these flags fails here too, and reads very differently from a forgery.
+  if ! said=$(gh attestation verify "$archive" --repo "$REPO" \
     --signer-workflow "$REPO/.github/workflows/release.yml" \
     --source-ref "refs/tags/v$VERSION" \
-    --deny-self-hosted-runners >/dev/null 2>&1 ||
-    die "$(basename "$archive") failed attestation: it was not built by $REPO's release workflow." \
-      "Do not use this download. Report it: https://github.com/$REPO/security"
+    --deny-self-hosted-runners 2>&1 >/dev/null); then
+    said=$(printf '%s\n' "$said" | tr -cd '[:print:]\n' | sed -n '/[^[:space:]]/{s/^Error:[[:space:]]*//;p;q;}' | cut -c1-200)
+    # gh's 404 is the commonest forgery, an archive with no attestation at all,
+    # and it reads like a network fault unless it is said plainly.
+    case "$said" in *"HTTP 404"*) said="no attestation of this archive exists in $REPO" ;; esac
+    die "$(basename "$archive") failed attestation: ${said:-it was not built by the release workflow of $REPO}." \
+      "Unless gh said it could not connect or does not know a flag, do not use this download." \
+      "Report it: https://github.com/$REPO/security"
+  fi
   return 0
 }
 
@@ -301,6 +310,7 @@ say "tula $VERSION — $TARGET"
 
 check_dir "$INSTALL_DIR"
 check_dir "$BIN_DIR"
+check_dir "$INSTALL_DIR/versions"
 check_dir "$VERSION_DIR"
 
 # Every version stays on disk under its own number, so a run asking for one that
@@ -322,10 +332,12 @@ check_dir "$VERSION_DIR"
 # rewrite the receipt too. It is what stops a swapped binary being confirmed by
 # the repair, which is the case that actually happens.
 #
-# TULA_FORCE=1 fetches and checks again regardless.
+# TULA_FORCE=1 fetches and checks again regardless, and so does
+# TULA_REQUIRE_ATTESTATION: a receipt says the checksum matched, not that
+# provenance was ever proven.
 RECEIPT="$VERSION_DIR/.tula-sha256"
 ALREADY=
-if [ -z "${TULA_FORCE:-}" ] && [ -x "$VERSION_DIR/tula" ] &&
+if [ -z "${TULA_FORCE:-}" ] && [ -z "${TULA_REQUIRE_ATTESTATION:-}" ] && [ -x "$VERSION_DIR/tula" ] &&
   [ -L "$BIN_DIR/tula" ] && [ "$(readlink "$BIN_DIR/tula")" = "$VERSION_DIR/tula" ] &&
   [ -f "$RECEIPT" ] && [ "$(cat "$RECEIPT")" = "$(sha256_of "$VERSION_DIR/tula")" ]; then
   ALREADY=1

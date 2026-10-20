@@ -83,7 +83,7 @@ mkdir -p "$BIN"
 # decompresses in-process — so a list built by reading install.sh on a laptop
 # misses it, and every extraction fails on Linux with "Cannot exec".
 for tool in sh env cp mv tar gzip gunzip uname mkdir grep cut sed basename dirname \
-  mktemp chmod ln rm cat ls id readlink sha256sum shasum openssl sw_vers sysctl; do
+  mktemp chmod ln rm cat ls id readlink tr sha256sum shasum openssl sw_vers sysctl; do
   path=$(command -v "$tool" 2>/dev/null) && ln -sf "$path" "$BIN/$tool"
 done
 
@@ -118,6 +118,10 @@ with_gh() {
     passes) gh_stub 0 0 ;;
     fails) gh_stub 0 1 ;;
     signed_out) gh_stub 1 1 ;;
+    unattested)
+      printf '#!/bin/sh\n[ "$1" = auth ] && exit 0\necho "Error: HTTP 404: Not Found (https://api.github.com/x)" >&2\nexit 1\n' >"$BIN/gh"
+      chmod 755 "$BIN/gh"
+      ;;
   esac
 }
 with_gh absent
@@ -178,6 +182,17 @@ if [ ! -e "$H/.tula/bin/tula" ] && case "$out" in *"failed attestation"*) true ;
   ok "refuses a binary that fails attestation, and installs nothing"
 else
   bad "refuses a binary that fails attestation, and installs nothing" "$out"
+fi
+
+# gh's 404 means no attestation exists, and must not read as a network fault.
+H="$WORK/h4b"
+mkdir -p "$H"
+with_gh unattested
+out=$(run "$H")
+if [ ! -e "$H/.tula/bin/tula" ] && case "$out" in *"failed attestation: no attestation of this archive exists in"*) true ;; *) false ;; esac; then
+  ok "an archive with no attestation is named as such"
+else
+  bad "an archive with no attestation is named as such" "$out"
 fi
 
 # Signed out is not forged. This refused a good download and told the reader to
@@ -353,6 +368,15 @@ out=$(run "$H" TULA_FORCE=1)
 case "$out" in
   *"No build of 9.9.9"*) ok "TULA_FORCE=1 fetches again rather than trusting the disk" ;;
   *) bad "TULA_FORCE=1 fetches again rather than trusting the disk" "$out" ;;
+esac
+
+# A receipt says the checksum matched, not that provenance was proven, so a run
+# that requires provenance cannot be answered by one. gh is absent here, so the
+# only honest end is the refusal.
+out=$(run "$H" TULA_REQUIRE_ATTESTATION=1)
+case "$out" in
+  *"already installed"*) bad "TULA_REQUIRE_ATTESTATION is not satisfied by an earlier install" "$out" ;;
+  *) ok "TULA_REQUIRE_ATTESTATION is not satisfied by an earlier install" ;;
 esac
 mv "$HOLD"/*.tar.gz "$RELEASE/"
 

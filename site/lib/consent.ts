@@ -8,13 +8,14 @@ export const CONSENT_KEY = 'tula:analytics-consent'
  */
 // biome-ignore format: a code per cell reads as the list it is, not 38 lines.
 export const CONSENT_REGIONS = [
-  'AT', 'BE', 'BG', 'CH', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GB',
-  'GF', 'GP', 'GR', 'HR', 'HU', 'IE', 'IS', 'IT', 'LI', 'LT', 'LU', 'LV', 'MF',
-  'MQ', 'MT', 'NL', 'NO', 'PL', 'PT', 'RE', 'RO', 'SE', 'SI', 'SK', 'YT',
+  'AT', 'AX', 'BE', 'BG', 'CH', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR',
+  'GB', 'GF', 'GP', 'GR', 'HR', 'HU', 'IE', 'IS', 'IT', 'LI', 'LT', 'LU', 'LV',
+  'MF', 'MQ', 'MT', 'NL', 'NO', 'PL', 'PT', 'RE', 'RO', 'SE', 'SI', 'SK', 'YT',
 ]
 
 /** Zones inside those regions whose names do not start with `Europe/`. */
 const ZONES = new Set([
+  'Africa/Ceuta',
   'America/Cayenne',
   'America/Guadeloupe',
   'America/Marigot',
@@ -60,10 +61,14 @@ export function chooseConsent(choice: ConsentChoice): void {
   }
   window.gtag?.('consent', 'update', { analytics_storage: choice })
   if (choice === 'denied') {
-    const host = window.location.hostname
+    // GA writes to the widest domain it may, so on www.usetu.la the cookie sits
+    // on usetu.la. Every parent is tried; a browser ignores a public suffix.
+    const labels = window.location.hostname.split('.')
+    const hosts = labels.slice(0, -1).map((_, i) => labels.slice(i).join('.'))
+    const domains = ['', ...hosts.flatMap((host) => [`; domain=${host}`, `; domain=.${host}`])]
     for (const name of document.cookie.split(';').map((c) => c.split('=')[0]?.trim() ?? '')) {
       if (name !== '_ga' && !name.startsWith('_ga_')) continue
-      for (const domain of ['', `; domain=${host}`, `; domain=.${host}`]) {
+      for (const domain of domains) {
         // biome-ignore lint/suspicious/noDocumentCookie: the Cookie Store API is missing from Safari, and this only deletes.
         document.cookie = `${name}=; Max-Age=0; path=/${domain}`
       }

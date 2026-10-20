@@ -13,7 +13,19 @@ CI and build plumbing, refactors, and doc-only edits — stays in commit message
 
 ### Changed
 
-- **Kraken shows a coin held on another network as its own row, the way Kraken does.** `USDC.CORE` (USDC on HyperCore), `ETH.INK` and `USDT0.TEMPO` each appear under their own name in `/positions`, beside the coin's other balance, and still count toward that coin's exposure. They were added silently into the coin's row.
+- **Kraken shows a coin held on another network as its own row, the way Kraken does.** `USDC.CORE` (USDC on HyperCore), `ETH.INK` and `USDT0.TEMPO` each get a row in `/positions`, read as `USDC (as USDC.CORE)`, and still count toward the coin's exposure. `/position USDC` opens the plain balance and `/position USDC.CORE` the other. They were summed into the coin's row.
+- **A failed attestation says what the GitHub CLI reported.** A dropped connection or a `gh` too old for the check reads differently from a build somebody else made, in the installer and in `/update install` alike.
+
+### Fixed
+
+- **`/position ETH` opens the plain balance where the same account also holds WETH.** The words it suggested for that row matched the WETH row too, so they listed both again instead of opening one; the WETH row is now suggested as `/position WETH`.
+- **`/position ETH wallet` opens the Ethereum wallet row,** not every `wallet-<chain>` row beside it, so each chain's balance can be opened on its own.
+- **`TULA_REQUIRE_ATTESTATION` checks a version already installed, too.** The installer trusted an earlier install's checksum receipt and skipped the attestation; with the variable set it now fetches and verifies again.
+- **`/update install` treats any value of `TULA_REQUIRE_ATTESTATION` as set,** as the installer does. Only `1` did; `true` left an unproven build installable.
+- **`/update install` says when the GitHub CLI did not answer in time.** Before the check it read as not signed in, and during it as a build this repository did not make; that update is still refused, now with the real reason.
+- **An update killed midway no longer leaves its unpacked copy under `~/.tula/versions`.** The next `/update install` clears it.
+- **A recovery phrase joined by dashes or dots, or a key with slashes in it, is kept from the model like any other.** And a question naming a block-explorer URL, a `bc1` address or an order's UUID is no longer refused as one.
+- **The fix a file or directory error prints runs as pasted.** It names the whole path rather than one cut short, quoted where it has a space; history and update errors now name the path from `~` too.
 
 ## [0.4.1] - 2026-10-20
 

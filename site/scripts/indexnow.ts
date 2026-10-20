@@ -1,8 +1,8 @@
 /**
  * Tells the IndexNow engines (Bing, Yandex and the rest) that every URL in the
- * live sitemap has changed. Run by hand once a deploy is live (`bun run
- * indexnow`): the sitemap is read from the site rather than from `out/`, so it
- * names what is published, not what was last built here.
+ * live sitemap has changed. Run by hand once a deploy is live: the sitemap is
+ * read from the site rather than from `out/`, so it names what is published,
+ * not what was last built here.
  */
 import { readdirSync } from 'node:fs'
 import { SITE } from '../lib/site'

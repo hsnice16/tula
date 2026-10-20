@@ -4,7 +4,7 @@ import { chmod, lstat, mkdir, readFile, rename, rm, stat, writeFile } from 'node
 import { join } from 'node:path'
 import type { ConnectorCredentials } from '../connectors/types.js'
 import { TulaError } from '../core/errors.js'
-import { configDir, homeRelative } from '../core/paths.js'
+import { configDir, homeRelative, tilded } from '../core/paths.js'
 import { typed } from '../core/surface.js'
 import { visible } from '../core/untrusted.js'
 
@@ -82,7 +82,7 @@ export class PermissionsTooOpenError extends TulaError {
     const path = homeRelative(at)
     super(
       `${path} is mode ${mode.toString(8)}; expected 600. ` +
-        `Run: chmod 600 ${path}`,
+        `Run: chmod 600 ${tilded(at)}`,
     )
   }
 }
@@ -93,7 +93,7 @@ export class DirectoryTooOpenError extends TulaError {
     super(
       `${path} is mode ${mode.toString(8)}: anyone on this machine can write to it.\n` +
         '  A credential file only you can read is one anyone can still replace.\n' +
-        `  Run: chmod 700 ${path}`,
+        `  Run: chmod 700 ${tilded(at)}`,
     )
   }
 }
@@ -104,7 +104,7 @@ export class NotARegularFileError extends TulaError {
     super(
       `${path} is not a regular file.\n` +
         '  tula will not read credentials through a link, or write them through one.\n' +
-        `  Inspect it, then remove it: ls -l ${path}`,
+        `  Inspect it, then remove it: ls -l ${tilded(at)}`,
     )
   }
 }
@@ -120,7 +120,7 @@ export class StoreUnreadableError extends TulaError {
     super(
       `${path} is not readable as JSON (${why}).\n` +
         '  Something truncated it, or it was edited by hand.\n' +
-        `  To start over from nothing: mv ${path} ${path}.old`,
+        `  To start over from nothing: mv ${tilded(at)} ${tilded(`${at}.old`)}`,
     )
   }
 }
@@ -137,7 +137,7 @@ export class StoreTooNewError extends TulaError {
       `${path} was written by a newer tula (format ${version}; this one reads ${FORMAT_VERSION}).\n` +
         '  Reading it would show venues you have connected as unconnected.\n' +
         `  Run: ${typed('update install')}\n` +
-        `  Or, to start over from nothing: mv ${path} ${path}.old`,
+        `  Or, to start over from nothing: mv ${tilded(at)} ${tilded(`${at}.old`)}`,
     )
   }
 }

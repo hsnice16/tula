@@ -70,6 +70,35 @@ describe('words that name a position', () => {
     expect(positionWords(BOOK[0]!, BOOK)).toEqual(['BTC', 'hyperliquid'])
   })
 
+  test('a coin held under two names opens by either', () => {
+    const book = [
+      row('k:spot:USDC', { venue: 'kraken', kind: 'spot', asset: 'USDC' }),
+      row('k:spot:USDC:USDC.CORE', { venue: 'kraken', kind: 'spot', asset: 'USDC', heldAs: 'USDC.CORE' }),
+      row('w:spot:ETH', { venue: 'wallet', kind: 'spot', asset: 'ETH' }),
+      row('w:spot:ETH:WETH', { venue: 'wallet', kind: 'spot', asset: 'ETH', heldAs: 'WETH' }),
+    ]
+    expect(findPositions(book, ['usdc', 'kraken', 'spot']).map((p) => p.id)).toEqual(['k:spot:USDC'])
+    expect(findPositions(book, ['USDC.CORE']).map((p) => p.id)).toEqual(['k:spot:USDC:USDC.CORE'])
+    expect(findPositions(book, ['weth']).map((p) => p.id)).toEqual(['w:spot:ETH:WETH'])
+    // Somewhere else, the renamed row is a holding of its own and is listed.
+    const aave = row('a:collateral:ETH:WETH', { venue: 'aave', kind: 'collateral', asset: 'ETH', heldAs: 'WETH' })
+    expect(findPositions([...book, aave], ['eth']).map((p) => p.id)).toEqual(['w:spot:ETH', aave.id])
+    for (const p of book) expect(findPositions(book, positionWords(p, book))).toEqual([p])
+    expect(positionWords(book[1]!, book)).toEqual(['USDC.CORE'])
+  })
+
+  test('a venue named exactly is not every venue its name starts', () => {
+    const book = [
+      row('w:spot:ETH', { venue: 'wallet', kind: 'spot', asset: 'ETH' }),
+      row('w:spot:ETH:WETH', { venue: 'wallet', kind: 'spot', asset: 'ETH', heldAs: 'WETH' }),
+      row('wb:spot:ETH', { venue: 'wallet-base', kind: 'spot', asset: 'ETH' }),
+      row('wb:spot:ETH:WETH', { venue: 'wallet-base', kind: 'spot', asset: 'ETH', heldAs: 'WETH' }),
+    ]
+    expect(findPositions(book, ['eth', 'wallet']).map((p) => p.id)).toEqual(['w:spot:ETH'])
+    expect(findPositions(book, ['weth', 'wallet-base']).map((p) => p.id)).toEqual(['wb:spot:ETH:WETH'])
+    for (const p of book) expect(findPositions(book, positionWords(p, book))).toEqual([p])
+  })
+
   test('an asset is read before a venue that starts the same way', () => {
     // "hype" is the start of "hyperliquid": every row there matched, HYPE among them.
     const book = [

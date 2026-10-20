@@ -37,7 +37,7 @@ export const AUTHOR = { name: 'Himanshu Singh', url: 'https://github.com/hsnice1
  * promise retracted on release day reads as though it was never true.
  */
 export const DESCRIPTION =
-  'Open-source CLI: your real exposure and liquidation risk on Hyperliquid, Aave, Kraken, Binance, Coinbase and wallets. Read-only; placing trades will come later.'
+  'Open-source CLI: exposure and liquidation risk on Hyperliquid, Aave, Kraken, Binance, Coinbase, Stripe and wallets. Read-only; placing trades will come later.'
 
 /**
  * The one string every install instruction on the site renders. Written out
@@ -377,7 +377,5 @@ export const KEYWORDS = [
   'agentic',
   'ai agent',
   'natural language query',
-  'claude',
-  'anthropic',
   'llm terminal',
 ]

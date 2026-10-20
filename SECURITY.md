@@ -305,8 +305,9 @@ gh attestation verify tula-v0.4.1-darwin-arm64.tar.gz --repo hsnice16/tula \
 any workflow in the repository, and every workflow that can mint one is a
 workflow somebody could propose a change to. `--source-ref` holds it to the
 release's own tag, the only ref a release publishes from, and
-`--deny-self-hosted-runners` to GitHub's machines. The subject is the archive, not the
-binary inside it, so verify the `.tar.gz` rather than an installed `tula`.
+`--deny-self-hosted-runners` to GitHub's machines. The subject is the archive,
+not the binary inside it, so verify the `.tar.gz` rather than an installed
+`tula`.
 Homebrew downloads that same archive. npm repackages the binary into a tarball
 of its own, which this attestation does not cover: that channel is published
 with `npm publish --provenance` and is checked with `npm audit signatures`

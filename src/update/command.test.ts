@@ -169,6 +169,15 @@ describe('/update', () => {
     expect(await linkedVersion()).toBe(join(root, 'versions', NEW, 'tula'))
   })
 
+  test.each([
+    [unproven, 'Provenance was not proven: the GitHub CLI is not installed.'],
+    [(async () => ({ proven: true })) as Verify, 'Its build attestation was verified'],
+  ])('says whether the build it installed was proven, and why not', async (verify, line) => {
+    await nativeTree()
+    await publish()
+    expect((await update(['install'], undefined, verify)).output).toContain(line)
+  })
+
   /**
    * Under Homebrew or npm it declines even when asked outright: a binary that
    * swapped itself leaves the package manager naming a version that is not

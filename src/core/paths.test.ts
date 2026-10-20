@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { homedir } from 'node:os'
-import { homeRelative } from './paths.js'
+import { homeRelative, tilded } from './paths.js'
 
 /**
  * The banner draws the working directory, and Ink writes text verbatim — so a
@@ -39,5 +39,16 @@ describe('homeRelative', () => {
     expect(out.startsWith('…')).toBe(true)
     // The tail is what says which directory this is.
     expect(out.endsWith('/tail')).toBe(true)
+  })
+
+  test('a path inside a command is never elided, only stripped', () => {
+    const long = `${homedir()}/${'a'.repeat(100)}/${ESC}[2Kcredentials.json`
+    expect(tilded(long)).toBe(`~/'${'a'.repeat(100)}/[2Kcredentials.json'`)
+    expect(tilded(homedir())).toBe('~')
+  })
+
+  test('a path inside a command pastes as one word, with ~ still expanded', () => {
+    expect(tilded(`${homedir()}/My Keys/it's.json`)).toBe(`~/'My Keys/it'\\''s.json'`)
+    expect(tilded('/tmp/a b')).toBe(`'/tmp/a b'`)
   })
 })

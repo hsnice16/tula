@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { measured } from '@/components/Analytics'
 import { Code } from '@/components/Code'
 import { ConsentChoice } from '@/components/ConsentChoice'
 import { Ext } from '@/components/Ext'
@@ -39,7 +40,7 @@ export default function Page() {
       <div className="max-w-[46rem]">
         <section className="mb-step">
           <h2 className="label mb-4">Your choice</h2>
-          <ConsentChoice />
+          <ConsentChoice measured={measured()} />
         </section>
 
         <section className="mb-step">

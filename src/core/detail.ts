@@ -15,7 +15,23 @@ import { liquidationRisk } from './risk.js'
 export function findPositions(book: readonly Position[], words: readonly string[]): Position[] {
   const [asset, ...rest] = words.map((w) => w.toLowerCase())
   if (!asset) return []
-  return book.filter((p) => holdsAsset(p, asset) && rest.every((w) => narrows(p, w)))
+  const found = book.filter((p) => holdsAsset(p, asset) && rest.every((w) => narrows(p, w)))
+  // `USDC` also matches the same account's `USDC.CORE` row, and `wallet` every
+  // `wallet-<chain>`; nothing else on the plain row rules those out, so the
+  // exact name decides. A renamed row elsewhere is a different holding, and stays.
+  const twin = (a: Position, b: Position) =>
+    a.venue === b.venue && a.kind === b.kind && a.account?.id === b.account?.id
+  const shadowed = (p: Position) =>
+    !!p.heldAs && p.heldAs.toLowerCase() !== asset && found.some((q) => !q.heldAs && twin(p, q))
+  return narrowest(
+    found.filter((p) => !shadowed(p)),
+    (p) => rest.includes(p.venue.toLowerCase()),
+  )
+}
+
+const narrowest = (rows: Position[], exact: (p: Position) => boolean): Position[] => {
+  const kept = rows.filter(exact)
+  return kept.length > 0 ? kept : rows
 }
 
 /** Whether a row is the asset a reader named: its symbol in any case, a builder-dex market by its bare name, or the venue's own spelling. */
@@ -46,17 +62,17 @@ function narrows(p: Position, word: string): boolean {
 export function positionWords(p: Position, book: readonly Position[]): string[] {
   const account = p.account ? accountWords(p)[0] : undefined
   const candidates = [
-    [p.asset],
+    [p.heldAs ?? p.asset],
     [p.venue],
     [p.kind],
     ...(account ? [[account]] : []),
     ...(p.product ? [p.product.split(/\s+/)] : []),
-    ...(p.heldAs && p.heldAs !== p.asset ? [[p.heldAs]] : []),
   ]
   const words: string[] = []
   for (const add of candidates) {
     words.push(...add)
-    if (findPositions(book, words).length === 1) return words
+    const found = findPositions(book, words)
+    if (found.length === 1 && found[0] === p) return words
   }
   return words
 }

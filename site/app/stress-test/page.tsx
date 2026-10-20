@@ -11,7 +11,6 @@ const TITLE = 'Crypto portfolio stress test: what if ETH drops 20%'
 const SUMMARY =
   'Stress test a crypto portfolio: move any asset by a percentage on every exchange and DeFi venue at once, and see equity, health factors and what liquidates.'
 
-/** What each part of the shock output says, in the order it prints. */
 const READING = [
   ['Before, After, Change', 'Equity at today’s prices, at the moved ones, and the difference.'],
   ['Health factors', 'Each Aave market, before and after.'],

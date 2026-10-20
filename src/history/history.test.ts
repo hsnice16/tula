@@ -59,6 +59,20 @@ describe('what is too much like a key to ask the model', () => {
     }
   })
 
+  test('a phrase joined by dashes or dots, and a base64 secret with slashes in it', () => {
+    const words = Array.from({ length: 11 }, () => 'abandon').concat('about')
+    expect(credentialShaped(words.join('-'))).toBe(true)
+    expect(credentialShaped(words.join('.'))).toBe(true)
+    // Assembled: the commit hook scans this file for the shapes it tests.
+    expect(credentialShaped(`${'Ab3/'.repeat(20)}xy==`)).toBe(true)
+  })
+
+  test('public identifiers that only look long: an explorer URL, a bc1 address, a UUID', () => {
+    expect(credentialShaped(`is https://etherscan.io/address/0x${'ab12'.repeat(10)}/tokens safe?`)).toBe(false)
+    expect(credentialShaped(`what is bc1q${'xy2k'.repeat(9)}x holding`)).toBe(false)
+    expect(credentialShaped('what is order 3f2b1c4d-9a8e-4b7c-8d6e-5f4a3b2c1d0e')).toBe(false)
+  })
+
   // The history refuses twelve short words; a question may be twelve short
   // words, and refusing one would cost an answer rather than a saved line.
   test('but not an ordinary question, however long', () => {
@@ -169,7 +183,7 @@ describe('what is recorded', () => {
   test('every credential pattern the hook refuses is refused here', async () => {
     const hook = await readFile('.githooks/scan-staged', 'utf8')
     const secrets = /SECRETS='([^']*)'/.exec(hook)?.[1]?.split('\n') ?? []
-    const greps = [...hook.matchAll(/grep -o(i?)E (?:'([^']*)'|"((?:[^"\\]|\\.)*)")/g)].map((m) => ({
+    const greps = [...hook.matchAll(/grep -a?o(i?)E (?:'([^']*)'|"((?:[^"\\]|\\.)*)")/g)].map((m) => ({
       ere: m[2] ?? (m[3] ?? '').replaceAll('\\"', '"'),
       ignoreCase: m[1] === 'i',
     }))

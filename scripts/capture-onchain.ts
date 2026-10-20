@@ -228,11 +228,10 @@ function scale(value: unknown, by: Decimal, key = ''): unknown {
 }
 
 /**
- * The two figures left exact were still a lookup key: a coin and its entry
- * price to the last digit, or a snapshot's millisecond, find the account in the
- * public trade and block record. Nothing relates an entry price to another
- * field, so it moves by up to half a percent at the venue's own precision; a
- * time keeps its hour, which is all an age is ever measured in.
+ * An exact entry price, or a snapshot's millisecond, finds the account in the
+ * public trade and block record. tula only displays an entry price, so it moves
+ * by up to half a percent at the venue's precision; a time keeps its hour, all
+ * an age is measured in.
  */
 function coarseTime(ms: number): number {
   return Math.floor(ms / 3_600_000) * 3_600_000

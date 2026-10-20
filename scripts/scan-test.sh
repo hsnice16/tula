@@ -103,6 +103,25 @@ probe caught "a credential in a text file merely named .png" \
 probe caught "a credential in a file whose name has a space in it" \
   "KRAKEN_API_SEC${x}RET=${b64}${b64}==" "my key.env"
 
+echo "scan-test: content git would call binary"
+nul_probe() {
+  printf 'x\000const k = %s\n' "'g${x}hp_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789'" > "$WORK/blob.bin"
+  git -C "$WORK" add -f "$@" blob.bin
+  if (cd "$WORK" && bash .githooks/scan-staged >/dev/null 2>&1); then
+    echo "  MISSED: $label"
+    fail=1
+  else
+    echo "  ok: $label"
+  fi
+  git -C "$WORK" reset -q
+  rm -f "$WORK/blob.bin" "$WORK/.gitattributes"
+}
+label="a key after a NUL byte" nul_probe
+printf '*.bin -diff\n' > "$WORK/.gitattributes"
+label="a key in a file .gitattributes marks -diff" nul_probe .gitattributes
+probe caught "a key store, which no pattern can read inside" "not really pkcs12" cert.p12
+probe quiet "an image with no key in it" "$(printf '\211PNG\r\n\032\n\377\376')" logo.png
+
 echo "scan-test: addresses"
 probe caught "an unlisted address" "const a = '0x${hex32}12345678'"
 probe quiet "an allowlisted public contract" \
@@ -114,8 +133,7 @@ probe quiet "a lockfile of integrity hashes" \
 probe caught "a registry token in a lockfile" \
   "//registry.npmjs.org/:_authToken=np${x}m_AbCdEfGhIjKlMnOpQrStUvWxYz01" bun.lock
 
-# A rename with a key added in the same commit: git reports it as R, not M,
-# and a filter of ACM let it through with the rest of the file's history.
+# git reports a rename with an edit as R, so a filter without R skips the file.
 echo "scan-test: renames"
 printf '%s\n' "$(printf 'const line%d = 1\n' $(seq 1 40))" > "$WORK/old.ts"
 git -C "$WORK" add old.ts && git -C "$WORK" commit -qm base

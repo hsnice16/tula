@@ -408,7 +408,7 @@ Two rules, and they are the reason the architecture exists:
   had to mean to type. It refuses a checksum mismatch and an unlisted archive
   exactly as `install.sh` does, because this is the second way onto the same disk
   and two paths that disagree about what they accept means the stricter one is
-  decoration. That includes provenance: `viaGitHubCli` runs install.sh's
+  decoration. That includes provenance: `githubCli` runs install.sh's
   `gh attestation verify` to the flag, refuses a failure, and reports an
   unproven build unless `TULA_REQUIRE_ATTESTATION` refuses it too; tests pass a
   stub, because CI runners ship `gh`. The build is unpacked beside `versions/`
@@ -1052,7 +1052,8 @@ release is already public, while the site is telling people to use them.
 | The Vercel root directory is `site` | `vercel.json`'s headers are read from there and nowhere else | `curl -sI https://usetu.la/` |
 | Vercel includes files outside that root | the build script copies `install.sh` in from there; without it the build fails | `curl -sI https://usetu.la/install.sh` |
 | `APPLE_*` secrets | optional; without them macOS ships ad-hoc signed | `gh secret list` |
-| A `release` environment with a required reviewer | `release.yml` names it on all three jobs, and naming it does nothing until it exists — GitHub silently creates an unprotected one on first use, and the run publishes unreviewed | `curl -s -o /dev/null -w '%{http_code}\n' https://api.github.com/repos/hsnice16/tula/environments/release` |
+| A tag ruleset on `v*` limiting who can create, move or delete a tag | a tag can name a commit that rewrote `release.yml` and dropped its on-main check; only the ruleset stops that | `gh api repos/hsnice16/tula/rulesets` |
+| A `release` environment with a required reviewer | `release.yml` names it on the three jobs that publish, and naming it does nothing until it exists — GitHub silently creates an unprotected one on first use, and the run publishes unreviewed | `curl -s -o /dev/null -w '%{http_code}\n' https://api.github.com/repos/hsnice16/tula/environments/release` |
 
 Set each variable last, after its token exists: `true` without the token turns a
 skipped job into a failed one, and it fails after the GitHub release is public.
@@ -1108,7 +1109,7 @@ bun run release:cut 0.2.0   # bumps every file stating the version, dates the ch
 ```
 
 Then commit, push, wait for CI on that commit, and push the tag — the script
-prints all four commands with the version filled in. A `workflow_dispatch` run
+prints each command with the version filled in. A `workflow_dispatch` run
 with `publish` off first costs nothing and exercises everything but publishing
 and the attestation that goes with it.
 

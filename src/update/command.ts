@@ -1,7 +1,7 @@
 import { TulaError } from '../core/errors.js'
 import { typed } from '../core/surface.js'
 import { APP_VERSION, REPO_URL, SITE_URL } from '../version.js'
-import { applyUpdate, type DownloadProgress, type Verify, viaGitHubCli } from './apply.js'
+import { applyUpdate, type DownloadProgress, githubCli, type Provenance, type Verify } from './apply.js'
 import { availableNow } from './check.js'
 import { nativeInstall, OTHER_CHANNELS } from './channel.js'
 
@@ -26,7 +26,7 @@ export interface UpdateResult {
 export async function update(
   args: string[],
   onProgress?: DownloadProgress,
-  verify: Verify = viaGitHubCli,
+  verify: Verify = githubCli(),
 ): Promise<UpdateResult> {
   const sub = args[0]?.toLowerCase()
   if (sub && sub !== 'install') {
@@ -90,9 +90,9 @@ export async function update(
     }
   }
 
-  let provenance: Awaited<ReturnType<typeof applyUpdate>>['provenance']
+  let provenance: Provenance
   try {
-    ;({ provenance } = await applyUpdate(available.version, native, onProgress, verify))
+    ;({ provenance } = await applyUpdate(available.version, native, { onProgress, verify }))
   } catch (err) {
     if (err instanceof TulaError) return { output: err.message, failed: true }
     throw err

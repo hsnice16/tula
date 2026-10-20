@@ -14,7 +14,6 @@ export const metadata = guideMetadata(PATH, TITLE, SUMMARY)
 
 const GITHUB = 'https://github.com'
 
-/** How holdings get in, and whether leverage is understood: the two questions that split them. */
 const AT_A_GLANCE = [
   ['cointop', 'Typed in', 'No'],
   ['ticker', 'Typed in', 'No'],

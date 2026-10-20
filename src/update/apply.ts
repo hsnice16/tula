@@ -1,11 +1,13 @@
 import { execFile, execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import type { Stats } from 'node:fs'
-import { access, chmod, mkdir, mkdtemp, rename, rm, stat, symlink, writeFile } from 'node:fs/promises'
+import { access, chmod, mkdir, mkdtemp, readdir, rename, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { promisify } from 'node:util'
 import { TulaError } from '../core/errors.js'
+import { homeRelative, tilded } from '../core/paths.js'
+import { visible } from '../core/untrusted.js'
 import { typed } from '../core/surface.js'
 import { DOWNLOAD_TIMEOUT_MS, host, request } from '../core/http.js'
 import { APP_VERSION, REPO_URL, SITE_URL } from '../version.js'
@@ -144,10 +146,10 @@ async function refuseSharedDirectory(dir: string): Promise<void> {
 
   if (info.mode & 0o022) {
     throw new TulaError(
-      `${dir} can be written to by other users on this machine.\n` +
+      `${homeRelative(dir)} can be written to by other users on this machine.\n` +
         '  Whoever can write there can replace the binary that reads your keys.\n' +
         '  Nothing was installed.\n' +
-        `  Fix it:  chmod go-w ${dir}`,
+        `  Fix it:  chmod go-w ${tilded(dir)}`,
     )
   }
 
@@ -156,7 +158,7 @@ async function refuseSharedDirectory(dir: string): Promise<void> {
   const me = process.getuid?.()
   if (me !== undefined && info.uid !== me) {
     throw new TulaError(
-      `${dir} is owned by uid ${info.uid}, not by you.\n` +
+      `${homeRelative(dir)} is owned by uid ${info.uid}, not by you.\n` +
         '  tula will not install into a tree somebody else controls.\n' +
         '  Nothing was installed.\n' +
         `  Install it somewhere you own:  ${SITE_URL}/install/`,
@@ -192,15 +194,22 @@ const VERIFY_TIMEOUT_MS = 60_000
  * proves nothing either way, and that is reported rather than refused — unless
  * `TULA_REQUIRE_ATTESTATION` says otherwise, which the caller applies.
  *
- * `gh` is a parameter for the tests alone: they hand it a stub by path, because
- * pointing PATH at a just-made directory can freeze Bun's spawn on macOS.
+ * Both parameters are for the tests alone: they hand `gh` a stub by path,
+ * because pointing PATH at a just-made directory can freeze Bun's spawn on
+ * macOS, and a timeout they can wait out.
  */
-export const githubCli = (gh = 'gh'): Verify => async (archive, version) => {
+export const githubCli = (gh = 'gh', timeout = VERIFY_TIMEOUT_MS): Verify => async (archive, version) => {
   try {
-    await run(gh, ['auth', 'status'], { timeout: VERIFY_TIMEOUT_MS, killSignal: 'SIGKILL' })
+    await run(gh, ['auth', 'status'], { timeout, killSignal: 'SIGKILL' })
   } catch (err) {
-    const missing = (err as NodeJS.ErrnoException).code === 'ENOENT'
-    return { proven: false, why: missing ? 'the GitHub CLI is not installed' : 'the GitHub CLI is not signed in' }
+    const { code, killed } = err as NodeJS.ErrnoException & { killed?: boolean }
+    const why =
+      code === 'ENOENT'
+        ? 'the GitHub CLI is not installed'
+        : killed
+          ? 'the GitHub CLI did not answer in time'
+          : 'the GitHub CLI is not signed in'
+    return { proven: false, why }
   }
   const repo = new URL(REPO_URL).pathname.slice(1)
   try {
@@ -218,21 +227,55 @@ export const githubCli = (gh = 'gh'): Verify => async (archive, version) => {
         `refs/tags/v${version}`,
         '--deny-self-hosted-runners',
       ],
-      { timeout: VERIFY_TIMEOUT_MS, killSignal: 'SIGKILL' },
+      { timeout, killSignal: 'SIGKILL' },
     )
-  } catch {
+  } catch (err) {
     // Never advisory, as in install.sh: a signed-in CLI that cannot vouch for
-    // the archive is the one result this check exists to act on.
+    // the archive is the one result this check exists to act on. gh's own
+    // reason goes with it, since a dropped connection or a gh too old for
+    // these flags fails here too, and reads very differently from a forgery.
+    // gh's 404 is the commonest forgery, an archive with no attestation at all,
+    // and it reads like a network fault unless it is said plainly.
+    const { stderr, killed } = err as { stderr?: unknown; killed?: boolean }
+    const line = String(stderr ?? '')
+      .split('\n')
+      .map((l) => visible(l).trim().replace(/^Error:\s*/, ''))
+      .find(Boolean)
+    const said = killed
+      ? 'the GitHub CLI did not answer in time'
+      : line?.includes('HTTP 404')
+        ? `no attestation of this archive exists in ${repo}`
+        : line?.slice(0, 200)
     throw new TulaError(
-      `tula ${version} failed attestation: it was not built by ${repo}'s release workflow from its tag.\n` +
-        '  Nothing was installed. Do not use this download.\n' +
+      `tula ${version} failed attestation: ${said ?? `it was not built by ${repo}'s release workflow from its tag`}.\n` +
+        '  Nothing was installed. Unless gh said it could not connect or does not know a flag, do not use this download.\n' +
         `  Report it: ${REPO_URL}/security`,
     )
   }
   return { proven: true }
 }
 
-export const viaGitHubCli = githubCli()
+/**
+ * Clears staging directories a killed update left behind. Only a dead process's:
+ * one still running is another update, and its directory is in use.
+ */
+async function sweepStaging(versions: string): Promise<void> {
+  for (const name of await readdir(versions).catch(() => [] as string[])) {
+    const pid = Number(/\.(\d+)\.unpacking$/.exec(name)?.[1])
+    if (!pid || pid === process.pid || alive(pid)) continue
+    await rm(join(versions, name), { recursive: true, force: true })
+  }
+}
+
+function alive(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (err) {
+    // EPERM is a process that exists and is somebody else's.
+    return (err as NodeJS.ErrnoException).code === 'EPERM'
+  }
+}
 
 /**
  * Installs `version` and points the launcher at it, or installs nothing.
@@ -240,7 +283,7 @@ export const viaGitHubCli = githubCli()
  * Every check `install.sh` makes, this makes too: it is the second way onto the
  * same disk, and two paths that disagree about what they will accept means the
  * stricter one is decoration. That is `check_dir`'s two refusals over the
- * install, bin and version directories as well as the checksum, and the modes
+ * install, bin, versions and version directories as well as the checksum, and the modes
  * install.sh sets afterwards. It refuses one thing more, first — a version that
  * is not newer, since `/releases/latest` skips pre-releases and would otherwise
  * offer a pre-release build a silent downgrade. Provenance is checked as
@@ -259,8 +302,7 @@ export const viaGitHubCli = githubCli()
 export async function applyUpdate(
   version: string,
   into: NativeInstall,
-  onProgress: DownloadProgress | undefined,
-  verify: Verify,
+  { onProgress, verify }: { onProgress?: DownloadProgress | undefined; verify: Verify },
 ): Promise<{ binary: string; provenance: Provenance }> {
   if (!isNewer(version, APP_VERSION)) {
     throw new TulaError(`${version} is not newer than ${APP_VERSION}; nothing to do.`)
@@ -271,7 +313,7 @@ export async function applyUpdate(
   const dir = join(into.versions, version)
   // Before the download, where install.sh also puts it: tens of megabytes
   // fetched into a tree that is then refused is minutes spent on a refusal.
-  for (const d of [root, bin, dir]) await refuseSharedDirectory(d)
+  for (const d of [root, bin, into.versions, dir]) await refuseSharedDirectory(d)
 
   const archive = `tula-v${version}-${target()}.tar.gz`
   const base = `${REPO_URL}/releases/download/v${version}`
@@ -317,7 +359,8 @@ export async function applyUpdate(
     const staged = join(temp, archive)
     await writeFile(staged, bytes)
     const provenance = await verify(staged, version)
-    if (!provenance.proven && process.env['TULA_REQUIRE_ATTESTATION'] === '1') {
+    // Any value, as in install.sh: `=true` read as unset would fail open.
+    if (!provenance.proven && (process.env['TULA_REQUIRE_ATTESTATION'] ?? '') !== '') {
       throw new TulaError(
         `TULA_REQUIRE_ATTESTATION is set and provenance could not be proven: ${provenance.why}.\n` +
           '  Nothing was installed. Install the GitHub CLI and run  gh auth login,  then try again.',
@@ -325,6 +368,7 @@ export async function applyUpdate(
     }
 
     await mkdir(into.versions, { recursive: true })
+    await sweepStaging(into.versions)
     await rm(unpacked, { recursive: true, force: true })
     await mkdir(unpacked, { mode: 0o755 })
     for (const d of [root, bin, into.versions, unpacked]) await removeGroupWrite(d)
@@ -375,8 +419,15 @@ export async function applyUpdate(
     // A directory left from an earlier attempt at this version is replaced:
     // `rename` cannot land on a directory that has anything in it, and nothing
     // runs from it, since the launcher only ever points at a build that started.
-    await rm(dir, { recursive: true, force: true })
-    await rename(unpacked, dir)
+    try {
+      await rm(dir, { recursive: true, force: true })
+      await rename(unpacked, dir)
+    } catch (err) {
+      throw new TulaError(
+        `Could not move tula ${version} into place (${visible((err as Error).message)}). Nothing was switched; you are still on ${APP_VERSION}.\n` +
+          `  Another update may be running. Try ${typed('update install')} again.`,
+      )
+    }
     const binary = join(dir, 'tula')
 
     // Renamed over rather than unlinked and remade: a link replaced in two

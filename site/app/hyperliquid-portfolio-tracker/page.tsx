@@ -11,7 +11,6 @@ const SUMMARY =
 
 export const metadata = guideMetadata(PATH, TITLE, SUMMARY)
 
-/** What each command answers about a Hyperliquid account. */
 const COMMANDS = [
   ['positions', 'Every perp and balance, as Hyperliquid states it, sub-accounts included.'],
   ['position ETH', 'One position in full: entry, PnL, funding, margin and liquidation price.'],

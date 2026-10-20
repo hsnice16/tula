@@ -6,6 +6,15 @@ dist/
 # This catches a stray copy before it reaches a commit.
 *.key
 *.pem
+*.p12
+*.pfx
+*.p8
+*.jks
+*.keystore
+*.keychain
+*.keychain-db
+*.kdbx
+*.mobileprovision
 .npmrc
 credentials.json
 .env

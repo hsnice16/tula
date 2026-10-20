@@ -10,7 +10,6 @@ const TITLE = 'Net crypto exposure across exchanges and DeFi'
 const SUMMARY =
   'What net exposure and net delta mean in crypto, how spot, perps, collateral and debt net into one figure per asset, and how to add it up across venues.'
 
-/** What each kind of holding adds to an asset's net exposure. */
 const SIGNS = [
   ['Spot balance', '+ quantity'],
   ['Perp, long', '+ size'],

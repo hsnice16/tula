@@ -13,7 +13,7 @@ import {
  * The privacy page's control: withdrawing has to be as easy as agreeing was,
  * and a choice made here reaches the banner and GA the same moment.
  */
-export function ConsentChoice() {
+export function ConsentChoice({ measured }: { measured: boolean }) {
   // Unknown until mount: the choice lives in the visitor's storage.
   const [choice, setChoice] = useState<Choice | null>(null)
 
@@ -23,6 +23,12 @@ export function ConsentChoice() {
     window.addEventListener(CONSENT_KEY, sync)
     return () => window.removeEventListener(CONSENT_KEY, sync)
   }, [])
+
+  if (!measured) {
+    return (
+      <p className="text-dim">This build carries no analytics, so there is nothing to allow.</p>
+    )
+  }
 
   return (
     <div className="max-w-[24rem]">

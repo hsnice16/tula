@@ -14,11 +14,17 @@ interface Tier {
   maxLeverage: number
 }
 
+/**
+ * Hyperliquid pays its 8-hour rate hourly, an eighth at a time: 0.01% per 8
+ * hours of interest, and a cap that holds for every asset.
+ */
+export const FUNDING = { interestPerHour: 0.0000125, capPerHour: 0.04 } as const
+
 /** What each calculator opens on, and so its page's worked example: one copy, so the `noscript` note stays true. */
 export const OPENING = {
   hyperliquid: { asset: 'BTC', entry: 100_000, notional: 10_000, leverage: 10 },
   aave: { asset: 'WETH', amount: 4, price: 2_500, debt: 6_000 },
-  funding: { notional: 10_000, ratePerHour: 0.0000125, days: 30 },
+  funding: { notional: 10_000, ratePerHour: FUNDING.interestPerHour, days: 30 },
 } as const
 
 /** Hyperliquid's maintenance rate: half the initial margin at max leverage. */
@@ -139,12 +145,6 @@ export function collateralLiquidationPrice(
   const k = (debt - rest) / (own.value * own.threshold)
   return k <= 0 ? null : own.price * k
 }
-
-/**
- * Hyperliquid pays its 8-hour rate hourly, an eighth at a time: 0.01% per 8
- * hours of interest, and a cap that holds for every asset.
- */
-export const FUNDING = { interestPerHour: 0.0000125, capPerHour: 0.04 } as const
 
 /**
  * Funding over `hours` at one hourly rate held still: paid when positive. A

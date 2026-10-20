@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { createHash } from 'node:crypto'
-import { execFile } from 'node:child_process'
+import { execFile, spawnSync } from 'node:child_process'
 import { access, chmod, mkdir, mkdtemp, readdir, readFile, readlink, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -84,7 +84,7 @@ describe('applying an update', () => {
     serve((url) =>
       url.endsWith('checksums.txt') ? sums(archive, name()) : url.endsWith(name()) ? archive : null,
     )
-    await applyUpdate(NEW, into, undefined, unproven)
+    await applyUpdate(NEW, into, { verify: unproven })
     expect(await readlink(into.launcher)).toBe(join(into.versions, NEW, 'tula'))
   })
 
@@ -93,7 +93,7 @@ describe('applying an update', () => {
     serve((url) =>
       url.endsWith('checksums.txt') ? sums(archive, name()) : url.endsWith(name()) ? archive : null,
     )
-    await applyUpdate(NEW, into, undefined, unproven)
+    await applyUpdate(NEW, into, { verify: unproven })
     expect(await readFile(join(into.versions, '0.1.0', 'tula'), 'utf8')).toBe('')
   })
 
@@ -105,7 +105,7 @@ describe('applying an update', () => {
           ? archive
           : null,
     )
-    await expect(applyUpdate(NEW, into, undefined, unproven)).rejects.toThrow(/does not match its published checksum/)
+    await expect(applyUpdate(NEW, into, { verify: unproven })).rejects.toThrow(/does not match its published checksum/)
     expect(await stillOnOld()).toBe(true)
   })
 
@@ -117,7 +117,7 @@ describe('applying an update', () => {
           ? archive
           : null,
     )
-    await expect(applyUpdate(NEW, into, undefined, unproven)).rejects.toThrow(/not listed in checksums.txt/)
+    await expect(applyUpdate(NEW, into, { verify: unproven })).rejects.toThrow(/not listed in checksums.txt/)
     expect(await stillOnOld()).toBe(true)
   })
 
@@ -132,7 +132,7 @@ describe('applying an update', () => {
       url.endsWith('checksums.txt') ? sums(archive, name()) : url.endsWith(name()) ? archive : null,
     )
     const seen: [number, number | null][] = []
-    await applyUpdate(NEW, into, (received, total) => seen.push([received, total]), unproven)
+    await applyUpdate(NEW, into, { onProgress: (received, total) => seen.push([received, total]), verify: unproven })
     expect(seen.length).toBeGreaterThan(1)
     // Opens at zero, so the label is on screen before the first chunk lands.
     expect(seen[0]?.[0]).toBe(0)
@@ -154,7 +154,7 @@ describe('applying an update', () => {
       return new Response('not found', { status: 404 })
     }) as typeof fetch
     const seen: [number, number | null][] = []
-    await applyUpdate(NEW, into, (received, total) => seen.push([received, total]), unproven)
+    await applyUpdate(NEW, into, { onProgress: (received, total) => seen.push([received, total]), verify: unproven })
     expect(seen.every(([, total]) => total === null)).toBe(true)
     expect(seen[seen.length - 1]?.[0]).toBe(archive.length)
   })
@@ -163,7 +163,7 @@ describe('applying an update', () => {
     serve((url) =>
       url.endsWith('checksums.txt') ? sums(archive, name()) : url.endsWith(name()) ? archive : null,
     )
-    await applyUpdate(NEW, into, undefined, unproven)
+    await applyUpdate(NEW, into, { verify: unproven })
     expect(await readlink(into.launcher)).toBe(join(into.versions, NEW, 'tula'))
   })
 
@@ -175,13 +175,13 @@ describe('applying an update', () => {
    */
   test('refuses to move to a version that is not newer', async () => {
     serve(() => null)
-    await expect(applyUpdate('0.0.1', into, undefined, unproven)).rejects.toThrow(/not newer/)
+    await expect(applyUpdate('0.0.1', into, { verify: unproven })).rejects.toThrow(/not newer/)
     expect(await stillOnOld()).toBe(true)
   })
 
   test('refuses when the release has no build for this machine', async () => {
     serve((url) => (url.endsWith('checksums.txt') ? sums(archive, name()) : null))
-    await expect(applyUpdate(NEW, into, undefined, unproven)).rejects.toThrow(/404/)
+    await expect(applyUpdate(NEW, into, { verify: unproven })).rejects.toThrow(/404/)
     expect(await stillOnOld()).toBe(true)
   })
 })
@@ -201,7 +201,7 @@ describe('the tree an update will and will not go into', () => {
   test('refuses an install directory other users can write to, before downloading anything', async () => {
     ok()
     await chmod(root, 0o777)
-    await expect(applyUpdate(NEW, into, undefined, unproven)).rejects.toThrow(/can be written to by other users/)
+    await expect(applyUpdate(NEW, into, { verify: unproven })).rejects.toThrow(/can be written to by other users/)
     expect(reached).toEqual([])
     expect(await stillOnOld()).toBe(true)
   })
@@ -209,7 +209,7 @@ describe('the tree an update will and will not go into', () => {
   test('refuses a bin directory other users can write to', async () => {
     ok()
     await chmod(join(root, 'bin'), 0o777)
-    await expect(applyUpdate(NEW, into, undefined, unproven)).rejects.toThrow(/can be written to by other users/)
+    await expect(applyUpdate(NEW, into, { verify: unproven })).rejects.toThrow(/can be written to by other users/)
     expect(await stillOnOld()).toBe(true)
   })
 
@@ -219,7 +219,7 @@ describe('the tree an update will and will not go into', () => {
     ok()
     await mkdir(join(into.versions, NEW), { recursive: true })
     await chmod(join(into.versions, NEW), 0o777)
-    await expect(applyUpdate(NEW, into, undefined, unproven)).rejects.toThrow(/can be written to by other users/)
+    await expect(applyUpdate(NEW, into, { verify: unproven })).rejects.toThrow(/can be written to by other users/)
     expect(await stillOnOld()).toBe(true)
   })
 
@@ -228,7 +228,7 @@ describe('the tree an update will and will not go into', () => {
   test('installs into a directory others can read but not write', async () => {
     ok()
     await chmod(root, 0o755)
-    await applyUpdate(NEW, into, undefined, unproven)
+    await applyUpdate(NEW, into, { verify: unproven })
     expect(await readlink(into.launcher)).toBe(join(into.versions, NEW, 'tula'))
   })
 
@@ -236,7 +236,7 @@ describe('the tree an update will and will not go into', () => {
     ok()
     const was = process.umask(0o000)
     try {
-      await applyUpdate(NEW, into, undefined, unproven)
+      await applyUpdate(NEW, into, { verify: unproven })
     } finally {
       process.umask(was)
     }
@@ -247,7 +247,7 @@ describe('the tree an update will and will not go into', () => {
 
   test('leaves a binary the shell can run, whatever the archive carried', async () => {
     ok()
-    await applyUpdate(NEW, into, undefined, unproven)
+    await applyUpdate(NEW, into, { verify: unproven })
     expect((await stat(join(into.versions, NEW, 'tula'))).mode & 0o777).toBe(0o755)
   })
 
@@ -259,8 +259,9 @@ describe('the tree an update will and will not go into', () => {
     await run('tar', ['-czf', join(root, 'dead.tar.gz'), '-C', build, 'tula'])
     const dead = await readFile(join(root, 'dead.tar.gz'))
     serve((url) => (url.endsWith('checksums.txt') ? sums(dead, name()) : url.endsWith(name()) ? dead : null))
-    await expect(applyUpdate(NEW, into, undefined, unproven)).rejects.toThrow(/does not start on this machine/)
+    await expect(applyUpdate(NEW, into, { verify: unproven })).rejects.toThrow(/does not start on this machine/)
     expect(await stillOnOld()).toBe(true)
+    expect((await readdir(into.versions)).sort()).toEqual(['0.1.0'])
   })
 
   /**
@@ -271,7 +272,7 @@ describe('the tree an update will and will not go into', () => {
    */
   test('writes no install receipt, so the installer still re-verifies this tree', async () => {
     ok()
-    await applyUpdate(NEW, into, undefined, unproven)
+    await applyUpdate(NEW, into, { verify: unproven })
     await expect(access(join(into.versions, NEW, '.tula-sha256'))).rejects.toThrow()
     // The one install.sh wrote for the version it installed is untouched, so
     // this is a receipt this path declined to mint, not a tree with none in it.
@@ -285,42 +286,43 @@ describe('provenance', () => {
       url.endsWith('checksums.txt') ? sums(archive, name()) : url.endsWith(name()) ? archive : null,
     )
 
-  test('a build that does not start leaves nothing under versions/', async () => {
-    const build = join(root, 'dead')
-    await mkdir(build, { recursive: true })
-    await writeFile(join(build, 'tula'), '#!/bin/sh\nexit 137\n')
-    await chmod(join(build, 'tula'), 0o755)
-    await run('tar', ['-czf', join(root, 'dead.tar.gz'), '-C', build, 'tula'])
-    const dead = await readFile(join(root, 'dead.tar.gz'))
-    serve((url) => (url.endsWith('checksums.txt') ? sums(dead, name()) : url.endsWith(name()) ? dead : null))
-    await expect(applyUpdate(NEW, into, undefined, unproven)).rejects.toThrow(/does not start/)
-    expect((await readdir(into.versions)).sort()).toEqual(['0.1.0'])
-  })
-
   test('a build that fails attestation is refused, and nothing is unpacked', async () => {
     ok()
     const forged: Verify = async () => {
+      // Checked here, not after: the cleanup would hide an unpack that ran first.
+      expect((await readdir(into.versions)).filter((d) => d.endsWith('.unpacking'))).toEqual([])
       throw new TulaError('tula 9.9.9 failed attestation')
     }
-    await expect(applyUpdate(NEW, into, undefined, forged)).rejects.toThrow(/failed attestation/)
+    await expect(applyUpdate(NEW, into, { verify: forged })).rejects.toThrow(/failed attestation/)
     expect(await stillOnOld()).toBe(true)
     expect((await readdir(into.versions)).sort()).toEqual(['0.1.0'])
   })
 
-  test('TULA_REQUIRE_ATTESTATION refuses a build whose provenance went unproven', async () => {
+  // Any value, as install.sh reads it: `=true` taken as unset would fail open.
+  test.each(['1', 'true'])('TULA_REQUIRE_ATTESTATION=%s refuses a build whose provenance went unproven', async (value) => {
     ok()
-    process.env['TULA_REQUIRE_ATTESTATION'] = '1'
+    process.env['TULA_REQUIRE_ATTESTATION'] = value
     try {
-      await expect(applyUpdate(NEW, into, undefined, unproven)).rejects.toThrow(/TULA_REQUIRE_ATTESTATION/)
+      await expect(applyUpdate(NEW, into, { verify: unproven })).rejects.toThrow(/TULA_REQUIRE_ATTESTATION/)
     } finally {
       delete process.env['TULA_REQUIRE_ATTESTATION']
     }
     expect(await stillOnOld()).toBe(true)
   })
 
+  test('a staging directory a killed update left behind is cleared', async () => {
+    ok()
+    // The pid of a process that has exited: the run that made this is gone.
+    const { pid } = spawnSync('true')
+    const stale = join(into.versions, `${NEW}.${pid}.unpacking`)
+    await mkdir(stale, { recursive: true })
+    await applyUpdate(NEW, into, { verify: unproven })
+    expect((await readdir(into.versions)).sort()).toEqual(['0.1.0', NEW])
+  })
+
   test('a proven build installs, and says so', async () => {
     ok()
-    const result = await applyUpdate(NEW, into, undefined, async () => ({ proven: true }))
+    const result = await applyUpdate(NEW, into, { verify: async () => ({ proven: true }) })
     expect(result.provenance.proven).toBe(true)
     expect(await readlink(into.launcher)).toBe(join(into.versions, NEW, 'tula'))
   })
@@ -340,7 +342,7 @@ describe('the GitHub CLI check', () => {
     calls = join(stubs, 'calls')
     await writeFile(
       join(stubs, 'gh'),
-      `#!/bin/sh\nprintf '%s\\n' "$*" >>'${calls}'\nread auth verify <'${join(stubs, 'mode')}'\ncase "$1 $2" in\n  "auth status") exit "$auth" ;;\nesac\nexit "$verify"\n`,
+      `#!/bin/sh\nprintf '%s\\n' "$*" >>'${calls}'\nread auth verify said <'${join(stubs, 'mode')}'\ncase "$1 $2" in\n  "auth status") exit "$auth" ;;\nesac\n[ -n "$said" ] && echo "$said" >&2\nexit "$verify"\n`,
     )
     await chmod(join(stubs, 'gh'), 0o755)
     check = githubCli(join(stubs, 'gh'))
@@ -352,8 +354,9 @@ describe('the GitHub CLI check', () => {
     await rm(calls, { force: true })
   })
 
-  /** The exit codes the stub gives `auth status` and `attestation verify`. */
-  const gh = (auth: number, verify: number) => writeFile(join(stubs, 'mode'), `${auth} ${verify}\n`)
+  /** The exit codes the stub gives `auth status` and `attestation verify`, and what verify prints. */
+  const gh = (auth: number, verify: number, said = '') =>
+    writeFile(join(stubs, 'mode'), `${auth} ${verify} ${said}\n`)
 
   test('absent, it proves nothing and says why', async () => {
     expect(await githubCli(join(stubs, 'nowhere', 'gh'))('a.tar.gz', NEW)).toEqual({ proven: false, why: 'the GitHub CLI is not installed' })
@@ -362,6 +365,20 @@ describe('the GitHub CLI check', () => {
   test('signed out, it proves nothing and says why', async () => {
     await gh(1, 1)
     expect(await check('a.tar.gz', NEW)).toEqual({ proven: false, why: 'the GitHub CLI is not signed in' })
+  })
+
+  test('a CLI that hangs proves nothing, and is not called signed out', async () => {
+    const slow = join(stubs, 'slow-gh')
+    await writeFile(slow, '#!/bin/sh\nexec sleep 5\n')
+    await chmod(slow, 0o755)
+    expect(await githubCli(slow, 200)('a.tar.gz', NEW)).toEqual({ proven: false, why: 'the GitHub CLI did not answer in time' })
+  })
+
+  test('a verify that hangs is refused as a timeout, not as a forgery', async () => {
+    const slow = join(stubs, 'slow-verify')
+    await writeFile(slow, '#!/bin/sh\n[ "$1" = auth ] && exit 0\nexec sleep 5\n')
+    await chmod(slow, 0o755)
+    await expect(githubCli(slow, 200)('a.tar.gz', NEW)).rejects.toThrow(/failed attestation: the GitHub CLI did not answer in time\./)
   })
 
   test('signed in, it verifies against the workflow, the tag and GitHub runners', async () => {
@@ -376,5 +393,17 @@ describe('the GitHub CLI check', () => {
   test('signed in and failing, it refuses rather than warns', async () => {
     await gh(0, 1)
     await expect(check('a.tar.gz', NEW)).rejects.toThrow(/failed attestation/)
+  })
+
+  // A gh too old for a flag fails the same way a forgery does; saying which is
+  // the difference between "update gh" and "report this release".
+  test('a missing attestation is named as such, not left to read as a network fault', async () => {
+    await gh(0, 1, 'Error: HTTP 404: Not Found (https://api.github.com/x)')
+    await expect(check('a.tar.gz', NEW)).rejects.toThrow(/failed attestation: no attestation of this archive exists in hsnice16\/tula\./)
+  })
+
+  test('the refusal carries gh’s own reason', async () => {
+    await gh(0, 1, 'unknown flag: --source-ref')
+    await expect(check('a.tar.gz', NEW)).rejects.toThrow(/failed attestation: unknown flag: --source-ref/)
   })
 })

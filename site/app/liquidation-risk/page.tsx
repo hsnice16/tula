@@ -10,7 +10,6 @@ const TITLE = 'Crypto liquidation risk across exchanges and DeFi'
 const SUMMARY =
   'Distance to liquidation for every position across Hyperliquid, Aave, Binance and Coinbase, in one list ordered by how far the price has to move.'
 
-/** How each venue states its trigger, and the distance read off it. */
 const DISTANCE = [
   ['Aave', 'Health factor', '1/HF − 1'],
   ['Hyperliquid, standard', 'Liquidation price', 'liq price / price − 1'],

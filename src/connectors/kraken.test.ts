@@ -99,11 +99,10 @@ describe('sign', () => {
 
 describe('normalizeAsset', () => {
   // Kraken lists a coin on another network as an asset of its own, named for
-  // both ("Ethereum on Ink", ETH.INK); a row merged into the base hid that.
+  // both (ETH.INK). USDC.CORE is not in the fixture, so it is read by its code.
   test('a network suffix keeps the coin and names its own row, as Kraken does', () => {
-    const names = new Map([...NAMES, ['USDC.CORE', 'USDC.CORE'], ['USDC', 'USDC']])
-    expect(normalizeAsset('USDC.CORE', names)).toEqual({ asset: 'USDC', kind: 'spot', heldAs: 'USDC.CORE' })
-    expect(normalizeAsset('USDC', names)).toEqual({ asset: 'USDC', kind: 'spot' })
+    expect(normalizeAsset('USDC.CORE', NAMES)).toEqual({ asset: 'USDC', kind: 'spot', heldAs: 'USDC.CORE' })
+    expect(normalizeAsset('USDC', NAMES)).toEqual({ asset: 'USDC', kind: 'spot' })
     // Yield and held-fund suffixes are kinds, not networks: they stay as they were.
     expect(normalizeAsset('ETH.S', NAMES)).toEqual({ asset: 'ETH', kind: 'staked' })
     expect(normalizeAsset('USD.HOLD', NAMES)).toEqual({ asset: 'USD', kind: 'pending' })
@@ -164,9 +163,9 @@ describe('normalizeAsset', () => {
       const { asset, kind, heldAs } = normalizeAsset(code, NAMES)
       const key = `${kind}:${asset}${heldAs ? `:${heldAs}` : ''}`
       const first = seen.get(key)
-      // Yield and hold variants are one exposure with the asset they earn on;
-      // two *different* assets landing on one ticker is a merged balance.
-      if (first !== undefined && !first.includes('.') && !code.includes('.')) {
+      // Only staking forms of one coin are one exposure; anything else sharing
+      // a key is a merged balance.
+      if (first !== undefined && kind !== 'staked') {
         throw new Error(`${code} and ${first} both normalize to ${key}`)
       }
       if (first === undefined) seen.set(key, code)
@@ -303,7 +302,7 @@ describe('kraken balances', () => {
       ['USDC', '1000'],
       ['USDC.CORE', '250'],
     ])
-    expect(new Set(rows.map((p) => p.id)).size).toBe(2)
+    expect(new Set(rows.map(rowIdentity)).size).toBe(2)
     const usdc = netExposure(positions).find((e) => e.asset === 'USDC')
     expect(usdc?.delta.toString()).toBe('1250')
     expect(usdc?.contributors).toHaveLength(2)

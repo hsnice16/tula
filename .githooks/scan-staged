@@ -8,6 +8,9 @@
 #
 #   bash .githooks/scan-staged
 set -uo pipefail
+# Bytes, not characters: binary content is not valid UTF-8, and macOS sed and
+# grep stop on it with "illegal byte sequence" instead of matching.
+export LC_ALL=C
 
 ROOT=$(git rev-parse --show-toplevel)
 ALLOW="$ROOT/.githooks/allowed-secrets"
@@ -16,6 +19,13 @@ ALLOW="$ROOT/.githooks/allowed-secrets"
 # pipeline's last stage is a subshell whose variables do not survive it.
 FINDINGS=$(mktemp)
 trap 'rm -f "$FINDINGS"' EXIT
+
+# Every byte, as text: a NUL anywhere, or a `-diff` line in .gitattributes,
+# makes git print "Binary files differ" in place of the lines, and a key in a
+# file git calls binary is still a key. NULs are dropped so the shell can hold it.
+staged() {
+  git diff --cached --no-color --text --no-textconv --no-ext-diff -U0 -- "$1" | tr -d '\000'
+}
 
 allowed() {
   [ -f "$ALLOW" ] || return 1
@@ -42,17 +52,23 @@ AIza[0-9A-Za-z_-]{30,}
 # producing an empty diff — never scanned, and silently: a scanner with a blind
 # spot you choose by naming the file.
 while IFS= read -r -d '' path; do
-  # No extension skip. git already reports a real binary as "Binary files …
-  # differ" and produces no added lines, so the scan costs nothing there — while
-  # skipping by name let a credential through in a text file called `logo.png`.
+  # No extension skip: skipping by name let a credential through in a text file
+  # called `logo.png`. Key stores are refused by name instead, since a PKCS#12
+  # or a keychain is encrypted and no pattern can see inside one.
+  case "$path" in
+    *.p12 | *.pfx | *.p8 | *.jks | *.keystore | *.keychain | *.keychain-db | *.kdbx | *.mobileprovision)
+      printf '%s\n' "$path|a key store, by its name" >>"$FINDINGS"
+      continue
+      ;;
+  esac
 
   # A lockfile is wall-to-wall integrity hashes, so the general patterns below
   # would fire on every line of it. The one credential that can land in one is
   # a registry auth line, and that is worth looking for on its own.
   case "$path" in
     *.lock | *lock.json)
-      git diff --cached --no-color -U0 -- "$path" | sed -n 's/^+//p' |
-        grep -oiE '(_auth(Token)?|_password)[[:space:]]*=?[[:space:]]*[^[:space:]]+' |
+      staged "$path" | sed -n 's/^+//p' |
+        grep -aoiE '(_auth(Token)?|_password)[[:space:]]*=?[[:space:]]*[^[:space:]]+' |
         sort -u |
         while IFS= read -r hit; do
           [ -n "$hit" ] || continue
@@ -63,7 +79,7 @@ while IFS= read -r -d '' path; do
   esac
   git diff --cached --no-color -U0 -- "$path" >/dev/null 2>&1 || continue
 
-  added=$(git diff --cached --no-color -U0 -- "$path" | sed -n 's/^+//p')
+  added=$(staged "$path" | sed -n 's/^+//p')
   [ -n "$added" ] || continue
 
   while IFS= read -r pattern; do
@@ -71,7 +87,7 @@ while IFS= read -r -d '' path; do
     # `--` because a PEM header begins with dashes, which grep would otherwise
     # read as options and then match nothing at all; and read -r rather than
     # word-splitting, because that same header contains spaces.
-    printf '%s\n' "$added" | grep -oE -- "$pattern" 2>/dev/null | sort -u |
+    printf '%s\n' "$added" | grep -aoE -- "$pattern" 2>/dev/null | sort -u |
       while IFS= read -r hit; do
         [ -n "$hit" ] || continue
         allowed "$hit" && continue
@@ -88,7 +104,7 @@ EOF
   # A 64-hex run is excluded first and reported below instead. A private key
   # opens with 40 hex characters like everything else, and the address wording
   # sent whoever pasted one to the allowlist — advice that commits a live key.
-  printf '%s\n' "$added" | grep -oiE '0x[a-f0-9]{40,}' | sort -u |
+  printf '%s\n' "$added" | grep -aoiE '0x[a-f0-9]{40,}' | sort -u |
     while IFS= read -r hit; do
       [ -n "$hit" ] || continue
       [ ${#hit} -eq 42 ] || continue
@@ -101,7 +117,7 @@ EOF
   # private key. A long zero run is not: that is ABI padding around an address
   # or a number, which is most of what encoded calldata looks like, and the
   # scanner has to stay quiet about the encoder's own tests to be worth having.
-  printf '%s\n' "$added" | grep -oiE '(0x)?[a-f0-9]{64}' |
+  printf '%s\n' "$added" | grep -aoiE '(0x)?[a-f0-9]{64}' |
     grep -viE '0{12}' | sort -u |
     while IFS= read -r hit; do
       [ -n "$hit" ] || continue
@@ -118,7 +134,7 @@ EOF
   # pasted shell line is the commonest shape a leaked credential actually has,
   # and requiring quotes missed all of them.
   printf '%s\n' "$added" |
-    grep -oiE "(secret|passphrase|password|api[_-]?key|private[_-]?key|auth[_-]?token|access[_-]?token)[\"']?[[:space:]]*[:=][[:space:]]*[\"']?[A-Za-z0-9+/=_-]{20,}" |
+    grep -aoiE "(secret|passphrase|password|api[_-]?key|private[_-]?key|auth[_-]?token|access[_-]?token)[\"']?[[:space:]]*[:=][[:space:]]*[\"']?[A-Za-z0-9+/=_-]{20,}" |
     sort -u |
     while IFS= read -r hit; do
       [ -n "$hit" ] || continue
@@ -130,12 +146,12 @@ EOF
   # quoted, so this shape is a seed phrase and essentially nothing else — the
   # one credential tula promises never even to ask for.
   printf '%s\n' "$added" |
-    grep -oE "[\"']([a-z]{3,8} ){11,23}[a-z]{3,8}[\"']" | sort -u |
+    grep -aoE "[\"']([a-z]{3,8} ){11,23}[a-z]{3,8}[\"']" | sort -u |
     while IFS= read -r hit; do
       [ -n "$hit" ] || continue
       printf '%s\n' "$path|${hit:0:24}…  (12+ words in one string — a seed phrase has this shape)"
     done >>"$FINDINGS"
-done < <(git diff --cached --name-only -z --diff-filter=ACMR)
+done < <(git diff --cached --name-only -z --diff-filter=ACMRT)
 
 [ -s "$FINDINGS" ] || exit 0
 

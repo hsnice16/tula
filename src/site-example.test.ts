@@ -596,5 +596,11 @@ describe('the guides that quote this book in prose', () => {
     expect(page).toContain(`down ${usd(result.change!.abs())}`)
     const [factor] = shockedHealthFactors(BOOK, PRICES, SHOCK)
     expect(page).toContain(`falls from ${factor!.before.toFixed(2)} to ${factor!.after!.toFixed(2)}`)
+    // The ladder works its own arithmetic on a typed factor; at -20% it must
+    // land where the engine does.
+    const hf = factor!.before.toNumber()
+    expect(page).toContain(`(${hf} * (1 + move)).toFixed(2)`)
+    expect(page).toContain(`'Health factor ${factor!.before.toFixed(2)}'`)
+    expect((hf * (1 + SHOCK[0]!.pct.toNumber())).toFixed(2)).toBe(factor!.after!.toFixed(2))
   })
 })

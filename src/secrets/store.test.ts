@@ -115,6 +115,15 @@ describe('the store', () => {
     expect(await secrets.listVenues()).toEqual(['kraken'])
   })
 
+  test('a link planted where the write stages its file is replaced, not written through', async () => {
+    const elsewhere = join(dir, 'elsewhere.json')
+    await writeFile(elsewhere, '{}', { mode: 0o600 })
+    await symlink(elsewhere, `${path()}.${process.pid}.tmp`)
+    await secrets.put('kraken', { apiKey: 'k', apiSecret: 'REAL' })
+    expect(await readFile(elsewhere, 'utf8')).toBe('{}')
+    expect(await readFile(path(), 'utf8')).toContain('REAL')
+  })
+
   test('a write leaves no temporary file behind', async () => {
     await secrets.put('kraken', { apiKey: 'k', apiSecret: 's' })
     await secrets.remove('kraken')

@@ -18,7 +18,7 @@ export function guideMetadata(path: string, title: string, description: string):
     description,
     alternates: { canonical: path },
     // Both carry the brand: `title.template` does not reach an explicitly set
-    // `openGraph.title`, so an unfurl was unbranded where a card was not.
+    // `openGraph.title`.
     openGraph: {
       ...OG,
       images: [image],

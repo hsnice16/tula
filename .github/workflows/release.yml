@@ -117,8 +117,9 @@ jobs:
       # point at any commit, including one that was never on main and that
       # rewrote this workflow. Anything published from here has to be reachable
       # from main, or the provenance proves only that some version of this file
-      # ran. It runs before anything is built, so an off-main tag costs a minute
-      # rather than a release.
+      # ran. A tag whose commit rewrote this file can drop this step with the
+      # rest, so only a tag ruleset on `v*` holds the line; this catches the
+      # honest mistake, before anything is built.
       - name: what is being released is on main
         if: steps.version.outputs.publish == 'true'
         run: |
@@ -264,12 +265,11 @@ jobs:
       # is no signing key for this project to generate, publish, rotate or lose.
       # The subjects are the archives, which is what install.sh verifies.
       #
-      # Gated with the publish steps, not run alongside them. An attestation is
-      # a public transparency-log entry: `install.sh` pins the tag, but anyone
-      # checking by hand with only `--signer-workflow` would take a dry run's
-      # from an arbitrary branch for a release. The cost is that a dry run does
-      # not exercise this step; the first real tag does, before any channel
-      # points at it.
+      # Gated with the publish steps. An attestation is a public transparency-log
+      # entry, and someone checking by hand with only `--signer-workflow` would
+      # take a dry run's from any branch for a release. A dry run therefore never
+      # exercises this step; the first real tag does, before any channel points
+      # at it.
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         if: steps.version.outputs.publish == 'true'
         with:
@@ -305,9 +305,8 @@ jobs:
             echo "says plainly that provenance was not proven where it is not. By hand:"
             echo
             echo '```bash'
-            # --signer-workflow, not just --repo: --repo alone accepts an
-            # attestation from any workflow here, and this is the copy people
-            # paste. SECURITY.md says the flag is not optional; so does this.
+            # Flag for flag install.sh's `verify_attestation`, which says why
+            # each is there; this is the copy people paste.
             echo "gh attestation verify tula-v$VERSION-darwin-arm64.tar.gz --repo $GITHUB_REPOSITORY \\"
             echo "  --signer-workflow $GITHUB_REPOSITORY/.github/workflows/release.yml \\"
             echo "  --source-ref refs/tags/v$VERSION --deny-self-hosted-runners"

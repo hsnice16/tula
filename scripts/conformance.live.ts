@@ -166,7 +166,7 @@ async function kraken(): Promise<Finding[]> {
     belief: 'Kraken codes that net into one row are two staking forms of one coin, and nothing else',
     lines: [
       merged.length === 0
-        ? 'No two enabled codes share an asset and kind.'
+        ? 'No two enabled codes share an asset, kind and name.'
         : merged.map(([key, codes]) => `${codes.join(' + ')} -> ${key}`).join('; '),
       'It was 2 (DOT staked, KSM staked). Anything new here is two balances reported as ' +
         'one, which is the failure netting exists to prevent.',

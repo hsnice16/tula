@@ -96,12 +96,9 @@ rewrite site/lib/site.ts sed \
 [ "$(grep -m1 'VERSION' site/lib/site.ts | sed "s/.*'\([^']*\)'.*/\1/")" = "$VERSION" ] ||
   die "site/lib/site.ts did not take the bump; its VERSION line has changed shape"
 
-# Three files print a `gh attestation verify` line naming a release archive and
-# its tag, and the install page also prints the URL that archive is downloaded
-# from. A reader
-# copies those verbatim, so leaving them behind publishes a command that 404s or
-# reports a failed verification. guard.sh refuses the tree either way, which
-# meant every cut used to fail its own gate and hand back an edit to undo.
+# Three files print a `gh attestation verify` line naming an archive and its
+# tag, and the install page also prints its download URL. Readers copy these
+# verbatim; guard.sh refuses a tree where they name another version.
 for f in SECURITY.md README.md site/app/install/page.tsx; do
   rewrite "$f" sed \
     -e "s|tula-v$current-|tula-v$VERSION-|g" \
@@ -143,7 +140,7 @@ release-cut: v$VERSION is prepared and the gate is green. Nothing is published â
 pushing the tag is what publishes.
 
   git add -u
-  git commit -m "tula v$VERSION"
+  git commit -m "chore: release v$VERSION"
   git push origin $branch
 
 Then, once CI is green on that commit:
