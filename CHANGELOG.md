@@ -11,6 +11,8 @@ CI and build plumbing, refactors, and doc-only edits — stays in commit message
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-20
+
 ### Changed
 
 - **`/update install` checks who built the update, as the installer does.** Where the GitHub CLI is installed and signed in, the archive's attestation must name this repository's release workflow and the release's own tag, or nothing is installed. Without it the update goes ahead and says provenance was not proven; `TULA_REQUIRE_ATTESTATION=1` refuses that instead.
@@ -418,7 +420,8 @@ what breaks first.
 - `KeyScope` is tri-state. Kraken exposes no endpoint reporting a key's permissions, and every endpoint gated on trade permission mutates an order, so `canTrade` is `unknown` rather than guessed at. Withdraw scope is provable, and is proven.
 - Kraken margin and open orders are not read yet, so on a margin account this is not a complete Kraken picture.
 
-[Unreleased]: https://github.com/hsnice16/tula/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/hsnice16/tula/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/hsnice16/tula/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/hsnice16/tula/compare/v0.3.3...v0.4.0
 [0.3.3]: https://github.com/hsnice16/tula/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/hsnice16/tula/compare/v0.3.1...v0.3.2
