@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import Decimal from 'decimal.js'
-import { portfolioValue } from '../core/exposure.js'
+import { netExposure, portfolioValue } from '../core/exposure.js'
 import { whatBreaksFirst } from '../core/risk.js'
 import { rowIdentity } from '../core/position.js'
 import { krakenConnector, normalizeAsset, sign } from './kraken.js'
@@ -98,6 +98,17 @@ describe('sign', () => {
 })
 
 describe('normalizeAsset', () => {
+  // Kraken lists a coin on another network as an asset of its own, named for
+  // both ("Ethereum on Ink", ETH.INK); a row merged into the base hid that.
+  test('a network suffix keeps the coin and names its own row, as Kraken does', () => {
+    const names = new Map([...NAMES, ['USDC.CORE', 'USDC.CORE'], ['USDC', 'USDC']])
+    expect(normalizeAsset('USDC.CORE', names)).toEqual({ asset: 'USDC', kind: 'spot', heldAs: 'USDC.CORE' })
+    expect(normalizeAsset('USDC', names)).toEqual({ asset: 'USDC', kind: 'spot' })
+    // Yield and held-fund suffixes are kinds, not networks: they stay as they were.
+    expect(normalizeAsset('ETH.S', NAMES)).toEqual({ asset: 'ETH', kind: 'staked' })
+    expect(normalizeAsset('USD.HOLD', NAMES)).toEqual({ asset: 'USD', kind: 'pending' })
+  })
+
   test('reads the legacy prefixes off the codes that actually carry them', () => {
     expect(normalizeAsset('XXBT', NAMES)).toEqual({ asset: 'BTC', kind: 'spot' })
     expect(normalizeAsset('XETH', NAMES)).toEqual({ asset: 'ETH', kind: 'spot' })
@@ -141,17 +152,17 @@ describe('normalizeAsset', () => {
     expect(normalizeAsset('EUR.HOLD', NAMES)).toEqual({ asset: 'EUR', kind: 'pending' })
   })
 
-  test('a chain variant is the asset it is a variant of', () => {
-    expect(normalizeAsset('ETH.INK', NAMES)).toEqual({ asset: 'ETH', kind: 'spot' })
-    expect(normalizeAsset('HYPER.CORE', NAMES)).toEqual({ asset: 'HYPER', kind: 'spot' })
+  test('a chain variant is the asset it is a variant of, held under its own name', () => {
+    expect(normalizeAsset('ETH.INK', NAMES)).toEqual({ asset: 'ETH', kind: 'spot', heldAs: 'ETH.INK' })
+    expect(normalizeAsset('HYPER.CORE', NAMES)).toEqual({ asset: 'HYPER', kind: 'spot', heldAs: 'HYPER.CORE' })
   })
 
   test('two live assets never resolve to one ticker', () => {
     const seen = new Map<string, string>()
     for (const [code, info] of Object.entries(ASSETS.result)) {
       if (info.status !== 'enabled') continue
-      const { asset, kind } = normalizeAsset(code, NAMES)
-      const key = `${kind}:${asset}`
+      const { asset, kind, heldAs } = normalizeAsset(code, NAMES)
+      const key = `${kind}:${asset}${heldAs ? `:${heldAs}` : ''}`
       const first = seen.get(key)
       // Yield and hold variants are one exposure with the asset they earn on;
       // two *different* assets landing on one ticker is a merged balance.
@@ -282,6 +293,20 @@ describe('kraken balances', () => {
     const usd = positions.filter((p) => p.venue === 'kraken' && p.asset === 'USD')
     expect(usd.map((p) => p.kind)).toEqual(['spot'])
     expect(usd[0]?.quantity.toString()).toBe('1000')
+  })
+
+  test('USDC and USDC.CORE are two rows, and one USDC exposure', async () => {
+    stub({ balanceEx: { USDC: { balance: '1000' }, 'USDC.CORE': { balance: '250' } } })
+    const positions = await krakenConnector.fetchPositions(CREDS)
+    const rows = positions.filter((p) => p.asset === 'USDC')
+    expect(rows.map((p) => [p.heldAs ?? 'USDC', p.quantity.toString()])).toEqual([
+      ['USDC', '1000'],
+      ['USDC.CORE', '250'],
+    ])
+    expect(new Set(rows.map((p) => p.id)).size).toBe(2)
+    const usdc = netExposure(positions).find((e) => e.asset === 'USDC')
+    expect(usdc?.delta.toString()).toBe('1250')
+    expect(usdc?.contributors).toHaveLength(2)
   })
 
   test('a zero balance is not a row', async () => {

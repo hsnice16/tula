@@ -163,10 +163,16 @@ export type AssetNames = ReadonlyMap<string, string>
  * Gold to AUT, which prices as nothing or as something else entirely.
  * `altname` is the answer Kraken publishes; the prefix rule is only the
  * fallback for a code the asset list did not carry.
+ *
+ * Any other suffix names a network (`USDC.CORE` is USDC on HyperCore,
+ * `ETH.INK` ether on Ink). Kraken lists each as an asset of its own, so it is
+ * its own row under that name in `heldAs` — while still the coin underneath,
+ * which is what exposure and its price are.
  */
 export function normalizeAsset(krakenAsset: string, names: AssetNames = new Map()): {
   asset: string
   kind: PositionKind
+  heldAs?: string
 } {
   const name = names.get(krakenAsset) ?? legacyName(krakenAsset)
   const dot = name.indexOf('.')
@@ -178,7 +184,8 @@ export function normalizeAsset(krakenAsset: string, names: AssetNames = new Map(
     : suffix === HELD_SUFFIX
       ? 'pending'
       : 'spot'
-  return { asset: RENAMES[base] ?? base, kind }
+  const network = suffix !== '' && kind === 'spot'
+  return { asset: RENAMES[base] ?? base, kind, ...(network ? { heldAs: name } : {}) }
 }
 
 function legacyName(krakenAsset: string): string {
@@ -420,24 +427,33 @@ function spotRows(
 ): Position[] {
   const byId = new Map<string, Position>()
 
-  const add = (asset: string, kind: PositionKind, quantity: Decimal) => {
+  const add = (asset: string, kind: PositionKind, quantity: Decimal, heldAs?: string) => {
     if (quantity.isZero()) return
-    const id = `${label}:${kind}:${asset}`
+    const id = `${label}:${kind}:${asset}${heldAs ? `:${heldAs}` : ''}`
     const existing = byId.get(id)
     // ETH.S and ETH.M both normalize to staked ETH; they are one exposure.
     const merged = existing ? existing.quantity.plus(quantity) : quantity
-    byId.set(id, { id, venue: label, kind, asset, quantity: merged, delta: merged, asOf })
+    byId.set(id, {
+      id,
+      venue: label,
+      kind,
+      asset,
+      quantity: merged,
+      delta: merged,
+      asOf,
+      ...(heldAs ? { heldAs } : {}),
+    })
   }
 
   for (const [code, entry] of Object.entries(balances)) {
     const total = new Decimal(entry.balance ?? '0')
     if (total.isZero()) continue
-    const { asset, kind } = normalizeAsset(code, names)
+    const { asset, kind, heldAs } = normalizeAsset(code, names)
     const held = split ? Decimal.min(new Decimal(entry.hold_trade ?? '0'), total) : new Decimal(0)
-    add(asset, kind, total.minus(held))
+    add(asset, kind, total.minus(held), heldAs)
     // Held funds are still exposure, so they stay in the book; `pending` is the
     // model's word for money that is yours and not yours to move.
-    add(asset, 'pending', held)
+    add(asset, 'pending', held, heldAs)
   }
 
   return [...byId.values()]

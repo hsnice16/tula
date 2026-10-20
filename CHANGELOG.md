@@ -11,6 +11,10 @@ CI and build plumbing, refactors, and doc-only edits — stays in commit message
 
 ## [Unreleased]
 
+### Changed
+
+- **Kraken shows a coin held on another network as its own row, the way Kraken does.** `USDC.CORE` (USDC on HyperCore), `ETH.INK` and `USDT0.TEMPO` each appear under their own name in `/positions`, beside the coin's other balance, and still count toward that coin's exposure. They were added silently into the coin's row.
+
 ## [0.4.1] - 2026-10-20
 
 ### Changed

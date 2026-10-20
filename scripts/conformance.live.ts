@@ -150,25 +150,26 @@ async function kraken(): Promise<Finding[]> {
     ],
   })
 
-  // Two codes that normalize to one asset and kind net into a single row. For
-  // XETH beside ETH that is right; for anything else it is one balance reported
-  // as the sum of two, so the set is reported rather than asserted away.
+  // Two codes that normalize to one asset, kind and name net into a single row.
+  // For two staking forms of one coin that is right; for anything else it is
+  // one balance reported as the sum of two, so the set is reported rather than
+  // asserted away. A network variant is its own row, under `heldAs`.
   const byAsset = new Map<string, string[]>()
   for (const [code] of enabled) {
-    const { asset, kind } = normalizeAsset(code, names)
-    const key = `${asset} (${kind})`
+    const { asset, kind, heldAs } = normalizeAsset(code, names)
+    const key = `${heldAs ?? asset} (${kind})`
     byAsset.set(key, [...(byAsset.get(key) ?? []), code])
   }
   const merged = [...byAsset].filter(([, codes]) => codes.length > 1)
   findings.push({
-    verdict: merged.length <= 4 ? 'holds' : 'drifted',
-    belief: 'Kraken codes that net into one row are the legacy pairs and nothing else',
+    verdict: merged.length <= 2 ? 'holds' : 'drifted',
+    belief: 'Kraken codes that net into one row are two staking forms of one coin, and nothing else',
     lines: [
       merged.length === 0
         ? 'No two enabled codes share an asset and kind.'
         : merged.map(([key, codes]) => `${codes.join(' + ')} -> ${key}`).join('; '),
-      'It was 4 (ETH spot, USDT0 spot, DOT staked, KSM staked). Anything new here is two ' +
-        'balances reported as one, which is the failure netting exists to prevent.',
+      'It was 2 (DOT staked, KSM staked). Anything new here is two balances reported as ' +
+        'one, which is the failure netting exists to prevent.',
     ],
   })
 
