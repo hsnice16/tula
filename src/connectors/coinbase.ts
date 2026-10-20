@@ -226,7 +226,7 @@ export const coinbaseConnector: Connector = {
   coverage: {
     reads: [
       'every account the key can list, free and held stated apart',
-      'perpetual futures positions, with the liquidation price and leverage Coinbase publishes',
+      'Coinbase International perpetual futures, with the liquidation price and leverage Coinbase publishes',
     ],
     doesNotRead: [
       {

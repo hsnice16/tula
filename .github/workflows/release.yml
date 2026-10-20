@@ -24,7 +24,27 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # The full gate, in a job that holds nothing: the tests run dependency code,
+  # and the release job below can sign. It waits on this one.
+  check:
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.2.16
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+
   release:
+    needs: check
     # Publishing waits for a human. The environment is declared here so the
     # gate is part of the workflow rather than a setting somebody has to know
     # exists; it does nothing until `release` is given a required reviewer in
@@ -61,6 +81,8 @@ jobs:
       # a different one to `tula --version`. Caught before anything is built.
       - id: version
         name: tag agrees with src/version.ts
+        env:
+          PUBLISH_INPUT: ${{ inputs.publish }}
         run: |
           set -euo pipefail
           app=$(grep -m1 'APP_VERSION' src/version.ts | sed "s/.*'\([^']*\)'.*/\1/")
@@ -75,11 +97,15 @@ jobs:
             *) echo "prerelease=false" >>"$GITHUB_OUTPUT" ;;
           esac
 
-          # A tag push publishes. A manual run does not, unless it says so:
-          # GITHUB_REF_TYPE is `branch` there, so the tag check above cannot
-          # protect it, and every step below would otherwise cut a real release
-          # from whatever happens to be on the branch.
-          if [ "$GITHUB_REF_TYPE" = tag ] || [ "${{ inputs.publish }}" = true ]; then
+          # A tag push publishes. A manual run is a dry run unless it says
+          # otherwise, and then only from the tag: install.sh pins the tag the
+          # attestation names, so a release published from a branch would be
+          # one no installer accepts.
+          if [ "$GITHUB_EVENT_NAME" = push ] || [ "$PUBLISH_INPUT" = true ]; then
+            if [ "$GITHUB_REF_TYPE" != tag ]; then
+              echo "::error::Publish from the tag: Run workflow -> Use workflow from -> v$app." >&2
+              exit 1
+            fi
             echo "publish=true" >>"$GITHUB_OUTPUT"
           else
             echo "publish=false" >>"$GITHUB_OUTPUT"
@@ -108,11 +134,9 @@ jobs:
         with:
           node-version: 22
 
-      - run: bun install --frozen-lockfile
-
-      # The same gate every pull request passes. A release is the last place to
-      # discover the guard was failing.
-      - run: bun run check
+      # No install scripts in the job that can sign: nothing here needs one,
+      # and `check` above has already run the suite.
+      - run: bun install --frozen-lockfile --ignore-scripts
 
       - run: bash scripts/release-build.sh dist/release
 
@@ -241,12 +265,11 @@ jobs:
       # The subjects are the archives, which is what install.sh verifies.
       #
       # Gated with the publish steps, not run alongside them. An attestation is
-      # a public transparency-log entry, and `install.sh` pins the signing
-      # workflow but not the ref it ran from — so a dry run would mint proof
-      # that a build from an arbitrary branch came from this workflow, which is
-      # indistinguishable from a released one at the only place anybody checks.
-      # The cost is that a dry run does not exercise this step; the first real
-      # tag does, before any channel points at it.
+      # a public transparency-log entry: `install.sh` pins the tag, but anyone
+      # checking by hand with only `--signer-workflow` would take a dry run's
+      # from an arbitrary branch for a release. The cost is that a dry run does
+      # not exercise this step; the first real tag does, before any channel
+      # points at it.
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         if: steps.version.outputs.publish == 'true'
         with:
@@ -286,7 +309,8 @@ jobs:
             # attestation from any workflow here, and this is the copy people
             # paste. SECURITY.md says the flag is not optional; so does this.
             echo "gh attestation verify tula-v$VERSION-darwin-arm64.tar.gz --repo $GITHUB_REPOSITORY \\"
-            echo "  --signer-workflow $GITHUB_REPOSITORY/.github/workflows/release.yml"
+            echo "  --signer-workflow $GITHUB_REPOSITORY/.github/workflows/release.yml \\"
+            echo "  --source-ref refs/tags/v$VERSION --deny-self-hosted-runners"
             echo '```'
             echo
             echo "Changelog: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/v$VERSION/CHANGELOG.md"

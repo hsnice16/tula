@@ -35,7 +35,8 @@ export function guideMetadata(path: string, title: string, description: string):
  * A page written for one search: what the venue or the concept is, in its own
  * terms, then what tula reads and how to try it. The `WebPage` node restates the
  * title and description and nothing else — not `TechArticle`, which wants dates
- * the static build cannot state truthfully.
+ * the static build cannot state truthfully. A page that is itself a tool says
+ * so with `tool`, so its node names the calculator rather than only the CLI.
  */
 export function Guide({
   path,
@@ -44,6 +45,7 @@ export function Guide({
   heading,
   description,
   lead,
+  tool = false,
   children,
 }: {
   path: string
@@ -52,6 +54,7 @@ export function Guide({
   heading: string
   description: string
   lead: string
+  tool?: boolean
   children: ReactNode
 }) {
   const page = {
@@ -64,9 +67,22 @@ export function Guide({
     inLanguage: 'en',
     isPartOf: { '@id': `${SITE}/#site` },
     about: { '@id': `${SITE}/#app` },
+    ...(tool
+      ? {
+          mainEntity: {
+            '@type': 'WebApplication',
+            name: title,
+            url: pageUrl(path),
+            applicationCategory: 'FinanceApplication',
+            browserRequirements: 'Requires JavaScript',
+            isAccessibleForFree: true,
+            offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+          },
+        }
+      : {}),
   }
   return (
-    <main className="wrap pt-16 pb-step-3">
+    <main className="wrap animate-fade pt-16 pb-step-3">
       <JsonLd schema={breadcrumb(label, path)} />
       <JsonLd schema={page} />
       <h1 className="mb-5 max-w-[46rem] text-[clamp(2rem,4.5vw,2.8rem)] font-medium leading-[1.1] tracking-[-0.025em]">

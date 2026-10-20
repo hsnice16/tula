@@ -87,7 +87,7 @@
             "value": 10,
             "rawUsd": "6372998.7993057195"
           },
-          "entryPx": "78366.5",
+          "entryPx": "78211.0",
           "positionValue": "5790229.6649629378",
           "unrealizedPnl": "5879.9450530044",
           "returnOnEquity": "0.0101446409",
@@ -102,7 +102,7 @@
         }
       }
     ],
-    "time": 1789394924108
+    "time": 1789394400000
   },
   "dexes": {
     "xyz": {
@@ -121,7 +121,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789394924387
+      "time": 1789394400000
     },
     "flx": {
       "marginSummary": {
@@ -139,7 +139,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789394924718
+      "time": 1789394400000
     },
     "vntl": {
       "marginSummary": {
@@ -157,7 +157,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789394924910
+      "time": 1789394400000
     },
     "hyna": {
       "marginSummary": {
@@ -175,7 +175,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789394925211
+      "time": 1789394400000
     },
     "km": {
       "marginSummary": {
@@ -193,7 +193,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789394925517
+      "time": 1789394400000
     },
     "abcd": {
       "marginSummary": {
@@ -211,7 +211,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789394925835
+      "time": 1789394400000
     },
     "cash": {
       "marginSummary": {
@@ -229,7 +229,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789394926111
+      "time": 1789394400000
     },
     "para": {
       "marginSummary": {
@@ -247,7 +247,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789394926464
+      "time": 1789394400000
     },
     "mkts": {
       "marginSummary": {
@@ -265,7 +265,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789394926875
+      "time": 1789394400000
     },
     "io": {
       "marginSummary": {
@@ -283,7 +283,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789394927066
+      "time": 1789394400000
     }
   },
   "openOrders": [

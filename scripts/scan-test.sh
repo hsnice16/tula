@@ -114,6 +114,22 @@ probe quiet "a lockfile of integrity hashes" \
 probe caught "a registry token in a lockfile" \
   "//registry.npmjs.org/:_authToken=np${x}m_AbCdEfGhIjKlMnOpQrStUvWxYz01" bun.lock
 
+# A rename with a key added in the same commit: git reports it as R, not M,
+# and a filter of ACM let it through with the rest of the file's history.
+echo "scan-test: renames"
+printf '%s\n' "$(printf 'const line%d = 1\n' $(seq 1 40))" > "$WORK/old.ts"
+git -C "$WORK" add old.ts && git -C "$WORK" commit -qm base
+git -C "$WORK" mv old.ts new.ts
+printf '%s\n' "const k = 'g${x}hp_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789'" >> "$WORK/new.ts"
+git -C "$WORK" add new.ts
+if (cd "$WORK" && bash .githooks/scan-staged >/dev/null 2>&1); then
+  echo "  MISSED: a key added to a renamed file"
+  fail=1
+else
+  echo "  ok: a key added to a renamed file"
+fi
+git -C "$WORK" reset -q --hard
+
 # The cases the scanner has to stay quiet about, or it teaches --no-verify.
 echo "scan-test: no false positive on ordinary code"
 probe quiet "ABI calldata padded with zeros" \

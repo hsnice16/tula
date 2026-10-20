@@ -167,8 +167,8 @@ const AMOUNT = new Set([
 ])
 
 /**
- * The fields a factor must not touch. A price is per unit and does not move when
- * the units do; `returnOnEquity` and `liquidationPx` are already degree zero in
+ * The fields a factor must not touch (`entryPx` is nudged instead; see
+ * `nudged`). A price is per unit and does not move when the units do; `returnOnEquity` and `liquidationPx` are already degree zero in
  * the amounts, so multiplying them is what would break them. The ratios are
  * kept for the same reason, and two of them against a venue constant a factor
  * never touches — `tokenToPortfolioBorrowRatio` is a borrow over a per-user cap —
@@ -177,7 +177,6 @@ const AMOUNT = new Set([
  */
 const KEPT = new Set([
   'coin',
-  'entryPx',
   'liquidationPx',
   'returnOnEquity',
   'limitPx',
@@ -209,7 +208,9 @@ function figure(scaled: Decimal): string {
  * venue could have said.
  */
 function scale(value: unknown, by: Decimal, key = ''): unknown {
+  if (key === 'time' && typeof value === 'number') return coarseTime(value)
   if (typeof value === 'string' && FIGURE.test(value)) {
+    if (key === 'entryPx') return nudged(value)
     if (KEPT.has(key)) return value
     if (!AMOUNT.has(key)) throw new Error(`${key}: is it an amount? add it to AMOUNT or to KEPT`)
     const amount = new Exact(value).times(by)
@@ -224,6 +225,26 @@ function scale(value: unknown, by: Decimal, key = ''): unknown {
     )
   }
   return value
+}
+
+/**
+ * The two figures left exact were still a lookup key: a coin and its entry
+ * price to the last digit, or a snapshot's millisecond, find the account in the
+ * public trade and block record. Nothing relates an entry price to another
+ * field, so it moves by up to half a percent at the venue's own precision; a
+ * time keeps its hour, which is all an age is ever measured in.
+ */
+function coarseTime(ms: number): number {
+  return Math.floor(ms / 3_600_000) * 3_600_000
+}
+
+function nudged(price: string): string {
+  const places = price.split('.')[1]?.length ?? 0
+  const bits = new BigUint64Array(1)
+  crypto.getRandomValues(bits)
+  const unit = new Exact(bits[0]!.toString()).dividedBy(new Exact(2).pow(64))
+  const by = new Exact(1).plus(unit.minus('0.5').dividedBy(100))
+  return new Exact(price).times(by).toFixed(places, Decimal.ROUND_HALF_EVEN)
 }
 
 /**

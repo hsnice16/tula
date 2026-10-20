@@ -37,7 +37,7 @@ export const AUTHOR = { name: 'Himanshu Singh', url: 'https://github.com/hsnice1
  * promise retracted on release day reads as though it was never true.
  */
 export const DESCRIPTION =
-  'A terminal tool that answers what no single venue can: your real exposure, and what breaks first. Read-only for the moment — placing trades will come later.'
+  'Open-source CLI: your real exposure and liquidation risk on Hyperliquid, Aave, Kraken, Binance, Coinbase and wallets. Read-only; placing trades will come later.'
 
 /**
  * The one string every install instruction on the site renders. Written out
@@ -57,9 +57,9 @@ export const pageUrl = (href: string) => `${SITE}${href === '/' ? '' : href}/`
 /**
  * Every route the site publishes, in display order. The footer, the sitemap and
  * `llms.txt` all take the routes from here, so a new page cannot ship unlinked
- * or unindexed; the header shows only `inHeader` ones. `group` is the footer
- * column a route sits in: `site` under Pages, `guide` under Guides. The blurb is
- * the sentence `llms.txt` summarises each one by.
+ * or unindexed; the header shows only `inHeader` ones. `group` picks the
+ * footer's Pages or a guide `shelf`; `under` lists a page beneath another
+ * there, by its `footerLabel`. The blurb is what `llms.txt` summarises it by.
  */
 export const NAV = [
   {
@@ -87,10 +87,19 @@ export const NAV = [
       'What tula promises about your keys and your funds, what enforces each promise, and where the limits are.',
   },
   {
+    href: '/privacy',
+    label: 'Privacy',
+    inHeader: false,
+    group: 'site',
+    blurb:
+      'What this site measures about a visit, the analytics choice and how to change it, and what the binary sends: nothing.',
+  },
+  {
     href: '/keys',
     label: 'Keys',
     inHeader: false,
     group: 'guide',
+    shelf: 'topic',
     blurb:
       'Every key the shell answers to, grouped by what it is for, and which ones need a terminal that sends them.',
   },
@@ -99,6 +108,7 @@ export const NAV = [
     label: 'Liquidation risk',
     inHeader: false,
     group: 'guide',
+    shelf: 'topic',
     blurb:
       'Every liquidatable position across venues, in one list ordered by the move that liquidates it.',
   },
@@ -107,6 +117,7 @@ export const NAV = [
     label: 'Exposure',
     inHeader: false,
     group: 'guide',
+    shelf: 'topic',
     blurb:
       'Spot, perps and collateral netted per asset across venues, and an Equity total that never adds a perp’s notional.',
   },
@@ -115,6 +126,7 @@ export const NAV = [
     label: 'Stress test',
     inHeader: false,
     group: 'guide',
+    shelf: 'topic',
     blurb:
       'One price move across every venue at once: the new total, each health factor and account ratio, and what liquidates.',
   },
@@ -123,6 +135,7 @@ export const NAV = [
     label: 'Wallets',
     inHeader: false,
     group: 'guide',
+    shelf: 'venue',
     blurb:
       'One public address read on nine EVM chains — the gas token and the ERC-20s a token list names — with no key.',
   },
@@ -131,6 +144,7 @@ export const NAV = [
     label: 'Hyperliquid',
     inHeader: false,
     group: 'guide',
+    shelf: 'venue',
     blurb:
       'Liquidation price or account ratio by Hyperliquid account mode, builder dexes, sub-accounts, vaults and staked HYPE.',
   },
@@ -139,6 +153,7 @@ export const NAV = [
     label: 'Aave',
     inHeader: false,
     group: 'guide',
+    shelf: 'venue',
     blurb:
       'Aave health factor and the move to liquidation, across twelve v3 markets on nine chains, from one address.',
   },
@@ -147,6 +162,7 @@ export const NAV = [
     label: 'Kraken',
     inHeader: false,
     group: 'guide',
+    shelf: 'venue',
     blurb: 'A read-only Kraken API key, in Kraken’s own permission names, and what tula refuses.',
   },
   {
@@ -154,6 +170,7 @@ export const NAV = [
     label: 'Binance',
     inHeader: false,
     group: 'guide',
+    shelf: 'venue',
     blurb:
       'A read-only Binance API key, in Binance’s own restriction names, and what tula refuses.',
   },
@@ -162,7 +179,60 @@ export const NAV = [
     label: 'Coinbase',
     inHeader: false,
     group: 'guide',
-    blurb: 'A read-only Coinbase CDP key with View only, and what tula refuses.',
+    shelf: 'venue',
+    blurb:
+      'A read-only Coinbase CDP key, in Coinbase’s own permission names, and what tula refuses.',
+  },
+  {
+    href: '/hyperliquid-liquidation-calculator',
+    label: 'Hyperliquid calculator',
+    inHeader: false,
+    group: 'guide',
+    shelf: 'venue',
+    under: '/hyperliquid',
+    footerLabel: 'Liquidation price',
+    blurb:
+      'A Hyperliquid liquidation price for any perp, isolated or cross, with its real max leverage and margin tiers.',
+  },
+  {
+    href: '/aave-health-factor-calculator',
+    label: 'Aave calculator',
+    inHeader: false,
+    group: 'guide',
+    shelf: 'venue',
+    under: '/aave',
+    footerLabel: 'Health factor',
+    blurb:
+      'An Aave v3 health factor and each collateral’s liquidation price, with every market’s thresholds and eMode.',
+  },
+  {
+    href: '/hyperliquid-funding-calculator',
+    label: 'Funding calculator',
+    inHeader: false,
+    group: 'guide',
+    shelf: 'venue',
+    under: '/hyperliquid',
+    footerLabel: 'Funding rate',
+    blurb: 'What Hyperliquid funding costs or pays a position: per hour, per day, and in a year.',
+  },
+  {
+    href: '/hyperliquid-portfolio-tracker',
+    label: 'Hyperliquid tracker',
+    inHeader: false,
+    group: 'guide',
+    shelf: 'venue',
+    under: '/hyperliquid',
+    footerLabel: 'Portfolio tracker',
+    blurb:
+      'A Hyperliquid account from its public address: perps, spot, sub-accounts, funding and liquidation price.',
+  },
+  {
+    href: '/crypto-portfolio-tracker-cli',
+    label: 'Terminal trackers',
+    inHeader: false,
+    group: 'guide',
+    shelf: 'topic',
+    blurb: 'Open-source crypto portfolio trackers for the terminal, and what each one reads.',
   },
 ] as const
 
@@ -209,7 +279,6 @@ export const KEYWORDS = [
   'tula',
   'crypto',
   'defi',
-  'trading',
   'terminal',
   'cli',
   'tui',
@@ -245,6 +314,11 @@ export const KEYWORDS = [
   'liquidation price',
   'liquidation risk',
   'liquidation calculator',
+  'hyperliquid liquidation calculator',
+  'aave health factor calculator',
+  'funding rate calculator',
+  'hyperliquid funding rate',
+  'hyperliquid portfolio tracker',
   'distance to liquidation',
   'health factor',
   'margin call',
@@ -300,15 +374,10 @@ export const KEYWORDS = [
   'sigstore',
   'build attestation',
   'supply chain security',
-  'reproducible install',
   'agentic',
   'ai agent',
-  'agentic trading',
-  'trading agent',
-  'ai trading assistant',
   'natural language query',
   'claude',
-  'claude opus',
   'anthropic',
   'llm terminal',
 ]

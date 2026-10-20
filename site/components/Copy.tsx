@@ -43,8 +43,11 @@ export function Copy({ text, label }: { text: string; label: string }) {
     } catch {
       next = 'failed'
     }
-    setOutcome(next)
     clearTimeout(timer.current)
+    // Cleared for a frame first: a second copy that sets the same words is not
+    // a change, and a live region announces only changes.
+    setOutcome('idle')
+    requestAnimationFrame(() => setOutcome(next))
     timer.current = setTimeout(() => setOutcome('idle'), HELD_MS)
   }
 
@@ -64,7 +67,8 @@ export function Copy({ text, label }: { text: string; label: string }) {
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="size-[0.85em]"
+          key={outcome}
+          className="size-[0.85em] animate-fade"
         >
           {outcome === 'done' ? (
             <path d="m20 6-11 11-5-5" />
@@ -75,7 +79,9 @@ export function Copy({ text, label }: { text: string; label: string }) {
             </>
           )}
         </svg>
-        {WORDS[outcome].face}
+        <span key={outcome} className="animate-fade">
+          {WORDS[outcome].face}
+        </span>
       </button>
       {/* Outside the button rather than in it: a button's children are
           presentational, so a live region nested inside one is not reliably

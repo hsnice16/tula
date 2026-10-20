@@ -14,6 +14,11 @@ side against the other, and the same object Latin calls *Libra*.
 Crypto and fiat: Hyperliquid, Aave, Kraken, Binance and Coinbase sit beside Stripe, because
 a business's settled balance is part of the same picture as its positions.
 
+To check one position without installing anything, use the
+[Hyperliquid liquidation price calculator](https://usetu.la/hyperliquid-liquidation-calculator/),
+the [Hyperliquid funding rate calculator](https://usetu.la/hyperliquid-funding-calculator/)
+or the [Aave health factor calculator](https://usetu.la/aave-health-factor-calculator/).
+
 ## The idea
 
 You are long ETH spot on Kraken, short ETH perp on Hyperliquid, and holding ETH as
@@ -149,7 +154,8 @@ it wherever the GitHub CLI can — saying so either way. Check one by hand:
 
 ```bash
 gh attestation verify tula-v0.4.0-darwin-arm64.tar.gz --repo hsnice16/tula \
-  --signer-workflow hsnice16/tula/.github/workflows/release.yml
+  --signer-workflow hsnice16/tula/.github/workflows/release.yml \
+  --source-ref refs/tags/v0.4.0 --deny-self-hosted-runners
 ```
 
 Pin a version with `TULA_VERSION`, require provenance with
@@ -193,7 +199,7 @@ useful thing you can send.
 | **Aave v3** (Ethereum, Arbitrum One, Base, Polygon, Optimism, Avalanche, Gnosis, Scroll and Linea) | collateral, debt, health factor, per asset, across twelve markets | one or more public addresses |
 | **Kraken** | spot, staked and held balances in every wallet, and open margin positions with the loan behind each | one or more query-only API keys |
 | **Binance** | spot balances with free and locked stated apart, and cross and isolated margin with the liquidation price each carries | one or more read-only API keys |
-| **Coinbase Advanced** | every account the key can list, free and held stated apart, and perpetual positions with liquidation price and leverage | one or more CDP API keys (view-only) |
+| **Coinbase Advanced** | every account the key can list, free and held stated apart, and Coinbase International perpetual positions with liquidation price and leverage | one or more CDP API keys (view-only) |
 | **Stripe** | five of the six balance buckets `/v1/balance` carries, per currency — `instant_available` is a slice of `available` and would state the same money twice | one or more restricted (`rk_`) keys |
 
 | | |

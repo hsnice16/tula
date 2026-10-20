@@ -95,7 +95,7 @@
             "value": 20,
             "rawUsd": "10421.2701818723"
           },
-          "entryPx": "77623.7",
+          "entryPx": "77593.6",
           "positionValue": "10022.5280176138",
           "unrealizedPnl": "-94.5628413567",
           "returnOnEquity": "-0.1904979312",
@@ -110,7 +110,7 @@
         }
       }
     ],
-    "time": 1789399921492
+    "time": 1789398000000
   },
   "dexes": {
     "xyz": {
@@ -139,7 +139,7 @@
               "value": 20,
               "rawUsd": "-217077.7474947839"
             },
-            "entryPx": "99.468",
+            "entryPx": "99.770",
             "positionValue": "234716.5031894536",
             "unrealizedPnl": "168.5594293875",
             "returnOnEquity": "0.0143731321",
@@ -163,7 +163,7 @@
               "value": 8,
               "rawUsd": "-168997.0467939743"
             },
-            "entryPx": "102.5203",
+            "entryPx": "102.4814",
             "positionValue": "195510.8242571719",
             "unrealizedPnl": "1419.1525573638",
             "returnOnEquity": "0.0584941145",
@@ -178,7 +178,7 @@
           }
         }
       ],
-      "time": 1789399921765
+      "time": 1789398000000
     },
     "flx": {
       "marginSummary": {
@@ -196,7 +196,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789399922043
+      "time": 1789398000000
     },
     "vntl": {
       "marginSummary": {
@@ -214,7 +214,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789399922304
+      "time": 1789398000000
     },
     "hyna": {
       "marginSummary": {
@@ -232,7 +232,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789399922647
+      "time": 1789398000000
     },
     "km": {
       "marginSummary": {
@@ -250,7 +250,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789399922912
+      "time": 1789398000000
     },
     "abcd": {
       "marginSummary": {
@@ -268,7 +268,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789399923249
+      "time": 1789398000000
     },
     "cash": {
       "marginSummary": {
@@ -286,7 +286,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789399923517
+      "time": 1789398000000
     },
     "para": {
       "marginSummary": {
@@ -304,7 +304,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789399923766
+      "time": 1789398000000
     },
     "mkts": {
       "marginSummary": {
@@ -322,7 +322,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789399923992
+      "time": 1789398000000
     },
     "io": {
       "marginSummary": {
@@ -340,7 +340,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789399924329
+      "time": 1789398000000
     }
   },
   "openOrders": [
@@ -499,7 +499,7 @@
         "crossMaintenanceMarginUsed": "0.0",
         "withdrawable": "0.0067061858",
         "assetPositions": [],
-        "time": 1789399928526
+        "time": 1789398000000
       },
       "spotState": {
         "balances": [
@@ -533,7 +533,7 @@
         "crossMaintenanceMarginUsed": "0.0",
         "withdrawable": "0.0",
         "assetPositions": [],
-        "time": 1789399928526
+        "time": 1789398000000
       },
       "spotState": {
         "balances": [
@@ -567,7 +567,7 @@
         "crossMaintenanceMarginUsed": "0.0",
         "withdrawable": "0.0005149898",
         "assetPositions": [],
-        "time": 1789399928526
+        "time": 1789398000000
       },
       "spotState": {
         "balances": [
@@ -601,7 +601,7 @@
         "crossMaintenanceMarginUsed": "0.0",
         "withdrawable": "0.009037788",
         "assetPositions": [],
-        "time": 1789399928526
+        "time": 1789398000000
       },
       "spotState": {
         "balances": [
@@ -635,7 +635,7 @@
         "crossMaintenanceMarginUsed": "0.0",
         "withdrawable": "0.0",
         "assetPositions": [],
-        "time": 1789399928526
+        "time": 1789398000000
       },
       "spotState": {
         "balances": [
@@ -681,7 +681,7 @@
         "crossMaintenanceMarginUsed": "0.0",
         "withdrawable": "0.0067061858",
         "assetPositions": [],
-        "time": 1789399935580
+        "time": 1789398000000
       },
       "dexes": {
         "xyz": {
@@ -700,7 +700,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399931027
+          "time": 1789398000000
         },
         "flx": {
           "marginSummary": {
@@ -718,7 +718,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399931359
+          "time": 1789398000000
         },
         "vntl": {
           "marginSummary": {
@@ -736,7 +736,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399931625
+          "time": 1789398000000
         },
         "hyna": {
           "marginSummary": {
@@ -754,7 +754,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399931960
+          "time": 1789398000000
         },
         "km": {
           "marginSummary": {
@@ -772,7 +772,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399932223
+          "time": 1789398000000
         },
         "abcd": {
           "marginSummary": {
@@ -790,7 +790,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399932499
+          "time": 1789398000000
         },
         "cash": {
           "marginSummary": {
@@ -808,7 +808,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399932821
+          "time": 1789398000000
         },
         "para": {
           "marginSummary": {
@@ -826,7 +826,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399933096
+          "time": 1789398000000
         },
         "mkts": {
           "marginSummary": {
@@ -844,7 +844,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399933363
+          "time": 1789398000000
         },
         "io": {
           "marginSummary": {
@@ -862,7 +862,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399933628
+          "time": 1789398000000
         }
       }
     },
@@ -923,7 +923,7 @@
         "crossMaintenanceMarginUsed": "0.0",
         "withdrawable": "0.0",
         "assetPositions": [],
-        "time": 1789399940680
+        "time": 1789398000000
       },
       "dexes": {
         "xyz": {
@@ -942,7 +942,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399935911
+          "time": 1789398000000
         },
         "flx": {
           "marginSummary": {
@@ -960,7 +960,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399936179
+          "time": 1789398000000
         },
         "vntl": {
           "marginSummary": {
@@ -978,7 +978,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399936453
+          "time": 1789398000000
         },
         "hyna": {
           "marginSummary": {
@@ -996,7 +996,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399936575
+          "time": 1789398000000
         },
         "km": {
           "marginSummary": {
@@ -1014,7 +1014,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399937256
+          "time": 1789398000000
         },
         "abcd": {
           "marginSummary": {
@@ -1032,7 +1032,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399937659
+          "time": 1789398000000
         },
         "cash": {
           "marginSummary": {
@@ -1050,7 +1050,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399937924
+          "time": 1789398000000
         },
         "para": {
           "marginSummary": {
@@ -1068,7 +1068,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399938186
+          "time": 1789398000000
         },
         "mkts": {
           "marginSummary": {
@@ -1086,7 +1086,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399938467
+          "time": 1789398000000
         },
         "io": {
           "marginSummary": {
@@ -1104,7 +1104,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399938834
+          "time": 1789398000000
         }
       }
     },
@@ -1138,7 +1138,7 @@
         "crossMaintenanceMarginUsed": "0.0",
         "withdrawable": "0.0005149898",
         "assetPositions": [],
-        "time": 1789399945658
+        "time": 1789398000000
       },
       "dexes": {
         "xyz": {
@@ -1157,7 +1157,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399941095
+          "time": 1789398000000
         },
         "flx": {
           "marginSummary": {
@@ -1175,7 +1175,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399941413
+          "time": 1789398000000
         },
         "vntl": {
           "marginSummary": {
@@ -1193,7 +1193,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399941715
+          "time": 1789398000000
         },
         "hyna": {
           "marginSummary": {
@@ -1211,7 +1211,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399942052
+          "time": 1789398000000
         },
         "km": {
           "marginSummary": {
@@ -1229,7 +1229,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399942324
+          "time": 1789398000000
         },
         "abcd": {
           "marginSummary": {
@@ -1247,7 +1247,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399942669
+          "time": 1789398000000
         },
         "cash": {
           "marginSummary": {
@@ -1265,7 +1265,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399942957
+          "time": 1789398000000
         },
         "para": {
           "marginSummary": {
@@ -1283,7 +1283,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399943232
+          "time": 1789398000000
         },
         "mkts": {
           "marginSummary": {
@@ -1301,7 +1301,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399943509
+          "time": 1789398000000
         },
         "io": {
           "marginSummary": {
@@ -1319,7 +1319,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399943845
+          "time": 1789398000000
         }
       }
     },
@@ -1353,7 +1353,7 @@
         "crossMaintenanceMarginUsed": "0.0",
         "withdrawable": "0.009037788",
         "assetPositions": [],
-        "time": 1789399949971
+        "time": 1789398000000
       },
       "dexes": {
         "xyz": {
@@ -1372,7 +1372,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399945902
+          "time": 1789398000000
         },
         "flx": {
           "marginSummary": {
@@ -1390,7 +1390,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399946255
+          "time": 1789398000000
         },
         "vntl": {
           "marginSummary": {
@@ -1408,7 +1408,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399946512
+          "time": 1789398000000
         },
         "hyna": {
           "marginSummary": {
@@ -1426,7 +1426,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399946780
+          "time": 1789398000000
         },
         "km": {
           "marginSummary": {
@@ -1444,7 +1444,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399947265
+          "time": 1789398000000
         },
         "abcd": {
           "marginSummary": {
@@ -1462,7 +1462,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399947526
+          "time": 1789398000000
         },
         "cash": {
           "marginSummary": {
@@ -1480,7 +1480,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399947793
+          "time": 1789398000000
         },
         "para": {
           "marginSummary": {
@@ -1498,7 +1498,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399947995
+          "time": 1789398000000
         },
         "mkts": {
           "marginSummary": {
@@ -1516,7 +1516,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399948084
+          "time": 1789398000000
         },
         "io": {
           "marginSummary": {
@@ -1534,7 +1534,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399948284
+          "time": 1789398000000
         }
       }
     },
@@ -1568,7 +1568,7 @@
         "crossMaintenanceMarginUsed": "0.0",
         "withdrawable": "0.0",
         "assetPositions": [],
-        "time": 1789399955934
+        "time": 1789398000000
       },
       "dexes": {
         "xyz": {
@@ -1587,7 +1587,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399950448
+          "time": 1789398000000
         },
         "flx": {
           "marginSummary": {
@@ -1605,7 +1605,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399950718
+          "time": 1789398000000
         },
         "vntl": {
           "marginSummary": {
@@ -1623,7 +1623,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399950907
+          "time": 1789398000000
         },
         "hyna": {
           "marginSummary": {
@@ -1641,7 +1641,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399951154
+          "time": 1789398000000
         },
         "km": {
           "marginSummary": {
@@ -1659,7 +1659,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399951644
+          "time": 1789398000000
         },
         "abcd": {
           "marginSummary": {
@@ -1677,7 +1677,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399951851
+          "time": 1789398000000
         },
         "cash": {
           "marginSummary": {
@@ -1695,7 +1695,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399952187
+          "time": 1789398000000
         },
         "para": {
           "marginSummary": {
@@ -1713,7 +1713,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399952456
+          "time": 1789398000000
         },
         "mkts": {
           "marginSummary": {
@@ -1731,7 +1731,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399952787
+          "time": 1789398000000
         },
         "io": {
           "marginSummary": {
@@ -1749,7 +1749,7 @@
           "crossMaintenanceMarginUsed": "0.0",
           "withdrawable": "0.0",
           "assetPositions": [],
-          "time": 1789399953110
+          "time": 1789398000000
         }
       }
     }

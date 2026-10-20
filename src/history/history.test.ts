@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   clearHistory,
+  credentialShaped,
   findInHistory,
   HISTORY_LIMIT,
   historyPath,
@@ -50,6 +51,23 @@ const shaped = {
   unbroken: `${'Kq7+'.repeat(22)}==`,
   words: Array.from({ length: 12 }, () => 'abandon').join(' '),
 }
+
+describe('what is too much like a key to ask the model', () => {
+  test('every credential shape the history refuses', () => {
+    for (const [shape, line] of Object.entries(shaped)) {
+      expect({ shape, refused: credentialShaped(`is this right ${line}`) }).toEqual({ shape, refused: true })
+    }
+  })
+
+  // The history refuses twelve short words; a question may be twelve short
+  // words, and refusing one would cost an answer rather than a saved line.
+  test('but not an ordinary question, however long', () => {
+    // Joined here: written as one string, the commit hook reads it as a phrase.
+    const question = ['what', 'does', 'the', 'book', 'look', 'like', 'and', 'how', 'much', 'can', 'eth', 'fall', 'first']
+    expect(credentialShaped(question.join(' '))).toBe(false)
+    expect(credentialShaped(`how far is 0x${'ab12'.repeat(10)} from liquidation?`)).toBe(false)
+  })
+})
 
 describe('what is recorded', () => {
   test('commands and questions alike, and an address', () => {

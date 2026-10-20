@@ -21,6 +21,10 @@
 #                             already installed
 set -eu
 
+# Everything runs from `main` on the last line: piped into sh, a download cut off
+# part way through would otherwise run whatever had arrived.
+main() {
+
 REPO="hsnice16/tula"
 SITE="https://usetu.la"
 INSTALL_DIR="${TULA_INSTALL_DIR:-$HOME/.tula}"
@@ -219,10 +223,14 @@ verify_attestation() {
   #
   # --signer-workflow, not just --repo: any workflow in the repository holding
   # `attestations: write` can mint a signature, so without it a proposed change
-  # to CI is enough to sign an arbitrary archive. The comment against the attest
-  # step in release.yml is about exactly this line.
+  # to CI is enough to sign an arbitrary archive. --source-ref, because that
+  # workflow publishes only from a tag: an attestation from any other ref is not
+  # this release. And never one from a self-hosted runner, which releases do not
+  # use. The comment against the attest step in release.yml is about these lines.
   gh attestation verify "$archive" --repo "$REPO" \
-    --signer-workflow "$REPO/.github/workflows/release.yml" >/dev/null 2>&1 ||
+    --signer-workflow "$REPO/.github/workflows/release.yml" \
+    --source-ref "refs/tags/v$VERSION" \
+    --deny-self-hosted-runners >/dev/null 2>&1 ||
     die "$(basename "$archive") failed attestation: it was not built by $REPO's release workflow." \
       "Do not use this download. Report it: https://github.com/$REPO/security"
   return 0
@@ -456,7 +464,8 @@ if [ -n "$UNVERIFIED" ]; then
   say "verify the archive — the attestation is over that, not the binary inside:"
   note "curl --proto '=https' --tlsv1.2 -fLO $BASE/$ARCHIVE"
   note "gh attestation verify \"$ARCHIVE\" --repo $REPO \\"
-  note "  --signer-workflow $REPO/.github/workflows/release.yml"
+  note "  --signer-workflow $REPO/.github/workflows/release.yml \\"
+  note "  --source-ref refs/tags/v$VERSION --deny-self-hosted-runners"
 fi
 
 [ -n "$PATH_NOTE" ] && { say ""; note "$PATH_NOTE"; }
@@ -468,3 +477,6 @@ say ""
 say "It is read-only for the moment — placing trades will come later. It cannot"
 say "move funds, and never asks for a seed phrase. Your keys: $SITE/security/"
 say ""
+}
+
+main "$@"

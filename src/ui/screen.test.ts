@@ -1169,6 +1169,38 @@ function pausingAgent() {
 
 const SPINNING = /[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/
 
+// A key pasted as a question is kept out of history, and must be kept from the
+// provider too: any touch of the client after construction counts as sent.
+test('a key or a recovery phrase typed as a question never reaches the model', async () => {
+  let armed = false
+  let reached = false
+  const client = new Proxy(
+    {},
+    {
+      get() {
+        if (armed) reached = true
+        return new Proxy(() => {}, { get: () => undefined, apply: () => undefined })
+      },
+    },
+  )
+  const agent = new Agent(fixtureEngine, { client: client as unknown as Anthropic })
+  armed = true
+  const screen = await open(100, 33, { agent })
+  try {
+    // Assembled here: the commit hook scans this file for the shapes it tests.
+    for (const line of [
+      `sk-${'ant'}-api03-${'x'.repeat(24)}`,
+      Array.from({ length: 11 }, () => 'abandon').concat('about').join(' '),
+    ]) {
+      await screen.press(`${line}\r`)
+      expect(screen.visible().join('\n')).toContain('was not sent to the model')
+    }
+    expect(reached).toBe(false)
+  } finally {
+    screen.stop()
+  }
+})
+
 test('an answer that stops for a tool still says it is working', async () => {
   const { agent, release } = pausingAgent()
   const screen = await open(100, 33, { agent })

@@ -51,7 +51,7 @@ const CLAIMS = [
   'install.sh',
 ] as const
 
-/** The pages written for a search, each linked from the footer's Guides row. */
+/** The pages written for a search, each linked from a guide column in the footer. */
 const GUIDES = [
   'site/app/liquidation-risk/page.tsx',
   'site/app/exposure/page.tsx',
@@ -62,6 +62,11 @@ const GUIDES = [
   'site/app/coinbase/page.tsx',
   'site/app/stress-test/page.tsx',
   'site/app/wallets/page.tsx',
+  'site/app/hyperliquid-liquidation-calculator/page.tsx',
+  'site/app/aave-health-factor-calculator/page.tsx',
+  'site/app/hyperliquid-funding-calculator/page.tsx',
+  'site/app/hyperliquid-portfolio-tracker/page.tsx',
+  'site/app/crypto-portfolio-tracker-cli/page.tsx',
 ] as const
 
 /**
@@ -836,15 +841,20 @@ describe('the security page names enforcement that exists', () => {
    * explain the dry run described the weaker check and would send a contributor
    * to remove the flag as redundant.
    */
-  test('the attestation is pinned to the workflow, everywhere that describes it', () => {
-    expect(read('install.sh')).toContain(
-      "--signer-workflow \"$REPO/.github/workflows/release.yml\"",
-    )
+  test('the attestation is pinned to the workflow, the tag and GitHub runners, everywhere that describes it', () => {
+    const installer = flat('install.sh')
+    for (const pin of [
+      '--signer-workflow "$REPO/.github/workflows/release.yml"',
+      '--source-ref "refs/tags/v$VERSION"',
+      '--deny-self-hosted-runners',
+    ]) {
+      expect({ pin, installer: installer.includes(pin) }).toEqual({ pin, installer: true })
+    }
     expect(flat('SECURITY.md')).toContain('`--signer-workflow` is not optional')
-    // The residual risk release.yml names, and the one the two contributor docs
-    // now name instead of a check install.sh does not skip.
+    // What is left once install.sh pins the tag: a check made by hand with the
+    // workflow alone, which is why a dry run still mints nothing.
     for (const path of ['CONTRIBUTING.md', 'AGENTS.md', '.github/workflows/release.yml']) {
-      expect({ path, states: flat(path).includes('the ref it ran from') }).toEqual({
+      expect({ path, states: flat(path).includes('by hand with only `--signer-workflow`') }).toEqual({
         path,
         states: true,
       })
@@ -1105,16 +1115,33 @@ describe('the guide pages state what the build does', () => {
     (CONNECTORS.get(venue)?.coverage?.doesNotRead ?? []).map((gap) => gap.what.toLowerCase())
   const reads = (venue: string) => (CONNECTORS.get(venue)?.coverage?.reads ?? []).join(' ')
 
-  test('each is in the footer’s Guides row and never in the header', () => {
+  test('each is in a footer column and never in the header', () => {
     const site = flat('site/lib/site.ts')
+    const footer = read('site/components/Footer.tsx')
+    const entryOf = (href: string) => {
+      const at = site.indexOf(`href: '${href}'`)
+      return at === -1 ? '' : site.slice(at, site.indexOf('}', at))
+    }
     for (const path of GUIDES) {
       const route = path.slice('site/app/'.length, -'/page.tsx'.length)
-      const at = site.indexOf(`href: '/${route}'`)
-      const entry = at === -1 ? '' : site.slice(at, site.indexOf('}', at))
+      const entry = entryOf(`/${route}`)
       expect({ route, guide: entry.includes("group: 'guide'") }).toEqual({ route, guide: true })
       expect({ route, header: entry.includes('inHeader: false') }).toEqual({ route, header: true })
+      // A shelf the footer has no column for would drop the link without a sound.
+      const shelf = /shelf: '(\w+)'/.exec(entry)?.[1] ?? ''
+      expect({ route, shelved: shelf !== '' && footer.includes(`shelf: '${shelf}'`) }).toEqual({
+        route,
+        shelved: true,
+      })
+      // Nor may it hang under a page the footer does not list in its own
+      // right: one on a shelf and under nothing itself.
+      const parent = /under: '([^']+)'/.exec(entry)?.[1]
+      if (parent) {
+        const above = entryOf(parent)
+        const listed = /shelf: '\w+'/.test(above) && !above.includes('under:')
+        expect({ route, parent, listed }).toEqual({ route, parent, listed: true })
+      }
     }
-    expect(read('site/components/Footer.tsx')).toContain("n.group === 'guide'")
     expect(read('site/components/Nav.tsx')).toContain('NAV.filter((n) => n.inHeader)')
   })
 
@@ -1259,5 +1286,84 @@ describe('the guide pages state what the build does', () => {
     }
     expect(guide('coinbase')).toContain('View, Trade and Transfer')
     expect(guide('coinbase')).toContain('A key that can trade or transfer is refused')
+  })
+})
+
+/**
+ * Analytics waits for a yes where the law wants one, and declining is as easy
+ * as accepting. Each of these is a regulator's test as much as a reader's.
+ */
+describe('analytics consent', () => {
+  test('consent defaults are queued before the first page view', () => {
+    const tag = read('site/components/Analytics.tsx')
+    const consent = tag.indexOf("gtag('consent', 'default'")
+    expect(consent).toBeGreaterThan(-1)
+    expect(consent).toBeLessThan(tag.indexOf("gtag('config'"))
+  })
+
+  test('the default-deny region covers the EEA, the UK and Switzerland', () => {
+    const regions = read('site/lib/consent.ts')
+    for (const code of ['DE', 'FR', 'IT', 'ES', 'PL', 'IE', 'NO', 'IS', 'LI', 'GB', 'CH']) {
+      expect({ code, listed: regions.includes(`'${code}'`) }).toEqual({ code, listed: true })
+    }
+  })
+
+  test('Accept and Decline look alike', () => {
+    const banner = read('site/components/ConsentBanner.tsx')
+    const classes = [...banner.matchAll(/onClick=\{\(\) => choose\('(?:granted|denied)'\)\}\s*className="([^"]+)"/g)].map(
+      ([, c]) => c,
+    )
+    expect(classes).toHaveLength(2)
+    expect(classes[0]).toBe(classes[1])
+  })
+
+  test('the privacy page is linked, and withdrawing is a control on it', () => {
+    expect(flat('site/lib/site.ts')).toContain("href: '/privacy'")
+    expect(read('site/app/privacy/page.tsx')).toContain('<ConsentChoice />')
+    expect(read('site/lib/consent.ts')).toContain("name.startsWith('_ga_')")
+  })
+})
+
+/**
+ * The calculators say nothing typed into them leaves the page, and that their
+ * Aave markets are the ones tula reads. Both stay true only while nothing in
+ * them fetches and the snapshot script names the binary's own pools.
+ */
+describe('the calculators', () => {
+  const CALCULATOR = [
+    'site/components/HyperliquidCalculator.tsx',
+    'site/components/AaveCalculator.tsx',
+    'site/components/FundingCalculator.tsx',
+    'site/components/Field.tsx',
+    'site/lib/calc.ts',
+    'site/lib/format.ts',
+  ]
+
+  test('fetch nothing, so nothing typed into them leaves the page', () => {
+    for (const path of CALCULATOR) {
+      expect({ path, fetches: /\bfetch\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon|new Image\b|<img\b|\bimport\(/.test(read(path)) }).toEqual({
+        path,
+        fetches: false,
+      })
+    }
+    for (const page of [
+      'hyperliquid-liquidation-calculator',
+      'aave-health-factor-calculator',
+      'hyperliquid-funding-calculator',
+    ]) {
+      expect(flat(`site/app/${page}/page.tsx`)).toContain('Nothing you type leaves this page.')
+    }
+  })
+
+  test('the snapshot names exactly the Aave pools the connector reads, and holds all of them', () => {
+    const script = read('site/scripts/params.ts')
+    const named = [...script.matchAll(/'(0x[0-9a-fA-F]{40})@(\d+)'/g)].map(
+      ([, pool, chain]) => `${pool?.toLowerCase()}@${chain}`,
+    )
+    const eip155 = new Map(CHAINS.map((c) => [c.id, c.eip155]))
+    const deployed = DEPLOYMENTS.map((d) => `${d.pool.toLowerCase()}@${eip155.get(d.chain)}`)
+    expect(named.sort()).toEqual(deployed.sort())
+    const aave = JSON.parse(read('site/lib/params/aave.json')) as { markets: unknown[] }
+    expect(aave.markets.length).toBe(DEPLOYMENTS.length)
   })
 })

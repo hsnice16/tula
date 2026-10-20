@@ -5,11 +5,13 @@
   "scripts": {
     "dev": "next dev",
     "build": "cp ../install.sh public/install.sh && next build",
+    "params": "bun scripts/params.ts",
+    "indexnow": "bun scripts/indexnow.ts",
     "lint": "biome check .",
     "format": "biome format --write ."
   },
   "dependencies": {
-    "next": "16.3.3",
+    "next": "16.3.8",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
@@ -21,5 +23,9 @@
     "@types/react-dom": "19.2.5",
     "tailwindcss": "4.3.3",
     "typescript": "7.0.2"
+  },
+  "overrides": {
+    "sharp": "0.35.5",
+    "source-map-js": "1.2.2"
   }
 }

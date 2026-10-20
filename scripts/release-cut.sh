@@ -96,22 +96,24 @@ rewrite site/lib/site.ts sed \
 [ "$(grep -m1 'VERSION' site/lib/site.ts | sed "s/.*'\([^']*\)'.*/\1/")" = "$VERSION" ] ||
   die "site/lib/site.ts did not take the bump; its VERSION line has changed shape"
 
-# Three files print a `gh attestation verify` line naming a release archive, and
-# the install page also prints the URL that archive is downloaded from. A reader
+# Three files print a `gh attestation verify` line naming a release archive and
+# its tag, and the install page also prints the URL that archive is downloaded
+# from. A reader
 # copies those verbatim, so leaving them behind publishes a command that 404s or
 # reports a failed verification. guard.sh refuses the tree either way, which
 # meant every cut used to fail its own gate and hand back an edit to undo.
 for f in SECURITY.md README.md site/app/install/page.tsx; do
   rewrite "$f" sed \
     -e "s|tula-v$current-|tula-v$VERSION-|g" \
-    -e "s|/releases/download/v$current/|/releases/download/v$VERSION/|g"
+    -e "s|/releases/download/v$current/|/releases/download/v$VERSION/|g" \
+    -e "s|refs/tags/v$current\([^0-9A-Za-z.-]\)|refs/tags/v$VERSION\1|g"
   # Asserted as "names the new version", not "no longer names the old": on the
   # first release those are the same string, and the negative form failed on a
   # file that was already right.
-  grep -q "tula-v$VERSION-" "$f" ||
-    die "$f names no release archive; its verify block has changed shape"
+  grep -q "tula-v$VERSION-" "$f" && grep -q "refs/tags/v$VERSION " "$f" ||
+    die "$f names no release archive or tag; its verify block has changed shape"
   [ "$VERSION" = "$current" ] ||
-    ! grep -q "tula-v$current-\|/releases/download/v$current/" "$f" ||
+    ! grep -q "tula-v$current-\|/releases/download/v$current/\|refs/tags/v$current " "$f" ||
     die "$f still names v$current; its verify block has changed shape"
 done
 

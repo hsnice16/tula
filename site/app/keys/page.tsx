@@ -1,10 +1,11 @@
 import type { Metadata } from 'next'
 import { Code } from '@/components/Code'
 import { breadcrumb, JsonLd } from '@/components/JsonLd'
+import { Link } from '@/components/Link'
 import keys from '@/lib/keys.json'
-import { guideCard, NAME, NAV, OG, OG_IMAGE, TWITTER } from '@/lib/site'
+import { guideCard, NAV, OG, OG_IMAGE, TWITTER } from '@/lib/site'
 
-const TITLE = 'Keyboard shortcuts for tula’s shell'
+const TITLE = 'tula keyboard shortcuts: shell, history and vim mode'
 const IMAGE = {
   ...OG_IMAGE,
   url: guideCard('/keys'),
@@ -14,7 +15,7 @@ const SUMMARY =
   'Every key tula’s shell answers to, grouped by what it is for: commands, editing the line, history, lists and suggestions, more than one line, and vim mode.'
 
 export const metadata: Metadata = {
-  title: TITLE,
+  title: { absolute: TITLE },
   description: SUMMARY,
   alternates: { canonical: '/keys' },
   openGraph: {
@@ -22,10 +23,10 @@ export const metadata: Metadata = {
     images: [IMAGE],
     type: 'website',
     url: '/keys',
-    title: `${TITLE} · ${NAME}`,
+    title: TITLE,
     description: SUMMARY,
   },
-  twitter: { ...TWITTER, images: [IMAGE], title: `${TITLE} · ${NAME}`, description: SUMMARY },
+  twitter: { ...TWITTER, images: [IMAGE], title: TITLE, description: SUMMARY },
 }
 
 interface Row {
@@ -42,14 +43,14 @@ interface Row {
  */
 export default function Page() {
   return (
-    <main className="wrap pt-16 pb-step-3">
+    <main className="wrap animate-fade pt-16 pb-step-3">
       <JsonLd schema={breadcrumb('Keys', '/keys')} />
       <h1 className="mb-5 text-[clamp(2rem,4.5vw,2.8rem)] font-medium leading-[1.1] tracking-[-0.025em]">
         Keyboard shortcuts
       </h1>
       <p className="mb-8 max-w-[42rem] text-[1.08rem] text-dim">
         In the shell, <Code>?</Code> on an empty line shows these, and <Code>/keys</Code> prints
-        them.
+        them. No shell yet? <Link href="/install">Install tula</Link>.
       </p>
 
       {keys.groups.map((group) => (

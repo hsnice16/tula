@@ -1,0 +1,1640 @@
+{
+  "asOf": "2026-10-20",
+  "markets": [
+    {
+      "name": "Ethereum Core",
+      "chainId": 1,
+      "reserves": [
+        {
+          "asset": "1INCH",
+          "threshold": 0.67,
+          "existingOnly": true
+        },
+        {
+          "asset": "AAVE",
+          "threshold": 0.76
+        },
+        {
+          "asset": "BAL",
+          "threshold": 0.59,
+          "existingOnly": true
+        },
+        {
+          "asset": "BTC.b",
+          "threshold": 0.78
+        },
+        {
+          "asset": "cbBTC",
+          "threshold": 0.78
+        },
+        {
+          "asset": "cbETH",
+          "threshold": 0.79
+        },
+        {
+          "asset": "CRV",
+          "threshold": 0.41,
+          "existingOnly": true
+        },
+        {
+          "asset": "DAI",
+          "threshold": 0.77,
+          "existingOnly": true
+        },
+        {
+          "asset": "eBTC",
+          "threshold": 0.72
+        },
+        {
+          "asset": "ENS",
+          "threshold": 0.49,
+          "existingOnly": true
+        },
+        {
+          "asset": "ETHx",
+          "threshold": 0.77,
+          "existingOnly": true
+        },
+        {
+          "asset": "EURC",
+          "threshold": 0.78,
+          "existingOnly": true
+        },
+        {
+          "asset": "eUSDe",
+          "threshold": 0.001,
+          "existingOnly": true
+        },
+        {
+          "asset": "ezETH",
+          "threshold": 0.001,
+          "existingOnly": true
+        },
+        {
+          "asset": "FBTC",
+          "threshold": 0.78,
+          "existingOnly": true
+        },
+        {
+          "asset": "FRAX",
+          "threshold": 0.72,
+          "existingOnly": true
+        },
+        {
+          "asset": "FXS",
+          "threshold": 0.42,
+          "existingOnly": true
+        },
+        {
+          "asset": "KNC",
+          "threshold": 0.37,
+          "existingOnly": true
+        },
+        {
+          "asset": "LBTC",
+          "threshold": 0.75
+        },
+        {
+          "asset": "LDO",
+          "threshold": 0.5,
+          "existingOnly": true
+        },
+        {
+          "asset": "LINK",
+          "threshold": 0.71,
+          "existingOnly": true
+        },
+        {
+          "asset": "LUSD",
+          "threshold": 0.77,
+          "existingOnly": true
+        },
+        {
+          "asset": "MKR",
+          "threshold": 0.7,
+          "existingOnly": true
+        },
+        {
+          "asset": "osETH",
+          "threshold": 0.75,
+          "existingOnly": true
+        },
+        {
+          "asset": "PT-eUSDE-14AUG2025",
+          "threshold": 0.001,
+          "existingOnly": true
+        },
+        {
+          "asset": "PT-eUSDE-29MAY2025",
+          "threshold": 0.001,
+          "existingOnly": true
+        },
+        {
+          "asset": "PT-sUSDE-25SEP2025",
+          "threshold": 0.001,
+          "existingOnly": true
+        },
+        {
+          "asset": "PT-sUSDE-27NOV2025",
+          "threshold": 0.001,
+          "existingOnly": true
+        },
+        {
+          "asset": "PT-sUSDE-31JUL2025",
+          "threshold": 0.001,
+          "existingOnly": true
+        },
+        {
+          "asset": "PT-sUSDE-5FEB2026",
+          "threshold": 0.001,
+          "existingOnly": true
+        },
+        {
+          "asset": "PT-USDe-25SEP2025",
+          "threshold": 0.001,
+          "existingOnly": true
+        },
+        {
+          "asset": "PT-USDe-27NOV2025",
+          "threshold": 0.001,
+          "existingOnly": true
+        },
+        {
+          "asset": "PT-USDe-31JUL2025",
+          "threshold": 0.001,
+          "existingOnly": true
+        },
+        {
+          "asset": "PT-USDe-5FEB2026",
+          "threshold": 0.001,
+          "existingOnly": true
+        },
+        {
+          "asset": "PYUSD",
+          "threshold": 0.78,
+          "existingOnly": true
+        },
+        {
+          "asset": "rETH",
+          "threshold": 0.79
+        },
+        {
+          "asset": "rsETH",
+          "threshold": 0.75,
+          "existingOnly": true
+        },
+        {
+          "asset": "sDAI",
+          "threshold": 0.78,
+          "existingOnly": true
+        },
+        {
+          "asset": "SNX",
+          "threshold": 0.65,
+          "existingOnly": true
+        },
+        {
+          "asset": "STG",
+          "threshold": 0.37,
+          "existingOnly": true
+        },
+        {
+          "asset": "sUSDe",
+          "threshold": 0.75,
+          "existingOnly": true
+        },
+        {
+          "asset": "syrupUSDT",
+          "threshold": 0.001
+        },
+        {
+          "asset": "tBTC",
+          "threshold": 0.78
+        },
+        {
+          "asset": "tETH",
+          "threshold": 0.001,
+          "existingOnly": true
+        },
+        {
+          "asset": "UNI",
+          "threshold": 0.74,
+          "existingOnly": true
+        },
+        {
+          "asset": "USDC",
+          "threshold": 0.78
+        },
+        {
+          "asset": "USDe",
+          "threshold": 0.75,
+          "existingOnly": true
+        },
+        {
+          "asset": "USDS",
+          "threshold": 0.78,
+          "existingOnly": true
+        },
+        {
+          "asset": "USDT",
+          "threshold": 0.78
+        },
+        {
+          "asset": "WBTC",
+          "threshold": 0.78
+        },
+        {
+          "asset": "weETH",
+          "threshold": 0.8
+        },
+        {
+          "asset": "WETH",
+          "threshold": 0.83
+        },
+        {
+          "asset": "wstETH",
+          "threshold": 0.81
+        },
+        {
+          "asset": "XAUt",
+          "threshold": 0.75,
+          "existingOnly": true
+        }
+      ],
+      "emodes": [
+        {
+          "id": 1,
+          "label": "ETH correlated",
+          "threshold": 0.95,
+          "collateral": [
+            "ETHx",
+            "WETH",
+            "cbETH",
+            "osETH",
+            "rETH",
+            "weETH",
+            "wstETH"
+          ]
+        },
+        {
+          "id": 2,
+          "label": "sUSDe Stablecoins",
+          "threshold": 0.92,
+          "collateral": [
+            "USDe",
+            "sUSDe"
+          ]
+        },
+        {
+          "id": 3,
+          "label": "rsETH / ETH wstETH ETHx",
+          "threshold": 0.95,
+          "collateral": [
+            "rsETH"
+          ]
+        },
+        {
+          "id": 4,
+          "label": "LBTC WBTC",
+          "threshold": 0.86,
+          "collateral": [
+            "LBTC"
+          ]
+        },
+        {
+          "id": 5,
+          "label": "LBTC cbBTC",
+          "threshold": 0.86,
+          "collateral": [
+            "LBTC"
+          ]
+        },
+        {
+          "id": 6,
+          "label": "LBTC tBTC",
+          "threshold": 0.86,
+          "collateral": [
+            "LBTC"
+          ]
+        },
+        {
+          "id": 7,
+          "label": "eBTC/WBTC",
+          "threshold": 0.85,
+          "collateral": [
+            "eBTC"
+          ]
+        },
+        {
+          "id": 11,
+          "label": "USDe Stablecoin",
+          "threshold": 0.93,
+          "collateral": [
+            "USDe"
+          ]
+        },
+        {
+          "id": 15,
+          "label": "eUSDe Stablecoin",
+          "threshold": 0.93,
+          "collateral": [
+            "eUSDe"
+          ]
+        },
+        {
+          "id": 16,
+          "label": "FBTC/WBTC",
+          "threshold": 0.86,
+          "collateral": [
+            "FBTC"
+          ]
+        },
+        {
+          "id": 21,
+          "label": "tETH/Stablecoins",
+          "threshold": 0.75,
+          "collateral": [
+            "tETH"
+          ]
+        },
+        {
+          "id": 22,
+          "label": "ezETH/wstETH",
+          "threshold": 0.95,
+          "collateral": [
+            "ezETH"
+          ]
+        },
+        {
+          "id": 23,
+          "label": "ezETH/Stablecoins",
+          "threshold": 0.78,
+          "collateral": [
+            "ezETH"
+          ]
+        },
+        {
+          "id": 26,
+          "label": "weETH/wstETH ETH Correlated",
+          "threshold": 0.95,
+          "collateral": [
+            "weETH"
+          ]
+        },
+        {
+          "id": 33,
+          "label": "syrupUSDT Stablecoins",
+          "threshold": 0.92,
+          "collateral": [
+            "syrupUSDT"
+          ]
+        },
+        {
+          "id": 40,
+          "label": "LINK / USDC USDT",
+          "threshold": 0.71,
+          "collateral": [
+            "LINK"
+          ]
+        },
+        {
+          "id": 41,
+          "label": "EURC / USDC USDT GHO",
+          "threshold": 0.78,
+          "collateral": [
+            "EURC"
+          ]
+        },
+        {
+          "id": 42,
+          "label": "rsETH / USDC USDT",
+          "threshold": 0.78,
+          "collateral": [
+            "rsETH"
+          ]
+        },
+        {
+          "id": 43,
+          "label": "XAUt / USDC USDT GHO",
+          "threshold": 0.75,
+          "collateral": [
+            "XAUt"
+          ]
+        },
+        {
+          "id": 47,
+          "label": "PT-srUSDe Stablecoins",
+          "threshold": 0.92,
+          "collateral": [
+            "PT-srUSDe-22OCT2026",
+            "sUSDe"
+          ]
+        },
+        {
+          "id": 48,
+          "label": "PT-srUSDe USDe",
+          "threshold": 0.94,
+          "collateral": [
+            "PT-srUSDe-22OCT2026",
+            "sUSDe"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Ethereum Prime",
+      "chainId": 1,
+      "reserves": [
+        {
+          "asset": "ezETH",
+          "threshold": 0.001,
+          "existingOnly": true
+        },
+        {
+          "asset": "rsETH",
+          "threshold": 0.001,
+          "existingOnly": true
+        },
+        {
+          "asset": "sUSDe",
+          "threshold": 0.001,
+          "existingOnly": true
+        },
+        {
+          "asset": "tETH",
+          "threshold": 0.001,
+          "existingOnly": true
+        },
+        {
+          "asset": "WETH",
+          "threshold": 0.85
+        },
+        {
+          "asset": "wstETH",
+          "threshold": 0.83
+        }
+      ],
+      "emodes": [
+        {
+          "id": 1,
+          "label": "wstETH/WETH",
+          "threshold": 0.965,
+          "collateral": [
+            "wstETH"
+          ]
+        },
+        {
+          "id": 2,
+          "label": "LRT Stablecoins main",
+          "threshold": 0.78,
+          "collateral": [
+            "ezETH"
+          ]
+        },
+        {
+          "id": 3,
+          "label": "LRT wstETH main",
+          "threshold": 0.95,
+          "collateral": [
+            "ezETH"
+          ]
+        },
+        {
+          "id": 4,
+          "label": "sUSDe Stablecoins",
+          "threshold": 0.92,
+          "collateral": [
+            "sUSDe"
+          ]
+        },
+        {
+          "id": 5,
+          "label": "rsETH LST main",
+          "threshold": 0.95,
+          "collateral": [
+            "rsETH"
+          ]
+        },
+        {
+          "id": 6,
+          "label": "rsETH/Stablecoins",
+          "threshold": 0.75,
+          "collateral": [
+            "rsETH"
+          ]
+        },
+        {
+          "id": 7,
+          "label": "tETH/wstETH",
+          "threshold": 0.94,
+          "collateral": [
+            "tETH"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Ethereum EtherFi",
+      "chainId": 1,
+      "reserves": [
+        {
+          "asset": "weETH",
+          "threshold": 0.81
+        }
+      ],
+      "emodes": []
+    },
+    {
+      "name": "Ethereum Horizon",
+      "chainId": 1,
+      "reserves": [
+        {
+          "asset": "ACRED",
+          "threshold": 0.76
+        },
+        {
+          "asset": "JAAA",
+          "threshold": 0.89
+        },
+        {
+          "asset": "JTRSY",
+          "threshold": 0.88
+        },
+        {
+          "asset": "mGLOBAL",
+          "threshold": 0.001
+        },
+        {
+          "asset": "USCC",
+          "threshold": 0.88
+        },
+        {
+          "asset": "USTB",
+          "threshold": 0.9
+        },
+        {
+          "asset": "USYC",
+          "threshold": 0.9
+        },
+        {
+          "asset": "VBILL",
+          "threshold": 0.9
+        }
+      ],
+      "emodes": [
+        {
+          "id": 1,
+          "label": "VBILL GHO",
+          "threshold": 0.92,
+          "collateral": [
+            "VBILL"
+          ]
+        },
+        {
+          "id": 2,
+          "label": "USTB GHO",
+          "threshold": 0.92,
+          "collateral": [
+            "USTB"
+          ]
+        },
+        {
+          "id": 3,
+          "label": "ACRED GHO",
+          "threshold": 0.78,
+          "collateral": [
+            "ACRED"
+          ]
+        },
+        {
+          "id": 4,
+          "label": "USCC GHO",
+          "threshold": 0.9,
+          "collateral": [
+            "USCC"
+          ]
+        },
+        {
+          "id": 5,
+          "label": "mGLOBAL Stablecoins",
+          "threshold": 0.8,
+          "collateral": [
+            "mGLOBAL"
+          ]
+        },
+        {
+          "id": 6,
+          "label": "USYC GHO",
+          "threshold": 0.92,
+          "collateral": [
+            "USYC"
+          ]
+        },
+        {
+          "id": 8,
+          "label": "JTRSY GHO",
+          "threshold": 0.91,
+          "collateral": [
+            "JTRSY"
+          ]
+        },
+        {
+          "id": 10,
+          "label": "JAAA GHO",
+          "threshold": 0.9,
+          "collateral": [
+            "JAAA"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Arbitrum One",
+      "chainId": 42161,
+      "reserves": [
+        {
+          "asset": "AAVE",
+          "threshold": 0.73,
+          "existingOnly": true
+        },
+        {
+          "asset": "ARB",
+          "threshold": 0.63,
+          "existingOnly": true
+        },
+        {
+          "asset": "DAI",
+          "threshold": 0.77,
+          "existingOnly": true
+        },
+        {
+          "asset": "EURS",
+          "threshold": 0.67,
+          "existingOnly": true
+        },
+        {
+          "asset": "ezETH",
+          "threshold": 0.001,
+          "existingOnly": true
+        },
+        {
+          "asset": "FRAX",
+          "threshold": 0.72,
+          "existingOnly": true
+        },
+        {
+          "asset": "LINK",
+          "threshold": 0.75,
+          "existingOnly": true
+        },
+        {
+          "asset": "MAI",
+          "threshold": 0.01,
+          "existingOnly": true
+        },
+        {
+          "asset": "rETH",
+          "threshold": 0.74,
+          "existingOnly": true
+        },
+        {
+          "asset": "rsETH",
+          "threshold": 0.001,
+          "existingOnly": true
+        },
+        {
+          "asset": "tBTC",
+          "threshold": 0.78,
+          "existingOnly": true
+        },
+        {
+          "asset": "USD₮0",
+          "threshold": 0.78
+        },
+        {
+          "asset": "USDC",
+          "threshold": 0.78
+        },
+        {
+          "asset": "USDC.e",
+          "threshold": 0.78,
+          "existingOnly": true
+        },
+        {
+          "asset": "WBTC",
+          "threshold": 0.78
+        },
+        {
+          "asset": "weETH",
+          "threshold": 0.77
+        },
+        {
+          "asset": "WETH",
+          "threshold": 0.84
+        },
+        {
+          "asset": "wstETH",
+          "threshold": 0.79
+        }
+      ],
+      "emodes": [
+        {
+          "id": 1,
+          "label": "Stablecoins",
+          "threshold": 0.95,
+          "collateral": [
+            "DAI",
+            "EURS",
+            "USDC",
+            "USDC.e",
+            "USD₮0"
+          ]
+        },
+        {
+          "id": 2,
+          "label": "ETH correlated",
+          "threshold": 0.95,
+          "collateral": [
+            "WETH",
+            "weETH",
+            "wstETH"
+          ]
+        },
+        {
+          "id": 3,
+          "label": "ezETH/wstETH/WETH ETH Correlated",
+          "threshold": 0.95,
+          "collateral": [
+            "ezETH"
+          ]
+        },
+        {
+          "id": 4,
+          "label": "ezETH Stablecoins",
+          "threshold": 0.75,
+          "collateral": [
+            "ezETH"
+          ]
+        },
+        {
+          "id": 5,
+          "label": "rsETH/wstETH/WETH ETH Correlated",
+          "threshold": 0.95,
+          "collateral": [
+            "rsETH"
+          ]
+        },
+        {
+          "id": 6,
+          "label": "rsETH/Stablecoins",
+          "threshold": 0.75,
+          "collateral": [
+            "rsETH"
+          ]
+        },
+        {
+          "id": 7,
+          "label": "wstETH/WETH ETH Correlated",
+          "threshold": 0.96,
+          "collateral": [
+            "wstETH"
+          ]
+        },
+        {
+          "id": 8,
+          "label": "AAVE / USDCn USDT",
+          "threshold": 0.73,
+          "collateral": [
+            "AAVE"
+          ]
+        },
+        {
+          "id": 9,
+          "label": "ARB / USDCn USDT",
+          "threshold": 0.63,
+          "collateral": [
+            "ARB"
+          ]
+        },
+        {
+          "id": 10,
+          "label": "tBTC / USDCn USDT",
+          "threshold": 0.75,
+          "collateral": [
+            "tBTC"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Base",
+      "chainId": 8453,
+      "reserves": [
+        {
+          "asset": "AAVE",
+          "threshold": 0.65,
+          "existingOnly": true
+        },
+        {
+          "asset": "cbBTC",
+          "threshold": 0.78
+        },
+        {
+          "asset": "cbETH",
+          "threshold": 0.79
+        },
+        {
+          "asset": "EURC",
+          "threshold": 0.78,
+          "existingOnly": true
+        },
+        {
+          "asset": "ezETH",
+          "threshold": 0.001,
+          "existingOnly": true
+        },
+        {
+          "asset": "LBTC",
+          "threshold": 0.73,
+          "existingOnly": true
+        },
+        {
+          "asset": "tBTC",
+          "threshold": 0.78,
+          "existingOnly": true
+        },
+        {
+          "asset": "USDbC",
+          "threshold": 0.78,
+          "existingOnly": true
+        },
+        {
+          "asset": "USDC",
+          "threshold": 0.78
+        },
+        {
+          "asset": "weETH",
+          "threshold": 0.77
+        },
+        {
+          "asset": "WETH",
+          "threshold": 0.83
+        },
+        {
+          "asset": "wrsETH",
+          "threshold": 0.001,
+          "existingOnly": true
+        },
+        {
+          "asset": "wstETH",
+          "threshold": 0.79
+        }
+      ],
+      "emodes": [
+        {
+          "id": 1,
+          "label": "ETH correlated",
+          "threshold": 0.93,
+          "collateral": [
+            "WETH",
+            "cbETH",
+            "weETH",
+            "wstETH"
+          ]
+        },
+        {
+          "id": 2,
+          "label": "ezETH wstETH",
+          "threshold": 0.95,
+          "collateral": [
+            "ezETH"
+          ]
+        },
+        {
+          "id": 3,
+          "label": "ezETH Stablecoins",
+          "threshold": 0.75,
+          "collateral": [
+            "ezETH"
+          ]
+        },
+        {
+          "id": 4,
+          "label": "LBTC cbBTC",
+          "threshold": 0.84,
+          "collateral": [
+            "LBTC"
+          ]
+        },
+        {
+          "id": 5,
+          "label": "rsETH/wstETH",
+          "threshold": 0.95,
+          "collateral": [
+            "wrsETH"
+          ]
+        },
+        {
+          "id": 6,
+          "label": "rsETH/USDC",
+          "threshold": 0.75,
+          "collateral": [
+            "wrsETH"
+          ]
+        },
+        {
+          "id": 7,
+          "label": "weETH/WETH",
+          "threshold": 0.95,
+          "collateral": [
+            "weETH"
+          ]
+        },
+        {
+          "id": 8,
+          "label": "wstETH/WETH",
+          "threshold": 0.95,
+          "collateral": [
+            "wstETH"
+          ]
+        },
+        {
+          "id": 9,
+          "label": "cbETH/WETH",
+          "threshold": 0.95,
+          "collateral": [
+            "cbETH"
+          ]
+        },
+        {
+          "id": 10,
+          "label": "cbBTC Stablecoins",
+          "threshold": 0.83,
+          "collateral": [
+            "cbBTC"
+          ]
+        },
+        {
+          "id": 11,
+          "label": "SyrupUSDC / USDC GHO",
+          "threshold": 0.92,
+          "collateral": [
+            "syrupUSDC"
+          ]
+        },
+        {
+          "id": 12,
+          "label": "AAVE / USDC GHO",
+          "threshold": 0.7,
+          "collateral": [
+            "AAVE"
+          ]
+        },
+        {
+          "id": 13,
+          "label": "EURC / USDC GHO",
+          "threshold": 0.78,
+          "collateral": [
+            "EURC"
+          ]
+        },
+        {
+          "id": 14,
+          "label": "LBTC / USDC GHO",
+          "threshold": 0.78,
+          "collateral": [
+            "LBTC"
+          ]
+        },
+        {
+          "id": 15,
+          "label": "tBTC / USDC GHO",
+          "threshold": 0.75,
+          "collateral": [
+            "tBTC"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Polygon",
+      "chainId": 137,
+      "reserves": [
+        {
+          "asset": "AAVE",
+          "threshold": 0.7,
+          "existingOnly": true
+        },
+        {
+          "asset": "BAL",
+          "threshold": 0.42,
+          "existingOnly": true
+        },
+        {
+          "asset": "CRV",
+          "threshold": 0.5,
+          "existingOnly": true
+        },
+        {
+          "asset": "DAI",
+          "threshold": 0.77,
+          "existingOnly": true
+        },
+        {
+          "asset": "DPI",
+          "threshold": 0.0005,
+          "existingOnly": true
+        },
+        {
+          "asset": "EURS",
+          "threshold": 0.7,
+          "existingOnly": true
+        },
+        {
+          "asset": "GHST",
+          "threshold": 0.45,
+          "existingOnly": true
+        },
+        {
+          "asset": "LINK",
+          "threshold": 0.71,
+          "existingOnly": true
+        },
+        {
+          "asset": "MaticX",
+          "threshold": 0.6,
+          "existingOnly": true
+        },
+        {
+          "asset": "miMATIC",
+          "threshold": 0.01,
+          "existingOnly": true
+        },
+        {
+          "asset": "stMATIC",
+          "threshold": 0.58,
+          "existingOnly": true
+        },
+        {
+          "asset": "SUSHI",
+          "threshold": 0.45,
+          "existingOnly": true
+        },
+        {
+          "asset": "USDC",
+          "threshold": 0.78
+        },
+        {
+          "asset": "USDC (PoS)",
+          "threshold": 0.78,
+          "existingOnly": true
+        },
+        {
+          "asset": "USDT0",
+          "threshold": 0.78
+        },
+        {
+          "asset": "WBTC",
+          "threshold": 0.78
+        },
+        {
+          "asset": "WETH",
+          "threshold": 0.83
+        },
+        {
+          "asset": "WPOL",
+          "threshold": 0.73
+        },
+        {
+          "asset": "wstETH",
+          "threshold": 0.79
+        }
+      ],
+      "emodes": [
+        {
+          "id": 1,
+          "label": "Stablecoins",
+          "threshold": 0.95,
+          "collateral": [
+            "DAI",
+            "DPI",
+            "USDC (PoS)",
+            "USDT0",
+            "WPOL"
+          ]
+        },
+        {
+          "id": 2,
+          "label": "ETH correlated",
+          "threshold": 0.95,
+          "collateral": [
+            "CRV",
+            "EURA",
+            "WETH"
+          ]
+        },
+        {
+          "id": 3,
+          "label": "ezETH/wstETH/WETH ETH Correlated",
+          "threshold": 0.95,
+          "collateral": [
+            "stMATIC"
+          ]
+        },
+        {
+          "id": 4,
+          "label": "ezETH Stablecoins",
+          "threshold": 0.75,
+          "collateral": [
+            "stMATIC"
+          ]
+        },
+        {
+          "id": 5,
+          "label": "rsETH/wstETH/WETH ETH Correlated",
+          "threshold": 0.95,
+          "collateral": [
+            "MaticX"
+          ]
+        },
+        {
+          "id": 6,
+          "label": "rsETH/Stablecoins",
+          "threshold": 0.75,
+          "collateral": [
+            "MaticX"
+          ]
+        },
+        {
+          "id": 7,
+          "label": "wstETH/WETH ETH Correlated",
+          "threshold": 0.96,
+          "collateral": [
+            "CRV"
+          ]
+        },
+        {
+          "id": 8,
+          "label": "AAVE / USDCn USDT",
+          "threshold": 0.73,
+          "collateral": [
+            "AAVE"
+          ]
+        },
+        {
+          "id": 9,
+          "label": "ARB / USDCn USDT",
+          "threshold": 0.63,
+          "collateral": [
+            "jEUR"
+          ]
+        },
+        {
+          "id": 10,
+          "label": "tBTC / USDCn USDT",
+          "threshold": 0.75,
+          "collateral": [
+            "wstETH"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Optimism",
+      "chainId": 10,
+      "reserves": [
+        {
+          "asset": "AAVE",
+          "threshold": 0.7,
+          "existingOnly": true
+        },
+        {
+          "asset": "DAI",
+          "threshold": 0.77,
+          "existingOnly": true
+        },
+        {
+          "asset": "LINK",
+          "threshold": 0.71,
+          "existingOnly": true
+        },
+        {
+          "asset": "MAI",
+          "threshold": 0.01,
+          "existingOnly": true
+        },
+        {
+          "asset": "OP",
+          "threshold": 0.63,
+          "existingOnly": true
+        },
+        {
+          "asset": "rETH",
+          "threshold": 0.74,
+          "existingOnly": true
+        },
+        {
+          "asset": "sUSD",
+          "threshold": 0.7,
+          "existingOnly": true
+        },
+        {
+          "asset": "USDC",
+          "threshold": 0.78
+        },
+        {
+          "asset": "USDC.e",
+          "threshold": 0.785,
+          "existingOnly": true
+        },
+        {
+          "asset": "USDT",
+          "threshold": 0.78
+        },
+        {
+          "asset": "WBTC",
+          "threshold": 0.78
+        },
+        {
+          "asset": "WETH",
+          "threshold": 0.83
+        },
+        {
+          "asset": "wstETH",
+          "threshold": 0.79
+        }
+      ],
+      "emodes": [
+        {
+          "id": 1,
+          "label": "Stablecoins",
+          "threshold": 0.95,
+          "collateral": [
+            "DAI",
+            "USDC.e",
+            "USDT",
+            "rETH",
+            "sUSD"
+          ]
+        },
+        {
+          "id": 2,
+          "label": "ETH correlated",
+          "threshold": 0.95,
+          "collateral": [
+            "OP",
+            "WETH"
+          ]
+        },
+        {
+          "id": 7,
+          "label": "wstETH/WETH ETH Correlated",
+          "threshold": 0.96,
+          "collateral": [
+            "OP"
+          ]
+        },
+        {
+          "id": 8,
+          "label": "AAVE / USDCn USDT",
+          "threshold": 0.73,
+          "collateral": [
+            "AAVE"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Avalanche",
+      "chainId": 43114,
+      "reserves": [
+        {
+          "asset": "AAVE.e",
+          "threshold": 0.7,
+          "existingOnly": true
+        },
+        {
+          "asset": "AUSD",
+          "threshold": 0.72,
+          "existingOnly": true
+        },
+        {
+          "asset": "BTC.b",
+          "threshold": 0.75
+        },
+        {
+          "asset": "DAI.e",
+          "threshold": 0.77,
+          "existingOnly": true
+        },
+        {
+          "asset": "EURC",
+          "threshold": 0.78,
+          "existingOnly": true
+        },
+        {
+          "asset": "FRAX",
+          "threshold": 0.77,
+          "existingOnly": true
+        },
+        {
+          "asset": "LINK.e",
+          "threshold": 0.71,
+          "existingOnly": true
+        },
+        {
+          "asset": "MAI",
+          "threshold": 0.01,
+          "existingOnly": true
+        },
+        {
+          "asset": "sAVAX",
+          "threshold": 0.55
+        },
+        {
+          "asset": "sUSDe",
+          "threshold": 0.73
+        },
+        {
+          "asset": "USDC",
+          "threshold": 0.795
+        },
+        {
+          "asset": "USDe",
+          "threshold": 0.73
+        },
+        {
+          "asset": "USDt",
+          "threshold": 0.78
+        },
+        {
+          "asset": "WAVAX",
+          "threshold": 0.73
+        },
+        {
+          "asset": "WBTC.e",
+          "threshold": 0.67,
+          "existingOnly": true
+        },
+        {
+          "asset": "WETH.e",
+          "threshold": 0.83
+        },
+        {
+          "asset": "wrsETH",
+          "threshold": 0.001,
+          "existingOnly": true
+        }
+      ],
+      "emodes": [
+        {
+          "id": 1,
+          "label": "Stablecoins",
+          "threshold": 0.95,
+          "collateral": [
+            "AUSD",
+            "DAI.e",
+            "USDC",
+            "USDt",
+            "WAVAX"
+          ]
+        },
+        {
+          "id": 2,
+          "label": "ETH correlated",
+          "threshold": 0.95,
+          "collateral": [
+            "USDe",
+            "WETH.e",
+            "sAVAX"
+          ]
+        },
+        {
+          "id": 3,
+          "label": "ezETH/wstETH/WETH ETH Correlated",
+          "threshold": 0.95,
+          "collateral": [
+            "wrsETH"
+          ]
+        },
+        {
+          "id": 4,
+          "label": "ezETH Stablecoins",
+          "threshold": 0.75,
+          "collateral": [
+            "wrsETH"
+          ]
+        },
+        {
+          "id": 7,
+          "label": "wstETH/WETH ETH Correlated",
+          "threshold": 0.96,
+          "collateral": [
+            "sAVAX"
+          ]
+        },
+        {
+          "id": 8,
+          "label": "AAVE / USDCn USDT",
+          "threshold": 0.73,
+          "collateral": [
+            "AAVE.e"
+          ]
+        },
+        {
+          "id": 9,
+          "label": "ARB / USDCn USDT",
+          "threshold": 0.63,
+          "collateral": [
+            "EURC"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Gnosis",
+      "chainId": 100,
+      "reserves": [
+        {
+          "asset": "GNO",
+          "threshold": 0.53
+        },
+        {
+          "asset": "sDAI",
+          "threshold": 0.78,
+          "existingOnly": true
+        },
+        {
+          "asset": "USDC",
+          "threshold": 0.78,
+          "existingOnly": true
+        },
+        {
+          "asset": "USDC.e",
+          "threshold": 0.78
+        },
+        {
+          "asset": "WETH",
+          "threshold": 0.83,
+          "existingOnly": true
+        },
+        {
+          "asset": "wstETH",
+          "threshold": 0.79,
+          "existingOnly": true
+        },
+        {
+          "asset": "WXDAI",
+          "threshold": 0.77
+        }
+      ],
+      "emodes": [
+        {
+          "id": 1,
+          "label": "ETH correlated",
+          "threshold": 0.93,
+          "collateral": [
+            "WETH",
+            "wstETH"
+          ]
+        },
+        {
+          "id": 2,
+          "label": "sDAI / EURe",
+          "threshold": 0.875,
+          "collateral": [
+            "sDAI"
+          ]
+        },
+        {
+          "id": 3,
+          "label": "sDAI/USDCe",
+          "threshold": 0.92,
+          "collateral": [
+            "sDAI"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Scroll",
+      "chainId": 534352,
+      "reserves": [
+        {
+          "asset": "USDC",
+          "threshold": 0.78,
+          "existingOnly": true
+        },
+        {
+          "asset": "weETH",
+          "threshold": 0.75,
+          "existingOnly": true
+        },
+        {
+          "asset": "WETH",
+          "threshold": 0.83,
+          "existingOnly": true
+        },
+        {
+          "asset": "wstETH",
+          "threshold": 0.79,
+          "existingOnly": true
+        }
+      ],
+      "emodes": [
+        {
+          "id": 1,
+          "label": "ETH correlated",
+          "threshold": 0.93,
+          "collateral": [
+            "WETH",
+            "weETH",
+            "wstETH"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Linea",
+      "chainId": 59144,
+      "reserves": [
+        {
+          "asset": "ezETH",
+          "threshold": 0.75,
+          "existingOnly": true
+        },
+        {
+          "asset": "USDC",
+          "threshold": 0.78
+        },
+        {
+          "asset": "USDT",
+          "threshold": 0.78
+        },
+        {
+          "asset": "WBTC",
+          "threshold": 0.78
+        },
+        {
+          "asset": "weETH",
+          "threshold": 0.75
+        },
+        {
+          "asset": "WETH",
+          "threshold": 0.83
+        },
+        {
+          "asset": "wrsETH",
+          "threshold": 0.73,
+          "existingOnly": true
+        },
+        {
+          "asset": "wstETH",
+          "threshold": 0.79
+        }
+      ],
+      "emodes": [
+        {
+          "id": 1,
+          "label": "wstETH correlated",
+          "threshold": 0.955,
+          "collateral": [
+            "wstETH"
+          ]
+        },
+        {
+          "id": 2,
+          "label": "ezETH correlated",
+          "threshold": 0.93,
+          "collateral": [
+            "ezETH"
+          ]
+        },
+        {
+          "id": 3,
+          "label": "weETH correlated",
+          "threshold": 0.93,
+          "collateral": [
+            "weETH"
+          ]
+        },
+        {
+          "id": 4,
+          "label": "wrsETH/WETH Isolated Liquid E-mode",
+          "threshold": 0.93,
+          "collateral": [
+            "wrsETH"
+          ]
+        },
+        {
+          "id": 5,
+          "label": "ezETH / USDC USDT",
+          "threshold": 0.75,
+          "collateral": [
+            "ezETH"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -107,8 +107,8 @@ cp "$SHIM/curl" "$BIN/curl"
 # `exit 1` cannot tell a signed-out CLI from a forged download, which is the
 # very distinction the signed-out case exists to prove.
 gh_stub() {
-  printf '#!/bin/sh\ncase "$1 $2" in\n  "auth status") exit %s ;;\nesac\nexit %s\n' \
-    "$1" "$2" >"$BIN/gh"
+  printf '#!/bin/sh\nprintf "%%s\\n" "$*" >>"%s"\ncase "$1 $2" in\n  "auth status") exit %s ;;\nesac\nexit %s\n' \
+    "$WORK/gh-calls" "$1" "$2" >"$BIN/gh"
   chmod 755 "$BIN/gh"
 }
 
@@ -206,12 +206,21 @@ fi
 H="$WORK/h5"
 mkdir -p "$H"
 with_gh passes
+rm -f "$WORK/gh-calls"
 out=$(run "$H")
 if [ -L "$H/.tula/bin/tula" ] && case "$out" in *"Provenance was not"*) false ;; *) true ;; esac; then
   ok "installs quietly when attestation passes"
 else
   bad "installs quietly when attestation passes" "$out"
 fi
+# A stub that passes anything cannot tell a pinned check from `--repo` alone, so
+# what it was asked is read back: each of these narrows who could have signed.
+verify=$(grep '^attestation verify' "$WORK/gh-calls" 2>/dev/null || true)
+case "$verify" in
+  *"--signer-workflow hsnice16/tula/.github/workflows/release.yml"*"--source-ref refs/tags/v9.9.9"*"--deny-self-hosted-runners"*)
+    ok "verifies against the release workflow, the version's tag and GitHub's runners" ;;
+  *) bad "verifies against the release workflow, the version's tag and GitHub's runners" "$verify" ;;
+esac
 with_gh absent
 
 H="$WORK/h6"

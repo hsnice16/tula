@@ -135,7 +135,7 @@ EOF
       [ -n "$hit" ] || continue
       printf '%s\n' "$path|${hit:0:24}…  (12+ words in one string — a seed phrase has this shape)"
     done >>"$FINDINGS"
-done < <(git diff --cached --name-only -z --diff-filter=ACM)
+done < <(git diff --cached --name-only -z --diff-filter=ACMR)
 
 [ -s "$FINDINGS" ] || exit 0
 

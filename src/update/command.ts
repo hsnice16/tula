@@ -1,7 +1,7 @@
 import { TulaError } from '../core/errors.js'
 import { typed } from '../core/surface.js'
 import { APP_VERSION, REPO_URL, SITE_URL } from '../version.js'
-import { applyUpdate, type DownloadProgress } from './apply.js'
+import { applyUpdate, type DownloadProgress, type Verify, viaGitHubCli } from './apply.js'
 import { availableNow } from './check.js'
 import { nativeInstall, OTHER_CHANNELS } from './channel.js'
 
@@ -26,6 +26,7 @@ export interface UpdateResult {
 export async function update(
   args: string[],
   onProgress?: DownloadProgress,
+  verify: Verify = viaGitHubCli,
 ): Promise<UpdateResult> {
   const sub = args[0]?.toLowerCase()
   if (sub && sub !== 'install') {
@@ -81,16 +82,17 @@ export async function update(
         `  Notes     ${SITE_URL}/install/`,
         '',
         'Open those and check they say what you expect before going ahead.',
-        'The download is checked against its published checksum. Who built it',
-        'is not checked: that needs the GitHub CLI, signed in.',
+        'The download is checked against its published checksum, and who built',
+        'it is checked too wherever the GitHub CLI is installed and signed in.',
         '',
         `  ${typed('update install')}   download it and switch to it`,
       ].join('\n'),
     }
   }
 
+  let provenance: Awaited<ReturnType<typeof applyUpdate>>['provenance']
   try {
-    await applyUpdate(available.version, native, onProgress)
+    ;({ provenance } = await applyUpdate(available.version, native, onProgress, verify))
   } catch (err) {
     if (err instanceof TulaError) return { output: err.message, failed: true }
     throw err
@@ -99,6 +101,9 @@ export async function update(
   return {
     output: [
       `Installed tula ${available.version}.`,
+      provenance.proven
+        ? 'Its build attestation was verified: this repository\'s release workflow built it.'
+        : `Provenance was not proven: ${provenance.why}. TULA_REQUIRE_ATTESTATION=1 refuses that.`,
       `${APP_VERSION} is still on disk, so going back is a link away.`,
       '',
       'Restart tula to run it.',

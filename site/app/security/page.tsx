@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import type { ReactNode } from 'react'
 import { Ext } from '@/components/Ext'
 import { breadcrumb, JsonLd } from '@/components/JsonLd'
 import { Link } from '@/components/Link'
@@ -37,10 +38,13 @@ const PROMISES = [
   ['A price-source key is typed into a prompt', 'never on a command line your history would keep'],
 ] as const
 
-const NOTES = [
+const NOTES: [string, ReactNode][] = [
   [
     'Never a seed phrase',
-    'On-chain, a public address is all tula needs. No screen asks for a seed phrase. The only private key it loads is a Coinbase CDP key, used only to read.',
+    <>
+      On-chain, a <Link href="/wallets">public address</Link> is all tula needs. No screen asks for
+      a seed phrase. The only private key it loads is a Coinbase CDP key, used only to read.
+    </>,
   ],
   [
     'Not encrypted at rest',
@@ -68,13 +72,13 @@ const NOTES = [
   ],
   [
     'What tula connects to',
-    'The venues you connect, your price source, token lists, and public nodes for Ethereum, Arbitrum One, Base, Polygon, Optimism, Avalanche, Gnosis, Scroll and Linea. If a node is down tula tries the next one, which then also sees your address. Anthropic gets only finished numbers, and only when you ask a question. The shell checks GitHub for a new release each time it opens. The binary tracks nothing; this site uses Google Analytics and shows a Peerlist badge.',
+    'The venues you connect, your price source, token lists, and public nodes for Ethereum, Arbitrum One, Base, Polygon, Optimism, Avalanche, Gnosis, Scroll and Linea. If a node is down tula tries the next one, which then also sees your address. Anthropic gets only finished numbers, and only when you ask a question. The shell checks GitHub for a new release each time it opens. The binary tracks nothing; this site uses Google Analytics, asking first in Europe, and shows a Peerlist badge.',
   ],
-] as const
+]
 
 export default function Page() {
   return (
-    <main className="wrap pt-16 pb-step-3">
+    <main className="wrap animate-fade pt-16 pb-step-3">
       <JsonLd schema={breadcrumb('Security', '/security')} />
       <h1 className="mb-5 text-[clamp(2rem,4.5vw,2.8rem)] font-medium leading-[1.1] tracking-[-0.025em]">
         Security model
@@ -101,7 +105,7 @@ export default function Page() {
       </div>
 
       <h2 className="label mb-8">Promises, and what enforces them</h2>
-      <dl className="mb-step-3 max-w-[52rem]">
+      <dl className="mb-6 max-w-[52rem]">
         {PROMISES.map(([promise, enforced]) => (
           <div
             key={promise}
@@ -112,6 +116,10 @@ export default function Page() {
           </div>
         ))}
       </dl>
+      <p className="mb-step-3 max-w-[46rem] text-dim">
+        Making a read-only key that passes the check: <Link href="/kraken">Kraken</Link>,{' '}
+        <Link href="/binance">Binance</Link> and <Link href="/coinbase">Coinbase</Link>.
+      </p>
 
       <h2 className="label mb-8">Limits</h2>
       <div className="grid gap-px overflow-hidden rounded border border-rule bg-rule [overflow-wrap:anywhere] md:grid-cols-2">

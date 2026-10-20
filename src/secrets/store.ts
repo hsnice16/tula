@@ -78,7 +78,8 @@ const fields = (value: StoredValue | undefined): ConnectorCredentials | undefine
   typeof value === 'object' && !Array.isArray(value) ? value : undefined
 
 export class PermissionsTooOpenError extends TulaError {
-  constructor(path: string, mode: number) {
+  constructor(at: string, mode: number) {
+    const path = homeRelative(at)
     super(
       `${path} is mode ${mode.toString(8)}; expected 600. ` +
         `Run: chmod 600 ${path}`,
@@ -87,7 +88,8 @@ export class PermissionsTooOpenError extends TulaError {
 }
 
 export class DirectoryTooOpenError extends TulaError {
-  constructor(path: string, mode: number) {
+  constructor(at: string, mode: number) {
+    const path = homeRelative(at)
     super(
       `${path} is mode ${mode.toString(8)}: anyone on this machine can write to it.\n` +
         '  A credential file only you can read is one anyone can still replace.\n' +
@@ -97,7 +99,8 @@ export class DirectoryTooOpenError extends TulaError {
 }
 
 export class NotARegularFileError extends TulaError {
-  constructor(path: string) {
+  constructor(at: string) {
+    const path = homeRelative(at)
     super(
       `${path} is not a regular file.\n` +
         '  tula will not read credentials through a link, or write them through one.\n' +
@@ -112,7 +115,8 @@ export class NotARegularFileError extends TulaError {
  * which `failureText` renders as "This is a bug in tula, not something you did."
  */
 export class StoreUnreadableError extends TulaError {
-  constructor(path: string, why: string) {
+  constructor(at: string, why: string) {
+    const path = homeRelative(at)
     super(
       `${path} is not readable as JSON (${why}).\n` +
         '  Something truncated it, or it was edited by hand.\n' +
@@ -127,7 +131,8 @@ export class StoreUnreadableError extends TulaError {
  * already holding is the shape of a phishing page.
  */
 export class StoreTooNewError extends TulaError {
-  constructor(path: string, version: number) {
+  constructor(at: string, version: number) {
+    const path = homeRelative(at)
     super(
       `${path} was written by a newer tula (format ${version}; this one reads ${FORMAT_VERSION}).\n` +
         '  Reading it would show venues you have connected as unconnected.\n' +
@@ -343,9 +348,11 @@ async function save(store: Store): Promise<void> {
     if (key !== VERSION_KEY) stamped[key] = value
   }
   try {
-    // writeFile's mode applies only when it creates the file; chmod covers the
-    // case where a previous run left one behind.
-    await writeFile(temp, JSON.stringify(stamped, null, 2), { mode: REQUIRED_MODE })
+    // Created, never opened: whatever a previous run left at this name goes
+    // first, so the write cannot follow a link planted there. chmod because
+    // the umask can narrow the mode writeFile asks for.
+    await rm(temp, { force: true })
+    await writeFile(temp, JSON.stringify(stamped, null, 2), { mode: REQUIRED_MODE, flag: 'wx' })
     await chmod(temp, REQUIRED_MODE)
     await rename(temp, path)
   } finally {

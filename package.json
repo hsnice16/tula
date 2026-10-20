@@ -61,5 +61,8 @@
   ],
   "patchedDependencies": {
     "ink@7.1.1": "patches/ink@7.1.1.patch"
+  },
+  "overrides": {
+    "shell-quote": "1.11.0"
   }
 }

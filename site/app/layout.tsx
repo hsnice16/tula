@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
-import { Analytics } from '@/components/Analytics'
+import { Analytics, measured } from '@/components/Analytics'
+import { ConsentBanner } from '@/components/ConsentBanner'
 import { Footer } from '@/components/Footer'
 import { JsonLd } from '@/components/JsonLd'
 import { Nav } from '@/components/Nav'
@@ -21,7 +22,7 @@ import {
 } from '@/lib/site'
 import './globals.css'
 
-const TITLE = 'tula — liquidation risk and exposure across every venue'
+const TITLE = 'tula — open-source crypto liquidation risk and exposure CLI'
 
 export const metadata: Metadata = {
   // Absolute: every canonical, OG image and sitemap URL is resolved against it,
@@ -131,6 +132,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <Nav />
         {children}
         <Footer />
+        {measured() ? <ConsentBanner /> : null}
         <ScrollToTop />
         <BackToTop />
       </body>

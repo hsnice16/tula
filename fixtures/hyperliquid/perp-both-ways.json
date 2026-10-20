@@ -107,7 +107,7 @@
             "type": "cross",
             "value": 5
           },
-          "entryPx": "1.4852",
+          "entryPx": "1.4785",
           "positionValue": "14120.5366480893",
           "unrealizedPnl": "-504.0989772397",
           "returnOnEquity": "-0.1851067766",
@@ -130,7 +130,7 @@
             "type": "cross",
             "value": 10
           },
-          "entryPx": "7.3117",
+          "entryPx": "7.3076",
           "positionValue": "17740.1457279916",
           "unrealizedPnl": "-391.0353796526",
           "returnOnEquity": "-0.2253921797",
@@ -153,7 +153,7 @@
             "type": "cross",
             "value": 5
           },
-          "entryPx": "0.08852",
+          "entryPx": "0.08840",
           "positionValue": "3881.5289070254",
           "unrealizedPnl": "-311.5722426116",
           "returnOnEquity": "-0.4363809871",
@@ -176,7 +176,7 @@
             "type": "cross",
             "value": 10
           },
-          "entryPx": "0.071908",
+          "entryPx": "0.071660",
           "positionValue": "17.8609126856",
           "unrealizedPnl": "-2.5625207394",
           "returnOnEquity": "-1.6750262043",
@@ -199,7 +199,7 @@
             "type": "cross",
             "value": 10
           },
-          "entryPx": "238.514",
+          "entryPx": "238.759",
           "positionValue": "100034.5587140435",
           "unrealizedPnl": "6600.8678920982",
           "returnOnEquity": "0.6190126586",
@@ -222,7 +222,7 @@
             "type": "cross",
             "value": 10
           },
-          "entryPx": "0.5424",
+          "entryPx": "0.5422",
           "positionValue": "4973.0460499897",
           "unrealizedPnl": "-416.6606149991",
           "returnOnEquity": "-0.9144542773",
@@ -245,7 +245,7 @@
             "type": "cross",
             "value": 10
           },
-          "entryPx": "0.005157",
+          "entryPx": "0.005136",
           "positionValue": "17174.1598046304",
           "unrealizedPnl": "-310.6521670678",
           "returnOnEquity": "-0.1842156292",
@@ -268,7 +268,7 @@
             "type": "cross",
             "value": 5
           },
-          "entryPx": "0.98725",
+          "entryPx": "0.99099",
           "positionValue": "14362.2169904317",
           "unrealizedPnl": "-396.6500605129",
           "returnOnEquity": "-0.1420100102",
@@ -291,7 +291,7 @@
             "type": "cross",
             "value": 3
           },
-          "entryPx": "0.028065",
+          "entryPx": "0.028178",
           "positionValue": "7.9856452394",
           "unrealizedPnl": "-1.2738056154",
           "returnOnEquity": "-0.5693546122",
@@ -314,7 +314,7 @@
             "type": "cross",
             "value": 10
           },
-          "entryPx": "0.201141",
+          "entryPx": "0.201088",
           "positionValue": "23824.9326032933",
           "unrealizedPnl": "-917.7962105471",
           "returnOnEquity": "-0.4006595127",
@@ -360,7 +360,7 @@
             "type": "cross",
             "value": 3
           },
-          "entryPx": "0.001727",
+          "entryPx": "0.001726",
           "positionValue": "3247.7454477384",
           "unrealizedPnl": "34.2516447094",
           "returnOnEquity": "0.0313086609",
@@ -383,7 +383,7 @@
             "type": "cross",
             "value": 5
           },
-          "entryPx": "0.181591",
+          "entryPx": "0.180795",
           "positionValue": "61858.4839766073",
           "unrealizedPnl": "-3206.6513588428",
           "returnOnEquity": "-0.2733632707",
@@ -406,7 +406,7 @@
             "type": "cross",
             "value": 3
           },
-          "entryPx": "0.039877",
+          "entryPx": "0.039876",
           "positionValue": "11101.4259928711",
           "unrealizedPnl": "-1108.3884236223",
           "returnOnEquity": "-0.3327482007",
@@ -429,7 +429,7 @@
             "type": "cross",
             "value": 5
           },
-          "entryPx": "0.57232",
+          "entryPx": "0.57127",
           "positionValue": "22634.0365088601",
           "unrealizedPnl": "-3335.2888473972",
           "returnOnEquity": "-0.6421593171",
@@ -452,7 +452,7 @@
             "type": "cross",
             "value": 5
           },
-          "entryPx": "0.056754",
+          "entryPx": "0.056973",
           "positionValue": "90331.5309380261",
           "unrealizedPnl": "-957.99873847",
           "returnOnEquity": "-0.0535952152",
@@ -475,7 +475,7 @@
             "type": "cross",
             "value": 3
           },
-          "entryPx": "0.11271",
+          "entryPx": "0.11225",
           "positionValue": "104559.9588746867",
           "unrealizedPnl": "18035.2400876021",
           "returnOnEquity": "0.4413363714",
@@ -498,7 +498,7 @@
             "type": "cross",
             "value": 5
           },
-          "entryPx": "486.852",
+          "entryPx": "488.803",
           "positionValue": "228054.3796913237",
           "unrealizedPnl": "11071.8644655623",
           "returnOnEquity": "0.2551326418",
@@ -513,7 +513,7 @@
         }
       }
     ],
-    "time": 1789394901015
+    "time": 1789394400000
   },
   "dexes": {
     "xyz": {
@@ -532,7 +532,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789394901267
+      "time": 1789394400000
     },
     "flx": {
       "marginSummary": {
@@ -550,7 +550,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789394901608
+      "time": 1789394400000
     },
     "vntl": {
       "marginSummary": {
@@ -568,7 +568,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789394901870
+      "time": 1789394400000
     },
     "hyna": {
       "marginSummary": {
@@ -586,7 +586,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789394902206
+      "time": 1789394400000
     },
     "km": {
       "marginSummary": {
@@ -604,7 +604,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789394902422
+      "time": 1789394400000
     },
     "abcd": {
       "marginSummary": {
@@ -622,7 +622,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789394902710
+      "time": 1789394400000
     },
     "cash": {
       "marginSummary": {
@@ -640,7 +640,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789394902979
+      "time": 1789394400000
     },
     "para": {
       "marginSummary": {
@@ -658,7 +658,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789394903575
+      "time": 1789394400000
     },
     "mkts": {
       "marginSummary": {
@@ -676,7 +676,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789394903902
+      "time": 1789394400000
     },
     "io": {
       "marginSummary": {
@@ -694,7 +694,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789394904181
+      "time": 1789394400000
     }
   },
   "openOrders": [],

@@ -19,6 +19,23 @@ const PEERLIST = {
 const LINK =
   'flex min-h-8 items-center text-dim underline decoration-rule decoration-dotted underline-offset-4 hover:text-accent'
 
+/** On a phone the two guide columns pair up under Pages and More links. */
+const SHELVES = [
+  {
+    shelf: 'venue',
+    title: 'Venues',
+    phone: 'max-phone:order-3 max-phone:min-w-[40%] max-phone:flex-1',
+  },
+  {
+    shelf: 'topic',
+    title: 'Guides',
+    phone: 'max-phone:order-4 max-phone:min-w-[40%] max-phone:flex-1',
+  },
+] as const
+
+type Entry = (typeof NAV)[number]
+const under = (n: Entry) => ('under' in n ? n.under : undefined)
+
 function Column({
   title,
   className = '',
@@ -72,34 +89,45 @@ export function Footer() {
           </Ext>
         </div>
 
-        {/* Below `phone`, the two short columns share a row and Guides takes the
-            full width under them: three columns wrapping on their own leave one
-            stranded beside nothing. Flex rather than a two-column grid, so at
-            200% zoom the pair stacks instead of spilling past a column. */}
-        <div className="flex flex-wrap gap-x-16 gap-y-8 max-phone:w-full">
-          <Column title="Pages" className="max-phone:flex-1">
+        {/* Below `phone`, columns pair up in a set order: wrapping on their own
+            leaves one stranded beside nothing. Flex rather than a grid, so at
+            200% zoom a pair stacks instead of spilling past a column. */}
+        <div className="flex flex-wrap gap-x-10 gap-y-8 max-phone:w-full max-phone:gap-x-8">
+          <Column
+            title="Pages"
+            className="max-phone:order-1 max-phone:min-w-[40%] max-phone:flex-1"
+          >
             {NAV.filter((n) => n.group === 'site').map(({ href, label }) => (
               <Link key={href} href={href} className={LINK}>
                 {label}
               </Link>
             ))}
           </Column>
-          {/* Pages written for a search, linked here and nowhere more prominent.
-              A crawler weighs a page by the links to it, and a hidden link is
-              spam by Google's own policy. */}
-          <Column title="Guides" className="max-phone:order-last max-phone:basis-full">
-            {/* Alphabetical, so a reader scanning for a venue finds it where
-                they expect it, and a new guide lands in its place unasked. */}
-            {[...NAV.filter((n) => n.group === 'guide')]
-              .sort((a, b) => a.label.localeCompare(b.label))
-              .map(({ href, label }) => (
-                <Link key={href} href={href} className={LINK}>
-                  {label}
-                </Link>
-              ))}
-          </Column>
-          {/* Alphabetical, as Guides is. */}
-          <Column title="More links" className="max-phone:flex-1">
+          {/* Every guide, by shelf; AGENTS.md's guides rule says why. */}
+          {SHELVES.map(({ shelf, title, phone }) => (
+            <Column key={shelf} title={title} className={phone}>
+              {/* Alphabetical, so a reader scanning for a venue finds it where
+                  they expect it, and a new guide lands in its place unasked. */}
+              {NAV.filter((n) => 'shelf' in n && n.shelf === shelf && !under(n))
+                .sort((a, b) => a.label.localeCompare(b.label))
+                .flatMap((parent) => [
+                  <Link key={parent.href} href={parent.href} className={LINK}>
+                    {parent.label}
+                  </Link>,
+                  // In NAV's order, not alphabetical: a venue's pages read as a set.
+                  ...NAV.filter((n) => under(n) === parent.href).map((n) => (
+                    <Link key={n.href} href={n.href} className={`${LINK} pl-4`}>
+                      {'footerLabel' in n ? n.footerLabel : n.label}
+                    </Link>
+                  )),
+                ])}
+            </Column>
+          ))}
+          {/* Alphabetical, as the guides are. */}
+          <Column
+            title="More links"
+            className="max-phone:order-2 max-phone:min-w-[40%] max-phone:flex-1"
+          >
             {/* Off-site on purpose: the changelog is edited and read as the same
                 file, and a rendered copy here is the one that goes stale. */}
             <Ext href={`${REPO}/blob/main/CHANGELOG.md`} className={LINK}>

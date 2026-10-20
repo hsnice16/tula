@@ -280,8 +280,10 @@ Everything tula contacts, and nothing else:
   address and when a shell opened, as it would from anyone opening that page. Nothing is ever installed by a check:
   it prints a line, and `/update install` is a separate thing you type. Typing
   it fetches the release archive and `checksums.txt` from that repository,
-  following GitHub's redirect to the storage host it serves assets from. Those
-  are the only other requests, and only when you ask for them.
+  following GitHub's redirect to the storage host it serves assets from, and,
+  where the GitHub CLI is installed and signed in, has `gh` ask GitHub's
+  attestation API who built that archive. Those are the only other requests,
+  and only when you ask for them.
 
 No telemetry and no crash reporting. The update check is the only request the
 binary makes that is not about your positions, and it carries nothing about you
@@ -295,12 +297,15 @@ or lose.
 
 ```bash
 gh attestation verify tula-v0.4.0-darwin-arm64.tar.gz --repo hsnice16/tula \
-  --signer-workflow hsnice16/tula/.github/workflows/release.yml
+  --signer-workflow hsnice16/tula/.github/workflows/release.yml \
+  --source-ref refs/tags/v0.4.0 --deny-self-hosted-runners
 ```
 
 `--signer-workflow` is not optional: `--repo` alone accepts an attestation from
 any workflow in the repository, and every workflow that can mint one is a
-workflow somebody could propose a change to. The subject is the archive, not the
+workflow somebody could propose a change to. `--source-ref` holds it to the
+release's own tag, the only ref a release publishes from, and
+`--deny-self-hosted-runners` to GitHub's machines. The subject is the archive, not the
 binary inside it, so verify the `.tar.gz` rather than an installed `tula`.
 Homebrew downloads that same archive. npm repackages the binary into a tarball
 of its own, which this attestation does not cover: that channel is published

@@ -1,6 +1,6 @@
 import { DESCRIPTION, INSTALL_COMMAND, NAME, NAV, pageUrl, REPO, SITE } from '@/lib/site'
 
-// Static export: this is written once at build time, like every page beside it.
+// `output: 'export'` refuses a route it cannot prove static.
 export const dynamic = 'force-static'
 
 /**
@@ -49,8 +49,7 @@ connector declares its own gaps — Aave V4, the endpoints of each venue nothing
 here calls, the chains outside the nine — and \`/venues\` names every one of
 them, area by area, with what each may hide. A venue that answered holding
 nothing says so on the spot, since that is the case where a gap and an empty
-account look identical. Every one of those gaps is scheduled work in
-ROADMAP.md, not a permanent shape.
+account look identical.
 
 ## Commands
 

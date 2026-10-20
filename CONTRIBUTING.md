@@ -107,7 +107,8 @@ One tag produces every artifact. `.github/workflows/release.yml` waits on the
 `release` environment for a reviewer, refuses a tag that is not an ancestor of
 `main` — the attestation names this workflow by path, so a tag off main would
 prove only that some version of the file ran — verifies the tag against
-`src/version.ts`, runs the full check, cross-compiles the four targets, signs the
+`src/version.ts`, runs the full check in a job that holds no release permission,
+cross-compiles the four targets, signs the
 macOS binaries where Apple credentials are configured, attests every archive,
 then publishes to GitHub Releases, npm and the Homebrew tap.
 
@@ -137,12 +138,12 @@ run to inspect. It signs only where `secrets.APPLE_CERT_P12` is set; without it
 the macOS binaries ship ad-hoc signed and the run says so. Publishing is off by default
 because `GITHUB_REF_TYPE` is `branch` on a manual run, so the tag-matches-version
 check cannot protect it; without the gate, a manual run would cut a real release
-from whatever was on the branch. **It does not attest.** That step is gated with
-the publish steps rather than run beside them: an attestation is a public
-transparency-log entry, and `install.sh` pins the signing workflow but not the
-ref it ran from — so a dry run from any branch would mint proof that a build off
-that branch came from this workflow, indistinguishable from a release at the only
-place anybody checks.
+from whatever was on the branch. A manual run with `publish` on is refused unless
+it was started from the tag (*Use workflow from* → `v<version>`), since
+`install.sh` accepts only an attestation naming that tag. **A dry run does not
+attest:** an attestation is a public transparency-log entry, and someone checking
+by hand with only `--signer-workflow` would take one from any branch for a
+release.
 
 **A pre-release tag,** when you want the real channels exercised. Set
 `APP_VERSION` to something like `0.4.0-rc.1` and push `v0.4.0-rc.1`: the GitHub

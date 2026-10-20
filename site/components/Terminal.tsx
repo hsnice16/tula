@@ -4,6 +4,9 @@ import { Copy } from '@/components/Copy'
 /**
  * Window chrome matters: it says "this is the actual output of the tool" rather
  * than "this is a code sample somebody typed into the page".
+ *
+ * `data-nosnippet`: indexed, but never quoted as a search result's summary — a
+ * row of tool output read out of context says nothing about the page.
  */
 export function Frame({
   title,
@@ -16,7 +19,10 @@ export function Frame({
   children: ReactNode
 }) {
   return (
-    <div className="min-w-0 overflow-hidden rounded-[5px] border border-rule bg-panel shadow-lift">
+    <div
+      data-nosnippet
+      className="min-w-0 overflow-hidden rounded-[5px] border border-rule bg-panel shadow-lift"
+    >
       {/* Wraps so that enlarged text drops the aside to its own row rather than
           pushing it past the frame's clipped edge. The title's zero basis is what
           makes the aside, not the title, the item that wraps. */}

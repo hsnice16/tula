@@ -49,6 +49,10 @@ const BRAND = {
   aave: '#9c8cff',
 } as const
 
+/** Undecorated until hovered: the name already stands out by its mark and colour. */
+const VENUE_LINK =
+  'no-underline decoration-dotted decoration-accent-dim underline-offset-4 hover:underline'
+
 /**
  * The emphasis a paragraph runs on: a venue's name, the reader's, or the one
  * word its argument turns on. Lifted off the body copy but short of `ink`,
@@ -65,7 +69,7 @@ function Named({ children, tone }: { children: ReactNode; tone?: string }) {
 
 export default function Page() {
   return (
-    <main>
+    <main className="animate-fade">
       <section className="pt-9 pb-step">
         <div className="wrap py-step">
           <p className="eyebrow mb-6">
@@ -132,25 +136,33 @@ could hold a liquidation of its own.
                 No venue sees the whole position.
               </h2>
               <p className="text-dim">
-                <Named tone={BRAND.kraken}>
-                  <Mark src={krakenMark} size="h-[0.78em]" />
-                  Kraken
-                </Named>{' '}
+                <Link className={VENUE_LINK} href="/kraken">
+                  <Named tone={BRAND.kraken}>
+                    <Mark src={krakenMark} size="h-[0.78em]" />
+                    Kraken
+                  </Named>
+                </Link>{' '}
                 sees spot ETH and calls it a balance.{' '}
-                <Named tone={BRAND.hyperliquid}>
-                  <Mark src={hyperliquidMark} size="h-[0.8em]" />
-                  Hyperliquid
-                </Named>{' '}
+                <Link className={VENUE_LINK} href="/hyperliquid">
+                  <Named tone={BRAND.hyperliquid}>
+                    <Mark src={hyperliquidMark} size="h-[0.8em]" />
+                    Hyperliquid
+                  </Named>
+                </Link>{' '}
                 sees a perp and its liquidation price.{' '}
-                <Named tone={BRAND.aave}>
-                  <Mark src={aaveMark} size="h-[0.65em]" />
-                  Aave
-                </Named>{' '}
+                <Link className={VENUE_LINK} href="/aave">
+                  <Named tone={BRAND.aave}>
+                    <Mark src={aaveMark} size="h-[0.65em]" />
+                    Aave
+                  </Named>
+                </Link>{' '}
                 sees a health factor and nothing on either side of it.
               </p>
               <p className="mt-4 text-dim">
-                Each one is right about its own piece. <Named>Your</Named> real exposure only shows
-                up when you read all three together.
+                Each is right about its piece. Only read together do they show <Named>your</Named>{' '}
+                <Link href="/exposure">real exposure</Link>,{' '}
+                <Link href="/liquidation-risk">what breaks first</Link>, and{' '}
+                <Link href="/stress-test">what a fall would do</Link>.
               </p>
             </div>
 
@@ -194,8 +206,7 @@ could hold a liquidation of its own.
             </h2>
             <p className="text-dim">Type a question instead of a command.</p>
             <p className="mt-4 text-dim">
-              Sign in to a model and the answer comes back in plain English. Every command works
-              without one.
+              Sign in to a model for answers in plain English. Every command works without one.
             </p>
           </div>
 

@@ -65,10 +65,8 @@ export function BackToTop() {
 
     const measure = () => {
       frame = 0
-      // Measured against what the page has to scroll, not a fixed screenful:
-      // the install and security pages are shorter than two screens, so a
-      // screenful threshold is one they can never reach and the button would
-      // never appear on them at all. It shows 40% of the way down, capped at a
+      // Measured against what the page has to scroll, not a fixed screenful,
+      // which a short page never reaches. It shows 40% of the way down, capped at a
       // screenful so a long page does not hold it back until the footer — and
       // not at all under half a screen of scrolling, which is no journey back.
       const range = document.documentElement.scrollHeight - window.innerHeight

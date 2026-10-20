@@ -33,7 +33,7 @@ export const metadata: Metadata = {
  */
 export default function NotFound() {
   return (
-    <main className="wrap pt-16 pb-step-3">
+    <main className="wrap animate-fade pt-16 pb-step-3">
       <p className="eyebrow mb-6">404</p>
       <h1 className="mb-5 max-w-[40rem] text-[clamp(2rem,4.5vw,2.8rem)] font-medium leading-[1.1] tracking-[-0.025em]">
         There is nothing at this address.

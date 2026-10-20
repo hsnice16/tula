@@ -22,7 +22,7 @@ import { disclosure, list, unrankedVenues } from './core/coverage.js'
 import { netExposure, portfolioValue } from './core/exposure.js'
 import { holdings, pct, quantity, usd } from './core/format.js'
 import type { Position, PositionKind } from './core/position.js'
-import { moveFromHealthFactor, scenario, whatBreaksFirst } from './core/risk.js'
+import { moveFromHealthFactor, scenario, shockedHealthFactors, whatBreaksFirst } from './core/risk.js'
 import { DEFAULT_PROVIDER } from './prices/providers.js'
 import { brandColor } from './ui/brand.js'
 import { displayRows } from './ui/Palette.js'
@@ -566,3 +566,35 @@ describe('the guide pages quote the same book', () => {
   })
 })
 
+/**
+ * Two guides walk through this same book in prose, where no frame test reaches:
+ * /exposure nets its ETH, /stress-test takes it through the 20% fall.
+ */
+describe('the guides that quote this book in prose', () => {
+  const guide = (route: string) => readFileSync(`site/app/${route}/page.tsx`, 'utf8').replace(/\s+/g, ' ')
+  const eth = BOOK.filter((p) => p.asset === 'ETH')
+  const net = netExposure(BOOK, PRICES).find((e) => e.asset === 'ETH')!
+  const gross = eth.reduce((sum, p) => sum.plus(p.quantity.abs()), d('0'))
+
+  test('/exposure: the net, the gross, the notional and what a 20% fall costs', () => {
+    const page = guide('exposure')
+    expect(page).toContain(`${net.delta.toString()} ETH`)
+    expect(page).toContain(`${gross.toString()} ETH`)
+    expect(page).toContain(usd(net.notional))
+    expect(page).toContain(usd(net.notional!.times(SHOCK[0]!.pct).abs()))
+  })
+
+  test('/stress-test: what the fall takes from each side, and the factor after it', () => {
+    const page = guide('stress-test')
+    const result = scenario(BOOK, PRICES, SHOCK)
+    const long = eth.filter((p) => p.quantity.isPositive()).reduce((sum, p) => sum.plus(p.quantity), d('0'))
+    const short = eth.filter((p) => p.quantity.isNegative()).reduce((sum, p) => sum.plus(p.quantity.abs()), d('0'))
+    const move = PRICES.get('ETH')!.times(SHOCK[0]!.pct).abs()
+    expect(page).toContain(`${long.toString()} ETH of spot and collateral lose ${usd(long.times(move))}`)
+    expect(page).toContain(`${short.toString()} ETH`)
+    expect(page).toContain(`short gains ${usd(short.times(move))}`)
+    expect(page).toContain(`down ${usd(result.change!.abs())}`)
+    const [factor] = shockedHealthFactors(BOOK, PRICES, SHOCK)
+    expect(page).toContain(`falls from ${factor!.before.toFixed(2)} to ${factor!.after!.toFixed(2)}`)
+  })
+})

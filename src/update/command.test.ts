@@ -6,11 +6,14 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { REPO_URL } from '../version.js'
-import { target } from './apply.js'
+import { target, type Verify } from './apply.js'
 import { update } from './command.js'
 
 const run = promisify(execFile)
 const NEW = '9.9.9'
+
+/** The real check calls `gh`, which CI runners ship; these tests are about the update, not it. */
+const unproven: Verify = async () => ({ proven: false, why: 'the GitHub CLI is not installed' })
 
 let root: string
 const realFetch = globalThis.fetch
@@ -104,7 +107,7 @@ describe('/update', () => {
       return landed
     }) as typeof fetch
 
-    const result = await update(['install'])
+    const result = await update(['install'], undefined, unproven)
     expect(await linkedVersion()).toBe(before)
     expect(result.output).not.toContain('newest release')
     expect(result.output).toContain('is unknown')
@@ -156,13 +159,13 @@ describe('/update', () => {
     await publish()
     const { output } = await update([])
     expect(output).toContain(`${REPO_URL}/releases/tag/v${NEW}`)
-    expect(output).toContain('Who built it')
+    expect(output).toContain('who built')
   })
 
   test('the second word is what installs it', async () => {
     await nativeTree()
     await publish()
-    await update(['install'])
+    await update(['install'], undefined, unproven)
     expect(await linkedVersion()).toBe(join(root, 'versions', NEW, 'tula'))
   })
 
@@ -180,7 +183,7 @@ describe('/update', () => {
     await publish()
 
     const before = await linkedVersion()
-    const { output } = await update(['install'])
+    const { output } = await update(['install'], undefined, unproven)
     expect(output).toContain('brew upgrade hsnice16/tap/tula')
     expect(await linkedVersion()).toBe(before)
   })

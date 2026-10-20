@@ -42,7 +42,7 @@ bun run check >/tmp/tula-precommit.log 2>&1 || {
 
 # The site is a separate package with its own toolchain, and its formatter
 # rewrites files — so it runs only when something in it is actually staged.
-if git diff --cached --name-only --diff-filter=ACM | grep -q '^site/'; then
+if git diff --cached --name-only --diff-filter=ACMR | grep -q '^site/'; then
   if [ -d site/node_modules ]; then
     (cd site && bun run lint) >/tmp/tula-precommit-site.log 2>&1 || {
       tail -30 /tmp/tula-precommit-site.log >&2

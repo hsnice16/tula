@@ -5,25 +5,27 @@ import { type Channel, Channels } from '@/components/Channels'
 import { Code } from '@/components/Code'
 import { Ext } from '@/components/Ext'
 import { breadcrumb, JsonLd } from '@/components/JsonLd'
+import { Link } from '@/components/Link'
+import { Terms } from '@/components/Prose'
 import { Command, Terminal } from '@/components/Terminal'
-import { INSTALL_COMMAND, NAME, OG, REPO, SITE, TWITTER } from '@/lib/site'
+import { INSTALL_COMMAND, OG, REPO, SITE, TWITTER } from '@/lib/site'
 
-const TITLE = 'Install — one command, and every download checked'
+const TITLE = 'Install tula on macOS and Linux — every download checked'
 const SUMMARY =
   'Install tula on macOS or Linux with one command. Every download is checked, and the installer stops on one that does not match. Also on Homebrew and npm.'
 
 export const metadata: Metadata = {
-  title: TITLE,
+  title: { absolute: TITLE },
   description: SUMMARY,
   alternates: { canonical: '/install' },
   openGraph: {
     ...OG,
     type: 'website',
     url: '/install',
-    title: `${TITLE} · ${NAME}`,
+    title: TITLE,
     description: SUMMARY,
   },
-  twitter: { ...TWITTER, title: `${TITLE} · ${NAME}`, description: SUMMARY },
+  twitter: { ...TWITTER, title: TITLE, description: SUMMARY },
 }
 
 const CHECKS = [
@@ -213,7 +215,7 @@ const CHANNELS: Channel[] = [
 
         <Step title="Remove">
           <p className="mb-4 text-dim">
-            <Code>brew untap hsnice16/tap</Code> also removes the tap.
+            After it, <Code>brew untap hsnice16/tap</Code> drops the tap too.
           </p>
           <Command label="remove">{'brew uninstall tula'}</Command>
         </Step>
@@ -244,9 +246,7 @@ const CHANNELS: Channel[] = [
         </Aside>
 
         <Step title="One exact version">
-          <p className="mb-4 text-dim">
-            Name the version. Installing without one moves you back to the newest.
-          </p>
+          <p className="mb-4 text-dim">Name the version. Without one, npm installs the newest.</p>
           <Command label="npm, one version">{'npm install -g @hsnice16/tula@<version>'}</Command>
         </Step>
 
@@ -268,10 +268,10 @@ const CHANNELS: Channel[] = [
 
 export default function Page() {
   return (
-    <main className="wrap pt-16 pb-step-3">
+    <main className="wrap animate-fade pt-16 pb-step-3">
       <JsonLd schema={breadcrumb('Install', '/install')} />
       <h1 className="mb-5 text-[clamp(2rem,4.5vw,2.8rem)] font-medium leading-[1.1] tracking-[-0.025em]">
-        Install
+        Install tula
       </h1>
       <p className="mb-10 max-w-[36rem] text-[1.05rem] text-dim">
         One file, nothing else to install. Three ways to get it, and the same binary from each.
@@ -288,14 +288,13 @@ export default function Page() {
         {/* Rows rather than the three columns the checks above take: the answers
             are uneven, and side by side the longest sets the height of the two
             beside it. */}
-        <dl className="mt-5 grid gap-x-7 gap-y-3 text-[0.9rem] sm:grid-cols-[auto_1fr]">
-          {PATH_FIXES.map(([channel, fix]) => (
-            <div key={channel} className="contents">
-              <dt className="font-semibold text-ink">{channel}</dt>
-              <dd className="text-dim">{fix}</dd>
-            </div>
-          ))}
-        </dl>
+        <div className="mt-5">
+          <Terms items={PATH_FIXES} />
+        </div>
+        <p className="mt-5 text-dim">
+          Once it starts, <Code>?</Code> on an empty line shows the shell&rsquo;s keys. Every
+          keyboard shortcut is on <Link href="/keys">its own page</Link>.
+        </p>
       </div>
 
       <h2 className="label mb-8">Every install is checked</h2>
@@ -323,9 +322,12 @@ export default function Page() {
                 key={system}
                 className="block border-b border-rule py-3 sm:table-row sm:border-b-0 sm:py-0"
               >
-                <td className="inline-block text-ink sm:table-cell sm:w-56 sm:border-b sm:border-rule sm:px-5 sm:py-2.5 sm:align-top">
+                <th
+                  scope="row"
+                  className="inline-block text-left font-normal text-ink sm:table-cell sm:w-56 sm:border-b sm:border-rule sm:px-5 sm:py-2.5 sm:align-top"
+                >
                   {system}
-                </td>
+                </th>
                 <td className="ml-4 inline-block font-mono text-[0.8rem] text-notice sm:ml-0 sm:table-cell sm:w-40 sm:border-b sm:border-rule sm:px-5 sm:py-2.5 sm:align-top">
                   {works}
                 </td>
@@ -356,7 +358,7 @@ export default function Page() {
         </div>
         <Terminal title="verify">
           {
-            "curl --proto '=https' --tlsv1.2 -fLO https://github.com/hsnice16/tula/releases/download/v0.4.0/tula-v0.4.0-darwin-arm64.tar.gz\ngh attestation verify tula-v0.4.0-darwin-arm64.tar.gz --repo hsnice16/tula --signer-workflow hsnice16/tula/.github/workflows/release.yml"
+            "curl --proto '=https' --tlsv1.2 -fLO https://github.com/hsnice16/tula/releases/download/v0.4.0/tula-v0.4.0-darwin-arm64.tar.gz\ngh attestation verify tula-v0.4.0-darwin-arm64.tar.gz --repo hsnice16/tula --signer-workflow hsnice16/tula/.github/workflows/release.yml --source-ref refs/tags/v0.4.0 --deny-self-hosted-runners"
           }
         </Terminal>
         <p className="mt-4 text-dim">

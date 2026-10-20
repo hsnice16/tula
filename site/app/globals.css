@@ -30,6 +30,8 @@
 
   --animate-pop: pop 360ms cubic-bezier(0.2, 0.9, 0.3, 1.25);
   --animate-panel: panel 240ms cubic-bezier(0.2, 0.7, 0.3, 1);
+  --animate-drop: drop 160ms ease-out;
+  --animate-fade: fade 200ms ease-out;
 
   /* What lifts a panel off the dot grid. Long, soft and offset downward: the
      page has no other light source, so a shadow tight to the border reads as a
@@ -96,6 +98,28 @@
   }
 }
 
+/* Something opening below what opened it — a menu, a new row — settles down
+   into place rather than appearing; something replaced in place only fades.
+   Each page's <main> fades in on its own: a route's template would, but Next
+   renders it again after load, and that reset a calculator under the user. */
+@keyframes drop {
+  from {
+    opacity: 0;
+    transform: translateY(-0.25rem);
+  }
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-drop,
+  .animate-fade {
+    animation: none;
+  }
+}
+
 /* The content column. The header and the footer rule to the viewport edge; every
    rule between them is drawn to these, so it lines up with the text it divides. */
 :root {
@@ -145,24 +169,56 @@
        under prefers-reduced-motion. */
     transition:
       color 0.16s ease,
-      border-color 0.16s ease;
+      border-color 0.16s ease,
+      text-decoration-color 0.16s ease;
   }
   a:hover {
     color: var(--color-notice);
   }
-  /* Inside a sentence a link is underlined too: colour alone is the one cue a
-     reader who cannot tell accent from body text never gets. */
-  p a {
+  /* Styled as the footer's links. The underline is the only cue in running
+     text, so it is never traded for colour. */
+  :is(p, li, dt, dd, td, th) a {
+    color: inherit;
     text-decoration-line: underline;
+    text-decoration-style: dotted;
     text-decoration-thickness: 1px;
     text-decoration-color: var(--color-accent-dim);
+    text-underline-offset: 4px;
   }
-  p a:hover {
+  :is(p, li, dt, dd, td, th) a:hover {
+    color: var(--color-accent);
     text-decoration-color: currentColor;
   }
 }
 
 @layer components {
+  /* A menu or list that opens in place and closes again. Opening shows it at
+     once — a menu still hidden cannot take the focus it is opened to give —
+     and closing keeps it visible until the fade ends, after which it leaves
+     the tab order and the accessibility tree. */
+  .reveal {
+    opacity: 0;
+    transform: translateY(-0.25rem);
+    visibility: hidden;
+    transition:
+      opacity 150ms ease-out,
+      transform 150ms ease-out,
+      visibility 0s linear 150ms;
+  }
+  .reveal[data-open] {
+    opacity: 1;
+    transform: none;
+    visibility: visible;
+    transition:
+      opacity 150ms ease-out,
+      transform 150ms ease-out;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal,
+    .reveal[data-open] {
+      transition: none;
+    }
+  }
   .wrap {
     max-width: var(--wrap);
     margin-inline: auto;

@@ -14,5 +14,5 @@
     "skipLibCheck": true,
     "types": ["bun"]
   },
-  "include": ["src", "scripts"]
+  "include": ["src", "scripts", "site/lib/calc.ts", "site/lib/calc.test.ts", "site/lib/format.ts"]
 }

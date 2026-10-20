@@ -231,10 +231,8 @@ if grep -rniE "$SKETCH" src --include='*.ts' --include='*.tsx' --exclude='*.test
   report "language that reads as a toy project is in shipped source"
 fi
 # The site's own source only: node_modules and .next are dependencies and build
-# output. The changelog is excluded because its job is to record that the
-# fixture was removed — that history is the rule being kept, not broken — and it
-# is read on GitHub, never rendered into these files.
-if [ -d site/app ] && grep -rniE "$SKETCH" site/app site/components site/lib; then
+# output.
+if [ -d site/app ] && grep -rniE "$SKETCH" site/app site/components site/lib site/scripts; then
   report "language that reads as a toy project is on the site"
 fi
 
@@ -272,6 +270,13 @@ for f in SECURITY.md README.md site/app/install/page.tsx; do
   for tag in $(grep -oE '/releases/download/v[A-Za-z0-9._-]+/' "$f" | sort -u); do
     [ "$tag" = "/releases/download/v$pkg_version/" ] ||
       report "$f downloads from $tag; this release is v$pkg_version"
+  done
+
+  # A third: `--source-ref` pins the tag, and a stale one fails the very check
+  # the line is there to teach.
+  for ref in $(grep -oE 'refs/tags/v[A-Za-z0-9._-]+' "$f" | sort -u); do
+    [ "$ref" = "refs/tags/v$pkg_version" ] ||
+      report "$f verifies against $ref; this release is v$pkg_version"
   done
 done
 

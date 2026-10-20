@@ -56,6 +56,7 @@ import {
 import { downloaded, freshness, holdings } from '../core/format.js'
 import {
   clearHistory,
+  credentialShaped,
   findInHistory,
   HISTORY_LIMIT,
   historyOff,
@@ -1460,6 +1461,14 @@ export function App({
               await refreshConnected()
             }
           }
+        } else if (agent && credentialShaped(trimmed)) {
+          // Kept out of history is not enough: the model provider is the one
+          // destination SECURITY.md ranks worst for a key.
+          push(
+            'error',
+            'That looks like an API key or a recovery phrase, so it was not sent to the model.\n' +
+              '  A key goes in /connect, never in a question. If it is neither, reword it.',
+          )
         } else if (agent) {
           // The engine reads whatever the session last fetched. Asking before
           // the first load answers "nothing is connected" about a connected

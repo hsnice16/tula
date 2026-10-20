@@ -1,6 +1,6 @@
 'use client'
 
-import { type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react'
+import { type MouseEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react'
 
 /** How far the card drifts, in px, at the ends of the term — about 2.4rem. */
 const DRIFT = 38
@@ -22,8 +22,8 @@ const MARGIN = 16
  * a term in the page's left gutter puts half of it off the page — so the offset
  * is measured and clamped here rather than left to `left-1/2`.
  *
- * It outranks the sticky header, which on a phone is two rows deep and reaches
- * to within a card's height of the eyebrow this one hangs off.
+ * It outranks the sticky header, which reaches to within a card's height of the
+ * eyebrow this one hangs off.
  */
 export function Note({ term, children }: { term: string; children: ReactNode }) {
   const [open, setOpen] = useState(false)
@@ -35,7 +35,8 @@ export function Note({ term, children }: { term: string; children: ReactNode }) 
    * would shut it again.
    */
   const press = useRef<{ mouse: boolean; wasOpen: boolean } | null>(null)
-  const id = `${term.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-note`
+  // Two notes on one term would share a slugged id; useId cannot collide.
+  const id = useId()
 
   // A tapped card has no hover to leave and, on iOS, no focus to lose.
   useEffect(() => {

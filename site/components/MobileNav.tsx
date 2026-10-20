@@ -51,7 +51,7 @@ export function MobileNav({ links, current }: { links: readonly NavLink[]; curre
         type="button"
         aria-expanded={open}
         aria-controls="mobile-nav"
-        aria-label={open ? 'Close menu' : 'Open menu'}
+        aria-label="Menu"
         onClick={() => setOpen((was) => !was)}
         // 36px drawn, 44px to a finger: the `after` extends the target past a box
         // that at full size outweighed the wordmark beside it. 5px, not 4: an
@@ -59,45 +59,46 @@ export function MobileNav({ links, current }: { links: readonly NavLink[]; curre
         className="relative flex size-9 items-center justify-center rounded-lg border border-rule bg-panel-2 text-dim transition-colors duration-200 after:absolute after:-inset-[5px] after:content-[''] hover:text-ink"
       >
         <svg
+          key={open ? 'close' : 'open'}
           aria-hidden="true"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
           strokeWidth="2"
           strokeLinecap="round"
-          className="size-5"
+          className="size-5 animate-fade"
         >
           {open ? <path d="M6 6l12 12M18 6 6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
         </svg>
       </button>
 
-      {open && (
-        <div
-          id="mobile-nav"
-          className="absolute right-0 top-full z-20 mt-2 min-w-52 overflow-hidden rounded-xl border border-rule bg-panel shadow-lift"
-        >
-          <nav aria-label="Primary">
-            {links.map(({ href, label }, i) => (
-              <Link
-                key={href}
-                href={href}
-                ref={i === 0 ? first : undefined}
-                aria-current={href === current ? 'page' : undefined}
-                onClick={() => setOpen(false)}
-                className={`flex min-h-11 items-center px-5 text-[0.95rem] transition-colors duration-200 hover:bg-panel-2 ${
-                  href === current ? 'text-accent' : 'text-dim hover:text-ink'
-                }`}
-              >
-                {label}
-              </Link>
-            ))}
-          </nav>
-          <div className="flex min-h-12 items-center justify-between gap-4 border-t border-rule px-5 text-[0.8rem] text-dim">
-            <span>Build</span>
-            <VersionPill className="inline-flex bg-panel-2" />
-          </div>
+      {/* Always rendered, so closing can fade as opening does. */}
+      <div
+        id="mobile-nav"
+        data-open={open || undefined}
+        className="reveal absolute right-0 top-full z-20 mt-2 min-w-52 overflow-hidden rounded-xl border border-rule bg-panel shadow-lift"
+      >
+        <nav aria-label="Primary">
+          {links.map(({ href, label }, i) => (
+            <Link
+              key={href}
+              href={href}
+              ref={i === 0 ? first : undefined}
+              aria-current={href === current ? 'page' : undefined}
+              onClick={() => setOpen(false)}
+              className={`flex min-h-11 items-center px-5 text-[0.95rem] transition-colors duration-200 hover:bg-panel-2 ${
+                href === current ? 'text-accent' : 'text-dim hover:text-ink'
+              }`}
+            >
+              {label}
+            </Link>
+          ))}
+        </nav>
+        <div className="flex min-h-12 items-center justify-between gap-4 border-t border-rule px-5 text-[0.8rem] text-dim">
+          <span>Build</span>
+          <VersionPill className="inline-flex bg-panel-2" />
         </div>
-      )}
+      </div>
     </div>
   )
 }

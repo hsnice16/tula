@@ -1,0 +1,1743 @@
+{
+  "asOf": "2026-10-20",
+  "perps": [
+    {
+      "asset": "0G",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "2Z",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "AAVE",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 10
+        },
+        {
+          "from": 20000000,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "ACE",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "ADA",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 10
+        },
+        {
+          "from": 20000000,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "AERO",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "AIXBT",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "ALGO",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "ALT",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "ANIME",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "APE",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "APEX",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "APT",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 10
+        },
+        {
+          "from": 20000000,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "AR",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "ARB",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 10
+        },
+        {
+          "from": 3000000,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "ASTER",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "ATOM",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "AVAX",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 10
+        },
+        {
+          "from": 20000000,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "AVNT",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "AXS",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "AZTEC",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "BABY",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "BANANA",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "BCH",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 10
+        },
+        {
+          "from": 20000000,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "BERA",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "BIGTIME",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "BIO",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "BLUR",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "BNB",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 10
+        },
+        {
+          "from": 3000000,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "BOME",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "BRETT",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "BSV",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "BTC",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 40
+        },
+        {
+          "from": 150000000,
+          "maxLeverage": 20
+        }
+      ]
+    },
+    {
+      "asset": "CAKE",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "CASHCAT",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "CC",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "CELO",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "CFX",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "CHIP",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "COMP",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "CRV",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 10
+        },
+        {
+          "from": 20000000,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "DASH",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "DOGE",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 10
+        },
+        {
+          "from": 20000000,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "DOT",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 10
+        },
+        {
+          "from": 3000000,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "DYDX",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "DYM",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "EIGEN",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "ENA",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 10
+        },
+        {
+          "from": 20000000,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "ENS",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "ETC",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "ETH",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 25
+        },
+        {
+          "from": 100000000,
+          "maxLeverage": 15
+        }
+      ]
+    },
+    {
+      "asset": "ETHFI",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "FARTCOIN",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 10
+        },
+        {
+          "from": 20000000,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "FET",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "FIL",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "FOGO",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "GALA",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "GAS",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "GMT",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "GMX",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "GOAT",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "GRAM",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "GRASS",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "GRIFFAIN",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "HBAR",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "HEMI",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "HMSTR",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "HYPE",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 10
+        },
+        {
+          "from": 20000000,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "HYPER",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "ICP",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "IMX",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "INIT",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "INJ",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "IO",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "IOTA",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "JTO",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "JUP",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 10
+        },
+        {
+          "from": 3000000,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "KAITO",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "KAS",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "kBONK",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 10
+        },
+        {
+          "from": 20000000,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "kFLOKI",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "kLUNC",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "kNEIRO",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "kPEPE",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 10
+        },
+        {
+          "from": 20000000,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "kSHIB",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 10
+        },
+        {
+          "from": 3000000,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "LAYER",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "LDO",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "LINEA",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "LINK",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 10
+        },
+        {
+          "from": 20000000,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "LIT",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "LTC",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 10
+        },
+        {
+          "from": 20000000,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "MANTA",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "ME",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "MEGA",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "MELANIA",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "MEME",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "MERL",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "MET",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "MINA",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "MNT",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "MON",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "MOODENG",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "MORPHO",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "MOVE",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "NEAR",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 10
+        },
+        {
+          "from": 20000000,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "NEO",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "NIL",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "NOT",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "NXPC",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "ONDO",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 10
+        },
+        {
+          "from": 3000000,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "OP",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "ORDI",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "PAXG",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 10
+        },
+        {
+          "from": 3000000,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "PENDLE",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "PENGU",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "PEOPLE",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "PNUT",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "POL",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "POLYX",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "PONS",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "POPCAT",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "PROVE",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "PUMP",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 10
+        },
+        {
+          "from": 20000000,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "PURR",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "PYTH",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "RENDER",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "RESOLV",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "REZ",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "RSR",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "RUNE",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "S",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "SAGA",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "SAND",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "SEI",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "SKR",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "SKY",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "SNX",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "SOL",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 20
+        },
+        {
+          "from": 70000000,
+          "maxLeverage": 10
+        }
+      ]
+    },
+    {
+      "asset": "SOPH",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "SPX",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "STABLE",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "STBL",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "STRK",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "STX",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "SUI",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 10
+        },
+        {
+          "from": 20000000,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "SUPER",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "SUSHI",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "SYRUP",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "TAO",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "TIA",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "TNSR",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "TRB",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "TRUMP",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 10
+        },
+        {
+          "from": 20000000,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "TRX",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 10
+        },
+        {
+          "from": 3000000,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "TURBO",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "UMA",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "UNI",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 10
+        },
+        {
+          "from": 20000000,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "USELESS",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "USUAL",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "VIRTUAL",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "VVV",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "W",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "WCT",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "WIF",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "WLD",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 10
+        },
+        {
+          "from": 20000000,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "WLFI",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "XAI",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "XLM",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "XMR",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "XPL",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 10
+        },
+        {
+          "from": 3000000,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "XRP",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 20
+        },
+        {
+          "from": 40000000,
+          "maxLeverage": 10
+        }
+      ]
+    },
+    {
+      "asset": "YGG",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "ZEC",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 10
+        },
+        {
+          "from": 20000000,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "ZEN",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "ZETA",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "ZK",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    },
+    {
+      "asset": "ZORA",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 3
+        }
+      ]
+    },
+    {
+      "asset": "ZRO",
+      "tiers": [
+        {
+          "from": 0,
+          "maxLeverage": 5
+        }
+      ]
+    }
+  ]
+}

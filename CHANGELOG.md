@@ -11,6 +11,18 @@ CI and build plumbing, refactors, and doc-only edits — stays in commit message
 
 ## [Unreleased]
 
+### Changed
+
+- **`/update install` checks who built the update, as the installer does.** Where the GitHub CLI is installed and signed in, the archive's attestation must name this repository's release workflow and the release's own tag, or nothing is installed. Without it the update goes ahead and says provenance was not proven; `TULA_REQUIRE_ATTESTATION=1` refuses that instead.
+- **The installer accepts only an attestation made from the release's tag, on GitHub's own runners.** Every release so far passes; the check you can run by hand, in SECURITY.md, says the same.
+- **`/venues` names the perps it reads as Coinbase International's.** They always were: the CDP portfolio a key reaches holds International Exchange perps, not the CFTC-regulated US futures, which stay unread.
+
+### Fixed
+
+- **An update that will not start leaves nothing behind.** `/update install` unpacks beside the install tree and moves the build in only once it runs; a build that did not start used to stay under `~/.tula/versions`.
+- **A key or a recovery phrase typed as a question is not sent to the model.** It was already kept out of history; the shell now refuses to send it and says why.
+- **Credential-file errors name the path from `~`,** so one pasted into an issue does not carry your username.
+
 ## [0.4.0] - 2026-10-01
 
 ### Added

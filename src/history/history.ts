@@ -151,8 +151,17 @@ export function recordable(line: string): boolean {
   if (/^\s/.test(line)) return false
   const text = line.trim()
   if (text === '') return false
-  if (COMPILED.some((pattern) => pattern.test(text))) return false
-  return !BARE_WORDS.test(text) && !walletWords(text) && !unbrokenSecret(text)
+  return !BARE_WORDS.test(text) && !credentialShaped(text)
+}
+
+/**
+ * A key or a recovery phrase by the strong signals alone. The shell refuses to
+ * send such a line to the model; `BARE_WORDS` stays out because an ordinary
+ * question can be twelve short words, and refusing one is worse than not
+ * saving it.
+ */
+export function credentialShaped(text: string): boolean {
+  return COMPILED.some((pattern) => pattern.test(text)) || walletWords(text) || unbrokenSecret(text)
 }
 
 /**

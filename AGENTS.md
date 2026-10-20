@@ -408,9 +408,14 @@ Two rules, and they are the reason the architecture exists:
   had to mean to type. It refuses a checksum mismatch and an unlisted archive
   exactly as `install.sh` does, because this is the second way onto the same disk
   and two paths that disagree about what they accept means the stricter one is
-  decoration. It refuses one thing more, and first: any version not newer than
-  the running one — `/releases/latest` skips pre-releases, so a pre-release build
-  asking is offered a downgrade, and nothing else would catch it. Under Homebrew or npm it declines
+  decoration. That includes provenance: `viaGitHubCli` runs install.sh's
+  `gh attestation verify` to the flag, refuses a failure, and reports an
+  unproven build unless `TULA_REQUIRE_ATTESTATION` refuses it too; tests pass a
+  stub, because CI runners ship `gh`. The build is unpacked beside `versions/`
+  and renamed in only once it starts. It refuses one thing more, and first: any
+  version not newer than the running one — `/releases/latest` skips
+  pre-releases, so a pre-release build asking is offered a downgrade, and
+  nothing else would catch it. Under Homebrew or npm it declines
   to move at all: a binary that swapped itself leaves the package manager naming
   a version that is not running, which is a wrong number about a tool whose whole
   job is not showing wrong numbers.
@@ -744,9 +749,26 @@ bun run build              # -> site/out, static
   either is a 404 arrived at from a search result.
 - **The guides** — every `group: 'guide'` entry in `NAV` but Keys, each an
   `app/<route>/page.tsx` built on
-  `components/Guide.tsx` — are pages written for a search, linked from the
-  footer's Guides column, beside Keys, and nowhere more prominent. A hidden link would be spam
-  under Google's policy, and a page nothing links to ranks weakly.
+  `components/Guide.tsx` — are pages written for a search, every one in the
+  footer, in the column its `shelf` names (a venue's calculators and tracker
+  `under` the venue), and none in the header. Prose links to them wherever
+  the sentence is about what they cover; a link hidden from readers would be
+  spam under Google's policy, and a page nothing links to ranks weakly.
+- **A guide does not style its own lists or tables.** Terms, steps, points and
+  formulas are `components/Prose.tsx`, a short reference table
+  `components/Table.tsx`; a hand-rolled one is how the pages drifted apart.
+- **The calculators fetch nothing.** Each page says nothing typed into it leaves
+  the page, and the CSP's `connect-src` would refuse a venue anyway. Their max
+  leverage, margin tiers and liquidation thresholds are `lib/params/`, a dated
+  snapshot written by `bun run params` by hand and never by the build: a build
+  that fetched would publish whatever a venue answered that minute, or fail on a
+  rate limit. One file per venue, so each calculator ships only its own. Rerun it
+  when a venue lists a market or moves a threshold, and review the diff — the
+  pages print its date. `src/site-claims.test.ts` holds the script's Aave pools
+  to `src/connectors/aave.ts`, and the calculators to fetching nothing.
+- **`lib/calc.test.ts` is the one test under `site/`.** Root `bun test` finds
+  it and root `tsconfig.json` typechecks it beside the two files it imports;
+  the site's own config excludes it, having no Bun types to check it with.
 - `components/VersionPill.tsx` draws the release the site describes, in the
   header and in the mobile menu. It reads `VERSION` from `lib/site.ts` and
   derives the pre-release marker from the hyphen, the same rule `src/version.ts`
@@ -763,8 +785,8 @@ bun run build              # -> site/out, static
   read as the same file. Nothing under `site/` may reach up to the repository
   root for content again — `lib/content.ts` and `lib/markdown.ts` existed only
   for those pages and are gone with them.
-- `scripts/guard.sh` holds `site/app`, `site/components` and `site/lib` to the
-  same language rule as `src/`.
+- `scripts/guard.sh` holds `site/app`, `site/components`, `site/lib` and
+  `site/scripts` to the same language rule as `src/`.
 - **English only**, here and in the README: the name is described as taken from
   Sanskrit rather than written in Devanagari, so nothing depends on a reader's
   font or script. The wordmark and the etymology line are gone from the site. The
@@ -797,7 +819,7 @@ bun run build              # -> site/out, static
   sideways-scrolling table puts it off a phone with nothing to say it is there.
   Horizontal scroll is right for the terminal frames, which are a picture of a
   fixed-width grid, and wrong for anything a reader has to read.
-- **Eight client component files, and each one earns it by needing something
+- **Thirteen client component files, and each one earns it by needing something
   CSS cannot read.** `Session.tsx` draws the front page's frame and works `/`,
   ctrl+s and ctrl+o on a loop because a transcript cannot show a keystroke —
   every state it passes through is one the binary draws, in the binary's own
@@ -820,11 +842,17 @@ bun run build              # -> site/out, static
   on the work, because that is the state a reader who has turned motion off is
   left with.
   `Note.tsx` leans its card toward the pointer.
-  `Copy.tsx` puts a command on the clipboard and holds the answer for a
-  moment; it is handed the text rather than reading it back out of the
-  block, and its live region sits outside the button, because a button's
-  children are presentational and a region nested in one is not reliably
-  announced.
+  `HyperliquidCalculator.tsx`, `AaveCalculator.tsx` and `FundingCalculator.tsx`
+  take a position typed in and answer with `lib/calc.ts`, which is kept apart
+  from them so the worked example on each page is computed by the same
+  arithmetic, from the same `OPENING` inputs, as the calculator above it — a
+  page whose example and calculator disagree has no right answer.
+  `components/Field.tsx` is their inputs, select and readouts, and
+  `lib/format.ts` their one renderer of figures.
+  `Copy.tsx` puts a command on the clipboard; its comments say why it is
+  handed the text and where its live region sits.
+  `ConsentBanner.tsx` and `ConsentChoice.tsx` read the visitor's analytics
+  choice from storage, which only exists after mount; see the analytics rule.
   `MobileNav.tsx` holds the header's links on a phone; it closes on Escape, a
   tap outside or a route change, and Escape hands focus back to its button.
   `Nav.tsx` and `Channels.tsx` measure where the active item sits so one
@@ -900,14 +928,22 @@ bun run build              # -> site/out, static
   report the absence, and it is public in the page source regardless.
   `anonymize_ip` is deliberately not passed — GA4 truncates the address itself
   and ignores it, so sending it would advertise a control that is not ours to
-  offer. The security page's egress card names the split, because the reader is
-  on the site while it happens.
+  offer. Consent Mode denies GA storage by default in `lib/consent.ts`'s
+  regions, applied by Google from the visitor's IP so the pages stay static,
+  and `ConsentBanner` asks by time zone, the nearest thing a static page can
+  see. Accept and Decline look alike, `/privacy` withdraws as easily as the
+  banner grants, and a withdrawal deletes the `_ga` cookies already set. The
+  choice is the one thing the site keeps in `localStorage`. The security
+  page's egress card names the split, because the reader is on the site while
+  it happens.
   `GOOGLE_SITE_VERIFICATION` sits beside the id: it is Search Console ownership,
   and it stays after the property verifies, because Google re-checks the tag and
   un-verifies when it goes — taking the sitemap and the index coverage with it.
 - **`public/<key>.txt` is the IndexNow key**, public by the protocol's design:
   it proves to Bing and the other IndexNow engines that a submission of this
-  site's URLs came from whoever controls it. Submitting is by hand, after a deploy.
+  site's URLs came from whoever controls it. Submitting is by hand, after a
+  deploy has gone live: `bun run indexnow` sends every URL the live sitemap
+  names.
 - **`public/.well-known/security.txt`** is RFC 9116, at the domain root the
   spec requires; `Canonical` is what a copy found anywhere else has to be
   checked against. `guard.sh` fails 30 days before `Expires`: a lapsed one is a
@@ -958,8 +994,9 @@ The install path is part of the security product: someone runs it immediately
 before pasting keys tied to their net worth.
 
 - **One tag produces every artifact, and a manual run is a dry run that attests
-  nothing.** `install.sh` pins the signing workflow but not the ref it ran from,
-  so an attestation minted on a dry run would vouch for any branch.
+  nothing.** A release publishes only from its tag, so `install.sh` pins the
+  workflow, the tag and GitHub's runners; someone checking by hand with only
+  `--signer-workflow` would still take a dry run's attestation for a release.
   CONTRIBUTING.md's Releasing section says what `release.yml` checks.
 - **Attestation, not a signing key.** GitHub artifact attestations are
   sigstore-backed and keyless, so this project has no key to generate, publish,

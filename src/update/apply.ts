@@ -179,6 +179,56 @@ async function removeGroupWrite(dir: string): Promise<void> {
   }
 }
 
+/** What an attestation check found, short of a forged build, which throws. */
+export type Provenance = { proven: true } | { proven: false; why: string }
+export type Verify = (archive: string, version: string) => Promise<Provenance>
+
+/** A network round trip to GitHub's attestation API, not a local check. */
+const VERIFY_TIMEOUT_MS = 60_000
+
+/**
+ * `install.sh`'s `verify_attestation`, to the flag: the same workflow, the same
+ * tag, the same refusal of a self-hosted runner. Absent or signed out, the CLI
+ * proves nothing either way, and that is reported rather than refused — unless
+ * `TULA_REQUIRE_ATTESTATION` says otherwise, which the caller applies.
+ */
+export const viaGitHubCli: Verify = async (archive, version) => {
+  try {
+    await run('gh', ['auth', 'status'], { timeout: VERIFY_TIMEOUT_MS, killSignal: 'SIGKILL' })
+  } catch (err) {
+    const missing = (err as NodeJS.ErrnoException).code === 'ENOENT'
+    return { proven: false, why: missing ? 'the GitHub CLI is not installed' : 'the GitHub CLI is not signed in' }
+  }
+  const repo = new URL(REPO_URL).pathname.slice(1)
+  try {
+    await run(
+      'gh',
+      [
+        'attestation',
+        'verify',
+        archive,
+        '--repo',
+        repo,
+        '--signer-workflow',
+        `${repo}/.github/workflows/release.yml`,
+        '--source-ref',
+        `refs/tags/v${version}`,
+        '--deny-self-hosted-runners',
+      ],
+      { timeout: VERIFY_TIMEOUT_MS, killSignal: 'SIGKILL' },
+    )
+  } catch {
+    // Never advisory, as in install.sh: a signed-in CLI that cannot vouch for
+    // the archive is the one result this check exists to act on.
+    throw new TulaError(
+      `tula ${version} failed attestation: it was not built by ${repo}'s release workflow from its tag.\n` +
+        '  Nothing was installed. Do not use this download.\n' +
+        `  Report it: ${REPO_URL}/security`,
+    )
+  }
+  return { proven: true }
+}
+
 /**
  * Installs `version` and points the launcher at it, or installs nothing.
  *
@@ -188,22 +238,25 @@ async function removeGroupWrite(dir: string): Promise<void> {
  * install, bin and version directories as well as the checksum, and the modes
  * install.sh sets afterwards. It refuses one thing more, first — a version that
  * is not newer, since `/releases/latest` skips pre-releases and would otherwise
- * offer a pre-release build a silent downgrade. What it cannot do is check
- * provenance: that needs the GitHub CLI, and the caller has to have said so
- * before getting here.
+ * offer a pre-release build a silent downgrade. Provenance is checked as
+ * install.sh checks it, through `verify`.
  *
- * That last gap is why no `.tula-sha256` receipt is written. install.sh reads a
- * matching receipt as *this script downloaded, verified and unpacked that
- * binary* and answers "already installed"; one written here would say it about
- * a binary nothing checked the provenance of, and re-running the install line
- * is what somebody does to repair a tree they suspect. The cost is that such a
- * run downloads again, which is what a repair is.
+ * No `.tula-sha256` receipt is written. install.sh reads a matching receipt as
+ * *this script downloaded, verified and unpacked that binary* and answers
+ * "already installed"; one written here would say so of a binary whose
+ * provenance may have gone unproven, and re-running the install line is what
+ * somebody does to repair a tree they suspect. The cost is that such a run
+ * downloads again, which is what a repair is.
+ *
+ * Unpacked beside its final place and renamed into it only once it starts, so
+ * a build that will not run leaves nothing under `versions/`.
  */
 export async function applyUpdate(
   version: string,
   into: NativeInstall,
-  onProgress?: DownloadProgress,
-): Promise<string> {
+  onProgress: DownloadProgress | undefined,
+  verify: Verify,
+): Promise<{ binary: string; provenance: Provenance }> {
   if (!isNewer(version, APP_VERSION)) {
     throw new TulaError(`${version} is not newer than ${APP_VERSION}; nothing to do.`)
   }
@@ -218,6 +271,9 @@ export async function applyUpdate(
   const archive = `tula-v${version}-${target()}.tar.gz`
   const base = `${REPO_URL}/releases/download/v${version}`
   const temp = await mkdtemp(join(tmpdir(), 'tula-update-'))
+  // Beside the final directory rather than in `temp`: the move into place has
+  // to be a rename on one filesystem, which /tmp often is not.
+  const unpacked = `${dir}.${process.pid}.unpacking`
 
   try {
     // Only the archive is reported on. checksums.txt is 386 bytes; a meter for
@@ -251,17 +307,27 @@ export async function applyUpdate(
       )
     }
 
-    // Written out only now, and unpacked only after both checks pass, so an
-    // archive that fails one never reaches the install tree at all.
-    await mkdir(dir, { recursive: true })
-    for (const d of [root, bin, dir]) await removeGroupWrite(d)
+    // Unpacked only after every check passes, so an archive that fails one
+    // never reaches the install tree at all.
     const staged = join(temp, archive)
     await writeFile(staged, bytes)
+    const provenance = await verify(staged, version)
+    if (!provenance.proven && process.env['TULA_REQUIRE_ATTESTATION'] === '1') {
+      throw new TulaError(
+        `TULA_REQUIRE_ATTESTATION is set and provenance could not be proven: ${provenance.why}.\n` +
+          '  Nothing was installed. Install the GitHub CLI and run  gh auth login,  then try again.',
+      )
+    }
+
+    await mkdir(into.versions, { recursive: true })
+    await rm(unpacked, { recursive: true, force: true })
+    await mkdir(unpacked, { mode: 0o755 })
+    for (const d of [root, bin, into.versions, unpacked]) await removeGroupWrite(d)
     // Same reason as the `access` below: `run` rejects with a plain Error on a
     // missing tar or a non-zero exit, and `command.ts` rethrows anything that is
     // not a TulaError — so an unpack failure left the update as a stack trace.
     try {
-      await run('tar', ['-xzf', staged, '-C', dir], {
+      await run('tar', ['-xzf', staged, '-C', unpacked], {
         timeout: UNPACK_TIMEOUT_MS,
         killSignal: 'SIGKILL',
       })
@@ -272,9 +338,9 @@ export async function applyUpdate(
       )
     }
 
-    const binary = join(dir, 'tula')
+    const fresh = join(unpacked, 'tula')
     try {
-      await access(binary)
+      await access(fresh)
     } catch {
       throw new TulaError(
         `${archive} did not contain a tula binary. Nothing was installed.\n` +
@@ -284,12 +350,12 @@ export async function applyUpdate(
     // Set rather than inherited from the archive: `tar` applies the umask to
     // what it unpacks, so a umask of 077 leaves a binary the launcher points at
     // and nothing else on the machine can run.
-    await chmod(binary, 0o755)
+    await chmod(fresh, 0o755)
 
     // Verified is not runnable: a macOS newer than the build kills a binary
     // that passed its checksum. The launcher only moves to one that started.
     try {
-      await run(binary, ['--version'], {
+      await run(fresh, ['--version'], {
         timeout: LAUNCH_TIMEOUT_MS,
         killSignal: 'SIGKILL',
         env: { ...process.env, TULA_NO_UPDATE_CHECK: '1' },
@@ -301,6 +367,13 @@ export async function applyUpdate(
       )
     }
 
+    // A directory left from an earlier attempt at this version is replaced:
+    // `rename` cannot land on a directory that has anything in it, and nothing
+    // runs from it, since the launcher only ever points at a build that started.
+    await rm(dir, { recursive: true, force: true })
+    await rename(unpacked, dir)
+    const binary = join(dir, 'tula')
+
     // Renamed over rather than unlinked and remade: a link replaced in two
     // steps has a moment with nothing at the end of it, and that moment is
     // every shell on the machine finding no tula. `force` because a run that
@@ -309,8 +382,9 @@ export async function applyUpdate(
     await rm(link, { force: true })
     await symlink(binary, link)
     await rename(link, into.launcher)
-    return binary
+    return { binary, provenance }
   } finally {
     await rm(temp, { recursive: true, force: true })
+    await rm(unpacked, { recursive: true, force: true })
   }
 }

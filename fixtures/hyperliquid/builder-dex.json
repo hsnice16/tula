@@ -93,7 +93,7 @@
             "type": "cross",
             "value": 20
           },
-          "entryPx": "77578.0",
+          "entryPx": "77194.3",
           "positionValue": "240.3235437512",
           "unrealizedPnl": "2.2342070144",
           "returnOnEquity": "0.1876780409",
@@ -116,7 +116,7 @@
             "type": "cross",
             "value": 20
           },
-          "entryPx": "2513.08",
+          "entryPx": "2525.07",
           "positionValue": "159.3299212404",
           "unrealizedPnl": "-0.3168368754",
           "returnOnEquity": "-0.0396922404",
@@ -139,7 +139,7 @@
             "type": "cross",
             "value": 20
           },
-          "entryPx": "101.7103",
+          "entryPx": "101.3467",
           "positionValue": "180.9982262005",
           "unrealizedPnl": "-0.2207957937",
           "returnOnEquity": "-0.0243678386",
@@ -162,7 +162,7 @@
             "type": "cross",
             "value": 10
           },
-          "entryPx": "734.871",
+          "entryPx": "732.457",
           "positionValue": "111.7836996295",
           "unrealizedPnl": "-2.0117778245",
           "returnOnEquity": "-0.1767889084",
@@ -185,7 +185,7 @@
             "type": "cross",
             "value": 10
           },
-          "entryPx": "79.9342",
+          "entryPx": "79.7035",
           "positionValue": "178.5770275098",
           "unrealizedPnl": "1.4838839652",
           "returnOnEquity": "0.0837911585",
@@ -200,7 +200,7 @@
         }
       }
     ],
-    "time": 1789394957949
+    "time": 1789394400000
   },
   "dexes": {
     "xyz": {
@@ -219,7 +219,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789394958213
+      "time": 1789394400000
     },
     "flx": {
       "marginSummary": {
@@ -237,7 +237,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789394958506
+      "time": 1789394400000
     },
     "vntl": {
       "marginSummary": {
@@ -255,7 +255,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789394958905
+      "time": 1789394400000
     },
     "hyna": {
       "marginSummary": {
@@ -273,7 +273,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789394959242
+      "time": 1789394400000
     },
     "km": {
       "marginSummary": {
@@ -291,7 +291,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789394959457
+      "time": 1789394400000
     },
     "abcd": {
       "marginSummary": {
@@ -309,7 +309,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789394959837
+      "time": 1789394400000
     },
     "cash": {
       "marginSummary": {
@@ -327,7 +327,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789394960127
+      "time": 1789394400000
     },
     "para": {
       "marginSummary": {
@@ -345,7 +345,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789394960390
+      "time": 1789394400000
     },
     "mkts": {
       "marginSummary": {
@@ -363,7 +363,7 @@
       "crossMaintenanceMarginUsed": "0.0",
       "withdrawable": "0.0",
       "assetPositions": [],
-      "time": 1789394960645
+      "time": 1789394400000
     },
     "io": {
       "marginSummary": {
@@ -391,7 +391,7 @@
               "value": 6,
               "rawUsd": "-11.9438931113"
             },
-            "entryPx": "2240.6",
+            "entryPx": "2248.5",
             "positionValue": "21.0862021247",
             "unrealizedPnl": "-0.8599816734",
             "returnOnEquity": "-0.235115594",
@@ -406,7 +406,7 @@
           }
         }
       ],
-      "time": 1789394960992
+      "time": 1789394400000
     }
   },
   "openOrders": [
