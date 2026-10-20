@@ -191,10 +191,13 @@ const VERIFY_TIMEOUT_MS = 60_000
  * tag, the same refusal of a self-hosted runner. Absent or signed out, the CLI
  * proves nothing either way, and that is reported rather than refused — unless
  * `TULA_REQUIRE_ATTESTATION` says otherwise, which the caller applies.
+ *
+ * `gh` is a parameter for the tests alone: they hand it a stub by path, because
+ * pointing PATH at a just-made directory can freeze Bun's spawn on macOS.
  */
-export const viaGitHubCli: Verify = async (archive, version) => {
+export const githubCli = (gh = 'gh'): Verify => async (archive, version) => {
   try {
-    await run('gh', ['auth', 'status'], { timeout: VERIFY_TIMEOUT_MS, killSignal: 'SIGKILL' })
+    await run(gh, ['auth', 'status'], { timeout: VERIFY_TIMEOUT_MS, killSignal: 'SIGKILL' })
   } catch (err) {
     const missing = (err as NodeJS.ErrnoException).code === 'ENOENT'
     return { proven: false, why: missing ? 'the GitHub CLI is not installed' : 'the GitHub CLI is not signed in' }
@@ -202,7 +205,7 @@ export const viaGitHubCli: Verify = async (archive, version) => {
   const repo = new URL(REPO_URL).pathname.slice(1)
   try {
     await run(
-      'gh',
+      gh,
       [
         'attestation',
         'verify',
@@ -228,6 +231,8 @@ export const viaGitHubCli: Verify = async (archive, version) => {
   }
   return { proven: true }
 }
+
+export const viaGitHubCli = githubCli()
 
 /**
  * Installs `version` and points the launcher at it, or installs nothing.

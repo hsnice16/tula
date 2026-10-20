@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { createHash } from 'node:crypto'
 import { execFile } from 'node:child_process'
 import { access, chmod, mkdir, mkdtemp, readdir, readFile, readlink, rm, stat, symlink, writeFile } from 'node:fs/promises'
@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { TulaError } from '../core/errors.js'
-import { applyUpdate, target, type Verify, viaGitHubCli } from './apply.js'
+import { applyUpdate, githubCli, target, type Verify } from './apply.js'
 import type { NativeInstall } from './channel.js'
 
 const run = promisify(execFile)
@@ -327,44 +327,46 @@ describe('provenance', () => {
 })
 
 /**
- * The real check, against a `gh` written for each case: on this PATH and no
- * other, so a developer's own signed-in CLI is never the one answering.
+ * The real check, against a stub handed in by path, so a developer's own
+ * signed-in CLI is never the one answering and PATH is never touched.
  */
 describe('the GitHub CLI check', () => {
-  const realPath = process.env['PATH']
   let stubs: string
   let calls: string
+  let check: Verify
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     stubs = await mkdtemp(join(tmpdir(), 'tula-gh-'))
     calls = join(stubs, 'calls')
-    process.env['PATH'] = stubs
-  })
-  afterEach(async () => {
-    process.env['PATH'] = realPath
-    await rm(stubs, { recursive: true, force: true })
-  })
-
-  const gh = async (auth: number, verify: number) => {
     await writeFile(
       join(stubs, 'gh'),
-      `#!/bin/sh\nprintf '%s\\n' "$*" >>'${calls}'\ncase "$1 $2" in\n  "auth status") exit ${auth} ;;\nesac\nexit ${verify}\n`,
+      `#!/bin/sh\nprintf '%s\\n' "$*" >>'${calls}'\nread auth verify <'${join(stubs, 'mode')}'\ncase "$1 $2" in\n  "auth status") exit "$auth" ;;\nesac\nexit "$verify"\n`,
     )
     await chmod(join(stubs, 'gh'), 0o755)
-  }
+    check = githubCli(join(stubs, 'gh'))
+  })
+  afterAll(async () => {
+    await rm(stubs, { recursive: true, force: true })
+  })
+  beforeEach(async () => {
+    await rm(calls, { force: true })
+  })
+
+  /** The exit codes the stub gives `auth status` and `attestation verify`. */
+  const gh = (auth: number, verify: number) => writeFile(join(stubs, 'mode'), `${auth} ${verify}\n`)
 
   test('absent, it proves nothing and says why', async () => {
-    expect(await viaGitHubCli('a.tar.gz', NEW)).toEqual({ proven: false, why: 'the GitHub CLI is not installed' })
+    expect(await githubCli(join(stubs, 'nowhere', 'gh'))('a.tar.gz', NEW)).toEqual({ proven: false, why: 'the GitHub CLI is not installed' })
   })
 
   test('signed out, it proves nothing and says why', async () => {
     await gh(1, 1)
-    expect(await viaGitHubCli('a.tar.gz', NEW)).toEqual({ proven: false, why: 'the GitHub CLI is not signed in' })
+    expect(await check('a.tar.gz', NEW)).toEqual({ proven: false, why: 'the GitHub CLI is not signed in' })
   })
 
   test('signed in, it verifies against the workflow, the tag and GitHub runners', async () => {
     await gh(0, 0)
-    expect(await viaGitHubCli('a.tar.gz', NEW)).toEqual({ proven: true })
+    expect(await check('a.tar.gz', NEW)).toEqual({ proven: true })
     const verify = (await readFile(calls, 'utf8')).split('\n').find((c) => c.startsWith('attestation verify'))
     expect(verify).toBe(
       `attestation verify a.tar.gz --repo hsnice16/tula --signer-workflow hsnice16/tula/.github/workflows/release.yml --source-ref refs/tags/v${NEW} --deny-self-hosted-runners`,
@@ -373,6 +375,6 @@ describe('the GitHub CLI check', () => {
 
   test('signed in and failing, it refuses rather than warns', async () => {
     await gh(0, 1)
-    await expect(viaGitHubCli('a.tar.gz', NEW)).rejects.toThrow(/failed attestation/)
+    await expect(check('a.tar.gz', NEW)).rejects.toThrow(/failed attestation/)
   })
 })
