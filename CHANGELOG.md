@@ -11,6 +11,8 @@ CI and build plumbing, refactors, and doc-only edits — stays in commit message
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-10-20
+
 ### Changed
 
 - **Kraken shows a coin held on another network as its own row, the way Kraken does.** `USDC.CORE` (USDC on HyperCore), `ETH.INK` and `USDT0.TEMPO` each get a row in `/positions`, read as `USDC (as USDC.CORE)`, and still count toward the coin's exposure. `/position USDC` opens the plain balance and `/position USDC.CORE` the other. They were summed into the coin's row.
@@ -436,7 +438,8 @@ what breaks first.
 - `KeyScope` is tri-state. Kraken exposes no endpoint reporting a key's permissions, and every endpoint gated on trade permission mutates an order, so `canTrade` is `unknown` rather than guessed at. Withdraw scope is provable, and is proven.
 - Kraken margin and open orders are not read yet, so on a margin account this is not a complete Kraken picture.
 
-[Unreleased]: https://github.com/hsnice16/tula/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/hsnice16/tula/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/hsnice16/tula/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/hsnice16/tula/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/hsnice16/tula/compare/v0.3.3...v0.4.0
 [0.3.3]: https://github.com/hsnice16/tula/compare/v0.3.2...v0.3.3

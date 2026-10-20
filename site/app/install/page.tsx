@@ -358,7 +358,7 @@ export default function Page() {
         </div>
         <Terminal title="verify">
           {
-            "curl --proto '=https' --tlsv1.2 -fLO https://github.com/hsnice16/tula/releases/download/v0.4.1/tula-v0.4.1-darwin-arm64.tar.gz\ngh attestation verify tula-v0.4.1-darwin-arm64.tar.gz --repo hsnice16/tula --signer-workflow hsnice16/tula/.github/workflows/release.yml --source-ref refs/tags/v0.4.1 --deny-self-hosted-runners"
+            "curl --proto '=https' --tlsv1.2 -fLO https://github.com/hsnice16/tula/releases/download/v0.4.2/tula-v0.4.2-darwin-arm64.tar.gz\ngh attestation verify tula-v0.4.2-darwin-arm64.tar.gz --repo hsnice16/tula --signer-workflow hsnice16/tula/.github/workflows/release.yml --source-ref refs/tags/v0.4.2 --deny-self-hosted-runners"
           }
         </Terminal>
         <p className="mt-4 text-dim">

@@ -296,9 +296,9 @@ keyless, so there is no signing key for this project to generate, publish, rotat
 or lose.
 
 ```bash
-gh attestation verify tula-v0.4.1-darwin-arm64.tar.gz --repo hsnice16/tula \
+gh attestation verify tula-v0.4.2-darwin-arm64.tar.gz --repo hsnice16/tula \
   --signer-workflow hsnice16/tula/.github/workflows/release.yml \
-  --source-ref refs/tags/v0.4.1 --deny-self-hosted-runners
+  --source-ref refs/tags/v0.4.2 --deny-self-hosted-runners
 ```
 
 `--signer-workflow` is not optional: `--repo` alone accepts an attestation from

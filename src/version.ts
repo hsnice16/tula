@@ -1,5 +1,5 @@
 export const APP_NAME = 'tula'
-export const APP_VERSION = '0.4.1'
+export const APP_VERSION = '0.4.2'
 
 /**
  * SemVer says a hyphen means pre-release, and `release.yml` already reads it
