@@ -71,6 +71,13 @@ export function Footer() {
             <Ext href={`${REPO}/blob/main/LICENSE`} className={LINK}>
               MIT
             </Ext>
+            <span aria-hidden="true">·</span>
+            <span className="flex min-h-8 items-center gap-x-2">
+              also made
+              <Ext href="https://agentfriendlycode.com/" className={LINK}>
+                Agent Friendly Code
+              </Ext>
+            </span>
           </p>
           {/* No referrer: the badge is the one request this site sends to Peerlist,
               and which page it was loaded on is not Peerlist's to know. */}
