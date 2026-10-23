@@ -5,6 +5,8 @@
 [![CI](https://github.com/hsnice16/tula/actions/workflows/ci.yml/badge.svg)](https://github.com/hsnice16/tula/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
+![tula breaks ranking every position in a public Hyperliquid vault by distance to liquidation](https://usetu.la/preview/tula-breaks.png)
+
 Non-custodial, and read-only for the moment — placing trades will come later;
 moving funds will not.
 
